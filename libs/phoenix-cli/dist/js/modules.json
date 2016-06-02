@@ -1,0 +1,30 @@
+{
+	"modules": {
+		"listview": {
+			"$moduleTitle": "ListView Component",
+			"$titleIsHidden": true,
+			"data": {
+				"dataset": "Enter dataset name",
+				"search": true,
+				"pagination": true,
+				"$type": "Type of item"
+			}
+		},
+		"form": {
+			"$moduleTitle": "Form",
+			"form": {
+				"name": "Enter form name",
+				"meta": "Enter meta (schema) for the form",
+				"controller": "Enter registered form controller"
+			}
+		},
+		"tabs": {
+			"$moduleTitle": "Tabs",
+			"$titleIsHidden": true,
+			"data": {
+				"tabs" : []
+			}
+		}
+		
+	}
+}
