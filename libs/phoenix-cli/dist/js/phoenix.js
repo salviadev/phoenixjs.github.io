@@ -3,7 +3,7 @@ var __extends = (this && this.__extends) || function (d, b) {
     function __() { this.constructor = d; }
     d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
 };
-/// <reference path="../../../typings/browser.d.ts" />
+/// <reference path="../../../typings/index.d.ts" />
 var Phoenix;
 (function (Phoenix) {
     Phoenix.bootstrap4 = false;
@@ -835,7 +835,16 @@ var Phoenix;
                     }
                 }
             }
+        }, _emitResize = function () {
+            $(window).trigger('global-phoenix-resize');
+        }, _resizeTimeOut = null, _setResizeHnd = function () {
+            $(window).on('resize.phoenix', function () {
+                if (_resizeTimeOut)
+                    clearTimeout(_resizeTimeOut);
+                _resizeTimeOut = setTimeout(_emitResize, 50);
+            });
         };
+        dom.readyHandlers = [_setResizeHnd];
         dom.keys = {
             VK_TAB: 9, VK_UP: 38, VK_DOWN: 40, VK_INSERT: 45, VK_DELETE: 46, VK_LEFT: 37, VK_RIGHT: 39,
             VK_ENTER: 13, VK_ESCAPE: 27, VK_F1: 112, VK_HOME: 36, VK_END: 35, VK_PGUP: 33, VK_PGDOWN: 34,
@@ -1253,8 +1262,15 @@ var Phoenix;
             };
         }
     })();
+    $(document).ready(function () {
+        if (dom.readyHandlers.length) {
+            dom.readyHandlers.forEach(function (hnd) {
+                hnd();
+            });
+        }
+    });
 })(Phoenix || (Phoenix = {}));
-/// <reference path="../../../typings/browser.d.ts" />
+/// <reference path="../../../typings/index.d.ts" />
 var Phoenix;
 (function (Phoenix) {
     var utils;
@@ -1385,7 +1401,7 @@ var Phoenix;
         utils.GlbSerial = new Serial();
     })(utils = Phoenix.utils || (Phoenix.utils = {}));
 })(Phoenix || (Phoenix = {}));
-/// <reference path="../../../typings/browser.d.ts" />
+/// <reference path="../../../typings/index.d.ts" />
 /// <reference path="./core.ts" />
 var Phoenix;
 (function (Phoenix) {
@@ -3257,7 +3273,7 @@ var Phoenix;
         data.test = { output: _outputData };
     })(data = Phoenix.data || (Phoenix.data = {}));
 })(Phoenix || (Phoenix = {}));
-/// <reference path="../../../typings/browser.d.ts" />
+/// <reference path="../../../typings/index.d.ts" />
 /// <reference path="../core/core.ts" />
 var Phoenix;
 (function (Phoenix) {
@@ -3486,7 +3502,7 @@ var Phoenix;
         ;
     })(ui = Phoenix.ui || (Phoenix.ui = {}));
 })(Phoenix || (Phoenix = {}));
-/// <reference path="../../../typings/browser.d.ts" />
+/// <reference path="../../../typings/index.d.ts" />
 /// <reference path="../core/core.ts" />
 var Phoenix;
 (function (Phoenix) {
@@ -3830,7 +3846,7 @@ var Phoenix;
         ui.Page = Page;
     })(ui = Phoenix.ui || (Phoenix.ui = {}));
 })(Phoenix || (Phoenix = {}));
-/// <reference path="../../../typings/browser.d.ts" />
+/// <reference path="../../../typings/index.d.ts" />
 /// <reference path="../core/core.ts" />
 var Phoenix;
 (function (Phoenix) {
@@ -4249,7 +4265,7 @@ var Phoenix;
         };
     })(DatasetPlugin = Phoenix.DatasetPlugin || (Phoenix.DatasetPlugin = {}));
 })(Phoenix || (Phoenix = {}));
-/// <reference path="../../../typings/browser.d.ts" />
+/// <reference path="../../../typings/index.d.ts" />
 /// <reference path="../core/core.ts" />
 /// <reference path="../core/locale.ts" />
 var Phoenix;
@@ -4348,7 +4364,7 @@ var Phoenix;
         WidgetUtils.noData = _noData;
     })(WidgetUtils = Phoenix.WidgetUtils || (Phoenix.WidgetUtils = {}));
 })(Phoenix || (Phoenix = {}));
-/// <reference path="../../../typings/browser.d.ts" />
+/// <reference path="../../../typings/index.d.ts" />
 /// <reference path="../core/core.ts" />
 /// <reference path="./module.ts" />
 /// <reference path="./datasets-plugin.ts" />
@@ -4773,7 +4789,7 @@ var Phoenix;
         _utils.applyMixins(Widget, [Phoenix.DatasetPlugin.DatasetMethods]);
     })(ui = Phoenix.ui || (Phoenix.ui = {}));
 })(Phoenix || (Phoenix = {}));
-/// <reference path="../../../typings/browser.d.ts" />
+/// <reference path="../../../typings/index.d.ts" />
 /// <reference path="../core/core.ts" />
 /// <reference path="./datasets-plugin.ts" />
 /// <reference path="./page.control.ts" />
@@ -5176,7 +5192,7 @@ var Phoenix;
         _utils.applyMixins(MenuBase, [Phoenix.DatasetPlugin.DatasetMethods]);
     })(ui = Phoenix.ui || (Phoenix.ui = {}));
 })(Phoenix || (Phoenix = {}));
-/// <reference path="../../../typings/browser.d.ts" />
+/// <reference path="../../../typings/index.d.ts" />
 /// <reference path="../core/core.ts" />
 /// <reference path="./datasets-plugin.ts" />
 /// <reference path="./menu-base.ts" />
@@ -5213,6 +5229,7 @@ var Phoenix;
                 if (that.options.bodyId && (!that.options.autoClose || (autoCloseChanged && that.options.autoClose))) {
                     _utils.nextTick(function () {
                         $(window).trigger('phoenix-resize');
+                        $(window).trigger('gobal-phoenix-resize');
                     });
                 }
             };
@@ -5237,6 +5254,7 @@ var Phoenix;
                 if (doresize)
                     _utils.nextTick(function () {
                         $(window).trigger('phoenix-resize');
+                        $(window).trigger('gobal-phoenix-resize');
                     });
             };
             Menu.prototype._switchAutoClose = function () {
@@ -5444,7 +5462,7 @@ var Phoenix;
         ui.Menuright = Menu;
     })(ui = Phoenix.ui || (Phoenix.ui = {}));
 })(Phoenix || (Phoenix = {}));
-/// <reference path="../../../typings/browser.d.ts" />
+/// <reference path="../../../typings/index.d.ts" />
 /// <reference path="../core/core.ts" />
 /// <reference path="../core/locale.ts" />
 /// <reference path="./page.control.ts" />
@@ -5557,7 +5575,7 @@ var Phoenix;
         ;
     })(ui = Phoenix.ui || (Phoenix.ui = {}));
 })(Phoenix || (Phoenix = {}));
-/// <reference path="../../../typings/browser.d.ts" />
+/// <reference path="../../../typings/index.d.ts" />
 /// <reference path="../core/core.ts" />
 var Phoenix;
 (function (Phoenix) {
@@ -6258,7 +6276,7 @@ var Phoenix;
         LayoutUtils.toHtml = _toHtml;
     })(LayoutUtils = Phoenix.LayoutUtils || (Phoenix.LayoutUtils = {}));
 })(Phoenix || (Phoenix = {}));
-/// <reference path="../../../typings/browser.d.ts" />
+/// <reference path="../../../typings/index.d.ts" />
 /// <reference path="../core/core.ts" />
 /// <reference path="./module.ts" />
 /// <reference path="./datasets-plugin.ts" />
@@ -6580,6 +6598,10 @@ var Phoenix;
                             p.render($(hparent));
                             that.children[fn] = p;
                             that.controls[fn] = p;
+                            if (p.resize) {
+                                that.resizeList = that.resizeList || [];
+                                that.resizeList.push(p);
+                            }
                             res.push(p);
                         }
                     });
@@ -6591,8 +6613,10 @@ var Phoenix;
                 var children = that.children;
                 that.children = {};
                 that.controls = {};
+                that.resizeList = null;
                 Object.keys(children).forEach(function (v) {
-                    children[v].destroy();
+                    var c = children[v];
+                    c.destroy();
                 });
             };
             BaseLayout.prototype._refreshSelected = function () {
@@ -6638,10 +6662,12 @@ var Phoenix;
                             $parent.replaceWith(that.$content);
                         else
                             $parent.append(that.$content);
+                        that.afterAddedInDom();
                     }
                 }
                 return that.$content;
             };
+            BaseLayout.prototype.afterAddedInDom = function () { };
             BaseLayout.prototype._callInternalRender = function ($parent, refresh) {
                 var that = this;
                 that._internalRender($parent, refresh);
@@ -9816,7 +9842,7 @@ var Phoenix;
         ui.formManager = fm();
     })(ui = Phoenix.ui || (Phoenix.ui = {}));
 })(Phoenix || (Phoenix = {}));
-/// <reference path="../../../../typings/browser.d.ts" />
+/// <reference path="../../../../typings/index.d.ts" />
 /// <reference path="../../core/core.ts" />
 /// <reference path="../../ui/layout.control.ts" />
 /// <reference path="./schema.data.ts" />
@@ -10271,12 +10297,13 @@ var Phoenix;
             };
             Form.prototype._removeBaseEvents = function () {
                 var that = this;
-                that.$element.off("focusin");
-                that.$element.off("focusout");
-                that.$element.off("click");
-                that.$element.off("keydown");
-                that.$element.off("keypress");
-                that.$element.off("mousedown");
+                that.$element.off('focusin');
+                that.$element.off('focusout');
+                that.$element.off('click');
+                that.$element.off('keydown');
+                that.$element.off('keypress');
+                that.$element.off('mousedown');
+                $(window).off('global-phoenix-resize');
                 _super.prototype._removeBaseEvents.call(this);
             };
             Form.prototype._freeze = function (e) {
@@ -10286,7 +10313,7 @@ var Phoenix;
             };
             Form.prototype._addBaseEvents = function () {
                 var that = this;
-                that.$element.on("focusin", function (event) {
+                that.$element.on('focusin', function (event) {
                     if (that._inProcessing)
                         return that._freeze(event);
                     var control = that._event2Field(event);
@@ -10297,7 +10324,7 @@ var Phoenix;
                         control.focusIn(event);
                     }
                 });
-                that.$element.on("focusout", function (event) {
+                that.$element.on('focusout', function (event) {
                     if (that._inProcessing)
                         return that._freeze(event);
                     var control = that._event2Field(event);
@@ -10328,7 +10355,7 @@ var Phoenix;
                         });
                     }
                 });
-                that.$element.on("click", function (event) {
+                that.$element.on('click', function (event) {
                     if (that._inProcessing)
                         return that._freeze(event);
                     var control = that._event2Field(event);
@@ -10376,28 +10403,28 @@ var Phoenix;
                         }
                     }
                 });
-                that.$element.on("keypress", function (event) {
+                that.$element.on('keypress', function (event) {
                     if (that._inProcessing)
                         return that._freeze(event);
                     var control = that._event2Field(event);
                     if (control && control.keypress)
                         control.keypress(event);
                 });
-                that.$element.on("keydown", function (event) {
+                that.$element.on('keydown', function (event) {
                     if (that._inProcessing)
                         return that._freeze(event);
                     var control = that._event2Field(event);
                     if (control && control.keydown)
                         control.keydown(event);
                 });
-                that.$element.on("keyup", function (event) {
+                that.$element.on('keyup', function (event) {
                     if (that._inProcessing)
                         return that._freeze(event);
                     var control = that._event2Field(event);
                     if (control && control.keyup)
                         control.keyup(event);
                 });
-                that.$element.on("mousedown", function (event) {
+                that.$element.on('mousedown', function (event) {
                     if (that._inProcessing)
                         return that._freeze(event);
                     var control = that._event2Field(event);
@@ -10405,7 +10432,17 @@ var Phoenix;
                         return control.mousedown(event);
                     return true;
                 });
+                $(window).on('global-phoenix-resize', function (event) {
+                    if (that.resizeList)
+                        that.resizeList.forEach(function (c) { c.resize(); });
+                    return true;
+                });
                 _super.prototype._addBaseEvents.call(this);
+            };
+            Form.prototype.afterAddedInDom = function () {
+                var that = this;
+                that.resizeList.forEach(function (c) { c.resize(); });
+                _super.prototype.afterAddedInDom.call(this);
             };
             return Form;
         }(ui.BaseLayout));
@@ -10427,7 +10464,7 @@ var Phoenix;
         ui.OpenForm = null;
     })(ui = Phoenix.ui || (Phoenix.ui = {}));
 })(Phoenix || (Phoenix = {}));
-/// <reference path="../../../../typings/browser.d.ts" />
+/// <reference path="../../../../typings/index.d.ts" />
 /// <reference path="../../core/core.ts" />
 /// <reference path="../../core/ajax.ts" />
 /// <reference path="../modal.control.ts" />
@@ -10597,6 +10634,7 @@ var Phoenix;
         var FormController = (function () {
             function FormController() {
             }
+            FormController.prototype.data = function () { return null; };
             FormController.prototype.initObjectState = function (model) { };
             FormController.prototype.onModelChanged = function (action, model, form) {
                 var that = this;
@@ -10614,7 +10652,7 @@ var Phoenix;
         ui.OpenForm = _OpenFormExp;
     })(ui = Phoenix.ui || (Phoenix.ui = {}));
 })(Phoenix || (Phoenix = {}));
-/// <reference path="../../../../../typings/browser.d.ts" />
+/// <reference path="../../../../../typings/index.d.ts" />
 /// <reference path="../../../core/core.ts" />
 /// <reference path="../../../ui/layout.control.ts" />
 /// <reference path="../schema.data.ts" />
@@ -10676,6 +10714,7 @@ var Phoenix;
                     return false;
             };
         }, _afutils = {
+            useDatePicker: function () { return !_afutils.nativeDate() && $.fn.datepicker != null; },
             nativeDate: _dateNative(),
             nativeNumber: _numberNative(),
             addErrorDiv: function (html) {
@@ -10742,7 +10781,6 @@ var Phoenix;
                     css.push(options.styles);
                 if (options.right)
                     css.push(' pull-right');
-                //if (options.date) css.push('date');
                 html.push(css.join(' '));
                 html.push('"');
                 _afutils.addContainerId(html, authoring);
@@ -10766,6 +10804,32 @@ var Phoenix;
                     });
                     _dom.append(input, frag);
                 }
+            },
+            datePickerSetValue: function ($element, value) {
+                $element['datepicker']('update', _ulocale.parseISODate(value || '') || '');
+            },
+            datePickerInitialize: function ($element, opts, onHide) {
+                _dom.addClass($element.get(0), 'date');
+                var o = $.extend({ language: _ulocale.currentLang, autoclose: true }, opts || {});
+                $element['datepicker'](o);
+                if (onHide)
+                    $element['datepicker']().on('hide', onHide);
+            },
+            datePickerDestroy: function ($element) {
+                $element['datepicker']('destroy');
+            },
+            text2value: function (textValue, schema) {
+                var that = this;
+                if (_sutils.isDate(schema)) {
+                    if (_ui.Utils.nativeDate())
+                        return textValue;
+                    else
+                        return _ulocale.localeDate2ISO(textValue);
+                }
+                else if (_sutils.isNumber(schema)) {
+                    return _sutils.text2Value(textValue + '', schema);
+                }
+                return textValue;
             },
             defaultOptions: { titleIsHidden: false, placeHolder: false, labelCol: 3 },
             displayValue: function (value, schema, locale, options) {
@@ -10970,11 +11034,29 @@ var Phoenix;
         }());
         ui.AbsField = AbsField;
         ;
+        if (_afutils.useDatePicker) {
+            var tdp = function (lang) {
+                $.fn.datepicker.dates[lang] = {
+                    days: _locale.date.weekdays,
+                    daysShort: _locale.date.weekdaysShort,
+                    daysMin: _locale.date.weekdaysMin,
+                    months: _locale.date.months,
+                    monthsShort: _locale.date.monthsShort,
+                    today: _locale.date.today,
+                    clear: _locale.date.clear,
+                    format: _locale.date.dateShort.replace(/\//g, _locale.date.daySep),
+                    titleFormat: 'MM yyyy',
+                    weekStart: _locale.date.weekStart
+                };
+            };
+            tdp(_ulocale.currentLang);
+            _ulocale.register(tdp);
+        }
         ui.Utils = _afutils;
         ui.registerControl = _registerControl;
     })(ui = Phoenix.ui || (Phoenix.ui = {}));
 })(Phoenix || (Phoenix = {}));
-/// <reference path="../../../../../typings/browser.d.ts" />
+/// <reference path="../../../../../typings/index.d.ts" />
 /// <reference path="../../../core/core.ts" />
 /// <reference path="./absfield.control.ts" />
 var Phoenix;
@@ -11070,7 +11152,7 @@ var Phoenix;
         _ui.registerControl(Alert, "string", false, 'alert', null);
     })(ui = Phoenix.ui || (Phoenix.ui = {}));
 })(Phoenix || (Phoenix = {}));
-/// <reference path="../../../../../typings/browser.d.ts" />
+/// <reference path="../../../../../typings/index.d.ts" />
 /// <reference path="../../../core/core.ts" />
 /// <reference path="./absfield.control.ts" />
 /// <reference path="../schema.data.ts" />
@@ -11113,6 +11195,10 @@ var Phoenix;
                         _rmvSortIndicator(e);
                 }
             }
+        }, _ensureWidth = function (value) {
+            if (typeof value === "number")
+                return value + 'px';
+            return value;
         }, _createDetail = function (id, childBefore) {
             var res = document.createElement('tr');
             res.className = "bs-table-row-detail";
@@ -11121,29 +11207,29 @@ var Phoenix;
             td.colSpan = childBefore.childNodes.length;
             _dom.append(res, td);
             return res;
-        }, _createColsWidth = function (columns, options) {
+        }, _createColsWidth = function (columns, options, isFrozen) {
             var frag = document.createDocumentFragment();
             columns.forEach(function (col) {
                 var cc = document.createElement('col');
                 if (col.options.width)
-                    cc.style.width = col.options.width;
+                    cc.style.width = _ensureWidth(col.options.width);
                 if (col.options.minWidth)
-                    cc.style.minWidth = col.options.minWidth;
+                    cc.style.minWidth = _ensureWidth(col.options.minWidth);
                 _dom.append(frag, cc);
             });
             return frag;
-        }, _createCols = function (id, columns, options, authoring, locale, orderby) {
+        }, _createCols = function (id, columns, options, authoring, locale, orderby, isFrozen) {
             var frag = document.createDocumentFragment();
-            var aorderby = (orderby || '').split(" ");
+            var aorderby = (orderby || '').split(' ');
             columns.forEach(function (col, colIndex) {
                 var css;
                 var th = document.createElement('th');
                 _dom.attr(th, "colId", col.$bind);
                 if (!options._useColGrp) {
                     if (col.options.width)
-                        th.style.width = col.options.width;
+                        th.style.width = _ensureWidth(col.options.width);
                     if (col.options.minWidth)
-                        th.style.minWidth = col.options.minWidth;
+                        th.style.minWidth = _ensureWidth(col.options.minWidth);
                 }
                 if (css)
                     th.className = css.join(' ');
@@ -11197,9 +11283,9 @@ var Phoenix;
                 _dom.append(tr, td);
             });
             return tr;
-        }, _createRow = function (id, index, row, columns, options, authoring, locale, isOdd) {
+        }, _createRow = function (id, index, row, columns, options, authoring, locale, isOdd, isFrozen) {
             var tr = document.createElement('tr');
-            tr.id = row.$id;
+            tr.id = row.$id + (isFrozen ? '_frozen' : '');
             tr.className = "bs-table-row";
             if (options.align === "middle")
                 _dom.addClass(tr, "bs-va-middle");
@@ -11212,9 +11298,9 @@ var Phoenix;
                 var td = document.createElement('td');
                 if (index === 0 && options.headerIsHidden && !options._useColGrp) {
                     if (col.options.width)
-                        td.style.width = col.options.width;
+                        td.style.width = _ensureWidth(col.options.width);
                     if (col.options.minWidth)
-                        td.style.minWidth = col.options.minWidth;
+                        td.style.minWidth = _ensureWidth(col.options.minWidth);
                 }
                 var css = [];
                 if (col.schema && _su.isNumber(col.schema))
@@ -11288,11 +11374,11 @@ var Phoenix;
                 _dom.append(tr, td);
             });
             return tr;
-        }, _createRows = function (id, rows, columns, options, authoring, locale) {
+        }, _createRows = function (id, rows, columns, options, authoring, locale, isFrozen) {
             var frag = document.createDocumentFragment();
             rows && rows.forEach(function (row, rowIndex) {
                 var isOdd = rowIndex % 2 === 1;
-                _dom.append(frag, _createRow(id, rowIndex, row, columns, options, authoring, locale, isOdd));
+                _dom.append(frag, _createRow(id, rowIndex, row, columns, options, authoring, locale, isOdd, isFrozen));
             });
             return frag;
         }, _onlyBoolsEditables = function (columns) {
@@ -11330,7 +11416,7 @@ var Phoenix;
                 }
             }
             return res;
-        }, _cssTable = function (options, isHeader) {
+        }, _cssTable = function (options, isHeader, isFrozen) {
             var css = ["table"];
             if (isHeader) {
                 css.push("table-header");
@@ -11343,6 +11429,9 @@ var Phoenix;
             }
             //adde
             if (!isHeader && (options.editing || options.nowrap)) {
+                css.push('nowrap');
+            }
+            else if (!isHeader && options.allowFrozenColumns) {
                 css.push('nowrap');
             }
             //remove 
@@ -11359,23 +11448,27 @@ var Phoenix;
             if (options.small)
                 css.push('bs-style-small-table');
             return css;
-        }, _styleTable = function (options, isHeader) {
+        }, _styleTable = function (options, isHeader, isFrozen) {
             var style = [];
+            if (isFrozen)
+                return style;
             if (options.width && options.width !== "auto") {
-                style.push("min-width: " + options.width);
+                style.push("min-width: " + _ensureWidth(options.width));
             }
             return style;
-        }, _createTable = function (html, options, isHeader) {
+        }, _createTable = function (html, options, isHeader, isFrozen) {
             var vscrolling = options.scrolling && options.scrolling.vertical;
-            var css = _cssTable(options, isHeader);
+            var css = _cssTable(options, isHeader, isFrozen);
             html.push('<table');
             if (css.length)
                 html.push(' class="' + css.join(' ') + '"');
             html.push(' id="{0}_table');
+            if (isFrozen)
+                html.push('_frozen');
             if (isHeader)
                 html.push('_header');
             html.push('"');
-            var style = _styleTable(options, isHeader);
+            var style = _styleTable(options, isHeader, isFrozen);
             if (style.length)
                 html.push(' style="' + style.join(';') + '"');
             html.push('>');
@@ -11385,21 +11478,29 @@ var Phoenix;
             //    html.push("</caption>");
             //}
             if (options._useColGrp)
-                html.push('<colgroup id="{0}_colgrp' + (isHeader ? '_header' : '') + '"></colgroup>');
+                html.push('<colgroup id="{0}_colgrp' + (isFrozen ? '_frozen' : '') + (isHeader ? '_header' : '') + '"></colgroup>');
             if (!options.headerIsHidden) {
                 if (isHeader) {
-                    html.push('<thead><tr id="{0}_cols"></tr></thead>');
+                    html.push('<thead><tr id="{0}' + (isFrozen ? '_frozen' : '') + '_cols"></tr></thead>');
                 }
                 else if (!vscrolling) {
-                    html.push('<thead><tr id="{0}_cols"></tr></thead>');
+                    html.push('<thead><tr id="{0}' + +'_cols"></tr></thead>');
                 }
             }
             if (!isHeader) {
-                html.push('<tbody id="{0}_rows">');
-                html.push('</tbody>');
+                html.push('<tbody id="{0}');
+                if (isFrozen)
+                    html.push('_frozen');
+                html.push('_rows"></tbody>');
             }
             html.push('</table>');
-        }, _createGridContainer = function (id, options, authoring, title, locale, columns) {
+        }, _columnsWidth = function (cols) {
+            var res = 0;
+            cols.forEach(function (col) {
+                res += parseInt(col.options.width + '', 10);
+            });
+            return res;
+        }, _createGridContainer = function (id, options, authoring, title, locale, columns, frozenColumns) {
             title = title || '';
             options._useColGrp = _canUseColGroups(options, columns);
             options._useStripedCss = !!!(options.rows && options.rows.detail);
@@ -11430,28 +11531,63 @@ var Phoenix;
                 html.push(' tabindex="0" ');
             }
             html.push('>');
+            if (options.allowFrozenColumns) {
+                html.push('<div class="bs-table-cols">');
+                var fw = _columnsWidth(frozenColumns);
+                html.push('<div class="bs-table-frozen-cols" style="width:' + fw + 'px;">');
+                if (vscrolling && !options.headerIsHidden) {
+                    // parent of frozen header table
+                    html.push('<div id="{0}_table_frozen_header" class="bs-table-header">');
+                    // frozen header table 
+                    _createTable(html, options, true, true);
+                    html.push('</div>'); //bs-table-header
+                }
+                // parent of frozen table content
+                css = ["bs-table-content-scroll frozen"];
+                html.push('<div  class="' + css.join(' ') + '">');
+                css = ["bs-table-content frozen"];
+                html.push('<div id="{0}_frozen_scroll" class="' + css.join(' ') + '"');
+                if (vscrolling) {
+                    var style = [];
+                    if (options.height && options.height !== "auto") {
+                        style.push("height: " + parseInt(options.height + '', 10) + 'px');
+                    }
+                    else {
+                        throw "To support scrolling vertical, the grid must have an explicit height.";
+                    }
+                    if (style.length)
+                        html.push(' style="' + style.join(';') + '"');
+                }
+                html.push('>');
+                html.push('<div  class="' + css.join(' ') + '">');
+                _createTable(html, options, false, true);
+                html.push('</div>');
+                html.push('</div>');
+                html.push('</div>');
+                html.push('</div>'); // bs-table-frozen-cols
+                html.push('<div class="bs-table-cols-sep"></div>');
+                html.push('<div class="bs-table-free-cols">');
+            }
             if (vscrolling && !options.headerIsHidden) {
                 html.push('<div id="{0}_table_header" class="bs-table-header" style="padding-right:');
                 html.push(_dom.scrollbar());
                 html.push('px;">');
                 html.push('<div id="{0}_table_header_content" class="bs-table-header-content">');
-                _createTable(html, options, true);
+                _createTable(html, options, true, false);
                 html.push('</div></div>');
             }
             //create div table container
             if (vscrolling) {
-                var style = [];
-                html.push('<div  class="bs-table-content-scroll"');
-                html.push('>');
+                html.push('<div  class="bs-table-content-scroll">');
             }
             css = ["bs-table-content"];
             if (vscrolling)
                 css.push("vscroll");
-            html.push('<div id="{0}_masterscroll" class="' + css.join(' ') + '"');
+            html.push('<div id="{0}_master_scroll" class="' + css.join(' ') + '"');
             if (vscrolling) {
                 var style = [];
                 if (options.height && options.height !== "auto") {
-                    style.push("height: " + options.height);
+                    style.push("height: " + parseInt(options.height + '', 10) + 'px');
                 }
                 else {
                     throw "To support scrolling vertical, the grid must have an explicit height.";
@@ -11461,10 +11597,14 @@ var Phoenix;
             }
             html.push('>');
             // create table
-            _createTable(html, options, false);
+            _createTable(html, options, false, false);
             html.push('</div>');
             if (vscrolling)
-                html.push('</div>');
+                html.push('</div>'); //bs-table-content-scroll
+            if (options.allowFrozenColumns) {
+                html.push('</div>'); //bs-table-free-cols
+                html.push('</div>'); //bs-table-cols
+            }
             html.push('</div>');
             html.push('<center id="{0}_pagination"></center>');
             _ui.Utils.addErrorDiv(html);
@@ -11486,17 +11626,20 @@ var Phoenix;
             if (col.schema.enum) {
                 return _updateInplaceSelect(inplace, svalue, value, state, parent, cell, col, opts);
             }
-            var useNative = false;
-            if (_su.isNumber(col.schema) && opts.nativeNumber) {
-                useNative = true;
+            svalue = svalue || '';
+            if (_su.isNumber(col.schema)) {
+                inplace.input.value = opts.nativeNumber ? value : svalue;
+                return;
             }
-            else
-                svalue = svalue || '';
-            inplace.input.value = useNative ? value : svalue;
+            if (_su.isDate(col.schema)) {
+                inplace.input.value = opts.nativeDate ? value : svalue;
+                return;
+            }
+            inplace.input.value = svalue;
         }, _createSelectInplaceEdit = function (svalue, value, state, parent, cell, col, opts) {
             var input = document.createElement("select");
             input.type = "text";
-            var css = ['bs-inplace-edit bs-inplace-edit-size'];
+            var css = ['bs-inplace-edit bs-edit-border bs-inplace-edit-size'];
             input.className = css.join(' ');
             var enums = state.filter ? col.schema.filters[state.filter] || [] : col.schema.enum;
             var ii = enums.indexOf(value);
@@ -11515,54 +11658,70 @@ var Phoenix;
             }
             return { input: input, parent: input, td: parent, isInputElement: true, canSelect: false, schema: col.schema };
         }, _createInplaceLookup = function (svalue, value, state, parent, cell, col, opts) {
-            var pp = document.createElement("span");
-            pp.className = 'bs-inplace-parent ';
-            var hasBtn = true, cp = pp;
-            if (hasBtn) {
+            var pp = document.createElement("div");
+            pp.className = 'bs-inplace-parent bs-edit-border ';
+            var cp = pp;
+            if (opts.after) {
                 cp = document.createElement("div");
                 cp.className = 'bs-input-group';
                 pp.appendChild(cp);
             }
+            var isDatePicker = _su.isDate(col.schema) && _ui.Utils.useDatePicker();
             var input = document.createElement("input");
-            input.type = "text";
+            input.type = opts.type || 'text';
             var css = ['bs-inplace-edit bs-inplace-edit-size'];
-            if (hasBtn)
+            if (opts.after)
                 css.push('bs-input-group-main');
             input.className = css.join(' ');
             _dom.append(cp, input);
-            if (hasBtn) {
+            if (opts.after) {
                 var addon = document.createElement("span");
                 addon.tabIndex = -1;
-                addon.className = 'bs-input-group-addon bs-cursor-d';
+                addon.className = 'bs-input-group-addon bs-cursor-d add-on';
                 var icon = document.createElement("span");
-                icon.className = _dom.iconClass('calendar');
+                icon.className = _dom.iconClass(opts.after.icon);
                 _dom.append(addon, icon);
                 _dom.append(cp, addon);
             }
             _dom.empty(parent);
             _dom.addClass(parent, 'focused');
             _dom.append(parent, pp);
+            if (_su.isDate(col.schema)) {
+                if (isDatePicker) {
+                    _ui.Utils.datePickerInitialize($(pp), { showOnFocus: false }, function (e) { });
+                    _ui.Utils.datePickerSetValue($(pp), value);
+                }
+                else
+                    input.value = _ulocale.isoDatePart(value || '');
+            }
             return { input: input, parent: pp, td: parent, isInputElement: true, canSelect: true, schema: col.schema };
+        }, _updateEvenOdd = function (pr) {
+            if (pr.childNodes.length) {
+                var isOdd = false;
+                for (var i = 0, len = pr.childNodes.length; i < len; i++) {
+                    var e = pr.childNodes[i];
+                    if (_dom.hasClass(e, "bs-table-row")) {
+                        if (isOdd)
+                            _dom.removeClass(e, "even");
+                        else
+                            _dom.addClass(e, "even");
+                        isOdd = !isOdd;
+                    }
+                }
+            }
         }, _createInplaceEdit = function (svalue, value, state, parent, cell, col, opts) {
             if (col.schema.enum) {
                 return _createSelectInplaceEdit(svalue, value, state, parent, cell, col, opts);
             }
-            else if (col.schema.type === "boolean") {
+            else if (_su.isBoolean(col.schema)) {
                 return { input: null, parent: null, td: parent, isInputElement: false, canSelect: false, schema: col.schema };
             }
-            else if (_su.isDate(col.schema) && !opts.nativeDate) {
+            else if (opts.after || opts.before) {
                 return _createInplaceLookup(svalue, value, state, parent, cell, col, opts);
             }
             var input = document.createElement("input");
-            var useNative = false;
-            if (_su.isNumber(col.schema) && opts.nativeNumber) {
-                useNative = true;
-                value = value || 0;
-                input.type = "number";
-            }
-            else
-                input.type = "text";
-            var css = ['bs-inplace-edit bs-inplace-edit-size'];
+            input.type = opts.type || 'text';
+            var css = ['bs-inplace-edit bs-edit-border bs-inplace-edit-size'];
             if (col.options.align) {
                 if (col.options.align === 'center')
                     css.push('align-center');
@@ -11576,7 +11735,20 @@ var Phoenix;
             _dom.empty(parent);
             _dom.addClass(parent, 'focused');
             _dom.append(parent, input);
-            input.value = useNative ? value : svalue;
+            if (_su.isDate(col.schema)) {
+                if (opts.nativeDate)
+                    input.value = _ulocale.isoDatePart(value || '');
+                else
+                    input.value = _ulocale.shortDate(value || '');
+            }
+            else if (_su.isNumber(col.schema)) {
+                if (opts.nativeNumber)
+                    input.value = value || 0;
+                else
+                    input.value = svalue;
+            }
+            else
+                input.value = svalue;
             return { input: input, parent: input, td: parent, isInputElement: true, canSelect: true, schema: col.schema };
         };
         var _gridUtil = {
@@ -11589,12 +11761,14 @@ var Phoenix;
             createGridRows: _createGridRows,
             createInplaceEdit: _createInplaceEdit,
             updateInplaceEdit: _updateInplaceEdit,
-            createDetail: _createDetail
+            createDetail: _createDetail,
+            updateEvenOdd: _updateEvenOdd,
+            ensureWidth: _ensureWidth
         };
         ui.GridUtil = _gridUtil;
     })(ui = Phoenix.ui || (Phoenix.ui = {}));
 })(Phoenix || (Phoenix = {}));
-/// <reference path="../../../../../typings/browser.d.ts" />
+/// <reference path="../../../../../typings/index.d.ts" />
 /// <reference path="../../../core/core.ts" />
 /// <reference path="../../../core/locale.ts" />
 /// <reference path="./absfield.control.ts" />
@@ -11610,6 +11784,13 @@ var Phoenix;
             if (key === _dom.keys.VK_TAB && $event.shiftKey)
                 return false;
             return $event.altKey || $event.ctrlKey || $event.metaKey || $event.shiftKey;
+        }, checkPixels = function (val) {
+            val = (val || '') + '';
+            val = val.trim();
+            var p = parseInt(val, 10);
+            if ((p + '') === val || (p + 'px') === val || (p + ' px') === val)
+                return true;
+            return false;
         };
         ui.glbGridFilter = null;
         var BasicGrid = (function (_super) {
@@ -11619,12 +11800,9 @@ var Phoenix;
                 var that = this;
                 form.registerListenerFor(that.$bind + ".$item", that);
                 that._state();
-                that.columns = that._initCols(fp.options || {});
                 that._mapCols = {};
+                that._initCols(fp.options || {});
                 that._details = [];
-                that.columns.forEach(function (col, index) {
-                    that._mapCols[col.$bind] = { column: col, index: index };
-                });
             }
             BasicGrid.prototype._inplaceEditValue2Model = function (value, item, col) {
                 var that = this;
@@ -11640,6 +11818,10 @@ var Phoenix;
                 var that = this;
                 if (that.inplace.schema.enum) {
                     if (key === _dom.keys.VK_UP || key === _dom.keys.VK_DOWN)
+                        return false;
+                }
+                else if (_sutils.isDate(that.inplace.schema) && _ui.Utils.useDatePicker()) {
+                    if (key === _dom.keys.VK_UP || key === _dom.keys.VK_DOWN || key === _dom.keys.VK_LEFT || key === _dom.keys.VK_RIGHT)
                         return false;
                 }
                 return true;
@@ -11661,6 +11843,11 @@ var Phoenix;
                 if (that.inplace.schema.enum) {
                     $(that.inplace.input).off('change');
                 }
+                else if (_sutils.isDate(that.inplace.schema)) {
+                    if (_ui.Utils.useDatePicker()) {
+                        ui.Utils.datePickerDestroy($(that.inplace.parent));
+                    }
+                }
             };
             BasicGrid.prototype._inplaceEditGetValue = function (cell) {
                 var that = this;
@@ -11671,7 +11858,7 @@ var Phoenix;
                     var state = cell.item.getState(cell.col.$bind);
                     return state.filter ? that.inplace.schema.filters[state.filter][si] : that.inplace.schema.enum[si];
                 }
-                return that.inplace.input.value;
+                return _ui.Utils.text2value(that.inplace.input.value, that.inplace.schema);
             };
             BasicGrid.prototype._inpaceEditShow = function (td, isFocusIn) {
                 var that = this;
@@ -11680,7 +11867,22 @@ var Phoenix;
                 var state = cell.item.getState(cell.col.$bind);
                 var s = _sutils.value2Text(value, cell.col.schema);
                 td.tabIndex = -1;
-                var opts = { nativeNumber: _ui.Utils.nativeNumber(), nativeDate: _ui.Utils.nativeDate() };
+                var opts = { nativeNumber: false, nativeDate: false, type: 'text', after: null };
+                if (_sutils.isDate(cell.col.schema)) {
+                    opts.nativeDate = _ui.Utils.nativeDate();
+                    if (opts.nativeDate) {
+                        opts.type = 'date';
+                    }
+                    else {
+                        if (_ui.Utils.useDatePicker())
+                            opts.after = { icon: 'calendar' };
+                    }
+                }
+                else if (_sutils.isNumber(cell.col.schema)) {
+                    opts.nativeNumber = _ui.Utils.nativeNumber();
+                    if (opts.nativeNumber)
+                        opts.type = 'number';
+                }
                 that.inplace = _gu.createInplaceEdit(s, value, state, td, cell, cell.col, opts);
                 that._inplaceEditAddEvents();
                 if (that.inplace.isInputElement) {
@@ -11740,12 +11942,14 @@ var Phoenix;
             BasicGrid.prototype.setEvents = function (opts) {
                 var that = this;
                 var vscroll = opts.scrolling && opts.scrolling.vertical;
-                if (vscroll && !opts.headerIsHidden) {
+                if (vscroll) {
                     var e = that.$element.get(0);
-                    that.scrollableMaster = _dom.find(e, that.id + '_masterscroll');
+                    that.scrollableMaster = _dom.find(e, that.id + '_master_scroll');
                     that.scrollableHeaderOfMaster = _dom.find(e, that.id + '_table_header_content');
+                    var hasFrozenColumns = opts.allowFrozenColumns && that.frozenColumns && that.frozenColumns.length;
+                    that.scrollableFrozenContent = hasFrozenColumns ? _dom.find(e, that.id + '_frozen_scroll') : null;
                     if (that.scrollableMaster && that.scrollableHeaderOfMaster)
-                        $(that.scrollableMaster).on('scroll', that._hscroll.bind(that));
+                        $(that.scrollableMaster).on('scroll', that.masterSyncScroll.bind(that));
                 }
             };
             BasicGrid.prototype.destroy = function () {
@@ -11756,6 +11960,12 @@ var Phoenix;
                         col.schema = null;
                     });
                     that.columns = null;
+                }
+                if (that.frozenColumns) {
+                    that.frozenColumns.forEach(function (col) {
+                        col.schema = null;
+                    });
+                    that.frozenColumns = null;
                 }
                 that.form.unRegisterListenerFor(that.$bind + ".$item", that);
                 that._inplaceEditRemove(false, true);
@@ -11851,20 +12061,38 @@ var Phoenix;
             BasicGrid.prototype._initCols = function (options) {
                 var that = this;
                 if (!options.columns || !options.columns.length) {
-                    options.columns = [{ $bind: "$index", title: '#', schema: { type: "integer" } }];
+                    options.columns = [{ $bind: '$index', title: '#', schema: { type: 'integer' } }];
                 }
-                return options.columns.map(function (col) {
+                that.columns = [];
+                that.frozenColumns = [];
+                options.columns.forEach(function (col) {
                     var c = $.extend({}, col);
                     c.options = c.options || {};
-                    if (c.schema)
-                        return c;
-                    c.schema = _sutils.getSchema(col.$bind, that.$schema.items);
+                    if (!c.schema)
+                        c.schema = _sutils.getSchema(col.$bind, that.$schema.items);
+                    if (!c.schema) {
+                        console.log('Field (bind) not found : ' + col.$bind);
+                        return;
+                    }
                     c.title = _ulocale.tt(c.options.title || c.schema.title, that.form.$locale);
                     ;
                     if (_sutils.isLink(col.$bind)) {
                         c.isLink = true;
                     }
-                    return c;
+                    if (c.options.frozen && options.allowFrozenColumns) {
+                        if (!c.options.width) {
+                            console.log('Invalid frozen column "' + c.$bind + '": no explicit width');
+                            return;
+                        }
+                        if (!checkPixels(c.options.width)) {
+                            c.options.width = 50;
+                        }
+                        that.frozenColumns.push(c);
+                        that._mapCols[col.$bind] = { column: c, index: that.frozenColumns.length - 1 };
+                        return;
+                    }
+                    that.columns.push(c);
+                    that._mapCols[col.$bind] = { column: c, index: that.columns.length - 1 };
                 });
             };
             BasicGrid.prototype._colByField = function (field) {
@@ -11873,7 +12101,7 @@ var Phoenix;
             };
             BasicGrid.prototype.changed = function (propName, ov, nv, op, params) {
                 var that = this;
-                var updOddEven = false;
+                var updOddEven = false, doResize = false;
                 switch (op) {
                     case "count":
                         if (propName === params.propName) {
@@ -11907,10 +12135,12 @@ var Phoenix;
                     case "propchange":
                         if (propName === params.propName) {
                             that._renderRows();
+                            doResize = true;
                         }
                         break;
                     case "add":
                         that._createRow(params.$id);
+                        doResize = true;
                         updOddEven = true;
                         break;
                     case "remove":
@@ -11926,9 +12156,10 @@ var Phoenix;
                         }
                         break;
                 }
-                if (updOddEven) {
+                if (updOddEven)
                     that._updOddEven();
-                }
+                if (doResize)
+                    that.resize();
             };
             BasicGrid.prototype._modifyTD = function (item, field, td) {
                 var that = this;
@@ -11945,6 +12176,16 @@ var Phoenix;
                 else
                     _dom.append(td, document.createTextNode(v.value));
             };
+            BasicGrid.prototype._findTR = function (id, col) {
+                var that = this, opts = that.renderOptions;
+                var cid = id + (col.options.frozen && opts.allowFrozenColumns ? '_frozen' : '');
+                return _dom.find(that.$element.get(0), cid);
+            };
+            BasicGrid.prototype._findtBody = function (col) {
+                var that = this, opts = that.renderOptions;
+                var cid = that.id + (col.options.frozen && opts.allowFrozenColumns ? '_frozen_rows' : '_rows');
+                return _dom.find(that.$element.get(0), cid);
+            };
             BasicGrid.prototype._modifyCell = function (item, field, td) {
                 var that = this;
                 if (!that.$element)
@@ -11959,9 +12200,10 @@ var Phoenix;
                 var col = that._colByField(field);
                 if (!col)
                     return;
-                var tr = _dom.find(that.$element.get(0), item.$id);
+                var tr = that._findTR(item.$id, col);
                 if (!tr)
                     return;
+                //TODO: optimize
                 for (var i = 0, len = tr.childNodes.length; i < len; i++) {
                     var ctd = tr.childNodes[i];
                     var cid = _dom.attr(ctd, 'colid');
@@ -11974,7 +12216,7 @@ var Phoenix;
                     }
                 }
             };
-            BasicGrid.prototype._grid = function () {
+            BasicGrid.prototype._rootElement = function () {
                 return this.$element.get(0);
             };
             BasicGrid.prototype._gridParentFocus = function () {
@@ -11986,12 +12228,27 @@ var Phoenix;
                 var errors = that.state.errors;
                 that.showErrors(element, errors);
             };
+            BasicGrid.prototype._setTableFocus = function (value) {
+                var that = this;
+                var table = _dom.find(that.$element.get(0), that.id + '_table');
+                if (table) {
+                    if (value)
+                        _dom.addClass(table, 'focused');
+                    else
+                        _dom.removeClass(table, 'focused');
+                }
+                table = _dom.find(that.$element.get(0), that.id + '_table_frozen');
+                if (table) {
+                    if (value)
+                        _dom.addClass(table, 'focused');
+                    else
+                        _dom.removeClass(table, 'focused');
+                }
+            };
             BasicGrid.prototype.focusIn = function ($event) {
                 var that = this;
                 if (that.$element) {
-                    var table = _dom.find(that.$element.get(0), that.id + '_table');
-                    if (table)
-                        _dom.addClass(table, "focused");
+                    that._setTableFocus(true);
                     if (that.selectedCell) {
                         var c = that._cell(that.selectedCell, true);
                         var canEdit = that.canEdit(that.selectedCell);
@@ -12007,9 +12264,7 @@ var Phoenix;
             BasicGrid.prototype.focusOut = function ($event) {
                 var that = this;
                 if (that.$element) {
-                    var table = _dom.find(that.$element.get(0), that.id + '_table');
-                    if (table)
-                        _dom.removeClass(table, "focused");
+                    that._setTableFocus(false);
                     that._inplaceEditRemove(true, false);
                 }
             };
@@ -12068,23 +12323,36 @@ var Phoenix;
                 }
                 preventDefault && $event.preventDefault() && $event.stopPropagation();
             };
+            BasicGrid.prototype._tr2rowId = function (tr, col) {
+                var id = tr.id;
+                if (col && col.options.frozen) {
+                    var ii = id.indexOf('_frozen');
+                    if (ii > 0) {
+                        id = id.substring(0, ii);
+                    }
+                }
+                return id;
+            };
             BasicGrid.prototype._td2cell = function (td) {
                 var that = this;
                 var tr = td.parentNode;
                 var pr = tr.parentNode;
-                var item = that.state.value.findById(tr.id);
                 var c = that._colByField(_dom.attr(td, 'colid'));
-                if (item && c) {
-                    return { row: tr.id, col: _dom.attr(td, 'colid') };
-                }
+                if (!c)
+                    return null;
+                var rid = that._tr2rowId(tr, c);
+                var item = that.state.value.findById(rid);
+                if (item && c)
+                    return { row: rid, col: _dom.attr(td, 'colid') };
                 return null;
             };
             BasicGrid.prototype._td2value = function (td) {
                 var that = this;
                 var tr = td.parentNode;
                 var pr = tr.parentNode;
-                var item = that.state.value.findById(tr.id);
                 var c = that._colByField(_dom.attr(td, 'colid'));
+                var rid = that._tr2rowId(tr, c);
+                var item = that.state.value.findById(rid);
                 return { item: item, col: c };
             };
             BasicGrid.prototype.mousedown = function (event) {
@@ -12228,13 +12496,13 @@ var Phoenix;
                 var old = that.selectedCell;
                 var canEdit = that.canEdit(cell);
                 that._showSelected(cell, true, canEdit, mousedown);
+                that.selectedCell = cell;
                 if (old) {
                     that._showSelected(old, false, true, mousedown);
                 }
                 else {
                     that._gridParentFocus().tabIndex = -1;
                 }
-                that.selectedCell = cell;
                 return true;
             };
             BasicGrid.prototype._selectFirstCell = function () {
@@ -12245,11 +12513,15 @@ var Phoenix;
                 if (!pr.childNodes.length)
                     return false;
                 var cell = null;
-                for (var i = 0, len = that.columns.length; i < len; i++) {
-                    var c = that.columns[i];
+                var allCols = that.frozenColumns.concat(that.columns);
+                for (var i = 0, len = allCols.length; i < len; i++) {
+                    var c = allCols[i];
                     if (c.options.selectable) {
+                        if (c.options.frozen)
+                            pr = _dom.find(that.$element.get(0), that.id + '_frozen_rows');
                         var tr = pr.firstChild;
-                        cell = { col: c.$bind, row: tr.id };
+                        var rid = that._tr2rowId(tr, c);
+                        cell = { col: c.$bind, row: rid };
                         break;
                     }
                 }
@@ -12260,8 +12532,9 @@ var Phoenix;
             };
             BasicGrid.prototype._cell = function (cell, addIndex) {
                 var that = this;
-                var tr = _dom.find(that.$element.get(0), cell.row);
-                var cIndex = that._mapCols[cell.col].index;
+                var col = that._mapCols[cell.col];
+                var cIndex = col.index;
+                var tr = that._findTR(cell.row, col.column);
                 var td = tr.childNodes[cIndex];
                 var res = { td: td, tr: tr, rIndex: -1, cIndex: -1 };
                 if (addIndex) {
@@ -12274,15 +12547,66 @@ var Phoenix;
                 var that = this;
                 if (!that.selectedCell)
                     return that._selectFirstCell();
+                var col = that._colByField(that.selectedCell.col);
                 var pos = that._cell(that.selectedCell, true);
                 var nri = Math.max(pos.rIndex - count, 0);
                 if (nri != pos.rIndex) {
-                    var pr = _dom.find(that.$element.get(0), that.id + '_rows');
+                    var pr = that._findtBody(col);
                     return that._selectCell({ row: pr.childNodes[nri].id, col: that.selectedCell.col }, null, false);
                 }
                 return false;
             };
-            BasicGrid.prototype._hscroll = function (e) {
+            BasicGrid.prototype.resize = function () {
+                var that = this;
+                that._resize();
+            };
+            BasicGrid.prototype._updateFrozenColumnsHeight = function () {
+                var that = this;
+                var opts = that.renderOptions;
+                if (that.scrollableFrozenContent) {
+                    if (!opts.height || opts.height === "auto")
+                        return;
+                    var hasHScroll = that.scrollableMaster.scrollWidth > that.scrollableMaster.clientWidth;
+                    var ns = void 0;
+                    if (hasHScroll)
+                        ns = (parseInt(opts.height + '', 10) - _dom.scrollbar()) + 'px';
+                    else
+                        ns = parseInt(opts.height + '', 10) + 'px';
+                    if (that.scrollableFrozenContent.style.height !== ns) {
+                        that.scrollableFrozenContent.style.height = ns;
+                        that._vscroll();
+                    }
+                }
+            };
+            BasicGrid.prototype._resize = function () {
+                var that = this;
+                var opts = that.renderOptions;
+                var vscroll = opts.scrolling && opts.scrolling.vertical;
+                if (!vscroll)
+                    return;
+                var hasFrozenColumns = opts.allowFrozenColumns && that.frozenColumns && that.frozenColumns.length;
+                if (!hasFrozenColumns)
+                    return;
+                var sh = _dom.scrollbar();
+                if (!sh)
+                    return;
+                that._updateFrozenColumnsHeight();
+            };
+            BasicGrid.prototype.masterSyncScroll = function (e) {
+                var that = this;
+                that._hscroll();
+                that._vscroll();
+            };
+            BasicGrid.prototype._vscroll = function () {
+                var that = this;
+                if (that.scrollableFrozenContent) {
+                    var contentScrollTop = that.scrollableMaster.scrollTop, fcScrollTop = that.scrollableFrozenContent.scrollTop;
+                    if (contentScrollTop !== fcScrollTop) {
+                        that.scrollableFrozenContent.scrollTop = contentScrollTop;
+                    }
+                }
+            };
+            BasicGrid.prototype._hscroll = function () {
                 var that = this, contentScrollLeft = that.scrollableMaster.scrollLeft, headerScrollLeft = that.scrollableHeaderOfMaster.scrollLeft;
                 if (contentScrollLeft !== headerScrollLeft) {
                     that.scrollableHeaderOfMaster.scrollLeft = contentScrollLeft;
@@ -12293,7 +12617,8 @@ var Phoenix;
                 if (!that.selectedCell)
                     return that._selectFirstCell();
                 var pos = that._cell(that.selectedCell, true);
-                var pr = _dom.find(that.$element.get(0), that.id + '_rows');
+                var col = that._colByField(that.selectedCell.col);
+                var pr = that._findtBody(col);
                 var nri = Math.min(pos.rIndex + count, pr.childNodes.length - 1);
                 if (nri != pos.rIndex) {
                     return that._selectCell({ row: pr.childNodes[nri].id, col: that.selectedCell.col }, null, false);
@@ -12312,7 +12637,7 @@ var Phoenix;
             };
             BasicGrid.prototype._state2UI = function () {
                 var that = this;
-                var grid = that._grid();
+                var grid = that._rootElement();
                 var element = that.$element ? that.$element.get(0) : null;
                 if (grid) {
                     that._setDisabled(grid, element);
@@ -12332,7 +12657,7 @@ var Phoenix;
             BasicGrid.prototype.stateChanged = function (propName, params) {
                 var that = this;
                 var state = that.form.getState(that.$bind);
-                var grid = that._grid();
+                var grid = that._rootElement();
                 var element = that.$element ? that.$element.get(0) : null;
                 if (!propName || (propName === 'isHidden')) {
                     if (state.isHidden !== that.state.isHidden) {
@@ -12372,16 +12697,30 @@ var Phoenix;
             BasicGrid.prototype._renderRows = function () {
                 var that = this;
                 if (that.$element) {
-                    var pr = _dom.find(that.$element.get(0), that.id + '_rows');
+                    var pr = void 0, rows = void 0;
+                    that._inplaceEditRemove(false, false);
                     that._destroyDetails();
-                    var rows = _gu.createRows(that.id, that.state.value, that.columns, that.renderOptions, that.options.design, that.form.$locale);
+                    if (that.frozenColumns && that.frozenColumns.length) {
+                        pr = _dom.find(that.$element.get(0), that.id + '_frozen_rows');
+                        if (pr) {
+                            rows = _gu.createRows(that.id, that.state.value, that.frozenColumns, that.renderOptions, that.options.design, that.form.$locale, true);
+                            _dom.empty(pr);
+                            _dom.append(pr, rows);
+                        }
+                    }
+                    pr = _dom.find(that.$element.get(0), that.id + '_rows');
+                    rows = _gu.createRows(that.id, that.state.value, that.columns, that.renderOptions, that.options.design, that.form.$locale, false);
                     _dom.empty(pr);
                     _dom.append(pr, rows);
                 }
             };
             BasicGrid.prototype.editDetail = function (item) {
+                //not compatible with rozenColumns
                 var that = this, id = item.$id;
                 if (that.$element) {
+                    var options = that.renderOptions;
+                    if (options.allowFrozenColumns && that.frozenColumns && options.frozenColumns.length)
+                        return;
                     var pr = _dom.find(that.$element.get(0), that.id + '_rows');
                     var tdetail = _dom.find(pr, id + '_detail');
                     if (tdetail)
@@ -12436,6 +12775,7 @@ var Phoenix;
                 }
             };
             BasicGrid.prototype.closeDetail = function (id) {
+                //not compatible with rozenColumns
                 var that = this;
                 that._destroyDetailById(id);
                 if (that.$element) {
@@ -12448,26 +12788,33 @@ var Phoenix;
                 var that = this;
                 that._destroyDetailById(id);
                 if (that.$element) {
-                    var toRemove = _dom.find(that.$element.get(0), id);
-                    if (!toRemove)
-                        return;
-                    var pr = toRemove.parentNode;
-                    // remove detail
-                    var tdetail = _dom.find(pr, id + '_detail');
-                    if (tdetail)
-                        _dom.remove(tdetail);
-                    if (pr.firstChild === toRemove && that.renderOptions.headerIsHidden && !that.renderOptions._useColGrp && pr.childNodes.length > 1) {
-                        //no header &&  not useColGrp ==> update cols width on first row
-                        var tr = pr.childNodes[1];
-                        that.columns.forEach(function (col, index) {
-                            var td = tr.childNodes[index];
-                            if (col.options.width)
-                                td.style.width = col.options.width;
-                            if (col.options.minWidth)
-                                td.style.minWidth = col.options.minWidth;
-                        });
-                    }
-                    _dom.remove(toRemove);
+                    var toRemoveList = [];
+                    var toRemove_1 = _dom.find(that.$element.get(0), id);
+                    if (toRemove_1)
+                        toRemoveList.push({ element: toRemove_1, columns: that.columns });
+                    if (that.renderOptions.frozenColumns.length)
+                        toRemove_1 = _dom.find(that.$element.get(0), id + '_frozen');
+                    if (toRemove_1)
+                        toRemoveList.push({ element: toRemove_1, columns: that.frozenColumns });
+                    toRemoveList.forEach(function (re) {
+                        var pr = toRemove_1.parentNode;
+                        // remove detail
+                        var tdetail = _dom.find(pr, id + '_detail');
+                        if (tdetail)
+                            _dom.remove(tdetail);
+                        if (pr.firstChild === toRemove_1 && that.renderOptions.headerIsHidden && !that.renderOptions._useColGrp && pr.childNodes.length > 1) {
+                            //no header &&  not useColGrp ==> update cols width on first row
+                            var tr = pr.childNodes[1];
+                            re.columns.forEach(function (col, index) {
+                                var td = tr.childNodes[index];
+                                if (col.options.width)
+                                    td.style.width = _gu.ensureWidth(col.options.width);
+                                if (col.options.minWidth)
+                                    td.style.minWidth = _gu.ensureWidth(col.options.minWidth);
+                            });
+                        }
+                        _dom.remove(re.element);
+                    });
                 }
             };
             BasicGrid.prototype._updOddEven = function () {
@@ -12475,29 +12822,26 @@ var Phoenix;
                 if (!that.renderOptions._useStripedCss) {
                     if (that.$element) {
                         var pr = _dom.find(that.$element.get(0), that.id + '_rows');
-                        if (pr.childNodes.length) {
-                            var isOdd = false;
-                            for (var i = 0, len = pr.childNodes.length; i < len; i++) {
-                                var e = pr.childNodes[i];
-                                if (_dom.hasClass(e, "bs-table-row")) {
-                                    if (isOdd)
-                                        _dom.removeClass(e, "even");
-                                    else
-                                        _dom.addClass(e, "even");
-                                    isOdd = !isOdd;
-                                }
-                            }
-                        }
+                        _gu.updateEvenOdd(pr);
+                        pr = _dom.find(that.$element.get(0), that.id + '_frozen_rows');
+                        if (pr)
+                            _gu.updateEvenOdd(pr);
                     }
                 }
             };
             BasicGrid.prototype._createRow = function (id) {
                 var that = this;
                 if (that.$element) {
-                    var pr = _dom.find(that.$element.get(0), that.id + '_rows');
                     var item = that.state.value.findById(id);
                     var index = that.state.value.indexOf(item);
-                    var nr = _gu.createRow(that.id, index, item, that.columns, that.renderOptions, that.options.design, that.form.$locale, pr.childNodes.length % 2 === 1);
+                    var pr = void 0, nr = void 0;
+                    if (that.frozenColumns && that.frozenColumns.length) {
+                        pr = _dom.find(that.$element.get(0), that.id + '_frozen_rows');
+                        nr = _gu.createRow(that.id, index, item, that.frozenColumns, that.renderOptions, that.options.design, that.form.$locale, pr.childNodes.length % 2 === 1, true);
+                        _dom.append(pr, nr);
+                    }
+                    pr = _dom.find(that.$element.get(0), that.id + '_rows');
+                    nr = _gu.createRow(that.id, index, item, that.columns, that.renderOptions, that.options.design, that.form.$locale, pr.childNodes.length % 2 === 1, false);
                     _dom.append(pr, nr);
                 }
             };
@@ -12516,6 +12860,9 @@ var Phoenix;
                     var pc = _dom.find(that.$element.get(0), that.id + '_cols');
                     if (pc)
                         _gu.updSorting(opts, pc, that._colByField, that.state.value.$orderby());
+                    pc = _dom.find(that.$element.get(0), that.id + '_frozen_cols');
+                    if (pc)
+                        _gu.updSorting(opts, pc, that._colByField, that.state.value.$orderby());
                 }
             };
             BasicGrid.prototype.render = function ($parent) {
@@ -12524,19 +12871,35 @@ var Phoenix;
                 if (!that.$element) {
                     if (that.$schema.description)
                         opts.description = _ulocale.tt(that.$schema.description, that.form.$locale);
-                    that.$element = $(_gu.gridContainer(that.id, opts, that.options.design, that.$schema.title, that.form.$locale, that.columns));
+                    that.$element = $(_gu.gridContainer(that.id, opts, that.options.design, that.$schema.title, that.form.$locale, that.columns, that.frozenColumns));
                     if (opts._useColGrp) {
+                        // create free columns
                         var vscroll = opts.scrolling && opts.scrolling.vertical;
                         var cg = vscroll && !opts.headerIsHidden ? _dom.find(that.$element.get(0), that.id + '_colgrp_header') : null;
                         if (cg) {
-                            _dom.append(cg, _gu.createColGroup(that.columns, opts));
+                            _dom.append(cg, _gu.createColGroup(that.columns, opts, false));
                         }
                         cg = _dom.find(that.$element.get(0), that.id + '_colgrp');
-                        _dom.append(cg, _gu.createColGroup(that.columns, opts));
+                        _dom.append(cg, _gu.createColGroup(that.columns, opts, false));
+                        // create frozen columns
+                        if (that.frozenColumns && that.frozenColumns.length && opts.allowFrozenColumns) {
+                            var cg_1 = vscroll && !opts.headerIsHidden ? _dom.find(that.$element.get(0), that.id + '_colgrp_frozen_header') : null;
+                            if (cg_1) {
+                                _dom.append(cg_1, _gu.createColGroup(that.frozenColumns, opts, true));
+                            }
+                            cg_1 = _dom.find(that.$element.get(0), that.id + '_colgrp_frozen');
+                            if (cg_1)
+                                _dom.append(cg_1, _gu.createColGroup(that.frozenColumns, opts, true));
+                        }
                     }
                     if (!opts.headerIsHidden) {
                         var pc = _dom.find(that.$element.get(0), that.id + '_cols');
-                        _dom.append(pc, _gu.createCols(that.id, that.columns, opts, that.options.design, that.form.$locale, that.state.value.$orderby()));
+                        _dom.append(pc, _gu.createCols(that.id, that.columns, opts, that.options.design, that.form.$locale, that.state.value.$orderby(), false));
+                        if (that.frozenColumns && that.frozenColumns.length && opts.allowFrozenColumns) {
+                            pc = _dom.find(that.$element.get(0), that.id + '_frozen_cols');
+                            if (pc)
+                                _dom.append(pc, _gu.createCols(that.id, that.frozenColumns, opts, that.options.design, that.form.$locale, that.state.value.$orderby(), true));
+                        }
                     }
                     that._renderRows();
                     that._state2UI();
@@ -12552,7 +12915,7 @@ var Phoenix;
         _ui.registerControl(BasicGrid, 'array', false, 'basicgrid', null);
     })(ui = Phoenix.ui || (Phoenix.ui = {}));
 })(Phoenix || (Phoenix = {}));
-/// <reference path="../../../../../typings/browser.d.ts" />
+/// <reference path="../../../../../typings/index.d.ts" />
 /// <reference path="../../../core/core.ts" />
 /// <reference path="./absfield.control.ts" />
 var Phoenix;
@@ -12681,7 +13044,7 @@ var Phoenix;
         _ui.registerControl(Check, "boolean", false, '', null);
     })(ui = Phoenix.ui || (Phoenix.ui = {}));
 })(Phoenix || (Phoenix = {}));
-/// <reference path="../../../../../typings/browser.d.ts" />
+/// <reference path="../../../../../typings/index.d.ts" />
 /// <reference path="../../../core/core.ts" />
 /// <reference path="../../../core/locale.ts" />
 /// <reference path="./absfield.control.ts" />
@@ -12890,12 +13253,12 @@ var Phoenix;
                 if (opts._useColGrp) {
                     var colgrp = _dom.find(that.$element.get(0), that.id + '_colgrp');
                     _dom.empty(colgrp);
-                    _dom.append(colgrp, _gu.createColGroup(that.columns, opts));
+                    _dom.append(colgrp, _gu.createColGroup(that.columns, opts, false));
                 }
                 if (!opts.headerIsHidden) {
                     var pc = _dom.find(that.$element.get(0), that.id + '_cols');
                     _dom.empty(pc);
-                    _dom.append(pc, _gu.createCols(that.id, that.columns, opts, that.options.design, that.form.$locale, ''));
+                    _dom.append(pc, _gu.createCols(that.id, that.columns, opts, that.options.design, that.form.$locale, '', false));
                 }
                 that._renderRows();
                 that._state2UI();
@@ -12911,7 +13274,7 @@ var Phoenix;
                 var opts = that._initOptions(_ui.Utils.defaultOptions);
                 if (!that.$element) {
                     that.columns = that._initCols(that.fieldOptions);
-                    that.$element = $(_gu.gridContainer(that.id, opts, that.options.design, that.$schema.title, that.form.$locale, that.columns));
+                    that.$element = $(_gu.gridContainer(that.id, opts, that.options.design, that.$schema.title, that.form.$locale, that.columns, null));
                     that._draw(opts);
                     that.appendElement($parent, opts);
                     return that.$element;
@@ -12921,7 +13284,7 @@ var Phoenix;
                 var that = this;
                 if (that.$element) {
                     var pr = _dom.find(that.$element.get(0), that.id + '_rows');
-                    var nr = _gu.createRow(that.id, index, that.state.value.get(index), that.columns, that.renderOptions, that.options.design, that.form.$locale, index % 2 === 1);
+                    var nr = _gu.createRow(that.id, index, that.state.value.get(index), that.columns, that.renderOptions, that.options.design, that.form.$locale, index % 2 === 1, false);
                     if (pr.childNodes.length >= index)
                         _dom.append(pr, nr);
                     else
@@ -13067,7 +13430,7 @@ var Phoenix;
         _ui.registerControl(ColumnGrid, "array", false, "columngrid", null);
     })(ui = Phoenix.ui || (Phoenix.ui = {}));
 })(Phoenix || (Phoenix = {}));
-/// <reference path="../../../../../typings/browser.d.ts" />
+/// <reference path="../../../../../typings/index.d.ts" />
 /// <reference path="../../../core/core.ts" />
 /// <reference path="../../../core/locale.ts" />
 /// <reference path="../../page.control.ts" />
@@ -13415,7 +13778,7 @@ var Phoenix;
         ui.DropItems = DropItems;
     })(ui = Phoenix.ui || (Phoenix.ui = {}));
 })(Phoenix || (Phoenix = {}));
-/// <reference path="../../../../../typings/browser.d.ts" />
+/// <reference path="../../../../../typings/index.d.ts" />
 /// <reference path="../../../core/core.ts" />
 /// <reference path="../../../core/locale.ts" />
 /// <reference path="./absfield.control.ts" />
@@ -13426,7 +13789,7 @@ var Phoenix;
     var ui;
     (function (ui) {
         var _ui = ui, _utils = Phoenix.utils, _dom = Phoenix.dom, _locale = Phoenix.locale, _su = Phoenix.Observable.SchemaUtils, _ulocale = Phoenix.ulocale, _ui = ui, _eu = Phoenix.Observable.errorsUtils, _bootstrap4 = Phoenix.bootstrap4;
-        var _useDatePicker = $.fn.datepicker != null, _createInput = function (html, options, title, tagName) {
+        var _createInput = function (html, options, title, tagName) {
             tagName = tagName || 'input';
             var isTextArea = tagName === "textarea";
             if (isTextArea) {
@@ -13564,10 +13927,10 @@ var Phoenix;
                 var that = this;
                 var input = that._input();
                 if (that._isDate()) {
-                    if (that._useDatePicker)
+                    if (_ui.Utils.useDatePicker())
                         return _ulocale.parseISODate(that.state.value || '') || '';
                     else {
-                        if (that._native) {
+                        if (_ui.Utils.nativeDate()) {
                             return that.state.value || '';
                         }
                         else
@@ -13640,10 +14003,10 @@ var Phoenix;
             BaseEdit.prototype._value2Input = function (input) {
                 var that = this;
                 if (that._isDate()) {
-                    if (that._useDatePicker)
-                        that.$element["datepicker"]('update', _ulocale.parseISODate(that.state.value || '') || '');
+                    if (_ui.Utils.useDatePicker())
+                        _ui.Utils.datePickerSetValue(that.$element, that.state.value);
                     else {
-                        if (that._native) {
+                        if (_ui.Utils.nativeDate()) {
                             input.value = _ulocale.isoDatePart(that.state.value || '');
                         }
                         else
@@ -13651,7 +14014,7 @@ var Phoenix;
                     }
                 }
                 else if (that._isNumber()) {
-                    if (that._native)
+                    if (_ui.Utils.nativeNumber())
                         input.value = that.state.value || 0;
                     else
                         input.value = that._value2Text();
@@ -13777,16 +14140,7 @@ var Phoenix;
             };
             Edit.prototype._text2value = function (textValue) {
                 var that = this;
-                if (that._isDate()) {
-                    if (that._native)
-                        return textValue;
-                    else
-                        return _ulocale.localeDate2ISO(textValue);
-                }
-                else if (that._isNumber()) {
-                    return _su.text2Value(textValue + '', that.$schema);
-                }
-                return textValue;
+                return _ui.Utils.text2value(textValue, that.$schema);
             };
             Edit.prototype._value2Text = function () {
                 var that = this;
@@ -13822,10 +14176,8 @@ var Phoenix;
             };
             Edit.prototype.customOptionsDate = function (options) {
                 var that = this;
-                that._native = _ui.Utils.nativeDate();
-                that._useDatePicker = _useDatePicker && !that._native;
                 options.$format = 'date';
-                if (!that._native) {
+                if (!_ui.Utils.nativeDate()) {
                     options.after = { icon: 'calendar' };
                     options.date = true;
                 }
@@ -13835,12 +14187,11 @@ var Phoenix;
             };
             Edit.prototype.customOptionsNumber = function (options, symbol) {
                 var that = this;
-                that._native = _ui.Utils.nativeNumber();
                 options.inputClass = "bs-edit-number";
                 if (symbol)
                     options.after = { value: symbol };
                 options.$format = that.$schema.format;
-                if (that._native) {
+                if (_ui.Utils.nativeNumber()) {
                     options.type = 'number';
                 }
             };
@@ -13852,12 +14203,8 @@ var Phoenix;
             };
             Edit.prototype._setEventsDate = function () {
                 var that = this;
-                if (that._useDatePicker) {
-                    var e = that.$element.get(0);
-                    _dom.addClass(e, 'date');
-                    that.$element["datepicker"]({ language: _ulocale.currentLang, autoclose: true });
-                    //_dom.removeClass(e, 'date');
-                    that.$element["datepicker"]().on('hide', function (e) {
+                if (_ui.Utils.useDatePicker()) {
+                    _ui.Utils.datePickerInitialize(that.$element, { showOnFocus: true }, function (e) {
                         that.focusOut(null);
                     });
                 }
@@ -13924,30 +14271,12 @@ var Phoenix;
             return Edit;
         }(BaseEdit));
         ui.Edit = Edit;
-        if (_useDatePicker) {
-            var tdp = function (lang) {
-                $.fn.datepicker.dates[lang] = {
-                    days: _locale.date.weekdays,
-                    daysShort: _locale.date.weekdaysShort,
-                    daysMin: _locale.date.weekdaysMin,
-                    months: _locale.date.months,
-                    monthsShort: _locale.date.monthsShort,
-                    today: _locale.date.today,
-                    clear: _locale.date.clear,
-                    format: _locale.date.dateShort.replace(/\//g, _locale.date.daySep),
-                    titleFormat: 'MM yyyy',
-                    weekStart: _locale.date.weekStart
-                };
-            };
-            tdp(_ulocale.currentLang);
-            _ulocale.register(tdp);
-        }
         _ui.registerControl(Edit, "string", false, '', null);
         _ui.registerControl(Edit, "number", false, '', null);
         _ui.registerControl(Edit, "integer", false, '', null);
     })(ui = Phoenix.ui || (Phoenix.ui = {}));
 })(Phoenix || (Phoenix = {}));
-/// <reference path="../../../../../typings/browser.d.ts" />
+/// <reference path="../../../../../typings/index.d.ts" />
 /// <reference path="../../../core/core.ts" />
 /// <reference path="../../../core/locale.ts" />
 /// <reference path="./absfield.control.ts" />
@@ -14253,7 +14582,7 @@ var Phoenix;
         _ui.registerControl(EnumList, "array", false, 'enums-list', null);
     })(ui = Phoenix.ui || (Phoenix.ui = {}));
 })(Phoenix || (Phoenix = {}));
-/// <reference path="../../../../../typings/browser.d.ts" />
+/// <reference path="../../../../../typings/index.d.ts" />
 /// <reference path="../../../core/core.ts" />
 /// <reference path="./absfield.control.ts" />
 var Phoenix;
@@ -14350,7 +14679,7 @@ var Phoenix;
         ui.Group = Group;
     })(ui = Phoenix.ui || (Phoenix.ui = {}));
 })(Phoenix || (Phoenix = {}));
-/// <reference path="../../../../../typings/browser.d.ts" />
+/// <reference path="../../../../../typings/index.d.ts" />
 /// <reference path="../../../core/core.ts" />
 /// <reference path="./group.control.ts" />
 var Phoenix;
@@ -14485,7 +14814,7 @@ var Phoenix;
         _ui.registerControl(BtnGroup, "*", true, "grpbtn", null);
     })(ui = Phoenix.ui || (Phoenix.ui = {}));
 })(Phoenix || (Phoenix = {}));
-/// <reference path="../../../../../typings/browser.d.ts" />
+/// <reference path="../../../../../typings/index.d.ts" />
 /// <reference path="../../../core/core.ts" />
 /// <reference path="../../../core/locale.ts" />
 /// <reference path="./absfield.control.ts" />
@@ -14580,7 +14909,7 @@ var Phoenix;
         _ui.registerControl(Image, "string", false, "image", null);
     })(ui = Phoenix.ui || (Phoenix.ui = {}));
 })(Phoenix || (Phoenix = {}));
-/// <reference path="../../../../../typings/browser.d.ts" />
+/// <reference path="../../../../../typings/index.d.ts" />
 /// <reference path="../../../core/core.ts" />
 /// <reference path="./absfield.control.ts" />
 var Phoenix;
@@ -14711,7 +15040,7 @@ var Phoenix;
         _ui.registerControl(Label, "meta", false, 'label', null);
     })(ui = Phoenix.ui || (Phoenix.ui = {}));
 })(Phoenix || (Phoenix = {}));
-/// <reference path="../../../../../typings/browser.d.ts" />
+/// <reference path="../../../../../typings/index.d.ts" />
 /// <reference path="../../../core/core.ts" />
 /// <reference path="./absfield.control.ts" />
 /// <reference path="../form.control.ts" />
@@ -14831,7 +15160,7 @@ var Phoenix;
         ui.Link = Link;
     })(ui = Phoenix.ui || (Phoenix.ui = {}));
 })(Phoenix || (Phoenix = {}));
-/// <reference path="../../../../../typings/browser.d.ts" />
+/// <reference path="../../../../../typings/index.d.ts" />
 /// <reference path="../../../core/core.ts" />
 /// <reference path="../../../core/locale.ts" />
 /// <reference path="../../../data/datasets.ts" />
@@ -14920,9 +15249,6 @@ var Phoenix;
                 }
                 if (that.$lookup.data.$type == "inline" || that.$lookup.data.$type == "enum")
                     return _utils.dataAsPromise(_filterData(that.$lookup.data.$value, (that.$lookup.data && that.$lookup.data.$params ? that.$lookup.data.$params.$filter : null), pm.model(true)));
-                if (that.$lookup.data.$type == "odata") {
-                    return _utils.dataAsPromise(null);
-                }
                 if (_sutils.allData(that.$lookup)) {
                     if (that.$lookup.cache && that.hasCachedData)
                         return _utils.dataAsPromise(that.cachedData);
@@ -15219,7 +15545,7 @@ var Phoenix;
         _ui.registerControl(Lookup, "number", false, '', { lookup: true });
     })(ui = Phoenix.ui || (Phoenix.ui = {}));
 })(Phoenix || (Phoenix = {}));
-/// <reference path="../../../../../typings/browser.d.ts" />
+/// <reference path="../../../../../typings/index.d.ts" />
 /// <reference path="../../../core/core.ts" />
 /// <reference path="./group.control.ts" />
 var Phoenix;
@@ -15322,7 +15648,7 @@ var Phoenix;
         _ui.registerControl(RadioGroup, "*", true, "radio", null);
     })(ui = Phoenix.ui || (Phoenix.ui = {}));
 })(Phoenix || (Phoenix = {}));
-/// <reference path="../../../../../typings/browser.d.ts" />
+/// <reference path="../../../../../typings/index.d.ts" />
 /// <reference path="../../../core/core.ts" />
 /// <reference path="./absfield.control.ts" />
 var Phoenix;
@@ -15450,7 +15776,7 @@ var Phoenix;
         _ui.registerControl(ReadOnlyField, "*", false, '', { readOnly: true });
     })(ui = Phoenix.ui || (Phoenix.ui = {}));
 })(Phoenix || (Phoenix = {}));
-/// <reference path="../../../../../typings/browser.d.ts" />
+/// <reference path="../../../../../typings/index.d.ts" />
 /// <reference path="../../../core/core.ts" />
 /// <reference path="../../../core/locale.ts" />
 /// <reference path="./absfield.control.ts" />
@@ -15607,7 +15933,7 @@ var Phoenix;
         _ui.registerControl(Select, "*", true, '', null);
     })(ui = Phoenix.ui || (Phoenix.ui = {}));
 })(Phoenix || (Phoenix = {}));
-/// <reference path="../../../../../typings/browser.d.ts" />
+/// <reference path="../../../../../typings/index.d.ts" />
 /// <reference path="../../../core/core.ts" />
 /// <reference path="./absfield.control.ts" />
 var Phoenix;
@@ -15781,7 +16107,7 @@ var Phoenix;
         _render.register("angular", 'field.control', _controlFactory);
     })(ui = Phoenix.ui || (Phoenix.ui = {}));
 })(Phoenix || (Phoenix = {}));
-/// <reference path="../../../typings/browser.d.ts" />
+/// <reference path="../../../typings/index.d.ts" />
 /// <reference path="../core/core.ts" />
 /// <reference path="../core/locale.ts" />
 /// <reference path="../ui/form/modalform.control.ts" />
@@ -15831,7 +16157,7 @@ var Phoenix;
         };
     })(ui = Phoenix.ui || (Phoenix.ui = {}));
 })(Phoenix || (Phoenix = {}));
-/// <reference path="../../../typings/browser.d.ts" />
+/// <reference path="../../../typings/index.d.ts" />
 /// <reference path="../core/core.ts" />
 /// <reference path="../ui/form/modalform.control.ts" />
 /// <reference path="../ui/datasets-plugin.ts" />
@@ -15905,7 +16231,7 @@ var Phoenix;
         _external.changePasswordHandler = _changePasswordHandler;
     })(ui = Phoenix.ui || (Phoenix.ui = {}));
 })(Phoenix || (Phoenix = {}));
-/// <reference path="../../../typings/browser.d.ts" />
+/// <reference path="../../../typings/index.d.ts" />
 /// <reference path="../core/core.ts" />
 /// <reference path="../core/locale.ts" />
 /// <reference path="../ui/form/modalform.control.ts" />
@@ -16050,7 +16376,7 @@ var Phoenix;
         data.OdataEnumManager = OdataEnumManager;
     })(data = Phoenix.data || (Phoenix.data = {}));
 })(Phoenix || (Phoenix = {}));
-/// <reference path="../../../typings/browser.d.ts" />
+/// <reference path="../../../typings/index.d.ts" />
 /// <reference path="../core/core.ts" />
 /// <reference path="../core/locale.ts" />
 /// <reference path="../ui/form/modalform.control.ts" />
@@ -16147,7 +16473,7 @@ var Phoenix;
         _data.registerDataProvider("form-meta", _execLoadSchema);
     })(Data = Phoenix.Data || (Phoenix.Data = {}));
 })(Phoenix || (Phoenix = {}));
-/// <reference path="../../../typings/browser.d.ts" />
+/// <reference path="../../../typings/index.d.ts" />
 /// <reference path="../../js/core/core.ts" />
 var Phoenix;
 (function (Phoenix) {
@@ -16301,7 +16627,7 @@ var Phoenix;
         ui.DsLookup = DsLookup;
     })(ui = Phoenix.ui || (Phoenix.ui = {}));
 })(Phoenix || (Phoenix = {}));
-/// <reference path="../../../typings/browser.d.ts" />
+/// <reference path="../../../typings/index.d.ts" />
 /// <reference path="../../js/core/locale.ts" />
 /// <reference path="../../js/ui/form/form.control.ts" />
 /// <reference path="../../js/ui/form/controls/absfield.control.ts" />
@@ -18189,7 +18515,7 @@ var Phoenix;
         _ui.registerControl(ComposantFilter, "object", false, 'filter');
     })(ui = Phoenix.ui || (Phoenix.ui = {}));
 })(Phoenix || (Phoenix = {}));
-/// <reference path="../../../typings/browser.d.ts" />
+/// <reference path="../../../typings/index.d.ts" />
 /// <reference path="../../js/core/core.ts" />
 /// <reference path="../../js/ui/form/modalform.control.ts" />
 var Phoenix;
@@ -18497,7 +18823,7 @@ var Phoenix;
         };
     })(ui = Phoenix.ui || (Phoenix.ui = {}));
 })(Phoenix || (Phoenix = {}));
-/// <reference path="../../../typings/browser.d.ts" />
+/// <reference path="../../../typings/index.d.ts" />
 /// <reference path="../../js/core/core.ts" />
 var Phoenix;
 (function (Phoenix) {

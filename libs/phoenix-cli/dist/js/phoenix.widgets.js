@@ -237,7 +237,8 @@ var Phoenix;
                 options.onSettings = config.onSettings ? config.onSettings.bind(config) : null;
                 options.storageName = config.storageName;
                 options.validators = config.validators;
-                _super.call(this, options, formName, metaName, null, module);
+                var d = (config.data ? config.data() : null);
+                _super.call(this, options, formName, metaName, d, module);
                 if (config.onModelChanged)
                     this.action = config.onModelChanged.bind(config);
             }

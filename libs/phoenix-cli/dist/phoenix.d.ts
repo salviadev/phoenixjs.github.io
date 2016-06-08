@@ -1,4 +1,4 @@
-/// <reference path="../typings/browser.d.ts" />
+/// <reference path="../typings/index.d.ts" />
 declare namespace Phoenix {
     var bootstrap4: boolean;
     module external {
@@ -100,6 +100,7 @@ declare namespace Phoenix {
     var $mem: any;
     function save$mem(): void;
     module dom {
+        var readyHandlers: (() => void)[];
         const keys: {
             VK_TAB: number;
             VK_UP: number;
@@ -676,6 +677,7 @@ declare namespace Phoenix {
             $locale: any;
             $element: JQuery;
             protected $content: JQuery;
+            protected resizeList: any[];
             options: any;
             data: any;
             children: any;
@@ -720,6 +722,7 @@ declare namespace Phoenix {
             emitDataEvent(event: any, value: any, filter: any): void;
             protected afterRender($e: JQuery): void;
             protected _internalRender($parent: any, refresh: any): JQuery;
+            protected afterAddedInDom(): void;
             _callInternalRender($parent: any, refresh: any): void;
             render($parent?: JQuery): JQuery;
             _destroyDataSets(): void;
@@ -1164,6 +1167,7 @@ declare namespace Phoenix {
             _removeBaseEvents(): void;
             _freeze(e: any): boolean;
             _addBaseEvents(): void;
+            protected afterAddedInDom(): void;
         }
         var FormClass: typeof Form;
         function removeForm(form: BaseLayout): void;
@@ -1177,6 +1181,7 @@ declare namespace Phoenix {
             on(hnd: any): void;
         }
         class FormController {
+            data(): any;
             initObjectState(model: any): void;
             onModelChanged(action: any, model: any, form: any): any;
         }
@@ -1219,6 +1224,7 @@ declare namespace Phoenix {
             protected showErrors(element: any, errors: any): void;
         }
         var Utils: {
+            useDatePicker: () => boolean;
             nativeDate: () => boolean;
             nativeNumber: () => boolean;
             addErrorDiv: (html: any) => void;
@@ -1230,6 +1236,10 @@ declare namespace Phoenix {
             containerBaseClass: (groupClass: string, authoring: boolean, options: any) => string;
             fieldWrapper: (html: string[], options: any, authoring: boolean, after: Function, customizer?: any) => void;
             fillSelect(enums: any[], input: any, schema: any): void;
+            datePickerSetValue: ($element: JQuery, value: string) => void;
+            datePickerInitialize: ($element: JQuery, opts: any, onHide: any) => void;
+            datePickerDestroy: ($element: JQuery) => void;
+            text2value(textValue: string, schema: any): any;
             defaultOptions: {
                 titleIsHidden: boolean;
                 placeHolder: boolean;
@@ -1259,12 +1269,12 @@ declare namespace Phoenix {
 declare namespace Phoenix {
     module ui {
         var GridUtil: {
-            createCols: (id: any, columns: any, options: any, authoring: boolean, locale: any, orderby: string) => DocumentFragment;
-            createColGroup: (columns: any, options: any) => DocumentFragment;
+            createCols: (id: any, columns: any, options: any, authoring: boolean, locale: any, orderby: string, isFrozen: boolean) => DocumentFragment;
+            createColGroup: (columns: any, options: any, isFrozen: boolean) => DocumentFragment;
             updSorting: (options: any, pc: HTMLElement, colMap: any, orderby: string) => void;
-            gridContainer: (id: any, options: any, authoring: any, title: any, locale: any, columns: any) => any;
-            createRows: (id: any, rows: any, columns: any, options: any, authoring: any, locale: any) => DocumentFragment;
-            createRow: (id: string, index: number, row: any, columns: any[], options: any, authoring: boolean, locale: any, isOdd: Boolean) => HTMLTableRowElement;
+            gridContainer: (id: any, options: any, authoring: any, title: any, locale: any, columns: any, frozenColumns: any) => any;
+            createRows: (id: any, rows: any, columns: any, options: any, authoring: any, locale: any, isFrozen: any) => DocumentFragment;
+            createRow: (id: string, index: number, row: any, columns: any[], options: any, authoring: boolean, locale: any, isOdd: Boolean, isFrozen: boolean) => HTMLTableRowElement;
             createGridRows: (id: any, rows: any, values: any, columns: any, options: any, authoring: any, locale: any) => DocumentFragment;
             createInplaceEdit: (svalue: string, value: any, state: any, parent: HTMLElement, cell: any, col: any, opts: any) => {
                 input: HTMLInputElement;
@@ -1276,6 +1286,8 @@ declare namespace Phoenix {
             };
             updateInplaceEdit: (inplace: any, svalue: string, value: any, state: any, parent: HTMLElement, cell: any, col: any, opts: any) => void;
             createDetail: (id: string, childBefore: HTMLElement) => HTMLElement;
+            updateEvenOdd: (pr: HTMLElement) => void;
+            ensureWidth: (value: any) => string;
         };
     }
 }
@@ -1284,6 +1296,7 @@ declare namespace Phoenix {
         var glbGridFilter: any;
         class BasicGrid extends AbsField {
             columns: any[];
+            frozenColumns: any[];
             opts: any;
             private _mapCols;
             private _details;
@@ -1292,6 +1305,7 @@ declare namespace Phoenix {
             private _toolBar;
             private scrollableMaster;
             private scrollableHeaderOfMaster;
+            private scrollableFrozenContent;
             private inplace;
             constructor(fp: any, options: any, form: any);
             private _inplaceEditValue2Model(value, item, col);
@@ -1315,15 +1329,19 @@ declare namespace Phoenix {
             private _colByField(field);
             changed(propName: any, ov: any, nv: any, op: any, params: any): void;
             private _modifyTD(item, field, td);
+            private _findTR(id, col);
+            private _findtBody(col);
             private _modifyCell(item, field, td?);
-            private _grid();
+            private _rootElement();
             private _gridParentFocus();
             private _setErrors(grid, element);
+            private _setTableFocus(value);
             focusIn($event: any): void;
             focusOut($event: any): void;
             _doTab(forward: boolean): boolean;
             keypress(event: JQueryEventObject): boolean;
             keydown($event: any): void;
+            private _tr2rowId(tr, col);
             private _td2cell(td);
             private _td2value(td);
             mousedown(event: any): boolean;
@@ -1337,7 +1355,12 @@ declare namespace Phoenix {
             private _selectFirstCell();
             _cell(cell: any, addIndex: boolean): any;
             private _moveUpSelectedCell(count);
-            private _hscroll(e);
+            protected resize(): void;
+            protected _updateFrozenColumnsHeight(): void;
+            private _resize();
+            private masterSyncScroll(e);
+            private _vscroll();
+            private _hscroll();
             private _moveDownSelectedCell(count);
             private _moveLeftSelectedCell();
             private _moveRightSelectedCell();
@@ -1453,9 +1476,7 @@ declare namespace Phoenix {
 declare namespace Phoenix {
     module ui {
         class BaseEdit extends AbsField {
-            protected _native: boolean;
             protected _doSelect: boolean;
-            protected _useDatePicker: boolean;
             constructor(fp: any, options: any, form: any);
             protected _input(): HTMLElement;
             protected _colParent(): HTMLElement;

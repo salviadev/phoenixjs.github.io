@@ -194,14 +194,16 @@
 .bs-bool-edit:hover {
   color: #31708f;
 }
-table td.bs-cell-selected {
-  outline: #bbb solid 1px;
+.table > tbody > tr > td.bs-cell-selected {
+  outline: 0px;
+  box-shadow: inset 0 1px 0 0 #bbb, inset -1px 0 0 #bbb, inset 0 -1px 0 0 #bbb, inset 1px 0 0 #bbb;
 }
 .table > tbody > tr > td.focused {
   padding: 0px;
 }
-table.focused td.bs-cell-selected {
-  outline: #0095dd solid 1px;
+table.focused > tbody > tr > td.bs-cell-selected {
+  outline: 0px;
+  box-shadow: inset 0 1px 0 0 #0095dd, inset -1px 0 0 #0095dd, inset 0 -1px 0 0 #0095dd, inset 1px 0 0 #0095dd;
 }
 tr.bs-table-row.even {
   background-color: #f9f9f9;
@@ -212,6 +214,9 @@ tr.bs-table-row.even {
   position: relative;
   height: 36px;
   line-height: 100%;
+}
+.bs-edit-border > div > .bs-inplace-edit-size {
+  height: 34px;
 }
 .bs-inplace-parent {
   position: relative;
@@ -237,7 +242,11 @@ tr.bs-table-row.even {
   white-space: nowrap;
   display: table-cell;
   background-color: #eee;
-  padding: 6px;
+  padding: 0px 8px;
+}
+.bs-edit-border {
+  box-sizing: border-box;
+  border: 1px solid #0095dd;
 }
 .bs-inplace-edit:focus {
   outline: none;
@@ -253,6 +262,8 @@ tr.bs-table-row.even {
 }
 .bs-table-header {
   background-color: #636363;
+  position: relative;
+  overflow: hidden;
 }
 .bs-table-header-content {
   overflow: hidden;
@@ -265,8 +276,30 @@ tr.bs-table-row.even {
 .bs-table-content.vscroll {
   overflow-y: scroll;
 }
+.bs-table-content.frozen {
+  overflow: hidden;
+}
 .bs-table-content-scroll {
   position: relative;
+}
+.bs-table-cols {
+  position: relative;
+  table-layout: fixed;
+  width: 100%;
+  display: table;
+}
+.bs-table-frozen-cols,
+.bs-table-free-cols,
+.bs-table-cols-sep {
+  position: relative;
+  display: table-cell;
+}
+.bs-table-cols-sep {
+  width: 1px;
+  background-color: #0095dd;
+}
+.bs-table-free-cols {
+  width: 100%;
 }
 
 .bs-edit-number {
