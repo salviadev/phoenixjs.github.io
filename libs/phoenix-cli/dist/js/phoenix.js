@@ -12507,7 +12507,8 @@ var Phoenix;
             };
             BasicGrid.prototype._selectFirstCell = function () {
                 var that = this;
-                if (!that.fieldOptions.selecting || !that.fieldOptions.selecting.cell)
+                var opts = that.renderOptions;
+                if (!opts.selecting || !opts.selecting.cell)
                     return false;
                 var pr = _dom.find(that.$element.get(0), that.id + '_rows');
                 if (!pr.childNodes.length)
@@ -12517,7 +12518,7 @@ var Phoenix;
                 for (var i = 0, len = allCols.length; i < len; i++) {
                     var c = allCols[i];
                     if (c.options.selectable) {
-                        if (c.options.frozen)
+                        if (opts.allowFrozenColumns && c.options.frozen)
                             pr = _dom.find(that.$element.get(0), that.id + '_frozen_rows');
                         var tr = pr.firstChild;
                         var rid = that._tr2rowId(tr, c);
