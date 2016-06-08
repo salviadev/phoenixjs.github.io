@@ -25,8 +25,8 @@ $(function () {
 							},
 							"editing": true,
 							"columns": [
-								{ "$bind": "Type", "options": { "width":  "120", "selectable": true, "editable": true } },
-								{ "$bind": "Libelle", "options": { "width": "150", "selectable": true, "editable": true } },
+								{ "$bind": "Type", "options": { "width":  "120", "frozen": true, "selectable": true, "editable": true } },
+								{ "$bind": "Libelle", "options": { "width": "150", "frozen": true, "selectable": true, "editable": true } },
 								{ "$bind": "Date", "options": { "width":  "8em", "selectable": true, "editable": true } },
 								{ "$bind": "Imported", "options": { "width":  "5em", "selectable": true, "editable": true } },
 								{ "$bind": "caracTA.Price", "options": { "width": "10em", "selectable": true, "editable": true, "align": "right" } },
