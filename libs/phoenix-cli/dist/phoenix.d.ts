@@ -1303,6 +1303,8 @@ declare namespace Phoenix {
             selectedCell: any;
             private _pager;
             private _toolBar;
+            private _scroller;
+            private _rsTimer;
             private scrollableMaster;
             private scrollableHeaderOfMaster;
             private scrollableFrozenContent;
@@ -1330,6 +1332,7 @@ declare namespace Phoenix {
             changed(propName: any, ov: any, nv: any, op: any, params: any): void;
             private _modifyTD(item, field, td);
             private _findTR(id, col);
+            private _id2rowId(id);
             private _findtBody(col);
             private _modifyCell(item, field, td?);
             private _rootElement();
@@ -1358,8 +1361,11 @@ declare namespace Phoenix {
             protected resize(): void;
             protected _updateFrozenColumnsHeight(): void;
             private _resize();
-            private masterSyncScroll(e);
+            private syncHeaderAndFrozenScroll(e);
+            private syncMasterScroll(e);
+            private _removeScroller();
             private _vscroll();
+            private _vsmcroll();
             private _hscroll();
             private _moveDownSelectedCell(count);
             private _moveLeftSelectedCell();

@@ -167,6 +167,12 @@
   background-color: transparent;
   position: relative;
 }
+.bs-basictable-group.border {
+  border: 1px solid #ddd;
+}
+.bs-basictable-group:focus {
+  outline: 0px;
+}
 .bs-basictable-btn {
   cursor: pointer;
   font-size: 700;

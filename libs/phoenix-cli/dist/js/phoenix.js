@@ -11522,6 +11522,8 @@ var Phoenix;
             css = ["bs-basictable-group"];
             var hscrolling = options.scrolling && options.scrolling.horizontal;
             var vscrolling = options.scrolling && options.scrolling.vertical;
+            if (vscrolling || options.allowFrozenColumns)
+                css.push('border');
             if (hscrolling && !vscrolling)
                 css.push("bs-scroll-x");
             html.push('<div id="{0}_focus" class="');
@@ -11936,6 +11938,8 @@ var Phoenix;
                 if (that.scrollableMaster) {
                     $(that.scrollableMaster).off('scroll');
                 }
+                if (that.scrollableFrozenContent)
+                    $(that.scrollableFrozenContent).off('scroll');
                 that.scrollableMaster = null;
                 that.scrollableHeaderOfMaster = null;
             };
@@ -11949,7 +11953,9 @@ var Phoenix;
                     var hasFrozenColumns = opts.allowFrozenColumns && that.frozenColumns && that.frozenColumns.length;
                     that.scrollableFrozenContent = hasFrozenColumns ? _dom.find(e, that.id + '_frozen_scroll') : null;
                     if (that.scrollableMaster && that.scrollableHeaderOfMaster)
-                        $(that.scrollableMaster).on('scroll', that.masterSyncScroll.bind(that));
+                        $(that.scrollableMaster).on('scroll', that.syncHeaderAndFrozenScroll.bind(that));
+                    if (that.scrollableFrozenContent)
+                        $(that.scrollableFrozenContent).on('scroll', that.syncMasterScroll.bind(that));
                 }
             };
             BasicGrid.prototype.destroy = function () {
@@ -12180,6 +12186,12 @@ var Phoenix;
                 var that = this, opts = that.renderOptions;
                 var cid = id + (col.options.frozen && opts.allowFrozenColumns ? '_frozen' : '');
                 return _dom.find(that.$element.get(0), cid);
+            };
+            BasicGrid.prototype._id2rowId = function (id) {
+                var ii = id.indexOf('_frozen');
+                if (ii > 0)
+                    id = id.substring(0, ii);
+                return id;
             };
             BasicGrid.prototype._findtBody = function (col) {
                 var that = this, opts = that.renderOptions;
@@ -12553,7 +12565,8 @@ var Phoenix;
                 var nri = Math.max(pos.rIndex - count, 0);
                 if (nri != pos.rIndex) {
                     var pr = that._findtBody(col);
-                    return that._selectCell({ row: pr.childNodes[nri].id, col: that.selectedCell.col }, null, false);
+                    var tr = pr.childNodes[nri];
+                    return that._selectCell({ row: that._id2rowId(tr.id), col: that.selectedCell.col }, null, false);
                 }
                 return false;
             };
@@ -12593,10 +12606,31 @@ var Phoenix;
                     return;
                 that._updateFrozenColumnsHeight();
             };
-            BasicGrid.prototype.masterSyncScroll = function (e) {
+            BasicGrid.prototype.syncHeaderAndFrozenScroll = function (e) {
                 var that = this;
-                that._hscroll();
-                that._vscroll();
+                if (!that._scroller || that._scroller === 'master') {
+                    that._scroller = 'master';
+                    that._hscroll();
+                    that._vscroll();
+                    that._removeScroller();
+                }
+            };
+            BasicGrid.prototype.syncMasterScroll = function (e) {
+                var that = this;
+                if (!that._scroller || that._scroller === 'frozen') {
+                    that._scroller = 'frozen';
+                    that._vsmcroll();
+                    that._removeScroller();
+                }
+            };
+            BasicGrid.prototype._removeScroller = function () {
+                var that = this;
+                if (that._rsTimer)
+                    window.clearTimeout(that._rsTimer);
+                that._rsTimer = window.setTimeout(function () {
+                    that._scroller = null;
+                    that._rsTimer = null;
+                }, 50);
             };
             BasicGrid.prototype._vscroll = function () {
                 var that = this;
@@ -12605,6 +12639,13 @@ var Phoenix;
                     if (contentScrollTop !== fcScrollTop) {
                         that.scrollableFrozenContent.scrollTop = contentScrollTop;
                     }
+                }
+            };
+            BasicGrid.prototype._vsmcroll = function () {
+                var that = this;
+                var contentScrollTop = that.scrollableMaster.scrollTop, fcScrollTop = that.scrollableFrozenContent.scrollTop;
+                if (contentScrollTop !== fcScrollTop) {
+                    that.scrollableMaster.scrollTop = fcScrollTop;
                 }
             };
             BasicGrid.prototype._hscroll = function () {
@@ -12622,7 +12663,8 @@ var Phoenix;
                 var pr = that._findtBody(col);
                 var nri = Math.min(pos.rIndex + count, pr.childNodes.length - 1);
                 if (nri != pos.rIndex) {
-                    return that._selectCell({ row: pr.childNodes[nri].id, col: that.selectedCell.col }, null, false);
+                    var tr = pr.childNodes[nri];
+                    return that._selectCell({ row: that._id2rowId(tr.id), col: that.selectedCell.col }, null, false);
                 }
                 return false;
             };

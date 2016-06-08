@@ -18,6 +18,7 @@ $(function () {
 							"height": "250px",
 							"align": "middle",
 							"border": true,
+							"allowFrozenColumns": true,
 							"headerIsHidden": false,
 							"scrolling": {
 								"horizontal": true,
