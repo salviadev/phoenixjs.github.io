@@ -1834,7 +1834,8 @@ var Phoenix;
                 "newPassword": "New Password",
                 "change": "Change password"
             },
-            "ApplyDetailChanges": "Apply"
+            "ApplyDetailChanges": "Apply",
+            "Selected": "Sel."
         },
         "errors": {
             "Title": "Oops! An unknown error has occurred.",
@@ -7542,7 +7543,7 @@ var Phoenix;
                         break;
                     var s = segments[i];
                     if ((cs.type == "array") && (_sutils.arrayProps.indexOf(s) >= 0)) {
-                        // $item, $new or $selected 
+                        // $item, $new 
                         cs = cs.items;
                     }
                     else {
@@ -7555,8 +7556,17 @@ var Phoenix;
                                 link = false;
                                 cs = cs[s];
                             }
-                            else
+                            else {
                                 cs = cs.properties ? cs.properties[s] : null;
+                                if (!cs && i === (len - 1)) {
+                                    if (s === '$index') {
+                                        return { type: 'integer', title: "#" };
+                                    }
+                                    else if (s === '$selected') {
+                                        return { type: 'boolean', title: _locale.ui.Selected };
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -7686,7 +7696,7 @@ var Phoenix;
                     return null;
                 return res;
             },
-            arrayProps: ['$item', '$new', '$selected'],
+            arrayProps: ['$item', '$new'],
             init: function (schema, context, value) {
                 var a = value || {};
                 a.$states = a.$states || {};
@@ -8625,7 +8635,7 @@ var Phoenix;
                 return model.getState(path, params);
             },
             _resolveSegment: function (segment, path, value, params, val, isSet) {
-                if (segment == "$item") {
+                if (segment === '$item') {
                     if (params) {
                         var p = params[path];
                         if (p && p.$index != undefined) {
@@ -8635,8 +8645,18 @@ var Phoenix;
                         }
                     }
                 }
+                else if (segment === '$new') {
+                    if (isSet)
+                        value[segment] = val;
+                    return value[segment];
+                }
                 else {
-                    if ((segment == "$new") || (segment == "$selected")) {
+                    if (value && value[segment] && typeof value[segment] === 'function') {
+                        if (isSet)
+                            return value[segment](val);
+                        return value[segment]();
+                    }
+                    else {
                         if (isSet)
                             value[segment] = val;
                         return value[segment];
@@ -9100,6 +9120,7 @@ var Phoenix;
                 var that = this;
                 that.$id = _utils.allocID();
                 that.$create = false;
+                that._selected = false;
                 that._model = {};
                 that.datasets = datasets;
                 that.transform = transform;
@@ -9228,6 +9249,27 @@ var Phoenix;
                 var that = this;
                 var root = that.getRootModel();
                 return that._validate(root._validators);
+            };
+            Object.defineProperty(Data.prototype, "$selected", {
+                get: function () {
+                    return this._selected;
+                },
+                set: function (value) {
+                    var that = this;
+                    if (this._selected !== value) {
+                        that._selected = value;
+                        that._notifyChanged('$selected', !that._selected, value, "propchange", {}, true);
+                    }
+                },
+                enumerable: true,
+                configurable: true
+            });
+            Data.prototype.$index = function (value) {
+                var that = this;
+                if (that._arrayParent) {
+                    return Math.max(that._arrayParent.indexOf(that), 0) + 1;
+                }
+                return 0;
             };
             Data.prototype.$save = function () {
                 var that = this;
@@ -9388,6 +9430,7 @@ var Phoenix;
                 var that = this;
                 return _su.getSchema(path, that._schema);
             };
+            //TODO states for $index
             Data.prototype.getState = function (path, params) {
                 var that = this;
                 var segments = path.split('.'), propertyName = segments.pop(), opropertyName = propertyName, cs = that, ps, res = {}, cpath = [], islink = false;
@@ -12067,7 +12110,7 @@ var Phoenix;
             BasicGrid.prototype._initCols = function (options) {
                 var that = this;
                 if (!options.columns || !options.columns.length) {
-                    options.columns = [{ $bind: '$index', title: '#', schema: { type: 'integer' } }];
+                    options.columns = [{ $bind: '$index' }];
                 }
                 that.columns = [];
                 that.frozenColumns = [];
@@ -13172,7 +13215,7 @@ var Phoenix;
                 var headerBind = row.$bind, headerSchema;
                 if (!row.$bind) {
                     headerBind = "$index";
-                    headerSchema = { type: "number", decimals: 0 };
+                    headerSchema = { type: "integer" };
                 }
                 else {
                     headerSchema = _sutils.getSchema(row.$bind, that.$schema.items);

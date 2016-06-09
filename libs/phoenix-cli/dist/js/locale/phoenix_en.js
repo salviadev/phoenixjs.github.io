@@ -47,7 +47,8 @@ var Phoenix;
                 "newPassword": "New Password",
                 "change": "Change password"
             },
-            "ApplyDetailChanges": "Apply"
+            "ApplyDetailChanges": "Apply",
+            "Selected": "Sel."
         },
         "errors": {
             "Title": "Oops! An unknown error has occurred.",

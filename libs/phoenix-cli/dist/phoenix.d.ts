@@ -1018,6 +1018,7 @@ declare namespace Phoenix {
         }
         class Data {
             private _schema;
+            private _selected;
             private _model;
             private _locale;
             private _validators;
@@ -1044,6 +1045,8 @@ declare namespace Phoenix {
             $refresh(options?: any): void;
             private _validate(validators);
             validate(): boolean;
+            $selected: boolean;
+            $index(value?: number): number;
             $save(): any;
             getRootModel(): Data;
             addValidator(name: string, value: boolean): void;

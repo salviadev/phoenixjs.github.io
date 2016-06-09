@@ -1026,7 +1026,7 @@ table.table-bordered.table-header.bs-theme {
   border-top-color: #636363;
 }
 table.bs-theme {
-  margin-bottom: 1px;
+  margin-bottom: 0px;
 }
 table.bs-fixed {
   table-layout: fixed;

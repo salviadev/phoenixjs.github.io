@@ -26,6 +26,7 @@ $(function () {
 							},
 							"editing": true,
 							"columns": [
+								{ "$bind": "$index", "options": { "width":  "50", "frozen": true } },
 								{ "$bind": "Type", "options": { "width":  "120", "frozen": true, "selectable": true, "editable": true } },
 								{ "$bind": "Libelle", "options": { "width": "150", "frozen": true, "selectable": true, "editable": true } },
 								{ "$bind": "Date", "options": { "width":  "8em", "selectable": true, "editable": true } },

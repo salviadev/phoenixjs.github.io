@@ -47,7 +47,8 @@ var Phoenix;
                 "newPassword": "Nouveau mot de passe",
                 "change": "Modifier le mot de passe"
             },
-            "ApplyDetailChanges": "Appliquer"
+            "ApplyDetailChanges": "Appliquer",
+            "Selected": "Sel."
         },
         "errors": {
             "Title": "Oops! Une erreur s'est produite.",
