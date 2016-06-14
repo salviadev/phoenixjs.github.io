@@ -132,7 +132,7 @@ var Phoenix;
                 return args[num + 1];
             });
         }, _formatByName = function (value, params) {
-            return value.replace(/{(.*)}/g, function (match, val) {
+            return value.replace(/{([^{]*)}/g, function (match, val) {
                 return params[val] || '';
             });
         }, _merge = function (src, dst) {
@@ -2296,17 +2296,24 @@ var Phoenix;
                 };
                 var lurl = params.$url;
                 var config = _application.config(_application.name) || {};
-                var base = config.rest ? config.rest.base || '' : '';
+                config.rest = config.rest || {};
+                var base = config.rest.base || '';
                 if (lurl && lurl.charAt(0) === '/')
                     base = '';
                 if (base)
                     lurl = base + '/' + lurl;
-                if (config.rest && config.rest.$context) {
-                    lurl = _utils.formatNames(lurl, { $context: config.rest.$context });
-                }
-                else {
-                    lurl = lurl.replace('{context}/', '');
-                }
+                var cfg = {};
+                if (params.$module === undefined && config.rest.$module)
+                    params.$module = config.rest.$module;
+                if (!params.$module)
+                    lurl = lurl.replace('\{\$module\}/', '');
+                else
+                    cfg.$module = params.$module;
+                if (!config.rest.$context)
+                    lurl = lurl.replace('\{\$context\}/', '');
+                else
+                    cfg.$context = config.rest.$context;
+                lurl = _utils.formatNames(lurl, cfg);
                 var opts = _ajax.getDefaultAjaxOptions();
                 var query = params.$query;
                 var listprop = params.$list;
@@ -2384,8 +2391,20 @@ var Phoenix;
             },
             urlResEntity: function (params, checkId) {
                 var config = _application.config(_application.name) || {};
-                var base = config.odata ? config.odata.base || '/data' : '/data';
-                base = _utils.formatNames(base, { $module: params.$module });
+                config.odata = config.odata || {};
+                var base = config.odata.base || '/data';
+                var cfg = {};
+                if (params.$module === undefined && config.odata.$module)
+                    params.$module = config.odata.$module;
+                if (!params.$module)
+                    base = base.replace('\{\$module\}/', '');
+                else
+                    cfg.$module = params.$module;
+                if (!config.odata.$context)
+                    base = base.replace('\{\$context\}/', '');
+                else
+                    cfg.$context = config.odata.$context;
+                base = _utils.formatNames(base, cfg);
                 if (!params.$entity)
                     throw "Invalid odata entity.";
                 if (checkId && !params.$entityId)
@@ -2447,11 +2466,23 @@ var Phoenix;
                 var cache = params.$cache;
                 delete params.$cache;
                 var config = _application.config(_application.name) || {};
-                if (config.odata && config.odata.v4 != undefined) {
+                config.odata = config.odata || {};
+                if (config.odata.v4 != undefined) {
                     _odata.v4 = config.odata.v4;
                 }
                 var base = config.odata ? config.odata.base || '/data' : '/data';
-                base = _utils.formatNames(base, { $module: params.$module });
+                var cfg = {};
+                if (params.$module === undefined && config.odata.$module)
+                    params.$module = config.odata.$module;
+                if (!params.$module)
+                    base = base.replace('\{\$module\}/', '');
+                else
+                    cfg.$module = params.$module;
+                if (!config.odata.$context)
+                    base = base.replace('\{\$context\}/', '');
+                else
+                    cfg.$context = config.odata.$context;
+                base = _utils.formatNames(base, cfg);
                 delete params.$module;
                 var entity = params.$entity;
                 if (params.$entityId) {
@@ -8668,6 +8699,8 @@ var Phoenix;
         var DataListCore = (function () {
             function DataListCore(schema, parent, path, value, arrayParent, locale) {
                 var that = this;
+                that._map = {};
+                that._selected = [];
                 that._model = [];
                 that._items = [];
                 that._path = path;
@@ -8679,6 +8712,18 @@ var Phoenix;
                 that._setModel(value, false);
                 that._createCustomProps();
             }
+            DataListCore.prototype.pushSelected = function (id) {
+                var that = this;
+                var ii = that._selected.indexOf(id);
+                if (ii < 0)
+                    that._selected.push(id);
+            };
+            DataListCore.prototype.removeSelected = function (id) {
+                var that = this;
+                var ii = that._selected.indexOf(id);
+                if (ii >= 0)
+                    that._selected.splice(ii, 1);
+            };
             DataListCore.prototype.notifyChangedProperty = function (propName) {
                 var that = this;
                 that._parent._notifyChanged(that._path, undefined, undefined, propName, {}, false);
@@ -8812,26 +8857,43 @@ var Phoenix;
             }
             DataListBase.prototype._fillItems = function () {
                 var that = this;
+                that._map = {};
+                that._selected = [];
                 that._model.forEach(function (item, index) {
-                    that._items.push(new Data(that._schema.items, that._parent, that._path, item, that, false, that._locale, null));
+                    var citem = new Data(that._schema.items, that._parent, that._path, item, that, false, that._locale, null);
+                    that._items.push(citem);
+                    that._map[citem.$id] = citem;
                 });
             };
             DataListBase.prototype._destroyItems = function () {
                 var that = this;
+                that._map = {};
+                that._selected = [];
                 if (that._items) {
                     that._items.forEach(function (item) { item.destroy(); });
                     that._model = [];
                     that._items = [];
                 }
             };
-            DataListBase.prototype.findById = function (id) {
+            DataListBase.prototype.selectRow = function (id, value, exclusive) {
                 var that = this;
-                for (var i = 0, len = that._items.length; i < len; i++) {
-                    var item = that._items[i];
-                    if (item.$id === id)
-                        return item;
+                var item = that.findById(id);
+                if (value) {
+                    if (!item.$selected) {
+                        if (exclusive) {
+                            var sel = that._selected.slice(0);
+                            sel.forEach(function (sid) {
+                                var ii = that.findById(sid);
+                                if (ii)
+                                    ii.$selected = false;
+                            });
+                        }
+                        item.$selected = true;
+                    }
                 }
-                return null;
+            };
+            DataListBase.prototype.findById = function (id) {
+                return this._map[id];
             };
             DataListBase.prototype.indexOf = function (value) {
                 var that = this;
@@ -9088,6 +9150,9 @@ var Phoenix;
                 var ii = new Data(that._schema.items, that._parent, that._path, item, that, false, that._locale, null);
                 that._items.push(ii);
                 that.frozen = ofv;
+                that._map[ii.$id] = ii;
+                if (ii.$selected)
+                    that.pushSelected(ii.$id);
                 ii._notifyChanged('', undefined, item, "add", { $index: that._items.length - 1, $id: ii.$id }, false);
                 ii.notifyStateChanged('', {});
             };
@@ -9106,6 +9171,8 @@ var Phoenix;
                     item.destroy();
                 }
                 that.frozen = ofv;
+                delete that._map[id];
+                that.removeSelected(id);
                 if (notify) {
                     var path = (that._path ? that._path + '.' : '') + '$item';
                     that._parent._notifyChanged(path, undefined, undefined, "remove", { $index: ii, $value: removed, $id: id }, false);
@@ -9259,6 +9326,12 @@ var Phoenix;
                     if (this._selected !== value) {
                         that._selected = value;
                         that._notifyChanged('$selected', !that._selected, value, "propchange", {}, true);
+                        if (that._arrayParent) {
+                            if (that._selected)
+                                that._arrayParent.pushSelected(that.$id);
+                            else
+                                that._arrayParent.removeSelected(that.$id);
+                        }
                     }
                 },
                 enumerable: true,
@@ -9720,7 +9793,7 @@ var Phoenix;
                             return !error;
                     }
                 }
-                else if (event != 'validate')
+                else if (event !== 'validate')
                     return !error;
                 var first = true;
                 validators.forEach(function (validator) {
@@ -9746,8 +9819,8 @@ var Phoenix;
                 if (that._arrayParent) {
                     if (op === 'propchange' && propertyName) {
                         var item = that._arrayParent.findById(that.$id);
-                        if (item == that) {
-                            that._parent._notifyChanged(that._path, oldValue, value, "upd", { $id: item.$id, property: propertyName }, validate);
+                        if (item === that) {
+                            that._parent._notifyChanged(that._path, oldValue, value, 'upd', { $id: item.$id, property: propertyName }, validate);
                         }
                     }
                     propertyName = that._arrayParent.updateParams(that, propertyName, params);
@@ -9756,7 +9829,7 @@ var Phoenix;
                     that._parent._notifyChanged(propertyName ? (that._path + '.' + propertyName) : that._path, oldValue, value, op, params, validate);
                 }
                 else {
-                    _utils.logModule('proxydata') && _utils.log("Changed: " + that._extractPropName(propertyName || '', params) + ', operation = ' + op, "proxydata");
+                    _utils.logModule('proxydata') && _utils.log('Changed: ' + that._extractPropName(propertyName || '', params) + ', operation = ' + op, 'proxydata');
                     if (that.onchange)
                         that.onchange(propertyName, oldValue, value, op, params);
                     if (validate && that._validators && that.hasValidators()) {
@@ -10756,6 +10829,20 @@ var Phoenix;
                 else
                     return false;
             };
+        }, _transform = function (value, displayValue, transform) {
+            var func = _customData.get("ui.html." + transform);
+            if (func)
+                return { value: func(value, displayValue), html: true };
+            return { value: displayValue, html: false };
+        }, _mapIcon = function (options, value) {
+            var skey = value + '';
+            var iconName = options.avanced.icons[value];
+            var css = [];
+            if (iconName)
+                css.push(_dom.iconClass(iconName));
+            var cc = options.tableOptions && options.tableOptions.small ? ' small-table' : '';
+            var html = '<center class="bs-image-center' + cc + '"><span class="' + css.join(' ') + '"> </span></center>';
+            return { value: html, html: true };
         }, _afutils = {
             useDatePicker: function () { return !_afutils.nativeDate() && $.fn.datepicker != null; },
             nativeDate: _dateNative(),
@@ -10882,10 +10969,14 @@ var Phoenix;
                     value = '';
                 if (schema.enum) {
                     var si = schema.enum.indexOf(value);
-                    if (si >= 0)
-                        res = { value: (schema.enumNames ? _ulocale.tt(schema.enumNames[si], locale) : value), html: false };
+                    var dv = si >= 0 ? (schema.enumNames ? _ulocale.tt(schema.enumNames[si], locale) : value) : '';
+                    if (options.avanced && options.avanced.transform) {
+                        res = _transform(value, dv, options.avanced.transform);
+                    }
+                    else if (options.avanced && options.avanced.icons)
+                        res = _mapIcon(options, value);
                     else
-                        res = { value: '', html: false };
+                        res = { value: dv, html: false };
                 }
                 else {
                     switch (schema.type) {
@@ -10893,36 +10984,63 @@ var Phoenix;
                             if (schema.format) {
                                 switch (schema.format) {
                                     case "date":
-                                        res = { value: _ulocale.shortDate(value || ''), html: false };
+                                        var dv = _ulocale.shortDate(value || '');
+                                        if (options.avanced && options.avanced.transform)
+                                            res = _transform(value, dv, options.avanced.transform);
+                                        else
+                                            res = { value: dv, html: false };
                                         break;
                                 }
                             }
-                            if (!res)
-                                res = { value: value, html: false };
+                            if (!res) {
+                                if (options.avanced.transform)
+                                    res = _transform(value, value, options.avanced.transform);
+                                else
+                                    res = { value: value, html: false };
+                            }
                             break;
                         case "number":
-                            if (schema.format == 'money') {
-                                res = { value: _ulocale.money(value || 0, options.useSymbol), html: false };
-                            }
-                            else {
-                                res = { value: _ulocale.decimal(value || 0, schema.decimals || 0, (options.useSymbol ? schema.symbol : '')), html: false };
-                            }
+                            var ndv = (schema.format === 'money') ? Phoenix.ulocale.money(value || 0, options.useSymbol) : _ulocale.decimal(value || 0, schema.decimals || 0, (options.useSymbol ? schema.symbol : ''));
+                            if (options.avanced && options.avanced.transform)
+                                res = _transform(value, ndv, options.avanced.transform);
+                            else
+                                res = { value: ndv, html: false };
                             break;
                         case "integer":
-                            res = { value: _ulocale.decimal(value || 0, 0, ''), html: false };
+                            var idv = _ulocale.decimal(value || 0, 0, '');
+                            if (options.avanced && options.avanced.transform)
+                                res = _transform(value, idv, options.avanced.transform);
+                            else
+                                res = { value: idv, html: false };
                             break;
                         case "boolean":
-                            if (options.html) {
+                            if (options.avanced && options.avanced.transform) {
+                                res = _transform(value, value ? _locale.ui.Yes : _locale.ui.No, options.avanced.transform);
+                            }
+                            else if (options.html) {
                                 var html = [];
-                                if ((options.avanced && options.avanced.editable) || options.editable || options.check) {
+                                if ((options.avanced && options.avanced.editable) || options.editable || options.check || (options.avanced && options.avanced.icons)) {
                                     var ces = '';
-                                    var curs = 'bs-cursor-d ';
+                                    var curs = 'bs-cursor-d';
                                     if (options.editable) {
-                                        ces = ' bs-bool-edit';
-                                        curs = 'bs-cursor-p ';
+                                        ces = 'bs-bool-edit';
+                                        curs = 'bs-cursor-p';
+                                    }
+                                    else {
+                                        ces = 'bs-bool';
                                     }
                                     var cc = options.tableOptions && options.tableOptions.small ? ' small-table' : '';
-                                    html.push('<center class="bs-bool-center' + cc + '"><span data-clickable="true" class="' + curs + _dom.iconClass(value ? 'check-square-o' : 'square-o') + ces + '"></span></center>');
+                                    var map = options.avanced ? options.avanced.icons : null;
+                                    if (!map)
+                                        map = {
+                                            'true': 'check-square-o',
+                                            'false': 'square-o'
+                                        };
+                                    var iconName = map[!!value + ''];
+                                    var css = [ces, curs];
+                                    if (iconName)
+                                        css.push(_dom.iconClass(iconName));
+                                    html.push('<center class="bs-image-center' + cc + '"><span data-clickable="true" class="' + css.join(' ') + '"> </span></center>');
                                     res = { value: html.join(''), html: true };
                                 }
                                 else {
@@ -11239,8 +11357,10 @@ var Phoenix;
                 }
             }
         }, _ensureWidth = function (value) {
-            if (typeof value === "number")
+            if (typeof value === 'number')
                 return value + 'px';
+            if ((parseInt(value, 10) + ' ') === value.trim())
+                return value.trim() + 'px';
             return value;
         }, _createDetail = function (id, childBefore) {
             var res = document.createElement('tr');
@@ -11326,12 +11446,37 @@ var Phoenix;
                 _dom.append(tr, td);
             });
             return tr;
+        }, _hasFrozenColumns = function (opts, frozenColumns) {
+            var res = !!(opts.allowFrozenColumns && frozenColumns && frozenColumns.length);
+            return res;
+        }, _setRowsSelected = function (id, value, options, parent) {
+            if (options.selecting && options.selecting.row) {
+                var p = [];
+                var tr = _dom.find(parent, id);
+                if (tr)
+                    p.push(tr);
+                if (options.allowFrozenColumns) {
+                    tr = _dom.find(parent, id + '_frozen');
+                    if (tr)
+                        p.push(tr);
+                }
+                p.forEach(function (ctr) {
+                    if (value)
+                        _dom.addClass(ctr, 'bs-row-selected');
+                    else
+                        _dom.removeClass(ctr, 'bs-row-selected');
+                });
+            }
         }, _createRow = function (id, index, row, columns, options, authoring, locale, isOdd, isFrozen) {
             var tr = document.createElement('tr');
             tr.id = row.$id + (isFrozen ? '_frozen' : '');
-            tr.className = "bs-table-row";
+            var rcss = ['bs-table-row'];
             if (options.align === "middle")
-                _dom.addClass(tr, "bs-va-middle");
+                rcss.push('bs-va-middle');
+            if (row.$selected && options.selecting && options.selecting.row) {
+                rcss.push('bs-row-selected');
+            }
+            tr.className = rcss.join(' ');
             if (!options._useStripedCss) {
                 var isOdd_1 = index % 2 === 1;
                 if (!isOdd_1)
@@ -11524,10 +11669,10 @@ var Phoenix;
                 html.push('<colgroup id="{0}_colgrp' + (isFrozen ? '_frozen' : '') + (isHeader ? '_header' : '') + '"></colgroup>');
             if (!options.headerIsHidden) {
                 if (isHeader) {
-                    html.push('<thead><tr id="{0}' + (isFrozen ? '_frozen' : '') + '_cols"></tr></thead>');
+                    html.push('<thead><tr class="bs-va-middle" id="{0}' + (isFrozen ? '_frozen' : '') + '_cols"></tr></thead>');
                 }
                 else if (!vscrolling) {
-                    html.push('<thead><tr id="{0}' + +'_cols"></tr></thead>');
+                    html.push('<thead><tr class="bs-va-middle" id="{0}' + '_cols"></tr></thead>');
                 }
             }
             if (!isHeader) {
@@ -11543,6 +11688,11 @@ var Phoenix;
                 res += parseInt(col.options.width + '', 10);
             });
             return res;
+        }, _updatecolumnsWidth = function (e, id, cols) {
+            var cw = _columnsWidth(cols);
+            var p = _dom.find(e, id + '_frozen_header_parent');
+            if (p)
+                p.style.width = cw + 'px';
         }, _createGridContainer = function (id, options, authoring, title, locale, columns, frozenColumns) {
             title = title || '';
             options._useColGrp = _canUseColGroups(options, columns);
@@ -11579,7 +11729,7 @@ var Phoenix;
             if (options.allowFrozenColumns) {
                 html.push('<div class="bs-table-cols">');
                 var fw = _columnsWidth(frozenColumns);
-                html.push('<div class="bs-table-frozen-cols" style="width:' + fw + 'px;">');
+                html.push('<div id="{0}_frozen_header_parent"  class="bs-table-frozen-cols" style="width:' + fw + 'px;">');
                 if (vscrolling && !options.headerIsHidden) {
                     // parent of frozen header table
                     html.push('<div id="{0}_table_frozen_header" class="bs-table-header">');
@@ -11803,12 +11953,15 @@ var Phoenix;
             gridContainer: _createGridContainer,
             createRows: _createRows,
             createRow: _createRow,
+            setRowsSelected: _setRowsSelected,
             createGridRows: _createGridRows,
             createInplaceEdit: _createInplaceEdit,
             updateInplaceEdit: _updateInplaceEdit,
             createDetail: _createDetail,
             updateEvenOdd: _updateEvenOdd,
-            ensureWidth: _ensureWidth
+            ensureWidth: _ensureWidth,
+            updateFrozenWidth: _updatecolumnsWidth,
+            hasFrozenColumns: _hasFrozenColumns
         };
         ui.GridUtil = _gridUtil;
     })(ui = Phoenix.ui || (Phoenix.ui = {}));
@@ -11981,7 +12134,7 @@ var Phoenix;
                 if (that.scrollableMaster) {
                     $(that.scrollableMaster).off('scroll');
                 }
-                if (that.scrollableFrozenContent)
+                if (that.scrollableFrozenContent && that.fieldOptions.editing)
                     $(that.scrollableFrozenContent).off('scroll');
                 that.scrollableMaster = null;
                 that.scrollableHeaderOfMaster = null;
@@ -11993,11 +12146,11 @@ var Phoenix;
                     var e = that.$element.get(0);
                     that.scrollableMaster = _dom.find(e, that.id + '_master_scroll');
                     that.scrollableHeaderOfMaster = _dom.find(e, that.id + '_table_header_content');
-                    var hasFrozenColumns = opts.allowFrozenColumns && that.frozenColumns && that.frozenColumns.length;
+                    var hasFrozenColumns = _gu.hasFrozenColumns(opts, that.frozenColumns);
                     that.scrollableFrozenContent = hasFrozenColumns ? _dom.find(e, that.id + '_frozen_scroll') : null;
                     if (that.scrollableMaster && that.scrollableHeaderOfMaster)
                         $(that.scrollableMaster).on('scroll', that.syncHeaderAndFrozenScroll.bind(that));
-                    if (that.scrollableFrozenContent)
+                    if (that.scrollableFrozenContent && that.fieldOptions.editing)
                         $(that.scrollableFrozenContent).on('scroll', that.syncMasterScroll.bind(that));
                 }
             };
@@ -12021,6 +12174,10 @@ var Phoenix;
                 if (that._pager) {
                     that._pager.destroy();
                     that._pager = null;
+                }
+                if (that._toolBar) {
+                    that._toolBar.destroy();
+                    that._toolBar = null;
                 }
                 that._details = null;
                 that._mapCols = null;
@@ -12056,22 +12213,23 @@ var Phoenix;
                 if (toolElement.name === 'filter' && ui.glbGridFilter) {
                     return ui.glbGridFilter(that.filtrableColumns(), that.state.value, that.form.$locale);
                 }
-                that.form.execAction(that.$bind + ".$toolbar." + toolName, toolElement);
+                that.form.execAction(that.$bind + ".$toolbar." + toolName, { toolElement: toolElement, grid: that });
             };
             BasicGrid.prototype._state = function () {
                 _super.prototype._state.call(this);
                 var that = this;
+                var opts = that.fieldOptions;
                 if (that.state.value.isQueryable()) {
                     // create pager
-                    var options = $.extend({ size: "default", selectPage: that._onselectPage.bind(that) }, that.renderOptions.pager || {});
+                    var options = $.extend({ size: "default", selectPage: that._onselectPage.bind(that) }, opts.pager || {});
                     that._pager = new _ui.Pager(options);
                     var p = that._pager;
                     p.props.totalPages = that.state.value.totalPages();
                     p.props.currentPage = that.state.value.currentPage();
                 }
                 var toolElements = [];
-                if (that.renderOptions.toolbar && that.renderOptions.toolbar.items) {
-                    var toolbarOptions = $.extend(true, {}, that.renderOptions.toolbar);
+                if (opts.toolbar && opts.toolbar.items) {
+                    var toolbarOptions = $.extend(true, {}, opts.toolbar);
                     toolbarOptions.items.forEach(function (te) {
                         if (te.type === "count")
                             te = $.extend({ "name": "count", "right": true, "value": that.state.value.totalCount() }, te);
@@ -12114,9 +12272,23 @@ var Phoenix;
                 }
                 that.columns = [];
                 that.frozenColumns = [];
+                var ii = options.columns.findIndex(function (item) {
+                    return item.$bind === '$selected';
+                });
+                var addSelected = options.selecting && options.selecting.row && options.selecting.multiselect;
+                if (addSelected) {
+                    if (ii < 0)
+                        options.columns.splice(0, 0, { "$bind": "$selected", "options": { "width": 50, "frozen": true, "editable": true } });
+                }
+                else {
+                    if (ii >= 0)
+                        options.columns.splice(ii, 1);
+                }
                 options.columns.forEach(function (col) {
                     var c = $.extend({}, col);
                     c.options = c.options || {};
+                    if (c.options.isHidden)
+                        return;
                     if (!c.schema)
                         c.schema = _sutils.getSchema(col.$bind, that.$schema.items);
                     if (!c.schema) {
@@ -12150,6 +12322,8 @@ var Phoenix;
             };
             BasicGrid.prototype.changed = function (propName, ov, nv, op, params) {
                 var that = this;
+                if (!that.$element)
+                    return;
                 var updOddEven = false, doResize = false;
                 switch (op) {
                     case "count":
@@ -12201,6 +12375,8 @@ var Phoenix;
                             var item = params && params.$id ? that.state.value.findById(params.$id) : null;
                             if (item) {
                                 that._modifyCell(item, params.property);
+                                if (params.property === '$selected')
+                                    _gu.setRowsSelected(item.$id, item.$selected, that.fieldOptions, that.$element.get(0));
                             }
                         }
                         break;
@@ -12414,10 +12590,14 @@ var Phoenix;
                 var that = this;
                 var td = _dom.parentByTag(that.$element.get(0), event.target, 'td');
                 if (td) {
+                    var opts = that.renderOptions;
                     var cell = that._td2cell(td);
                     if (cell) {
                         if (that._selectCell(cell, event, true)) {
                             event.preventDefault();
+                        }
+                        else if (opts.selecting && opts.selecting.row && !opts.selecting.cell && !opts.selecting.multiselect) {
+                            that._selectRow(cell.row);
                         }
                     }
                 }
@@ -12544,6 +12724,10 @@ var Phoenix;
                 }
                 that._gridParentFocus().tabIndex = 0;
             };
+            BasicGrid.prototype._selectRow = function (id) {
+                var that = this;
+                that.state.value.selectRow(id, true, true);
+            };
             BasicGrid.prototype._selectCell = function (cell, target, mousedown) {
                 var that = this;
                 if (!that.canSelect(cell))
@@ -12558,11 +12742,15 @@ var Phoenix;
                 else {
                     that._gridParentFocus().tabIndex = -1;
                 }
+                var opts = that.renderOptions;
+                if (opts.selecting && opts.selecting.row && !opts.selecting.multiselect) {
+                    that._selectRow(cell.row);
+                }
                 return true;
             };
             BasicGrid.prototype._selectFirstCell = function () {
                 var that = this;
-                var opts = that.renderOptions;
+                var opts = that.fieldOptions;
                 if (!opts.selecting || !opts.selecting.cell)
                     return false;
                 var pr = _dom.find(that.$element.get(0), that.id + '_rows');
@@ -12641,7 +12829,7 @@ var Phoenix;
                 var vscroll = opts.scrolling && opts.scrolling.vertical;
                 if (!vscroll)
                     return;
-                var hasFrozenColumns = opts.allowFrozenColumns && that.frozenColumns && that.frozenColumns.length;
+                var hasFrozenColumns = _gu.hasFrozenColumns(opts, that.frozenColumns);
                 if (!hasFrozenColumns)
                     return;
                 var sh = _dom.scrollbar();
@@ -12668,6 +12856,10 @@ var Phoenix;
             };
             BasicGrid.prototype._removeScroller = function () {
                 var that = this;
+                if (!that.fieldOptions.editing) {
+                    that._scroller = null;
+                    return;
+                }
                 if (that._rsTimer)
                     window.clearTimeout(that._rsTimer);
                 that._rsTimer = window.setTimeout(function () {
@@ -12786,7 +12978,7 @@ var Phoenix;
                     var pr = void 0, rows = void 0;
                     that._inplaceEditRemove(false, false);
                     that._destroyDetails();
-                    if (that.frozenColumns && that.frozenColumns.length) {
+                    if (_gu.hasFrozenColumns(that.renderOptions, that.frozenColumns)) {
                         pr = _dom.find(that.$element.get(0), that.id + '_frozen_rows');
                         if (pr) {
                             rows = _gu.createRows(that.id, that.state.value, that.frozenColumns, that.renderOptions, that.options.design, that.form.$locale, true);
@@ -12805,7 +12997,8 @@ var Phoenix;
                 var that = this, id = item.$id;
                 if (that.$element) {
                     var options = that.renderOptions;
-                    if (options.allowFrozenColumns && that.frozenColumns && options.frozenColumns.length)
+                    var hfc = _gu.hasFrozenColumns(options, that.frozenColumns);
+                    if (hfc)
                         return;
                     var pr = _dom.find(that.$element.get(0), that.id + '_rows');
                     var tdetail = _dom.find(pr, id + '_detail');
@@ -12878,7 +13071,7 @@ var Phoenix;
                     var toRemove_1 = _dom.find(that.$element.get(0), id);
                     if (toRemove_1)
                         toRemoveList.push({ element: toRemove_1, columns: that.columns });
-                    if (that.renderOptions.frozenColumns.length)
+                    if (_gu.hasFrozenColumns(that.renderOptions, that.frozenColumns))
                         toRemove_1 = _dom.find(that.$element.get(0), id + '_frozen');
                     if (toRemove_1)
                         toRemoveList.push({ element: toRemove_1, columns: that.frozenColumns });
@@ -12920,8 +13113,8 @@ var Phoenix;
                 if (that.$element) {
                     var item = that.state.value.findById(id);
                     var index = that.state.value.indexOf(item);
-                    var pr = void 0, nr = void 0;
-                    if (that.frozenColumns && that.frozenColumns.length) {
+                    var pr = void 0, nr = void 0, hasFc = _gu.hasFrozenColumns(that.renderOptions, that.frozenColumns);
+                    if (hasFc) {
                         pr = _dom.find(that.$element.get(0), that.id + '_frozen_rows');
                         nr = _gu.createRow(that.id, index, item, that.frozenColumns, that.renderOptions, that.options.design, that.form.$locale, pr.childNodes.length % 2 === 1, true);
                         _dom.append(pr, nr);
@@ -12951,6 +13144,66 @@ var Phoenix;
                         _gu.updSorting(opts, pc, that._colByField, that.state.value.$orderby());
                 }
             };
+            BasicGrid.prototype._renderColumns = function (opts) {
+                var that = this;
+                that._inplaceEditRemove(false, false);
+                if (opts._useColGrp) {
+                    // create free columns
+                    var vscroll = opts.scrolling && opts.scrolling.vertical;
+                    var cg = vscroll && !opts.headerIsHidden ? _dom.find(that.$element.get(0), that.id + '_colgrp_header') : null;
+                    if (cg) {
+                        _dom.empty(cg);
+                        _dom.append(cg, _gu.createColGroup(that.columns, opts, false));
+                    }
+                    cg = _dom.find(that.$element.get(0), that.id + '_colgrp');
+                    _dom.empty(cg);
+                    _dom.append(cg, _gu.createColGroup(that.columns, opts, false));
+                    // create frozen columns
+                    if (_gu.hasFrozenColumns(opts, that.frozenColumns)) {
+                        var cg_1 = vscroll && !opts.headerIsHidden ? _dom.find(that.$element.get(0), that.id + '_colgrp_frozen_header') : null;
+                        if (cg_1) {
+                            _dom.empty(cg_1);
+                            _dom.append(cg_1, _gu.createColGroup(that.frozenColumns, opts, true));
+                        }
+                        cg_1 = _dom.find(that.$element.get(0), that.id + '_colgrp_frozen');
+                        if (cg_1) {
+                            _dom.empty(cg_1);
+                            _dom.append(cg_1, _gu.createColGroup(that.frozenColumns, opts, true));
+                        }
+                    }
+                }
+                if (!opts.headerIsHidden) {
+                    var pc = _dom.find(that.$element.get(0), that.id + '_cols');
+                    _dom.empty(pc);
+                    _dom.append(pc, _gu.createCols(that.id, that.columns, opts, that.options.design, that.form.$locale, that.state.value.$orderby(), false));
+                    if (_gu.hasFrozenColumns(opts, that.frozenColumns)) {
+                        pc = _dom.find(that.$element.get(0), that.id + '_frozen_cols');
+                        if (pc) {
+                            _dom.empty(pc);
+                            _dom.append(pc, _gu.createCols(that.id, that.frozenColumns, opts, that.options.design, that.form.$locale, that.state.value.$orderby(), true));
+                        }
+                    }
+                }
+                if (opts.allowFrozenColumns) {
+                    _gu.updateFrozenWidth(that.$element.get(0), that.id, that.frozenColumns);
+                }
+            };
+            BasicGrid.prototype.toggleMultiselect = function () {
+                var that = this;
+                if (!that.$element)
+                    return;
+                var opts = that.renderOptions;
+                if (opts.selecting && opts.selecting.row) {
+                    //ToDo scroll
+                    that.removeEvents();
+                    opts.selecting.multiselect = !!!opts.selecting.multiselect;
+                    that._initCols(opts);
+                    that._renderColumns(opts);
+                    that._renderRows();
+                    that.setEvents(that.renderOptions);
+                    that.resize();
+                }
+            };
             BasicGrid.prototype.render = function ($parent) {
                 var that = this;
                 var opts = that._initOptions(_ui.Utils.defaultOptions);
@@ -12958,35 +13211,7 @@ var Phoenix;
                     if (that.$schema.description)
                         opts.description = _ulocale.tt(that.$schema.description, that.form.$locale);
                     that.$element = $(_gu.gridContainer(that.id, opts, that.options.design, that.$schema.title, that.form.$locale, that.columns, that.frozenColumns));
-                    if (opts._useColGrp) {
-                        // create free columns
-                        var vscroll = opts.scrolling && opts.scrolling.vertical;
-                        var cg = vscroll && !opts.headerIsHidden ? _dom.find(that.$element.get(0), that.id + '_colgrp_header') : null;
-                        if (cg) {
-                            _dom.append(cg, _gu.createColGroup(that.columns, opts, false));
-                        }
-                        cg = _dom.find(that.$element.get(0), that.id + '_colgrp');
-                        _dom.append(cg, _gu.createColGroup(that.columns, opts, false));
-                        // create frozen columns
-                        if (that.frozenColumns && that.frozenColumns.length && opts.allowFrozenColumns) {
-                            var cg_1 = vscroll && !opts.headerIsHidden ? _dom.find(that.$element.get(0), that.id + '_colgrp_frozen_header') : null;
-                            if (cg_1) {
-                                _dom.append(cg_1, _gu.createColGroup(that.frozenColumns, opts, true));
-                            }
-                            cg_1 = _dom.find(that.$element.get(0), that.id + '_colgrp_frozen');
-                            if (cg_1)
-                                _dom.append(cg_1, _gu.createColGroup(that.frozenColumns, opts, true));
-                        }
-                    }
-                    if (!opts.headerIsHidden) {
-                        var pc = _dom.find(that.$element.get(0), that.id + '_cols');
-                        _dom.append(pc, _gu.createCols(that.id, that.columns, opts, that.options.design, that.form.$locale, that.state.value.$orderby(), false));
-                        if (that.frozenColumns && that.frozenColumns.length && opts.allowFrozenColumns) {
-                            pc = _dom.find(that.$element.get(0), that.id + '_frozen_cols');
-                            if (pc)
-                                _dom.append(pc, _gu.createCols(that.id, that.frozenColumns, opts, that.options.design, that.form.$locale, that.state.value.$orderby(), true));
-                        }
-                    }
+                    that._renderColumns(opts);
                     that._renderRows();
                     that._state2UI();
                     that.setEvents(opts);
@@ -18907,6 +19132,825 @@ var Phoenix;
             addField: _addField,
             addField2: _addField2
         };
+    })(ui = Phoenix.ui || (Phoenix.ui = {}));
+})(Phoenix || (Phoenix = {}));
+/// <reference path="../../../typings/index.d.ts" />
+/// <reference path="../../js/core/locale.ts" />
+/// <reference path="../../js/ui/form/form.control.ts" />
+/// <reference path="../../js/ui/form/controls/absfield.control.ts" />
+var Phoenix;
+(function (Phoenix) {
+    var ui;
+    (function (ui) {
+        var _ui = ui, _utils = Phoenix.utils, _ulocale = Phoenix.ulocale, _dom = Phoenix.dom, _sutils = Phoenix.Observable.SchemaUtils, _bootstrap4 = Phoenix.bootstrap4;
+        // function _toggleClass(element: HTMLElement, className: string) {
+        //     if (_dom.hasClass(element, className))
+        //         _dom.removeClass(element, className);
+        //     else
+        //         _dom.addClass(element, className);
+        // }
+        // function _createGroup(id, index, group, options) {
+        //     var container = document.createElement('div');
+        //     _dom.addClass(container, "panel");
+        //     _dom.addClass(container, "panel-default");
+        //     _dom.addClass(container, "group");
+        //     _dom.attr(container, "id", index);
+        //     var header = document.createElement('div');
+        //     _dom.addClass(header, "panel-heading");
+        //     _dom.addClass(header, "group-title");
+        //     header.innerHTML = group[options.label];
+        //     _dom.append(container, header);
+        //     var content = document.createElement('div');
+        //     _dom.addClass(content, "panel-body");
+        //     _dom.addClass(content, 'group-content');
+        //     _dom.append(container, content);
+        //     var item = document.createElement("label");
+        //     _dom.addClass(item, "group-item");
+        //     _dom.addClass(item, "checkbox-inline");
+        //     group[options.children.name].forEach(function (e) {
+        //         var itemTMP = <HTMLElement>item.cloneNode(true);
+        //         itemTMP.innerHTML = '<input type="checkbox" value="' + e[options.children.items.code] + '"> ' + e[options.children.items.code] + '';
+        //         _dom.append(content, itemTMP);
+        //     });
+        //     return container;
+        // }
+        // function _createGroups(id, groups, options) {
+        //     var frag = document.createDocumentFragment();
+        //     groups && groups.forEach(function (group, groupIndex) {
+        //         _dom.append(frag, _createGroup(id, groupIndex, group, options));
+        //     });
+        //     return frag;
+        // }
+        // function _createContainer(id) {
+        //     return _utils.format('<div id="{0}" data-render="{0}"><div class="bs-multigroup-link"><div style="display:inline-block">Liste des indices</div><i class="glyphicon glyphicon-chevron-down"></i></div><div  class="bs-multigroup bs-none"></div></div>', id);
+        // };
+        // function _addItem(item, collection) {
+        //     collection.push(item);
+        // }
+        // function _removeItem(itemName, collection) {
+        //     collection.remove(collection.find("code", itemName));
+        // }
+        // function _classerParGroupe(data, columns) {
+        //     let parent = columns ? (columns.parent || "parent") : null;
+        //     let code = columns ? (columns.code || "code") : null;
+        //     // D�terminer les groupes
+        //     var groups = [];
+        //     for (var i = 0; i < data.length; i++) {
+        //         var item = data[i];
+        //         var trouve = null;
+        //         for (var j = 0; j < groups.length; j++) {
+        //             if (item[parent] == groups[j][code]) {
+        //                 trouve = groups[j];
+        //                 break;
+        //             }
+        //         }
+        //         if (trouve)
+        //             trouve.children.push(item[code]);
+        //         else {
+        //             let groupe = {};
+        //             groupe[code] = item[parent];
+        //             groupe[parent] = null;
+        //             groupe["children"] = [item[code]];
+        //             groups.push(groupe);
+        //         }
+        //     }
+        //     return groups;
+        // }
+        // export class ListeMultiSelect extends AbsField {
+        //     state: any;
+        //     context = {
+        //         data: [],
+        //         entree: {
+        //             code: "code",
+        //             label: "lib",
+        //             children: {
+        //                 name: "children",
+        //                 items: {
+        //                     code: "code",
+        //                     parent: "parent"
+        //                 }
+        //             }
+        //         },
+        //         sortie: { code: "code", parent: "parent" } // {code: "name", parent: "group"}
+        //     };
+        //     opts: any;
+        //     constructor(fp, options, form) {
+        //         super(fp, options, form);
+        //         form.registerListenerFor(this.$bind + ".$item", this);
+        //         this._state();
+        //     }
+        //     _state() {
+        //         let that = this;
+        //         that.state = that.state || {};
+        //         let state = that.form.getState(that.$bind);
+        //         Object.keys(state).forEach(function (pn) {
+        //             that.state[pn] = state[pn];
+        //         });
+        //         that.state.value = that.form.getValue(that.$bind);
+        //     }
+        //     click(event) {
+        //         let that = this;
+        //         if (event.target.nodeName.toUpperCase() == "INPUT") {
+        //             var itemName = event.target.value;
+        //             var itemGroup = null;
+        //             that.state.value.forEach(function (item) {
+        //                 if (item[that.context.sortie.code] == itemName) {
+        //                     itemGroup = item[that.context.sortie.parent];
+        //                     return false;
+        //                 }
+        //             });
+        //             //var parent = event.target.parentNode.parentNode.parentNode;
+        //             //if (!parent) return;
+        //             //var itemGroup = that.context.data[_dom.attr(parent, "id")].code;
+        //             if (event.target.checked) {
+        //                 let item = {};
+        //                 item[that.context.sortie.code] = itemName;
+        //                 item[that.context.sortie.parent] = itemGroup;
+        //                 _addItem(item, that.state.value);
+        //             }
+        //             else
+        //                 _removeItem(itemName, that.state.value);
+        //         }
+        //         else if (event.target.nodeName.toUpperCase() == "I") {
+        //             let container = _dom.query(that.$element.get(0), "#" + that.id + " .bs-multigroup");
+        //             if (_dom.hasClass(container, "bs-none")) {
+        //                 _dom.removeClass(event.target, "glyphicon-chevron-down");
+        //                 _dom.addClass(event.target, "glyphicon-chevron-up");
+        //             }
+        //             else {
+        //                 _dom.removeClass(event.target, "glyphicon-chevron-up");
+        //                 _dom.addClass(event.target, "glyphicon-chevron-down");
+        //             }
+        //             _toggleClass(container, "bs-none");
+        //         }
+        //     }
+        //     _setDisabled(button, element) {
+        //     }
+        //     _setHidden(input, element) {
+        //     }
+        //     _state2UI() {
+        //         let that = this;
+        //         let container = _dom.query(that.$element.get(0), "#" + that.id + " .bs-multigroup");
+        //         that.state.value.forEach(function (indiceSelected) {
+        //             var itemNode = <HTMLInputElement>_dom.query(container, 'input[value="' + indiceSelected[that.context.sortie.code] + '"]');
+        //             itemNode.checked = true;
+        //         });
+        //     }
+        //     changed(propName, ov, nv, op, params) {
+        //         let that = this;
+        //         let container = _dom.query(that.$element.get(0), "#" + that.id + " .bs-multigroup");
+        //         if (op === "add") {
+        //             var itemNode = <HTMLInputElement>_dom.query(container, 'input[value="' + nv[that.context.sortie.code] + '"]');
+        //             itemNode.checked = true;
+        //         }
+        //         else if (op === "remove") {
+        //             var itemNode = <HTMLInputElement>_dom.query(container, 'input[value="' + params.$value[that.context.sortie.code] + '"]');
+        //             itemNode.checked = false;
+        //         }
+        //     }
+        //     stateChanged(propName) {
+        //     }
+        //     _renderGroups() {
+        //         let that = this;
+        //         var groups = that.context.data; //_classerParGroupe(that.context.data, that.context.entree);
+        //         if (that.$element) {
+        //             let container = _dom.query(that.$element.get(0), "#" + that.id + " .bs-multigroup");
+        //             _dom.empty(container);
+        //             _dom.append(container, _createGroups(that.id, groups, that.context.entree));
+        //         }
+        //     }
+        //     _internalRender($parent) {
+        //         let that = this;
+        //         let opts = that._initOptions(_ui.Utils.defaultOptions);
+        //         if (!that.$element) {
+        //             that.$element = $(_createContainer(that.id));
+        //             that._renderGroups();
+        //             that._state2UI();
+        //         }
+        //         that.appendElement($parent, opts);
+        //         return that.$element;
+        //     }
+        //     render($parent) {
+        //         let that = this;
+        //         if (that.$lookup) {
+        //             that.context.entree = that.$lookup.mapping || that.context.entree;
+        //             _sutils.executeLookup(that.$lookup, null, function (data) {
+        //                 that.context.data = data.value;
+        //                 return that._internalRender($parent);
+        //             });
+        //         } else
+        //             return that._internalRender($parent);
+        //     }
+        // }
+        var MultiSelectList = (function () {
+            function MultiSelectList(data, options, callback) {
+                var that = this;
+                var defaultOptions = {
+                    expandIcon: "plus",
+                    collapseIcon: "minus",
+                    checkedIcon: 'check',
+                    uncheckedIcon: 'unchecked',
+                    itemIcon: "",
+                    groupIcon: "",
+                    multiSelect: false,
+                    showTags: false,
+                    groupLink: false,
+                    itemLink: true
+                };
+                that._options = $.extend(true, defaultOptions, options);
+                that._data = data || {};
+                that._callback = callback || null;
+                that._nodes = $.extend(true, [], data.items);
+                that._selectedItems = [];
+                that._init();
+            }
+            Object.defineProperty(MultiSelectList.prototype, "selectedItems", {
+                get: function () {
+                    return this._selectedItems;
+                },
+                set: function (value) {
+                    this._selectedItems = value;
+                },
+                enumerable: true,
+                configurable: true
+            });
+            MultiSelectList.prototype._init = function () {
+                var that = this;
+                that._contructeArbreNodes(that._nodes, that._options);
+            };
+            MultiSelectList.prototype._getGroupNode = function (groups, name) {
+                var that = this;
+                var group = null;
+                groups.every(function (node) {
+                    if (node.items) {
+                        group = node.name === name ? node : null;
+                        if (!group)
+                            group = that._getGroupNode(node.items, name);
+                    }
+                    if (group)
+                        return false;
+                    return true;
+                });
+                return group;
+            };
+            MultiSelectList.prototype._getItemNode = function (items, name) {
+                var that = this;
+                var item = null;
+                items.every(function (node) {
+                    item = (!node.items && node.name === name) ? node : null;
+                    if (!item && node.items)
+                        item = that._getItemNode(node.items, name);
+                    if (item)
+                        return false;
+                    return true;
+                });
+                return item;
+            };
+            MultiSelectList.prototype._getItem = function (name) {
+                var that = this;
+                var item = null;
+                that._data.items.every(function (elt) {
+                    if (elt.name === name) {
+                        item = elt;
+                        return false;
+                    }
+                    return true;
+                });
+                return item;
+            };
+            MultiSelectList.prototype._contructeArbreNodes = function (items, options) {
+                var that = this;
+                if (Array.isArray(items) && items.length) {
+                    constructeItems(items, null, 0, true, options);
+                    if (options.showTags) {
+                        that._addTags(that._nodes);
+                    }
+                }
+                function constructeItems(items, parent, level, show, options) {
+                    var html = $(that._template().item).get(0);
+                    items.forEach(function (item) {
+                        item.level = level || 0;
+                        item.show = (show == true);
+                        item.parent = parent || null;
+                        item.component = html.cloneNode();
+                        if (item.items) {
+                            item.tagsSize = 0;
+                            constructeItems(item.items, item, (item.level + 1), false, options);
+                        }
+                        var pr = item.parent;
+                        while (pr) {
+                            pr.tagsSize++;
+                            pr = pr.parent;
+                        }
+                        for (var i = 1; i <= item.level; i++)
+                            _dom.append(item.component, $(that._template().indent).get(0));
+                        if (item.items) {
+                            var iconDisplay = that._createIcon(item.component, options.expandIcon, "icon-group bs-cursor-p");
+                            _dom.attr(iconDisplay, "data-event", "click");
+                            _dom.attr(iconDisplay, "data-action", "expand");
+                            if (options.multiSelect && options.groupLink) {
+                                var iconCheck = that._createIcon(item.component, options.uncheckedIcon, "bs-cursor-p");
+                                _dom.attr(iconCheck, "data-event", "click");
+                                _dom.attr(iconCheck, "data-action", "uncheck");
+                            }
+                            else if (options.groupLink) {
+                                _dom.attr(item.component, "data-event", "click");
+                                _dom.attr(item.component, "data-action", "selectitem");
+                            }
+                            that._createIcon(item.component, options.groupIcon);
+                        }
+                        else {
+                            var iconDisplay = that._createIcon(item.component);
+                            _dom.addClass(iconDisplay, "icon-exist");
+                            if (options.multiSelect && options.itemLink) {
+                                var iconCheck = that._createIcon(item.component, options.uncheckedIcon, "bs-cursor-p");
+                                _dom.attr(iconCheck, "data-event", "click");
+                                _dom.attr(iconCheck, "data-action", "uncheck");
+                            }
+                            else if (options.itemLink) {
+                                _dom.attr(item.component, "data-event", "click");
+                                _dom.attr(item.component, "data-action", "selectitem");
+                            }
+                            that._createIcon(item.component, options.itemIcon);
+                        }
+                        _dom.append(item.component, document.createTextNode(item.title));
+                        _dom.attr(item.component, "data-id", item.name);
+                    });
+                }
+            };
+            MultiSelectList.prototype._addTags = function (nodes) {
+                var that = this;
+                nodes.forEach(function (node) {
+                    if (node.items) {
+                        var badge = $(that._template().badge).get(0);
+                        _dom.append(badge, document.createTextNode("" + node.tagsSize));
+                        _dom.append(node.component, badge);
+                        that._addTags(node.items);
+                    }
+                });
+            };
+            MultiSelectList.prototype._template = function () {
+                return {
+                    list: '<ul class="list-group bs-treeview"></ul>',
+                    item: '<li class="list-group-item"></li>',
+                    indent: '<span class="indent"></span>',
+                    icon: '<span class="icon"></span>',
+                    link: '<a href="#" style="color:inherit;"></a>',
+                    badge: '<span class="badge"></span>'
+                };
+            };
+            MultiSelectList.prototype._createIcon = function (elt, icon, autre) {
+                var that = this;
+                var iconItem = $(that._template().icon).get(0);
+                if (icon)
+                    that._addIcon(iconItem, icon, autre);
+                _dom.append(elt, iconItem);
+                return iconItem;
+            };
+            MultiSelectList.prototype._addIcon = function (elt, icon, autre) {
+                var that = this;
+                _dom.attr(elt, "class", "icon icon-exist " + _dom.iconClass(icon) + (autre ? " " + autre : ""));
+            };
+            MultiSelectList.prototype._setEvents = function () {
+                var that = this;
+                if (that._container)
+                    that._container.addEventListener("click", function (event) {
+                        var target = event.target;
+                        var itemHTML = null;
+                        if (_dom.attr(target, "data-event") === "click")
+                            itemHTML = target;
+                        else
+                            itemHTML = _dom.parentByTag(that._container, target, "LI");
+                        if (itemHTML && _dom.attr(itemHTML, "data-event") === "click") {
+                            var action = _dom.attr(itemHTML, "data-action");
+                            if (action === "expand")
+                                that._display(itemHTML, true);
+                            else if (action === "collapse")
+                                that._display(itemHTML, false);
+                            else if (action === "selectitem")
+                                that._select(itemHTML);
+                            else if (action === "check" && that._options.multiSelect)
+                                that._check(itemHTML, false);
+                            else if (action === "uncheck" && that._options.multiSelect)
+                                that._check(itemHTML, true);
+                        }
+                    });
+            };
+            MultiSelectList.prototype._display = function (html, show) {
+                var that = this;
+                var parentHTML = _dom.parentByTag(that._container, html, "LI");
+                if (!parentHTML)
+                    return;
+                var name = _dom.attr(parentHTML, "data-id");
+                var group = that._getGroupNode(that._nodes, name);
+                if (group) {
+                    var displayItem_1 = function (items, open) {
+                        items.forEach(function (item) {
+                            item.show = open;
+                            if (item.items) {
+                                displayItem_1(item.items, false);
+                                var ic = _dom.query(item.component, ".icon-group");
+                                if (ic) {
+                                    that._addIcon(ic, that._options.expandIcon, "icon-group bs-cursor-p");
+                                    _dom.attr(ic, "data-action", "expand");
+                                }
+                            }
+                        });
+                    };
+                    displayItem_1(group.items, show);
+                    that._addIcon(html, show ? that._options.collapseIcon : that._options.expandIcon, "icon-group bs-cursor-p");
+                    _dom.attr(html, "data-action", show ? "collapse" : "expand");
+                    that.renderItems(that._nodes);
+                }
+            };
+            MultiSelectList.prototype._select = function (html) {
+                var that = this;
+                var parentHTML = _dom.parentByTag(that._container, html, "LI");
+                if (!parentHTML)
+                    return;
+                var oldHTML = _dom.query(that._container, ".active");
+                if (oldHTML)
+                    _dom.removeClass(oldHTML, "active");
+                _dom.addClass(html, "active");
+                var name = _dom.attr(parentHTML, "data-id");
+                var item = that._getItem(name);
+                that._selectedItems.splice(0);
+                if (item) {
+                    that._selectedItems.push(item);
+                    if (that._callback)
+                        that._callback({ action: "select", data: item });
+                }
+            };
+            MultiSelectList.prototype._check = function (html, isCheck) {
+                var that = this;
+                var parentHTML = _dom.parentByTag(that._container, html, "LI");
+                if (!parentHTML)
+                    return;
+                var name = _dom.attr(parentHTML, "data-id");
+                var item = that._getItem(name);
+                if (item) {
+                    that._addIcon(html, isCheck ? that._options.checkedIcon : that._options.uncheckedIcon, "bs-cursor-p");
+                    _dom.attr(html, "data-action", isCheck ? "check" : "uncheck");
+                    var action = void 0;
+                    if (isCheck) {
+                        that._selectedItems.push(item);
+                        action = "add";
+                    }
+                    else {
+                        var selectedItemIndex_1 = -1;
+                        that._selectedItems.every(function (elt, index) {
+                            if (elt.name === name) {
+                                selectedItemIndex_1 = index;
+                                return false;
+                            }
+                            return true;
+                        });
+                        if (selectedItemIndex_1 >= 0) {
+                            that._selectedItems.splice(selectedItemIndex_1, 1);
+                            action = "remove";
+                        }
+                    }
+                    if (that._callback)
+                        that._callback({ action: action, data: item });
+                }
+            };
+            MultiSelectList.prototype.renderItems = function (nodes) {
+                var that = this;
+                _dom.empty(that._container);
+                var frag = document.createDocumentFragment();
+                render(nodes, frag);
+                _dom.append(that._container, frag);
+                function render(nodes, frag) {
+                    nodes.forEach(function (node) {
+                        if (node.show)
+                            _dom.append(frag, node.component);
+                        if (node.items)
+                            render(node.items, frag);
+                    });
+                }
+            };
+            MultiSelectList.prototype.render = function (parent) {
+                var that = this;
+                if (!that._container) {
+                    that._container = $(that._template().list).get(0);
+                    that.renderItems(that._nodes);
+                    that._setEvents();
+                }
+                if (parent)
+                    _dom.append(parent, that._container);
+                return that._container;
+            };
+            return MultiSelectList;
+        }());
+        var MultiSelectListForm = (function (_super) {
+            __extends(MultiSelectListForm, _super);
+            function MultiSelectListForm(fp, options, form) {
+                _super.call(this, fp, options, form);
+                var that = this;
+                that._state();
+                var liste = that.state.value.model();
+                if (Array.isArray(liste.items) && liste.items.length)
+                    that.multiSelectList = new MultiSelectList(liste, liste.options, function (data) {
+                        console.log(data);
+                        console.log(that.multiSelectList.selectedItems);
+                    });
+            }
+            MultiSelectListForm.prototype._state = function () {
+                var that = this;
+                that.state = that.state || {};
+                var state = that.form.getState(that.$bind);
+                Object.keys(state).forEach(function (pn) {
+                    that.state[pn] = state[pn];
+                });
+                that.state.value = that.form.getValue(that.$bind);
+            };
+            MultiSelectListForm.prototype.click = function (event) {
+                var that = this;
+            };
+            MultiSelectListForm.prototype._state2UI = function () {
+                var that = this;
+            };
+            MultiSelectListForm.prototype.changed = function (propName, ov, nv, op, params) {
+                var that = this;
+            };
+            MultiSelectListForm.prototype.stateChanged = function (propName) {
+            };
+            MultiSelectListForm.prototype.render = function ($parent) {
+                var that = this;
+                var opts = that._initOptions(_ui.Utils.defaultOptions);
+                if (!that.$element) {
+                    that.$element = $(that.multiSelectList.render());
+                }
+                if ($parent)
+                    _dom.append($parent.get(0), that.$element.get(0));
+                return that.$element;
+            };
+            return MultiSelectListForm;
+        }(ui.AbsField));
+        ui.MultiSelectListForm = MultiSelectListForm;
+        _ui.registerControl(MultiSelectListForm, "object", false, "multiselectlist");
+    })(ui = Phoenix.ui || (Phoenix.ui = {}));
+})(Phoenix || (Phoenix = {}));
+/// <reference path="../../../typings/index.d.ts" />
+/// <reference path="../../js/core/locale.ts" />
+/// <reference path="../../js/ui/form/form.control.ts" />
+/// <reference path="../../js/ui/form/controls/absfield.control.ts" />
+var Phoenix;
+(function (Phoenix) {
+    var ui;
+    (function (ui) {
+        var _ui = ui, _utils = Phoenix.utils, _ulocale = Phoenix.ulocale, _dom = Phoenix.dom, _sutils = Phoenix.Observable.SchemaUtils, _bootstrap4 = Phoenix.bootstrap4;
+        function _createPillboxContainer(id, options, authoring, title) {
+            title = title || '';
+            options = $.extend({ titleIsHidden: false, placeHolder: false, columns: false }, options);
+            var html = [];
+            _ui.Utils.fieldWrapper(html, options, authoring, function () {
+                html.push('<ul id="{0}" class="pillbox boxed-tags"></ul>');
+            });
+            return _utils.format(html.join(''), id);
+        }
+        ;
+        function _afficherListe(event, that) {
+            var container = _dom.query(that.$element.get(0), "#" + that.id + ".pillbox");
+            var listeEdit = _dom.query(container, "li.item-edit");
+            var input = _dom.query(listeEdit, "input");
+            var liste = _dom.query(container, "li.item-edit > div");
+            liste.innerHTML = "";
+            if (!input.value) {
+                _dom.removeClass(liste, "list-open");
+                return;
+            }
+            var frag = document.createDocumentFragment();
+            var ligneDiv = document.createElement("div");
+            that.context.data.forEach(function (ligne) {
+                var regex = new RegExp("^" + input.value.toLocaleLowerCase());
+                if (regex.test(ligne[that.context.entree.code].toLocaleLowerCase())) {
+                    var clonne = ligneDiv.cloneNode(true);
+                    clonne.textContent = ligne[that.context.entree.code];
+                    clonne.addEventListener("mouseover", function (event) {
+                        _dom.addClass(event.currentTarget, "list-item-hover");
+                    }, false);
+                    clonne.addEventListener("mouseout", function (event) {
+                        _dom.removeClass(event.currentTarget, "list-item-hover");
+                    }, false);
+                    frag.appendChild(clonne);
+                }
+                //group.children.forEach(function (ligne) {
+                //    var regex = new RegExp("^" + input.value.toLocaleLowerCase());
+                //    if (regex.test(ligne.toLocaleLowerCase())) {
+                //        var clonne = ligneDiv.cloneNode(true);
+                //        clonne.textContent = ligne;
+                //        clonne.addEventListener("mouseover", function (event) {
+                //            event.currentTarget.classList.add("list-item-hover");
+                //        }, false);
+                //        clonne.addEventListener("mouseout", function (event) {
+                //            event.currentTarget.classList.remove("list-item-hover");
+                //        }, false);
+                //        frag.appendChild(clonne);
+                //    }
+                //});
+            });
+            liste.appendChild(frag);
+            _dom.addClass(liste, "list-open");
+        }
+        function _effacerSelections(event, that) {
+            if (event.keyCode == 8) {
+                var container = _dom.query(that.$element.get(0), "#" + that.id + ".pillbox");
+                var itemEdit = _dom.query(container, "li.item-edit");
+                var input = _dom.query(container, "li.item-edit > input");
+                if (!input.value) {
+                    var itemSelect = _dom.query(container, "li.label-primary");
+                    if (itemSelect) {
+                        var itemName = _dom.query(itemSelect, "span").textContent;
+                        that.state.value.remove(that.state.value.find("code", itemName));
+                    }
+                    else {
+                        var itemPrev = itemEdit.previousSibling;
+                        if (itemPrev) {
+                            _dom.removeClass(itemPrev, "label-default");
+                            _dom.addClass(itemPrev, "label-primary");
+                        }
+                    }
+                }
+            }
+        }
+        function _removeSelection(that, item) {
+            var container = _dom.query(that.$element.get(0), "#" + that.id + ".pillbox");
+            var itemsUI = _dom.queryAll(container, "li.item span");
+            var itemUI = null;
+            for (var i = 0; i < itemsUI.length; i++) {
+                var itemTMP = itemsUI.item(i);
+                if (item.code === itemTMP.textContent) {
+                    itemUI = itemTMP;
+                    break;
+                }
+            }
+            if (itemUI) {
+                var itemSelect = _dom.parentByTag(container, itemUI, 'li');
+                container.removeChild(itemSelect);
+            }
+        }
+        function _selectionnerItem(event, that) {
+            var liste = event.target;
+            while (liste && liste.nodeName.toUpperCase() != "LI" && liste.nodeName.toUpperCase() != "UL") {
+                liste = liste.parentNode;
+            }
+            var container = _dom.query(that.$element.get(0), "#" + that.id + ".pillbox");
+            var itemEdit = _dom.query(container, "li.item-edit");
+            if (liste && liste.nodeName.toUpperCase() == "LI" && liste !== itemEdit) {
+                var listeSelect = _dom.query(container, "li.bg-primary");
+                if (listeSelect && liste === listeSelect) {
+                    var itemName = _dom.query(listeSelect, "span").textContent;
+                    that.state.value.remove(that.state.value.find("code", itemName));
+                }
+                else {
+                    if (listeSelect)
+                        _dom.removeClass(listeSelect, "bg-primary");
+                    _dom.removeClass(liste, "bg-info");
+                    _dom.addClass(liste, "bg-primary");
+                }
+            }
+        }
+        var PillBox = (function (_super) {
+            __extends(PillBox, _super);
+            function PillBox(fp, options, form) {
+                _super.call(this, fp, options, form);
+                this.context = {
+                    data: [],
+                    entree: { code: "code", parent: "parent" },
+                    sortie: { code: "code", parent: "parent" }
+                };
+                form.registerListenerFor(this.$bind + ".$item", this);
+                this._state();
+            }
+            PillBox.prototype._state = function () {
+                var that = this;
+                that.state = that.state || {};
+                that.state.value = that.form.getValue(that.$bind);
+                var state = that.form.getState(that.$bind);
+                Object.keys(state).forEach(function (pn) { that.state[pn] = state[pn]; });
+            };
+            PillBox.prototype.destroy = function () {
+                var that = this;
+                that.form.registerListenerFor(that.$bind + ".$item", that);
+                _super.prototype.destroy.call(this);
+            };
+            PillBox.prototype.click = function (event) {
+                var that = this;
+                if (!that.$element)
+                    return;
+                var container = _dom.query(that.$element.get(0), "#" + that.id + ".pillbox");
+                var item = _dom.parentByTag(container, event.target, 'li');
+                var itemIsEdit = item ? _dom.hasClass(item, "item-edit") : false;
+                if (item && itemIsEdit) {
+                    var liste = _dom.query(container, '.item-edit .list-open');
+                    if (!liste)
+                        return;
+                    var input = _dom.query(item, "input");
+                    var itemName = event.target.textContent;
+                    if (that.state.value.find("code", itemName) == null) {
+                        var itemGroup = null;
+                        that.context.data.forEach(function (item) {
+                            if (itemName === item[that.context.sortie.code]) {
+                                itemGroup = item[that.context.sortie.parent];
+                            }
+                        });
+                        var item_2 = {};
+                        item_2[that.context.sortie.code] = itemName;
+                        item_2[that.context.sortie.parent] = itemGroup;
+                        that.state.value.push(item_2);
+                    }
+                    input.value = "";
+                    _dom.removeClass(liste, "list-open");
+                }
+                else if (item && event.target.nodeName.toUpperCase() == "I") {
+                    var itemName_1 = _dom.query(item, "span").textContent;
+                    that.state.value.remove(that.state.value.find("code", itemName_1));
+                }
+            };
+            PillBox.prototype._setDisabled = function (input, element) {
+            };
+            PillBox.prototype._setReadOnly = function (input, element) {
+            };
+            PillBox.prototype._setHidden = function (input, element) {
+                if (this.state.isHidden)
+                    _dom.addClass(element, "bs-none");
+                else
+                    _dom.removeClass(element, "bs-none");
+            };
+            PillBox.prototype._setMandatory = function (input, element) { };
+            PillBox.prototype._state2UI = function () {
+                var that = this;
+                var container = _dom.query(that.$element.get(0), "#" + that.id + ".pillbox");
+                that.state.value.forEach(function (indiceSelected) {
+                    _dom.append(container, that._addOldItem(indiceSelected));
+                });
+            };
+            PillBox.prototype.changed = function (propName, ov, nv, op, obj) {
+                var that = this;
+                if (op === "add") {
+                    var container = _dom.query(that.$element.get(0), "#" + that.id + ".pillbox");
+                    container.insertBefore(that._addOldItem(nv), container.lastChild);
+                }
+                else if (op === "remove") {
+                    _removeSelection(that, obj.$value);
+                }
+            };
+            PillBox.prototype.stateChanged = function (propName) {
+            };
+            PillBox.prototype._addNewItem = function () {
+                var that = this;
+                var newListe = document.createElement("li");
+                _dom.addClass(newListe, "item");
+                _dom.addClass(newListe, "item-edit");
+                newListe.innerHTML = '<input autocomplete="off" autofocus="true" placeholder="indice ..."/><div></div>';
+                var input = _dom.query(newListe, "input");
+                var liste = _dom.addClass(newListe, "div");
+                input.addEventListener("keypress", function (event) { _effacerSelections(event, that); }, false);
+                input.addEventListener("keyup", function (event) { _afficherListe(event, that); }, false);
+                //newListe.addEventListener("blur", function (event) { console.log("ok"); _dom.removeClass(liste, "list-open"); }, false);
+                return newListe;
+            };
+            PillBox.prototype._addOldItem = function (item) {
+                var that = this;
+                var oldListe = document.createElement("li");
+                _dom.addClass(oldListe, "boxed-tags-item");
+                _dom.addClass(oldListe, "item");
+                // _dom.addClass(oldListe, "btn");
+                // _dom.addClass(oldListe, "btn-info");
+                oldListe.innerHTML = '<i class="glyphicon glyphicon-remove"></i><span></span>';
+                var label = _dom.query(oldListe, "span");
+                label.textContent = item.code;
+                return oldListe;
+            };
+            PillBox.prototype._internalRender = function ($parent) {
+                var that = this;
+                var opts = that._initOptions(_ui.Utils.defaultOptions);
+                if (!that.$element) {
+                    that.$element = $(_createPillboxContainer(that.id, opts, that.options.design, _ulocale.tt(that.$schema.title, that.form.$locale)));
+                    var container = _dom.query(that.$element.get(0), "#" + that.id + ".pillbox");
+                    that._state2UI();
+                    _dom.append(container, that._addNewItem());
+                }
+                that.appendElement($parent, opts);
+                return that.$element;
+            };
+            PillBox.prototype.render = function ($parent) {
+                var that = this;
+                if (that.$lookup) {
+                    that.context.entree = that.$lookup.mapping || that.context.entree;
+                    _sutils.executeLookup(that.$lookup, null, function (data) {
+                        that.context.data = data.value;
+                        return that._internalRender($parent);
+                    });
+                }
+                else
+                    return that._internalRender($parent);
+            };
+            return PillBox;
+        }(ui.AbsField));
+        ui.PillBox = PillBox;
+        _ui.registerControl(PillBox, "array", false, "pillbox", { lookup: true });
     })(ui = Phoenix.ui || (Phoenix.ui = {}));
 })(Phoenix || (Phoenix = {}));
 /// <reference path="../../../typings/index.d.ts" />

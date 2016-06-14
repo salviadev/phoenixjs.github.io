@@ -180,18 +180,18 @@
 .bs-basictable-sort {
   margin-left: 0.5em;
 }
-.bs-bool-center {
+.bs-image-center {
   margin-top: -8px;
   margin-bottom: -8px;
 }
-.bs-bool-center.small-table {
+.bs-image-center.small-table {
   margin-top: -4px;
   margin-bottom: -4px;
 }
-.bs-bool-center > span {
+.bs-image-center > span {
   font-size: 120%;
 }
-.bs-bool-center.small-table > span {
+.bs-image-center.small-table > span {
   font-size: 110%;
 }
 .bs-bool-edit {
@@ -306,6 +306,9 @@ tr.bs-table-row.even {
 }
 .bs-table-free-cols {
   width: 100%;
+}
+.bs-row-selected {
+  background-color: rgba(33, 153, 224, 0.5) !important;
 }
 
 .bs-edit-number {
@@ -582,6 +585,94 @@ tr.bs-table-row.even {
 }
 .bs-fields-list select {
   width: 110%;
+}
+
+/*@liste-h-height : 35px;*/
+.bs-multigroup {
+  max-height: 400px;
+  overflow-y: auto;
+}
+.bs-multigroup-link {
+  font-size: 16px;
+}
+.bs-multigroup-link {
+  border-bottom: 1px solid #777;
+}
+.bs-multigroup-link i {
+  float: right;
+  cursor: pointer;
+}
+.bs-multigroup .group .group-title {
+  font-size: 16px;
+  padding-top: 5px;
+  padding-bottom: 5px;
+}
+.bs-multigroup .group .group-content .group-item {
+  display: inline-block;
+  margin-left: 0;
+  margin-right: 10px;
+  width: 150px;
+}
+
+/*@liste-h-height : 35px;
+@liste-d-height : 30px;*/
+.pillbox {
+  padding: 0 2px;
+  border: 1px solid #d5d5d5;
+  font-size: 12px;
+}
+.pillbox > li {
+  position: relative;
+  display: inline-block;
+}
+.pillbox > li > input {
+  border: none;
+  display: none;
+}
+.pillbox > li.item {
+  margin: 1px;
+  padding: 4px 10px;
+  line-height: 20px;
+}
+.pillbox > li.item-edit {
+  padding: 0;
+  background-color: transparent;
+  cursor: text;
+}
+.pillbox > li.item-select {
+  background-color: black;
+  color: white;
+}
+.pillbox > li.item i {
+  margin-left: 5px;
+  float: right;
+  cursor: pointer;
+  line-height: 20px;
+}
+.pillbox > li.item-edit input {
+  display: inline;
+}
+.pillbox > li.item-edit > div {
+  position: absolute;
+  top: 20px;
+  left: 0;
+  z-index: 1000;
+  display: none;
+  min-width: 100px;
+  background-color: white;
+  border: 1px solid #CECECE;
+  border-top: none;
+}
+.pillbox > li.item-edit > div > div {
+  width: 100%;
+  padding: 5px;
+}
+.pillbox > li.item-edit > .list-open {
+  display: inline-block;
+}
+.pillbox > li.item-edit > div > div.list-item-hover {
+  background-color: #CECECE;
+  cursor: pointer;
 }
 
 .bs-style-island {
@@ -1193,7 +1284,8 @@ body {
 .bs-va-middle {
   vertical-align: middle!important;
 }
-tr.bs-va-middle > td {
+tr.bs-va-middle > td,
+th {
   vertical-align: middle!important;
 }
 .bs-va-top {

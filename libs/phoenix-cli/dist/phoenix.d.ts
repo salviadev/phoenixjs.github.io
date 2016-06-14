@@ -942,6 +942,8 @@ declare namespace Phoenix {
 declare namespace Phoenix {
     module Observable {
         class DataListCore {
+            protected _map: any;
+            protected _selected: string[];
             protected _schema: any;
             protected _items: Data[];
             protected _model: any[];
@@ -954,6 +956,8 @@ declare namespace Phoenix {
             isNull: boolean;
             isUndefined: boolean;
             constructor(schema: any, parent: any, path: any, value: any, arrayParent: any, locale: any);
+            pushSelected(id: string): void;
+            removeSelected(id: string): void;
             protected notifyChangedProperty(propName: string): void;
             addAjaxException(ex: any): any;
             notifyPaginationChanged(): void;
@@ -980,6 +984,7 @@ declare namespace Phoenix {
         class DataListBase extends DataListCore {
             protected _fillItems(): void;
             protected _destroyItems(): void;
+            selectRow(id: string, value: boolean, exclusive: boolean): void;
             findById(id: string): Data;
             indexOf(value: any): number;
         }
@@ -1278,6 +1283,7 @@ declare namespace Phoenix {
             gridContainer: (id: any, options: any, authoring: any, title: any, locale: any, columns: any, frozenColumns: any) => any;
             createRows: (id: any, rows: any, columns: any, options: any, authoring: any, locale: any, isFrozen: any) => DocumentFragment;
             createRow: (id: string, index: number, row: any, columns: any[], options: any, authoring: boolean, locale: any, isOdd: Boolean, isFrozen: boolean) => HTMLTableRowElement;
+            setRowsSelected: (id: string, value: boolean, options: any, parent: HTMLElement) => void;
             createGridRows: (id: any, rows: any, values: any, columns: any, options: any, authoring: any, locale: any) => DocumentFragment;
             createInplaceEdit: (svalue: string, value: any, state: any, parent: HTMLElement, cell: any, col: any, opts: any) => {
                 input: HTMLInputElement;
@@ -1291,6 +1297,8 @@ declare namespace Phoenix {
             createDetail: (id: string, childBefore: HTMLElement) => HTMLElement;
             updateEvenOdd: (pr: HTMLElement) => void;
             ensureWidth: (value: any) => string;
+            updateFrozenWidth: (e: HTMLElement, id: string, cols: any) => void;
+            hasFrozenColumns: (opts: any, frozenColumns: any[]) => boolean;
         };
     }
 }
@@ -1357,6 +1365,7 @@ declare namespace Phoenix {
             private canSelect(cell);
             private canEdit(cell);
             private clearSelected();
+            private _selectRow(id);
             private _selectCell(cell, target, mousedown);
             private _selectFirstCell();
             _cell(cell: any, addIndex: boolean): any;
@@ -1384,6 +1393,8 @@ declare namespace Phoenix {
             private _createRow(id);
             filtrableColumns(): any[];
             private _updateSorting();
+            private _renderColumns(opts);
+            toggleMultiselect(): void;
             render($parent: any): JQuery;
         }
     }
@@ -1913,6 +1924,55 @@ declare namespace Phoenix {
             addField: (fieldList: any, code: any, libelle: any, type: any, decimals?: any, enums?: any, enumName?: any) => void;
             addField2: (fieldList: any, code: any, libelle: any, type: any, options?: any) => void;
         };
+    }
+}
+declare namespace Phoenix {
+    module ui {
+        class MultiSelectListForm extends AbsField {
+            state: any;
+            opts: any;
+            private multiSelectList;
+            constructor(fp: any, options: any, form: any);
+            _state(): void;
+            click(event: any): void;
+            _state2UI(): void;
+            changed(propName: any, ov: any, nv: any, op: any, params: any): void;
+            stateChanged(propName: any): void;
+            render($parent: any): JQuery;
+        }
+    }
+}
+declare namespace Phoenix {
+    module ui {
+        class PillBox extends AbsField {
+            state: any;
+            context: {
+                data: any[];
+                entree: {
+                    code: string;
+                    parent: string;
+                };
+                sortie: {
+                    code: string;
+                    parent: string;
+                };
+            };
+            constructor(fp: any, options: any, form: any);
+            _state(): void;
+            destroy(): void;
+            click(event: any): void;
+            _setDisabled(input: any, element: any): void;
+            _setReadOnly(input: any, element: any): void;
+            _setHidden(input: any, element: any): void;
+            _setMandatory(input: any, element: any): void;
+            _state2UI(): void;
+            changed(propName: any, ov: any, nv: any, op: any, obj: any): void;
+            stateChanged(propName: any): void;
+            _addNewItem(): HTMLLIElement;
+            _addOldItem(item: any): HTMLLIElement;
+            _internalRender($parent: any): JQuery;
+            render($parent: any): JQuery;
+        }
     }
 }
 declare namespace Phoenix {
