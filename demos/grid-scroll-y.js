@@ -20,12 +20,12 @@ $(function () {
 							},
                             "border": true,
 							"columns": [
-								{ "$bind": "$index", "options": { "width": 50, "frozen": true } },
-								{ "$bind": "Name", "options": { "width": "200px", "selectable": true } },
-                                { "$bind": "Type", "options": { "width": "200px", "selectable": true } },
-                                { "$bind": "DateOfBirth", "options": { "width": "200px", "selectable": true } },
-								{ "$bind": "PV", "options": { "width": "200px", "selectable": true, "editable": true } },
-								{ "$bind": "Price", "options": { "width": "200px", "selectable": true, "editable": true } },
+								{ "$bind": "$index", "options": { "width": 50 } },
+								{ "$bind": "Name", "options": { "width": 200 } },
+                                { "$bind": "Type", "options": { "width": 200 } },
+                                { "$bind": "DateOfBirth", "options": { "width": 200 } },
+								{ "$bind": "PV", "options": { "width": 200 } },
+								{ "$bind": "Price", "options": { "width": 200 } },
 							]
 						}
 					}
@@ -54,9 +54,7 @@ $(function () {
 					}
 				}
 			}
-		},
-		"states": {},
-		"links": {}
+		}
 	};
 	var data = {
 		Pokemon: [
@@ -75,11 +73,7 @@ $(function () {
 	};
 
 	(function om() {
-		Phoenix.ui.OpenForm(
-			$('#form'), layout, schema, data, {},
-			function (action, data, formControl) {
-				
-			});
+		Phoenix.ui.OpenForm($('#form'), layout, schema, data, {});
 	})();
 });
 
