@@ -3,114 +3,9 @@ var __extends = (this && this.__extends) || function (d, b) {
     function __() { this.constructor = d; }
     d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
 };
-/// <reference path="../../../typings/index.d.ts" />
+/// <reference path="../../../../typings/index.d.ts" />
 var Phoenix;
 (function (Phoenix) {
-    Phoenix.bootstrap4 = false;
-    var external;
-    (function (external) {
-        external.hashHandler = null;
-        external.logoutHandler = null;
-        external.forbiddenHandler = null;
-        external.changePasswordHandler = null;
-        external.checkLoggedInHandler = null;
-        external.historyChangedHandler = null;
-    })(external = Phoenix.external || (Phoenix.external = {}));
-    var history;
-    (function (history) {
-        var _value = [], _removeLast = function () {
-            _value.pop();
-            if (external.historyChangedHandler)
-                external.historyChangedHandler();
-        }, _add = function (hash, reset) {
-            if (reset) {
-                _value = [hash];
-                if (external.historyChangedHandler)
-                    external.historyChangedHandler();
-                return;
-            }
-            var len = _value.length;
-            var last = len ? _value[len - 1] : "";
-            if (last != hash) {
-                var prev = (len >= 2) ? _value[len - 2] : "";
-                if (hash == prev)
-                    _value.pop();
-                else
-                    _value.push(hash);
-                if (external.historyChangedHandler)
-                    external.historyChangedHandler();
-            }
-        }, _hasBack = function () {
-            return _value.length > 1;
-        }, _replaceHash;
-        /* replaceHash */
-        if ('replaceState' in window.history) {
-            _replaceHash = function (newhash) {
-                if (('' + newhash).charAt(0) !== '#')
-                    newhash = '#' + newhash;
-                if (window.location.hash != newhash) {
-                    _removeLast();
-                    window.history.replaceState('', '', newhash);
-                }
-            };
-        }
-        else {
-            var hash = window.location.hash;
-            _replaceHash = function (newhash) {
-                if (('' + newhash).charAt(0) !== '#')
-                    newhash = '#' + newhash;
-                if (location.hash !== newhash) {
-                    _removeLast();
-                    if (location.hash !== hash)
-                        window.history.back();
-                    window.location.hash = newhash;
-                }
-            };
-        }
-        history.removeLast = _removeLast;
-        history.add = _add;
-        history.hasBack = _hasBack;
-        history.value = _value;
-        history.replaceHash = _replaceHash;
-    })(history = Phoenix.history || (Phoenix.history = {}));
-    var customData;
-    (function (customData) {
-        var _userData = {}, _registerData = function (namespace, value) {
-            var a = namespace.split(".");
-            var cp = _userData;
-            for (var i = 0, len = a.length - 1; i < len; i++) {
-                var p = a[i];
-                cp[p] = cp[p] || {};
-                cp = cp[p];
-            }
-            cp[a[a.length - 1]] = value;
-        }, _getRegisteredData = function (namespace) {
-            var a = namespace.split(".");
-            var cp = _userData, cd = null;
-            for (var i = 0, len = a.length; i < len; i++) {
-                cd = cp[a[i]];
-                if (!cd)
-                    return cd;
-                cp = cd;
-            }
-            return cd;
-        };
-        customData.register = _registerData;
-        customData.get = _getRegisteredData;
-    })(customData = Phoenix.customData || (Phoenix.customData = {}));
-    var render;
-    (function (render) {
-        var _renders = {}, _registerRender = function (context, name, handler) {
-            _renders[context] = _renders[context] || {};
-            _renders[context][name] = handler;
-        }, _getRender = function (context, name) {
-            if (!_renders[context])
-                return null;
-            return _renders[context][name];
-        };
-        render.register = _registerRender;
-        render.get = _getRender;
-    })(render = Phoenix.render || (Phoenix.render = {}));
     var utils;
     (function (utils) {
         var _getPromise = function () {
@@ -139,6 +34,9 @@ var Phoenix;
             for (var p in src) {
                 dst[p] = src[p];
             }
+        }, _cleanUpObject = function (src) {
+            for (var p in src)
+                src[p] = null;
         }, _logModules = {
             scope: false,
             destroy: false,
@@ -352,871 +250,8 @@ var Phoenix;
             var value = window.prompt(title, defaultValue);
             success(value);
         };
+        utils.cleanUpObject = _cleanUpObject;
     })(utils = Phoenix.utils || (Phoenix.utils = {}));
-    Phoenix.build = { version: "0.1.0.0", release: false };
-    var authentication;
-    (function (authentication) {
-        var _memdbStorage = {}, _memorydb = {
-            setItem: function (name, value) {
-                _memdbStorage[name] = value;
-            },
-            getItem: function (name) {
-                return _memdbStorage[name];
-            }
-        }, _afterLogout = [], _db = function () {
-            var db = null;
-            try {
-                db = (Phoenix.build.release ? window.sessionStorage : window.localStorage);
-            }
-            catch (ex) {
-                db = null;
-            }
-            if (!db)
-                db = _memorydb;
-            return db;
-        }, _save = function (credentials, onlyCredentials) {
-            if (!onlyCredentials)
-                credentials.basic = "Basic " + window.btoa((credentials.login || '') + ':' + (credentials.password || ''));
-            _db().setItem("authentication", JSON.stringify(credentials));
-        }, _load = function () {
-            try {
-                return JSON.parse(_db().getItem("authentication"));
-            }
-            catch (ex) {
-                return null;
-            }
-        }, _registerAfterLogout = function (hnd) {
-            _afterLogout.push(hnd);
-        }, _clear = function () {
-            _db().setItem("authentication", 'null');
-            _afterLogout.forEach(function (hnd) {
-                hnd();
-            });
-        };
-        authentication.db = _db;
-        authentication.save = _save;
-        authentication.load = _load;
-        authentication.clear = _clear;
-        authentication.registerAfterLogout = _registerAfterLogout;
-    })(authentication = Phoenix.authentication || (Phoenix.authentication = {}));
-    ;
-    var drag;
-    (function (drag) {
-        var _dragData, _setDragData = function (data) {
-            _dragData = data;
-        }, _getDragData = function () {
-            return _dragData;
-        };
-        drag.setData = _setDragData;
-        drag.getData = _getDragData;
-    })(drag = Phoenix.drag || (Phoenix.drag = {}));
-    var ipc;
-    (function (ipc) {
-        var _eventListeners = {}, _emitEvent = function (eventName, data) {
-            var evname = 'on' + eventName;
-            var l = _eventListeners[evname];
-            if (l)
-                l.forEach(function (item) {
-                    var hnd = item.listener ? item.handler.bind(item.listener) : item.handler;
-                    hnd(data);
-                });
-        }, _regListener = function (eventName, handler, listener) {
-            _eventListeners[eventName] = _eventListeners[eventName] || [];
-            var l = _eventListeners[eventName];
-            l.push({
-                listener: listener,
-                handler: handler
-            });
-        }, _unregListener = function (listener, eventName) {
-            function _rmvlistener(res) {
-                if (res) {
-                    var i = res.length;
-                    while (i--) {
-                        var o = res[i];
-                        if (o.listener == listener)
-                            res.splice(i, 1);
-                    }
-                }
-            }
-            if (eventName) {
-                _rmvlistener(_eventListeners[eventName]);
-            }
-            else {
-                Object.keys(_eventListeners).forEach(function (evn) {
-                    _rmvlistener(_eventListeners[evn]);
-                });
-            }
-        };
-        ipc.emit = _emitEvent;
-        ipc.listen = _regListener;
-        ipc.unlisten = _unregListener;
-    })(ipc = Phoenix.ipc || (Phoenix.ipc = {}));
-    Phoenix.locale = {};
-    var ulocale;
-    (function (ulocale) {
-        var _afterTranslate = [], _register = function (hnd) { _afterTranslate.push(hnd); }, _translate = function (ll, lang) {
-            $.extend(true, Phoenix.locale, ll);
-            _afterTranslate.forEach(function (hnd) { hnd(lang); });
-        }, _tt = function (v, context) {
-            context = context || {};
-            if (v && v.substring(0, 2) == '{{') {
-                return v.replace(/{{(.*)}}/g, function (match, path) {
-                    var segments = path.split('.');
-                    var c = context;
-                    for (var i = 0, len = segments.length; i < len; i++) {
-                        if (!c)
-                            break;
-                        c = c[segments[i]];
-                    }
-                    if (c === undefined)
-                        return '[' + path + ']';
-                    else
-                        return c;
-                });
-            }
-            return v;
-        };
-        ulocale.register = _register;
-        ulocale.translate = _translate;
-        ulocale.tt = _tt;
-    })(ulocale = Phoenix.ulocale || (Phoenix.ulocale = {}));
-    var application;
-    (function (application) {
-        var _cfgdata = {}, _setconfig = function (config, value) {
-            _cfgdata[config] = value;
-            return value;
-        }, _getconfig = function (config) {
-            return _cfgdata[config];
-        };
-        application.core = "phoenix";
-        application.name = "";
-        application.support = "";
-        application.homeName = "home";
-        application.title = "";
-        application.licences = {};
-        application.configuration = null;
-        function config(appName, cfg) {
-            appName = appName || application.name;
-            if (cfg == undefined)
-                return _getconfig("application_" + appName);
-            else
-                return _setconfig("application_" + appName, cfg);
-        }
-        application.config = config;
-        ;
-        function init(appName, appTitle, config) {
-            application.name = appName;
-            application.title = appTitle;
-            if (config && config.homes && config.homes[appName])
-                application.homeName = config.homes[appName];
-            application.configuration = config;
-            if (angular) {
-                var am = config ? config.angularModules || [] : [];
-                if (!Array.isArray(am) && (typeof am === 'object'))
-                    am = am[appName] || [];
-                application.angularApplication = angular.module(appName, am);
-            }
-        }
-        application.init = init;
-        ;
-        function portailName() {
-            return application.configuration && application.configuration.portailName ? application.configuration.portailName : 'portail';
-        }
-        application.portailName = portailName;
-        function isPortail() {
-            return application.name === portailName();
-        }
-        application.isPortail = isPortail;
-    })(application = Phoenix.application || (Phoenix.application = {}));
-    Phoenix.device = {
-        phone: false,
-        tablet: false,
-        deviceType: ""
-    };
-    var _load$Mem = function () {
-        try {
-            if (window.sessionStorage) {
-                return JSON.parse(window.sessionStorage.getItem("$mem")) || {};
-            }
-        }
-        catch (ex) {
-            return {};
-        }
-    };
-    var _save$Mem = function (value) {
-        value = value || {};
-        try {
-            if (window.sessionStorage) {
-                window.sessionStorage.setItem("$mem", JSON.stringify(value));
-            }
-        }
-        catch (ex) {
-        }
-    };
-    Phoenix.$mem = _load$Mem();
-    function save$mem() {
-        _save$Mem(Phoenix.$mem);
-    }
-    Phoenix.save$mem = save$mem;
-    var dom;
-    (function (dom) {
-        var _mapIcon = {
-            "times-circle": "remove-sign",
-            "times-circle-o": "remove-circle",
-            "times": "remove",
-            "chevron-left": "chevron-left",
-            "chevron-right": "chevron-right",
-            "backward": "backward",
-            "forward": "forward",
-            "file-o": 'file',
-            'floppy': 'floppy-save',
-            "power-off": "off",
-            "user": "user",
-            "pencil": "pencil",
-            "trash": "trash",
-            "check-square-o": "check",
-            "square-o": "unchecked",
-            "plus-circle": "plus-sign",
-            "search": "search",
-            "chevron-down": "menu-down",
-            "ellipsis-v": "option-vertical",
-            "bars": "menu-hamburger",
-            "plus": "plus",
-            "thumb-tack": "pushpin",
-            "calendar": "calendar",
-            "exclamation-circle": "exclamation-sign",
-            "cloud": "cloud",
-            "caret-up": "triangle-top",
-            "caret-down": "triangle-bottom",
-            "cog": "cog",
-            "lock": "lock",
-            "question-circle": "question-sign",
-            "info-circle": "info-sign"
-        };
-        var _parseStyle = function (style, css) {
-            if (style) {
-                var a = style.split(" ");
-                a.forEach(function (e, index) {
-                    e = e.trim();
-                    if (e && (e.charAt(0) === "$"))
-                        e = 'bs-style-' + e.substring(1);
-                    css.push(e);
-                });
-            }
-        }, _select = function (input) {
-            if (!input)
-                return;
-            input.select();
-        }, _addRmvClasses = function (v, add, cn) {
-            var c = (v || '').split(' ');
-            var i = c.indexOf(cn);
-            if (add) {
-                if (i < 0)
-                    c.push(cn);
-            }
-            else {
-                if (i >= 0)
-                    c.splice(i, 1);
-            }
-            return c.join(' ');
-        }, _iconClass = function (iconName, noPrefix) {
-            if (noPrefix === void 0) { noPrefix = false; }
-            var icon = _mapIcon[iconName] ? _mapIcon[iconName] : iconName;
-            if (noPrefix)
-                return (Phoenix.bootstrap4 ? "fa-" : "glyphicon-") + icon;
-            else
-                return (Phoenix.bootstrap4 ? "fa fa-" : "glyphicon glyphicon-") + icon;
-        }, _iconPrefix = function () { return (Phoenix.bootstrap4 ? "fa" : "glyphicon"); }, _createIcon = function (iconName) {
-            var icon = document.createElement("span");
-            icon.className = _iconClass(iconName, false);
-            return icon;
-        }, _queryAll = function (parent, selector) {
-            if (parent)
-                return parent.querySelectorAll(selector);
-            return document.querySelectorAll(selector);
-        }, _find = function (parent, id) {
-            if (parent) {
-                if (parent.id == id)
-                    return parent;
-                return parent.querySelector('#' + id);
-            }
-            return document.getElementById(id);
-        }, _query = function (parent, selector) {
-            if (parent) {
-                return parent.querySelector(selector);
-            }
-            return null;
-        }, _addClass = function (element, className) {
-            if (element.classList)
-                element.classList.add(className);
-            else
-                element.className = _addRmvClasses(element.className, true, className);
-        }, _removeClass = function removeClass(element, className) {
-            if (element.classList)
-                element.classList.remove(className);
-            else
-                element.className = _addRmvClasses(element.className, false, className);
-        }, _hasClass = function (element, className) {
-            if (element.classList)
-                return element.classList.contains(className);
-            else
-                return (element.className || '').split(' ').indexOf(className) >= 0;
-        }, _remove = function (element) {
-            element.parentNode.removeChild(element);
-        }, _detach = function (element) {
-            element.parentNode.removeChild(element);
-            return element;
-        }, _empty = function (element) {
-            for (var i = element.childNodes.length - 1; i >= 0; i--)
-                element.removeChild(element.childNodes[i]);
-        }, _append = function (parent, element) {
-            parent.appendChild(element);
-        }, _before = function (child, element) {
-            child.parentNode.insertBefore(element, child);
-        }, _elemByAttribute = function (el, root, attr) {
-            var t = el;
-            while (t) {
-                if (!t.getAttribute)
-                    return null;
-                var val = t.getAttribute(attr);
-                if (val)
-                    return t;
-                t = (t == root) ? null : t.parentNode;
-            }
-            return null;
-        }, _setBodyTheme = function (value) {
-            var fc = document.body.firstElementChild;
-            if (!fc || !_hasClass(fc, "bs-content"))
-                fc = document.body;
-            var old = fc.className || '';
-            var nc = value ? ('bs-body-theme-' + value) : '';
-            var classes = old.split(' ');
-            var changed = false;
-            var i = classes.length;
-            while (i--) {
-                var c = classes[i];
-                if (c.indexOf('bs-body-theme-') == 0) {
-                    if (c == nc)
-                        return false;
-                    changed = true;
-                    classes.splice(i, 1);
-                }
-            }
-            if (nc) {
-                changed = true;
-                classes.push(nc);
-            }
-            if (changed)
-                fc.className = classes.join(' ');
-        }, _after = function (child, element) {
-            var p = child.parentNode;
-            child = child.nextSibling;
-            if (child)
-                p.insertBefore(element, child);
-            else
-                p.appendChild(element);
-        }, _getWindow = function (elem) {
-            return (elem != null && elem === elem.window) ? elem : elem.nodeType === 9 && elem.defaultView;
-        }, _offset = function (element) {
-            var rect;
-            if (element.nodeType != 3) {
-                rect = element.getBoundingClientRect();
-                // Make sure element is not hidden (display: none)
-                if (rect.width || rect.height) {
-                    var doc = element.ownerDocument;
-                    var win = _getWindow(doc);
-                    var docElem = doc.documentElement;
-                    return {
-                        top: rect.top + win.pageYOffset - docElem.clientTop,
-                        left: rect.left + win.pageXOffset - docElem.clientLeft,
-                        width: rect.width,
-                        height: rect.height,
-                        bottom: 0,
-                        right: 0
-                    };
-                }
-            }
-            return rect || { top: 0, left: 0, width: 0, height: 0, bottom: 0, right: 0 };
-        }, _parentByTag = function (root, element, tag) {
-            tag = tag.toUpperCase();
-            while (element) {
-                if (element.tagName === tag)
-                    return element;
-                element = element.parentNode;
-                if (element == root)
-                    break;
-            }
-            return null;
-        }, _parentByCssClass = function (root, element, className) {
-            while (element) {
-                if (_hasClass(element, className))
-                    return element;
-                element = element.parentNode;
-                if (element == root)
-                    break;
-            }
-            return null;
-        }, _indexOf = function (parent, child) {
-            for (var i = 0, len = parent.childNodes.length; i < len; i++) {
-                if (parent.childNodes[i] == child)
-                    return i;
-            }
-            return -1;
-        }, _isChildOf = function (parent, child) {
-            while (child) {
-                if (child === parent)
-                    return true;
-                child = child.parentNode;
-            }
-            return false;
-        }, _attr = function (element, attr, value) {
-            if (value === void 0) { value = undefined; }
-            if (value === undefined) {
-                return element.getAttribute(attr);
-            }
-            else {
-                element.setAttribute(attr, value);
-            }
-        }, _text = function (node, text) {
-            if (text === undefined)
-                return node.textContent;
-            if (node.childNodes.length) {
-                var found = false;
-                for (var i = 0, len = node.childNodes.length; i < len; i++) {
-                    var n = node.childNodes[i];
-                    if (n.nodeType == 3) {
-                        n.nodeValue = text;
-                        found = true;
-                        break;
-                    }
-                }
-                if (!found)
-                    _append(node, document.createTextNode(text));
-            }
-            else {
-                node.textContent = text;
-            }
-        }, _scrollbarWidth = function () {
-            var calculated = false;
-            var cw = 0;
-            return function () {
-                if (calculated)
-                    return cw;
-                var b, a = document.createElement("div");
-                a.style.cssText = "overflow:scroll; overflow-x:hidden; zoom:1; clear:both";
-                a.innerHTML = "&nbsp;";
-                document.body.appendChild(a);
-                b = a.offsetWidth - a.scrollWidth;
-                document.body.removeChild(a);
-                calculated = true;
-                cw = b;
-                return b;
-            };
-        }, _cover = null, _coverRefCount = 0, _inProcessing = function () {
-            return _cover != null;
-        }, _processing = function (value) {
-            if (value) {
-                _coverRefCount++;
-                if (!_cover) {
-                    _coverRefCount = 1;
-                    _cover = $('<div class="bs-cover"></div>').get(0);
-                    _cover.style.height = ($(document).height() - 1) + 'px';
-                    _append(document.body, _cover);
-                }
-            }
-            else {
-                _coverRefCount--;
-                if (_coverRefCount <= 0)
-                    _coverRefCount = 0;
-                if (_cover) {
-                    if (_coverRefCount === 0) {
-                        _remove(_cover);
-                        _cover = null;
-                    }
-                }
-            }
-        }, _emitResize = function () {
-            $(window).trigger('global-phoenix-resize');
-        }, _resizeTimeOut = null, _setResizeHnd = function () {
-            $(window).on('resize.phoenix', function () {
-                if (_resizeTimeOut)
-                    clearTimeout(_resizeTimeOut);
-                _resizeTimeOut = setTimeout(_emitResize, 50);
-            });
-        };
-        dom.readyHandlers = [_setResizeHnd];
-        dom.keys = {
-            VK_TAB: 9, VK_UP: 38, VK_DOWN: 40, VK_INSERT: 45, VK_DELETE: 46, VK_LEFT: 37, VK_RIGHT: 39,
-            VK_ENTER: 13, VK_ESCAPE: 27, VK_F1: 112, VK_HOME: 36, VK_END: 35, VK_PGUP: 33, VK_PGDOWN: 34,
-            VK_SPACE: 32, VK_F2: 113, VK_F3: 114, VK_F4: 115, VK_BACKSPACE: 8, VK_F10: 121
-        };
-        dom.queryAll = _queryAll;
-        dom.find = _find;
-        dom.query = _query;
-        dom.addClass = _addClass;
-        dom.removeClass = _removeClass;
-        dom.hasClass = _hasClass;
-        dom.icon = _createIcon;
-        dom.iconClass = _iconClass;
-        dom.iconPrefix = _iconPrefix;
-        dom.bodyTheme = _setBodyTheme;
-        dom.offset = _offset;
-        dom.before = _before;
-        dom.after = _after;
-        dom.parentByTag = _parentByTag;
-        dom.parentByClass = _parentByCssClass;
-        dom.indexOf = _indexOf;
-        dom.append = _append;
-        dom.select = _select;
-        dom.empty = _empty;
-        dom.remove = _remove;
-        dom.detach = _detach;
-        dom.attr = _attr;
-        dom.text = _text;
-        dom.findByAttribute = _elemByAttribute;
-        dom.isChildOf = _isChildOf;
-        dom.parseStyle = _parseStyle;
-        dom.ignoreKeys = [0, dom.keys.VK_UP, dom.keys.VK_DOWN, dom.keys.VK_HOME, dom.keys.VK_END, dom.keys.VK_PGUP, dom.keys.VK_PGDOWN, dom.keys.VK_ENTER, dom.keys.VK_ESCAPE,
-            dom.keys.VK_DELETE, dom.keys.VK_BACKSPACE, dom.keys.VK_INSERT];
-        dom.processing = _processing;
-        dom.inProcessing = _inProcessing;
-        dom.scrollbar = _scrollbarWidth();
-    })(dom = Phoenix.dom || (Phoenix.dom = {}));
-    var link;
-    (function (link) {
-        var _obj2Search = function (value) {
-            if (!value)
-                return '';
-            var a = [];
-            Object.keys(value).forEach(function (name) {
-                if (value[name] === null)
-                    return;
-                a.push(name + '=' + encodeURIComponent(value[name] || ''));
-            });
-            if (a.length > 0)
-                return '?' + a.join('&');
-            return '';
-        }, _parseUrl = function (value) {
-            var search = {};
-            var path = value;
-            var i = value.indexOf('?');
-            if (i >= 0) {
-                var s = value.substring(i + 1);
-                path = value.substring(0, i);
-                if (s) {
-                    var a = s.split('&');
-                    a.forEach(function (v) {
-                        if (v) {
-                            var h = v.split('=');
-                            search[h[0]] = decodeURIComponent(h[1]);
-                        }
-                    });
-                }
-            }
-            return {
-                path: path,
-                search: search
-            };
-        }, _urlSearch = function (value, replace) {
-            if (value == null) {
-                return _parseUrl(window.location.href).search;
-            }
-            else {
-                var searchString = _obj2Search(value);
-                if (!window.location.hash) {
-                    if (window.location.search != searchString)
-                        window.location.search = searchString;
-                }
-                else {
-                    var ch = window.location.hash;
-                    var ii = ch.indexOf('?');
-                    if (ii > 0) {
-                        ch = ch.substring(0, ii);
-                        ch = ch + searchString;
-                    }
-                    if (replace) {
-                        history.replaceHash(ch);
-                    }
-                    else {
-                        if (window.location.hash != ch) {
-                            if (window.history) {
-                                try {
-                                    window.history.replaceState(undefined, undefined, ch);
-                                }
-                                catch (ex) {
-                                    window.location.hash = ch;
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }, _extractPage = function (cfg) {
-            var page = cfg.$page;
-            if (Phoenix.device.phone && cfg.$pageMobile)
-                page = cfg.$pageMobile;
-            else if (Phoenix.device.tablet && cfg.$pageTablet)
-                page = cfg.$pageTablet;
-            return page;
-        }, _context = function () {
-            var usr = null;
-            try {
-                usr = JSON.parse(authentication.db().getItem("authentication"));
-            }
-            catch (e) {
-            }
-            return {
-                $url: _urlSearch(null, false),
-                $mem: Phoenix.$mem,
-                $user: {
-                    name: usr ? usr.name || usr.nom || usr.login : "",
-                    firstName: usr ? usr.firstName || usr.prenom || usr.login : "",
-                    lastName: usr ? usr.lastName || usr.nom || "" : ""
-                },
-                $item: null
-            };
-        }, _hashLink = function (cfg, data, params) {
-            if (cfg.$page) {
-                var page = _extractPage(cfg);
-                var res = '#/' + page;
-                var a = [];
-                if (data && cfg.$search && cfg.$search.length) {
-                    var dd = _context();
-                    Object.keys(data).forEach(function (pn) {
-                        dd[pn] = data[pn];
-                    });
-                    cfg.$search.forEach(function (v) {
-                        if (v && v.left)
-                            a.push(v.left + '=' + encodeURIComponent(utils.parseVariable(v.right, dd)));
-                    });
-                }
-                if (params) {
-                    Object.keys(params).forEach(function (pn) {
-                        a.push(pn + '=' + encodeURIComponent(params[pn]));
-                    });
-                }
-                if (a.length)
-                    res = res + "?" + a.join("&");
-                return res;
-            }
-            return '#';
-        }, _customProtocols = {}, _isCustomLink = function (href) {
-            var i = href.indexOf('://');
-            if (i > 0) {
-                var p = _customProtocols[href.substring(0, i)];
-                if (p)
-                    return p.protocol;
-            }
-            return null;
-        }, _execCustomLink = function (clink, context, config, params) {
-            var p = _customProtocols[clink.protocol];
-            if (p && p.handler)
-                p.handler(clink.value, context, config, params);
-        }, _registerCustomLink = function (protocol, handler) {
-            _customProtocols[protocol] = {
-                protocol: protocol,
-                handler: handler
-            };
-        }, _getLink = function (e, event, dontStopPropagation) {
-            var target = event.target;
-            while (target && target != e) {
-                var href = dom.attr(target, 'data-phoenix-href') || dom.attr(target, 'href');
-                if (href) {
-                    if (href === '#') {
-                        if (!dontStopPropagation) {
-                            event.preventDefault();
-                            event.stopPropagation();
-                        }
-                        break;
-                    }
-                    var customLink = _isCustomLink(href);
-                    if (customLink) {
-                        if (!dontStopPropagation) {
-                            event.preventDefault();
-                            event.stopPropagation();
-                        }
-                        return {
-                            protocol: customLink,
-                            value: href
-                        };
-                    }
-                }
-                target = target.parentNode;
-            }
-            return null;
-        }, _navigateToModule = function (newhash, newModule, oldModule, replace) {
-            var lpath = location.pathname;
-            var lhref;
-            var segments = lpath.split('/');
-            var addAfter = '';
-            if (segments[segments.length - 1].indexOf('.html') > 0)
-                addAfter = segments.pop();
-            var ls = segments.pop();
-            if (!addAfter && ls == '')
-                segments.pop();
-            segments.push(newModule);
-            if (addAfter)
-                segments.push(addAfter);
-            lhref = segments.join('/');
-            if (!newhash || ('' + newhash).charAt(0) !== '#')
-                newhash = '#' + newhash;
-            lhref += newhash;
-            if (replace)
-                location.replace(lhref);
-            else
-                location.href = lhref;
-        }, _setHash = function (newhash, replace) {
-            if (!newhash || ('' + newhash).charAt(0) !== '#')
-                newhash = '#' + newhash;
-            if (window.location.hash == newhash)
-                return;
-            if (external.hashHandler) {
-                external.hashHandler(newhash, replace);
-            }
-            else {
-                history.removeLast();
-                if (replace && 'replaceState' in window.history) {
-                    window.history.replaceState(undefined, undefined, newhash);
-                }
-                else {
-                    location.hash = newhash;
-                }
-            }
-        }, _doFormAuthoring = function (params) {
-            if (!params.name)
-                return;
-            if (!params.schema)
-                return;
-            var ch = '/authoring/forms/' + params.name;
-            var search = [];
-            if (params.schema !== params.name)
-                search.push('prototype=' + encodeURIComponent(params.schema));
-            if (params.locale)
-                search.push('locale=' + encodeURIComponent(params.locale));
-            if (params.path)
-                search.push('path=' + encodeURIComponent(params.path));
-            var ii = window.location.href.lastIndexOf('?');
-            if (ii > 0)
-                search.push(window.location.href.substr(ii + 1));
-            if (search.length)
-                ch = ch + '?' + search.join('&');
-            window.location.hash = '#' + ch;
-        }, _doAuthoring = function (pageName, force) {
-            var auth = '/authoring';
-            var authform = '/authoring/forms/';
-            var ch = window.location.hash;
-            if (ch.charAt(0) == '#')
-                ch = ch.substring(1);
-            if (!force && ch.indexOf(auth) === 0) {
-                if (ch.indexOf(authform) === 0)
-                    window.history.back();
-                else
-                    window.location.hash = '#' + ch.substring(auth.length);
-            }
-            else {
-                window.location.hash = '#' + auth + (pageName ? ('/' + pageName) : ch);
-            }
-        }, _execLink = function (clink, context, params) {
-            var _application = application;
-            var modules = _application.configuration && _application.configuration.application ?
-                _application.configuration.application.modules : null;
-            if (clink.$page) {
-                var module = clink.$module ? clink.$module : _application.name;
-                if (modules && modules[module] && _application.licences) {
-                    var mlicence = _application.licences[modules[module]];
-                    if (mlicence && !mlicence.hasLicence) {
-                        if (external.forbiddenHandler)
-                            return external.forbiddenHandler();
-                    }
-                }
-                var hash = _hashLink(clink, context, params);
-                if (clink.$module) {
-                    if (clink.$module != _application.name) {
-                        return _navigateToModule(hash, clink.$module, _application.name, clink.$replace);
-                    }
-                }
-                _setHash(hash, clink.$replace);
-                if (clink.$authoring)
-                    _doAuthoring();
-            }
-            else if (clink.$logout) {
-                if (external.logoutHandler)
-                    external.logoutHandler();
-            }
-            else if (clink.$formAuthoring) {
-                _doFormAuthoring(clink);
-            }
-            else if (clink.$authoring) {
-                _doAuthoring();
-            }
-            else if (clink.$back) {
-                window.history.back();
-            }
-            else if (clink.href) {
-                var a = document.createElement("a");
-                a.href = clink.href;
-                if (clink.target)
-                    a.target = clink.target;
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-            }
-        };
-        link.search = _urlSearch;
-        link.object2search = _obj2Search;
-        link.parseUrl = _parseUrl;
-        link.hashLink = _hashLink;
-        link.pageName = _extractPage;
-        link.isCustomLink = _getLink;
-        link.registerCustomProtocol = _registerCustomLink;
-        link.execCustomProtocol = _execCustomLink;
-        link.isCustomProtocol = _isCustomLink;
-        link.doAuthoring = _doAuthoring;
-        link.doFormAuthoring = _doFormAuthoring;
-        link.setHash = _setHash;
-        link.execLink = _execLink;
-        link.context = _context;
-    })(link = Phoenix.link || (Phoenix.link = {}));
-    ;
-    function sessionPreferences(name, value) {
-        var p = null;
-        try {
-            p = JSON.parse(window.sessionStorage.getItem("preferences"));
-        }
-        catch (ex) { }
-        if (value === undefined) {
-            return p ? p[name] : undefined;
-        }
-        else {
-            p = p || {};
-            p[name] = value;
-            try {
-                window.sessionStorage.setItem("preferences", JSON.stringify(p));
-            }
-            catch (ex) { }
-        }
-    }
-    Phoenix.sessionPreferences = sessionPreferences;
-    ;
-    function preferences(name, value) {
-        var p = null;
-        try {
-            p = JSON.parse(window.localStorage.getItem("preferences"));
-        }
-        catch (ex) { }
-        if (value === undefined) {
-            return p ? p[name] : undefined;
-        }
-        else {
-            p = p || {};
-            p[name] = value;
-            try {
-                window.localStorage.setItem("preferences", JSON.stringify(p));
-            }
-            catch (ex) { }
-        }
-    }
-    Phoenix.preferences = preferences;
     (function _polyfill() {
         var arrayProto = Array.prototype;
         if (!arrayProto.find) {
@@ -1262,13 +297,133 @@ var Phoenix;
             };
         }
     })();
-    $(document).ready(function () {
-        if (dom.readyHandlers.length) {
-            dom.readyHandlers.forEach(function (hnd) {
-                hnd();
-            });
+})(Phoenix || (Phoenix = {}));
+/// <reference path="../../../typings/index.d.ts" />
+/// <reference path="./modules/utils.ts" />
+var Phoenix;
+(function (Phoenix) {
+    var _utils = Phoenix.utils;
+    Phoenix.bootstrap4 = false;
+    var external;
+    (function (external) {
+        external.hashHandler = null;
+        external.logoutHandler = null;
+        external.forbiddenHandler = null;
+        external.changePasswordHandler = null;
+        external.checkLoggedInHandler = null;
+        external.historyChangedHandler = null;
+    })(external = Phoenix.external || (Phoenix.external = {}));
+    var history;
+    (function (history) {
+        var _value = [], _removeLast = function () {
+            _value.pop();
+            if (external.historyChangedHandler)
+                external.historyChangedHandler();
+        }, _add = function (hash, reset) {
+            if (reset) {
+                _value = [hash];
+                if (external.historyChangedHandler)
+                    external.historyChangedHandler();
+                return;
+            }
+            var len = _value.length;
+            var last = len ? _value[len - 1] : "";
+            if (last != hash) {
+                var prev = (len >= 2) ? _value[len - 2] : "";
+                if (hash == prev)
+                    _value.pop();
+                else
+                    _value.push(hash);
+                if (external.historyChangedHandler)
+                    external.historyChangedHandler();
+            }
+        }, _hasBack = function () {
+            return _value.length > 1;
+        }, _replaceHash;
+        /* replaceHash */
+        if ('replaceState' in window.history) {
+            _replaceHash = function (newhash) {
+                if (('' + newhash).charAt(0) !== '#')
+                    newhash = '#' + newhash;
+                if (window.location.hash != newhash) {
+                    _removeLast();
+                    window.history.replaceState('', '', newhash);
+                }
+            };
         }
-    });
+        else {
+            var hash = window.location.hash;
+            _replaceHash = function (newhash) {
+                if (('' + newhash).charAt(0) !== '#')
+                    newhash = '#' + newhash;
+                if (location.hash !== newhash) {
+                    _removeLast();
+                    if (location.hash !== hash)
+                        window.history.back();
+                    window.location.hash = newhash;
+                }
+            };
+        }
+        history.removeLast = _removeLast;
+        history.add = _add;
+        history.hasBack = _hasBack;
+        history.value = _value;
+        history.replaceHash = _replaceHash;
+    })(history = Phoenix.history || (Phoenix.history = {}));
+    var render;
+    (function (render) {
+        var _renders = {}, _registerRender = function (context, name, handler) {
+            _renders[context] = _renders[context] || {};
+            _renders[context][name] = handler;
+        }, _getRender = function (context, name) {
+            if (!_renders[context])
+                return null;
+            return _renders[context][name];
+        };
+        render.register = _registerRender;
+        render.get = _getRender;
+    })(render = Phoenix.render || (Phoenix.render = {}));
+    var ipc;
+    (function (ipc) {
+        var _eventListeners = {}, _emitEvent = function (eventName, data) {
+            var evname = 'on' + eventName;
+            var l = _eventListeners[evname];
+            if (l)
+                l.forEach(function (item) {
+                    var hnd = item.listener ? item.handler.bind(item.listener) : item.handler;
+                    hnd(data);
+                });
+        }, _regListener = function (eventName, handler, listener) {
+            _eventListeners[eventName] = _eventListeners[eventName] || [];
+            var l = _eventListeners[eventName];
+            l.push({
+                listener: listener,
+                handler: handler
+            });
+        }, _unregListener = function (listener, eventName) {
+            function _rmvlistener(res) {
+                if (res) {
+                    var i = res.length;
+                    while (i--) {
+                        var o = res[i];
+                        if (o.listener == listener)
+                            res.splice(i, 1);
+                    }
+                }
+            }
+            if (eventName) {
+                _rmvlistener(_eventListeners[eventName]);
+            }
+            else {
+                Object.keys(_eventListeners).forEach(function (evn) {
+                    _rmvlistener(_eventListeners[evn]);
+                });
+            }
+        };
+        ipc.emit = _emitEvent;
+        ipc.listen = _regListener;
+        ipc.unlisten = _unregListener;
+    })(ipc = Phoenix.ipc || (Phoenix.ipc = {}));
 })(Phoenix || (Phoenix = {}));
 /// <reference path="../../../typings/index.d.ts" />
 var Phoenix;
@@ -1401,13 +556,227 @@ var Phoenix;
         utils.GlbSerial = new Serial();
     })(utils = Phoenix.utils || (Phoenix.utils = {}));
 })(Phoenix || (Phoenix = {}));
-/// <reference path="../../../typings/index.d.ts" />
-/// <reference path="./core.ts" />
+var Phoenix;
+(function (Phoenix) {
+    Phoenix.locale = {};
+})(Phoenix || (Phoenix = {}));
+/// <reference path="../../../../typings/index.d.ts" />
+var Phoenix;
+(function (Phoenix) {
+    var customData;
+    (function (customData) {
+        var _userData = {}, _registerData = function (namespace, value) {
+            var a = namespace.split(".");
+            var cp = _userData;
+            for (var i = 0, len = a.length - 1; i < len; i++) {
+                var p = a[i];
+                cp[p] = cp[p] || {};
+                cp = cp[p];
+            }
+            cp[a[a.length - 1]] = value;
+        }, _getRegisteredData = function (namespace) {
+            var a = namespace.split(".");
+            var cp = _userData, cd = null;
+            for (var i = 0, len = a.length; i < len; i++) {
+                cd = cp[a[i]];
+                if (!cd)
+                    return cd;
+                cp = cd;
+            }
+            return cd;
+        };
+        customData.register = _registerData;
+        customData.get = _getRegisteredData;
+    })(customData = Phoenix.customData || (Phoenix.customData = {}));
+})(Phoenix || (Phoenix = {}));
+/// <reference path="../../../../typings/index.d.ts" />
+var Phoenix;
+(function (Phoenix) {
+    Phoenix.device = {
+        phone: false,
+        tablet: false,
+        deviceType: ""
+    };
+    var _load$Mem = function () {
+        try {
+            if (window.sessionStorage) {
+                return JSON.parse(window.sessionStorage.getItem("$mem")) || {};
+            }
+        }
+        catch (ex) {
+            return {};
+        }
+    };
+    var _save$Mem = function (value) {
+        value = value || {};
+        try {
+            if (window.sessionStorage) {
+                window.sessionStorage.setItem("$mem", JSON.stringify(value));
+            }
+        }
+        catch (ex) {
+        }
+    };
+    Phoenix.$mem = _load$Mem();
+    function save$mem() {
+        _save$Mem(Phoenix.$mem);
+    }
+    Phoenix.save$mem = save$mem;
+    function sessionPreferences(name, value) {
+        var p = null;
+        try {
+            p = JSON.parse(window.sessionStorage.getItem("preferences"));
+        }
+        catch (ex) { }
+        if (value === undefined) {
+            return p ? p[name] : undefined;
+        }
+        else {
+            p = p || {};
+            p[name] = value;
+            try {
+                window.sessionStorage.setItem("preferences", JSON.stringify(p));
+            }
+            catch (ex) { }
+        }
+    }
+    Phoenix.sessionPreferences = sessionPreferences;
+    ;
+    function preferences(name, value) {
+        var p = null;
+        try {
+            p = JSON.parse(window.localStorage.getItem("preferences"));
+        }
+        catch (ex) { }
+        if (value === undefined) {
+            return p ? p[name] : undefined;
+        }
+        else {
+            p = p || {};
+            p[name] = value;
+            try {
+                window.localStorage.setItem("preferences", JSON.stringify(p));
+            }
+            catch (ex) { }
+        }
+    }
+    Phoenix.preferences = preferences;
+    Phoenix.build = { version: "0.1.0.0", release: false };
+})(Phoenix || (Phoenix = {}));
+/// <reference path="../../../../typings/index.d.ts" />
+/// <reference path="./globals.ts" />
+var Phoenix;
+(function (Phoenix) {
+    var authentication;
+    (function (authentication) {
+        var _build = Phoenix.build;
+        var _memdbStorage = {}, _memorydb = {
+            setItem: function (name, value) {
+                _memdbStorage[name] = value;
+            },
+            getItem: function (name) {
+                return _memdbStorage[name];
+            }
+        }, _afterLogout = [], _db = function () {
+            var db = null;
+            try {
+                db = (_build.release ? window.sessionStorage : window.localStorage);
+            }
+            catch (ex) {
+                db = null;
+            }
+            if (!db)
+                db = _memorydb;
+            return db;
+        }, _save = function (credentials, onlyCredentials) {
+            if (!onlyCredentials)
+                credentials.basic = "Basic " + window.btoa((credentials.login || '') + ':' + (credentials.password || ''));
+            _db().setItem("authentication", JSON.stringify(credentials));
+        }, _load = function () {
+            try {
+                return JSON.parse(_db().getItem("authentication"));
+            }
+            catch (ex) {
+                return null;
+            }
+        }, _registerAfterLogout = function (hnd) {
+            _afterLogout.push(hnd);
+        }, _clear = function () {
+            _db().setItem("authentication", 'null');
+            _afterLogout.forEach(function (hnd) {
+                hnd();
+            });
+        };
+        authentication.db = _db;
+        authentication.save = _save;
+        authentication.load = _load;
+        authentication.clear = _clear;
+        authentication.registerAfterLogout = _registerAfterLogout;
+    })(authentication = Phoenix.authentication || (Phoenix.authentication = {}));
+})(Phoenix || (Phoenix = {}));
+/// <reference path="../../../../typings/index.d.ts" />
+var Phoenix;
+(function (Phoenix) {
+    var application;
+    (function (application) {
+        var _cfgdata = {}, _setconfig = function (config, value) {
+            _cfgdata[config] = value;
+            return value;
+        }, _getconfig = function (config) {
+            return _cfgdata[config];
+        };
+        application.core = "phoenix";
+        application.name = "";
+        application.support = "";
+        application.homeName = "home";
+        application.title = "";
+        application.licences = {};
+        application.configuration = null;
+        function config(appName, cfg) {
+            appName = appName || application.name;
+            if (cfg == undefined)
+                return _getconfig("application_" + appName);
+            else
+                return _setconfig("application_" + appName, cfg);
+        }
+        application.config = config;
+        ;
+        function init(appName, appTitle, config) {
+            application.name = appName;
+            application.title = appTitle;
+            if (config && config.homes && config.homes[appName])
+                application.homeName = config.homes[appName];
+            application.configuration = config;
+            if (angular) {
+                var am = config ? config.angularModules || [] : [];
+                if (!Array.isArray(am) && (typeof am === 'object'))
+                    am = am[appName] || [];
+                application.angularApplication = angular.module(appName, am);
+            }
+        }
+        application.init = init;
+        ;
+        function portailName() {
+            return application.configuration && application.configuration.portailName ? application.configuration.portailName : 'portail';
+        }
+        application.portailName = portailName;
+        function isPortail() {
+            return application.name === portailName();
+        }
+        application.isPortail = isPortail;
+    })(application = Phoenix.application || (Phoenix.application = {}));
+})(Phoenix || (Phoenix = {}));
+/// <reference path="../../../../typings/index.d.ts" />
+/// <reference path="./utils.ts" />
+/// <reference path="./locale.ts" />
+/// <reference path="./customdata.ts" />
+/// <reference path="./authentication.ts" />
+/// <reference path="./application.ts" />
 var Phoenix;
 (function (Phoenix) {
     var ajax;
     (function (ajax) {
-        var _utils = Phoenix.utils, _application = Phoenix.application, _customData = _customData, _locale = Phoenix.locale;
+        var _utils = Phoenix.utils, _application = Phoenix.application, _customData = Phoenix.customData, _authentication = Phoenix.authentication, _locale = Phoenix.locale;
         var _ajaxInterceptors = {}, _intercept = function (status) {
             var ii = _ajaxInterceptors["s" + status];
             if (ii && !ii.disabled) {
@@ -1608,7 +977,7 @@ var Phoenix;
             opts.headers = opts.headers || {};
             opts.headers.Accept = "application/json";
             if (cfg && cfg.odata && cfg.odata.authentication) {
-                var ui = Phoenix.authentication.load();
+                var ui = _authentication.load();
                 if (ui) {
                     switch (cfg.odata.authentication) {
                         case 'basic':
@@ -1784,125 +1153,35 @@ var Phoenix;
         ajax.activateInterceptError = _activateInterceptor;
     })(ajax = Phoenix.ajax || (Phoenix.ajax = {}));
 })(Phoenix || (Phoenix = {}));
-/// <reference path="../core.ts" />
-var Phoenix;
-(function (Phoenix) {
-    var en = {
-        "layouts": {
-            "design": {
-                "Save": "Save",
-                "New": "New page",
-                "Open": { "title": "Open page", "open": "Open", "close": "Close" },
-                "PageName": "Page Name",
-                "InvalidPageName": "Invalid page name",
-                "ConflictedPageName": "A page of that name exists, do you want to give another name ?",
-                "Delete": "Delete page",
-                "ConfirmDelete": "Are you sure you want to delete this page ?",
-                "Preview": "Preview",
-                "AuthoringMode": "Authoring",
-                "layouts": "Blocks",
-                "widgets": "Widgets",
-                "fields": "Fields",
-                "actions": "Actions"
-            },
-            "NoData": 'No data'
-        },
-        "schema": {
-            "required": "{0} is required.",
-            "minNumber": "{0} must be at least {1}",
-            "maxNumber": "{0} cannot exceed {1}",
-            "minNumberExclusive": "{0} must be greater than {1}",
-            "maxNumberExclusive": "{0} must be less than {1}",
-            "uniqueColumn": "The column '{0}' must be unique.",
-            "uniqueColumns": "Duplicate value for columns '{0}' found.",
-            "passwordMismatch": "Password mismatch.",
-            "invalidEmail": "Invalid Email Address",
-            "minLength": "{0} must be at least {1} characters"
-        },
-        "ui": {
-            "Close": "Close",
-            "Ok": "Ok",
-            "Yes": "Yes",
-            "No": "No",
-            "Warning": "Warning",
-            "Info": "Information",
-            "Disconnect": "Disconnect",
-            "Confirm": "Confirm",
-            "Validate": "Validate",
-            "password": {
-                "oldPassword": "Old Password",
-                "newPassword": "New Password",
-                "change": "Change password"
-            },
-            "ApplyDetailChanges": "Apply",
-            "Selected": "Sel."
-        },
-        "errors": {
-            "Title": "Oops! An unknown error has occurred.",
-            "SendMail": "Send",
-            "MailSubject": "Error in JS client",
-            "ErrorTitle": "Error:",
-            "ErrorUser": "User:",
-            "ErrorDate": "Date and time:",
-            "Browser": "Browser:",
-            "ErrorURI": "Address:",
-            "Stack": "Call stack:",
-            "Context": "Context:",
-            "error500": "Internal server error",
-            "unknownError": "An unknown error has occurred.",
-            "notAuthorized": "Forbidden"
-        },
-        "listView": {
-            "search": {
-                "Search": "Search",
-                "Nodata": "Aucun résultat trouvé ..."
-            }
-        },
-        "pagination": {
-            "Next": "»",
-            "Previous": "«",
-            "First": "First",
-            "Last": "Last"
-        },
-        "number": {
-            "decimal": ".",
-            "thousand": " ",
-            "places": 2,
-            "symbol": "$",
-            "format": "%s %v"
-        },
-        "charts": {
-            "numericSymbols": ["k", "M", "G", "T", "P", "E"],
-            "resetZoom": "Reset zoom",
-            "resetZoomTitle": "Reset zoom level 1:1",
-            "rangeSelectorZoom": "Zoom",
-            "rangeSelectorFrom": "From",
-            "rangeSelectorTo": "To"
-        },
-        "date": {
-            "weekdaysShort": ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
-            "weekdaysMin": ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"],
-            "weekdays": ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"],
-            "monthsShort": ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"],
-            "months": ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"],
-            "dateShort": "mm/dd/yyyy",
-            "dateLong": "d mmmm, yyyy",
-            "monthYear": "mmmm yyyy",
-            "daySep": "-",
-            "weekStart": 0,
-            "today": "Today",
-            "clear": "Clear"
-        }
-    };
-    Phoenix.ulocale.translate(en, "en");
-})(Phoenix || (Phoenix = {}));
-/// <reference path="./core.ts" />
 /// <reference path="./ajax.ts" />
+/// <reference path="./locale.ts" />
 var Phoenix;
 (function (Phoenix) {
     var ulocale;
     (function (ulocale) {
-        var _locale = Phoenix.locale, _ajax = Phoenix.ajax, _supportedLanguages = ["en", "fr"], _checkPrecision = function (val, base) {
+        var _locale = Phoenix.locale, _ajax = Phoenix.ajax, _afterTranslate = [], _register = function (hnd) { _afterTranslate.push(hnd); }, _translate = function (ll, lang) {
+            $.extend(true, _locale, ll);
+            _afterTranslate.forEach(function (hnd) { hnd(lang); });
+        }, _tt = function (v, context) {
+            context = context || {};
+            if (v && v.substring(0, 2) == '{{') {
+                return v.replace(/{{(.*)}}/g, function (match, path) {
+                    var segments = path.split('.');
+                    var c = context;
+                    for (var i = 0, len = segments.length; i < len; i++) {
+                        if (!c)
+                            break;
+                        c = c[segments[i]];
+                    }
+                    if (c === undefined)
+                        return '[' + path + ']';
+                    else
+                        return c;
+                });
+            }
+            return v;
+        };
+        var _supportedLanguages = ["en", "fr"], _checkPrecision = function (val, base) {
             val = Math.round(Math.abs(val));
             return isNaN(val) ? base : val;
         }, _toFixed = function (value, precision) {
@@ -2088,6 +1367,9 @@ var Phoenix;
                 res = 0.0;
             return res;
         };
+        ulocale.register = _register;
+        ulocale.translate = _translate;
+        ulocale.tt = _tt;
         ulocale.currentLang = 'en';
         ulocale.defCountry = "US";
         ulocale.lang = 'fr'; //(navigator.language || navigator.userLanguage || currentLang).split('-')[0];
@@ -2161,7 +1443,856 @@ var Phoenix;
         angularjs.registerFilters = _registerLocaleFilters;
     })(angularjs = Phoenix.angularjs || (Phoenix.angularjs = {}));
 })(Phoenix || (Phoenix = {}));
+/// <reference path="../modules/ulocale.ts" />
+var Phoenix;
+(function (Phoenix) {
+    var en = {
+        "layouts": {
+            "design": {
+                "Save": "Save",
+                "New": "New page",
+                "Open": { "title": "Open page", "open": "Open", "close": "Close" },
+                "PageName": "Page Name",
+                "InvalidPageName": "Invalid page name",
+                "ConflictedPageName": "A page of that name exists, do you want to give another name ?",
+                "Delete": "Delete page",
+                "ConfirmDelete": "Are you sure you want to delete this page ?",
+                "Preview": "Preview",
+                "AuthoringMode": "Authoring",
+                "layouts": "Blocks",
+                "widgets": "Widgets",
+                "fields": "Fields",
+                "actions": "Actions"
+            },
+            "NoData": 'No data'
+        },
+        "schema": {
+            "required": "{0} is required.",
+            "minNumber": "{0} must be at least {1}",
+            "maxNumber": "{0} cannot exceed {1}",
+            "minNumberExclusive": "{0} must be greater than {1}",
+            "maxNumberExclusive": "{0} must be less than {1}",
+            "uniqueColumn": "The column '{0}' must be unique.",
+            "uniqueColumns": "Duplicate value for columns '{0}' found.",
+            "passwordMismatch": "Password mismatch.",
+            "invalidEmail": "Invalid Email Address",
+            "minLength": "{0} must be at least {1} characters"
+        },
+        "ui": {
+            "Close": "Close",
+            "Ok": "Ok",
+            "Yes": "Yes",
+            "No": "No",
+            "Warning": "Warning",
+            "Info": "Information",
+            "Disconnect": "Disconnect",
+            "Confirm": "Confirm",
+            "Validate": "Validate",
+            "password": {
+                "oldPassword": "Old Password",
+                "newPassword": "New Password",
+                "change": "Change password"
+            },
+            "ApplyDetailChanges": "Apply",
+            "Selected": "Sel."
+        },
+        "errors": {
+            "Title": "Oops! An unknown error has occurred.",
+            "SendMail": "Send",
+            "MailSubject": "Error in JS client",
+            "ErrorTitle": "Error:",
+            "ErrorUser": "User:",
+            "ErrorDate": "Date and time:",
+            "Browser": "Browser:",
+            "ErrorURI": "Address:",
+            "Stack": "Call stack:",
+            "Context": "Context:",
+            "error500": "Internal server error",
+            "unknownError": "An unknown error has occurred.",
+            "notAuthorized": "Forbidden"
+        },
+        "listView": {
+            "search": {
+                "Search": "Search",
+                "Nodata": "Aucun résultat trouvé ..."
+            }
+        },
+        "pagination": {
+            "Next": "»",
+            "Previous": "«",
+            "First": "First",
+            "Last": "Last"
+        },
+        "number": {
+            "decimal": ".",
+            "thousand": " ",
+            "places": 2,
+            "symbol": "$",
+            "format": "%s %v"
+        },
+        "charts": {
+            "numericSymbols": ["k", "M", "G", "T", "P", "E"],
+            "resetZoom": "Reset zoom",
+            "resetZoomTitle": "Reset zoom level 1:1",
+            "rangeSelectorZoom": "Zoom",
+            "rangeSelectorFrom": "From",
+            "rangeSelectorTo": "To"
+        },
+        "date": {
+            "weekdaysShort": ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
+            "weekdaysMin": ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"],
+            "weekdays": ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"],
+            "monthsShort": ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"],
+            "months": ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"],
+            "dateShort": "mm/dd/yyyy",
+            "dateLong": "d mmmm, yyyy",
+            "monthYear": "mmmm yyyy",
+            "daySep": "-",
+            "weekStart": 0,
+            "today": "Today",
+            "clear": "Clear"
+        }
+    };
+    Phoenix.ulocale.translate(en, "en");
+})(Phoenix || (Phoenix = {}));
+/// <reference path="../../../../typings/index.d.ts" />
+var Phoenix;
+(function (Phoenix) {
+    var dom;
+    (function (dom) {
+        var _mapIcon = {
+            "times-circle": "remove-sign",
+            "times-circle-o": "remove-circle",
+            "times": "remove",
+            "chevron-left": "chevron-left",
+            "chevron-right": "chevron-right",
+            "backward": "backward",
+            "forward": "forward",
+            "file-o": 'file',
+            'floppy': 'floppy-save',
+            "power-off": "off",
+            "user": "user",
+            "pencil": "pencil",
+            "trash": "trash",
+            "check-square-o": "check",
+            "square-o": "unchecked",
+            "plus-circle": "plus-sign",
+            "search": "search",
+            "chevron-down": "menu-down",
+            "ellipsis-v": "option-vertical",
+            "bars": "menu-hamburger",
+            "plus": "plus",
+            "thumb-tack": "pushpin",
+            "calendar": "calendar",
+            "exclamation-circle": "exclamation-sign",
+            "cloud": "cloud",
+            "caret-up": "triangle-top",
+            "caret-down": "triangle-bottom",
+            "cog": "cog",
+            "lock": "lock",
+            "question-circle": "question-sign",
+            "info-circle": "info-sign"
+        };
+        var _parseStyle = function (style, css) {
+            if (style) {
+                var a = style.split(" ");
+                a.forEach(function (e, index) {
+                    e = e.trim();
+                    if (e && (e.charAt(0) === "$"))
+                        e = 'bs-style-' + e.substring(1);
+                    css.push(e);
+                });
+            }
+        }, _select = function (input) {
+            if (!input)
+                return;
+            input.select();
+        }, _addRmvClasses = function (v, add, cn) {
+            var c = (v || '').split(' ');
+            var i = c.indexOf(cn);
+            if (add) {
+                if (i < 0)
+                    c.push(cn);
+            }
+            else {
+                if (i >= 0)
+                    c.splice(i, 1);
+            }
+            return c.join(' ');
+        }, _iconClass = function (iconName, noPrefix) {
+            if (noPrefix === void 0) { noPrefix = false; }
+            var icon = _mapIcon[iconName] ? _mapIcon[iconName] : iconName;
+            if (noPrefix)
+                return (Phoenix.bootstrap4 ? "fa-" : "glyphicon-") + icon;
+            else
+                return (Phoenix.bootstrap4 ? "fa fa-" : "glyphicon glyphicon-") + icon;
+        }, _iconPrefix = function () { return (Phoenix.bootstrap4 ? "fa" : "glyphicon"); }, _createIcon = function (iconName) {
+            var icon = document.createElement("span");
+            icon.className = _iconClass(iconName, false);
+            return icon;
+        }, _queryAll = function (parent, selector) {
+            if (parent)
+                return parent.querySelectorAll(selector);
+            return document.querySelectorAll(selector);
+        }, _find = function (parent, id) {
+            if (parent) {
+                if (parent.id == id)
+                    return parent;
+                return parent.querySelector('#' + id);
+            }
+            return document.getElementById(id);
+        }, _query = function (parent, selector) {
+            if (parent) {
+                return parent.querySelector(selector);
+            }
+            return null;
+        }, _addClass = function (element, className) {
+            if (element.classList)
+                element.classList.add(className);
+            else
+                element.className = _addRmvClasses(element.className, true, className);
+        }, _removeClass = function removeClass(element, className) {
+            if (element.classList)
+                element.classList.remove(className);
+            else
+                element.className = _addRmvClasses(element.className, false, className);
+        }, _hasClass = function (element, className) {
+            if (element.classList)
+                return element.classList.contains(className);
+            else
+                return (element.className || '').split(' ').indexOf(className) >= 0;
+        }, _remove = function (element) {
+            element.parentNode.removeChild(element);
+        }, _detach = function (element) {
+            element.parentNode.removeChild(element);
+            return element;
+        }, _empty = function (element) {
+            for (var i = element.childNodes.length - 1; i >= 0; i--)
+                element.removeChild(element.childNodes[i]);
+        }, _append = function (parent, element) {
+            parent.appendChild(element);
+        }, _before = function (child, element) {
+            child.parentNode.insertBefore(element, child);
+        }, _documentScroll = function () {
+            return {
+                left: (document.documentElement.scrollLeft || document.body.scrollLeft),
+                top: (document.documentElement.scrollTop || document.body.scrollTop)
+            };
+        }, _documentClientDim = function () {
+            return {
+                width: (document.documentElement.clientWidth || document.body.clientWidth),
+                height: (document.documentElement.clientHeight || document.body.clientHeight)
+            };
+        }, _addScrolls = function (d) {
+            var clientTop = document.documentElement.clientTop || document.body.clientTop || 0, clientLeft = document.documentElement.clientLeft || document.body.clientLeft || 0, scrollTop = window.pageYOffset || document.documentElement.scrollTop || document.body.scrollTop, scrollLeft = window.pageXOffset || document.documentElement.scrollLeft || document.body.scrollLeft;
+            d.top = Math.round(d.top + scrollTop - clientTop);
+            d.left = Math.round(d.left + scrollLeft - clientLeft);
+            return d;
+        }, _position = function (element, parent) {
+            if (parent) {
+                var parentRect = parent.getBoundingClientRect();
+                var elementRect = element.getBoundingClientRect();
+                return {
+                    left: Math.round(parentRect.left - elementRect.left),
+                    top: Math.round(parentRect.top - elementRect.top)
+                };
+            }
+            else {
+                var elementRect = element.getBoundingClientRect();
+                return _addScrolls({ left: elementRect.left, top: elementRect.top });
+            }
+        }, _childsPos = function (parent, list, vertical) {
+            var let = 0, element = parent;
+            var res = new Array(list.length + 1);
+            list.forEach(function (child, index) {
+                var chtml = _find(parent, child.htmlId);
+                var p = _position(chtml, null);
+                res[index] = {
+                    info: child.info,
+                    vertical: vertical,
+                    point: { x: 0, y: 0 },
+                    left: p.left, top: p.top,
+                    width: Math.round(chtml.offsetWidth),
+                    height: Math.round(chtml.offsetHeight),
+                    htmlId: child.htmlId
+                };
+            });
+            var last = null;
+            res.forEach(function (c) {
+                var p = c.point;
+                p.y = c.top + (c.height >> 1);
+                p.x = c.left + (c.width >> 1);
+                last = c;
+            });
+            if (last) {
+                last = {
+                    last: true,
+                    info: last.info,
+                    vertical: last.vertical,
+                    point: { x: 0, y: 0 },
+                    left: last.left + (vertical ? 0 : last.width),
+                    top: last.top + (vertical ? last.height : 0),
+                    width: (last.vertical ? last.width : 0),
+                    height: (last.vertical ? 0 : last.height),
+                    htmlId: last.htmlId
+                };
+            }
+            else {
+                var pp = _position(parent, null);
+                last = {
+                    info: null,
+                    vertical: vertical,
+                    point: { x: 0, y: 0 },
+                    left: pp.left,
+                    top: pp.top,
+                    width: Math.round(parent.offsetWidth),
+                    height: Math.round(parent.offsetHeight),
+                    html: parent.id
+                };
+            }
+            last.point.y = last.top + (last.height >> 1);
+            last.point.x = last.left + (last.width >> 1);
+            res[list.length] = last;
+            return res;
+        }, _elemByAttribute = function (el, root, attr) {
+            var t = el;
+            while (t) {
+                if (!t.getAttribute)
+                    return null;
+                var val = t.getAttribute(attr);
+                if (val)
+                    return t;
+                t = (t == root) ? null : t.parentNode;
+            }
+            return null;
+        }, _setBodyTheme = function (value) {
+            var fc = document.body.firstElementChild;
+            if (!fc || !_hasClass(fc, "bs-content"))
+                fc = document.body;
+            var old = fc.className || '';
+            var nc = value ? ('bs-body-theme-' + value) : '';
+            var classes = old.split(' ');
+            var changed = false;
+            var i = classes.length;
+            while (i--) {
+                var c = classes[i];
+                if (c.indexOf('bs-body-theme-') == 0) {
+                    if (c == nc)
+                        return false;
+                    changed = true;
+                    classes.splice(i, 1);
+                }
+            }
+            if (nc) {
+                changed = true;
+                classes.push(nc);
+            }
+            if (changed)
+                fc.className = classes.join(' ');
+        }, _after = function (child, element) {
+            var p = child.parentNode;
+            child = child.nextSibling;
+            if (child)
+                p.insertBefore(element, child);
+            else
+                p.appendChild(element);
+        }, _getWindow = function (elem) {
+            return (elem != null && elem === elem.window) ? elem : elem.nodeType === 9 && elem.defaultView;
+        }, _offset = function (element) {
+            var rect;
+            if (element.nodeType != 3) {
+                rect = element.getBoundingClientRect();
+                // Make sure element is not hidden (display: none)
+                if (rect.width || rect.height) {
+                    var doc = element.ownerDocument;
+                    var win = _getWindow(doc);
+                    var docElem = doc.documentElement;
+                    return {
+                        top: rect.top + win.pageYOffset - docElem.clientTop,
+                        left: rect.left + win.pageXOffset - docElem.clientLeft,
+                        width: rect.width,
+                        height: rect.height,
+                        bottom: 0,
+                        right: 0
+                    };
+                }
+            }
+            return rect || { top: 0, left: 0, width: 0, height: 0, bottom: 0, right: 0 };
+        }, _parentByTag = function (root, element, tag) {
+            tag = tag.toUpperCase();
+            while (element) {
+                if (element.tagName === tag)
+                    return element;
+                element = element.parentNode;
+                if (element == root)
+                    break;
+            }
+            return null;
+        }, _parentByCssClass = function (root, element, className) {
+            while (element) {
+                if (_hasClass(element, className))
+                    return element;
+                element = element.parentNode;
+                if (element == root)
+                    break;
+            }
+            return null;
+        }, _indexOf = function (parent, child) {
+            for (var i = 0, len = parent.childNodes.length; i < len; i++) {
+                if (parent.childNodes[i] == child)
+                    return i;
+            }
+            return -1;
+        }, _isChildOf = function (parent, child) {
+            while (child) {
+                if (child === parent)
+                    return true;
+                child = child.parentNode;
+            }
+            return false;
+        }, _attr = function (element, attr, value) {
+            if (value === void 0) { value = undefined; }
+            if (value === undefined) {
+                return element.getAttribute(attr);
+            }
+            else {
+                element.setAttribute(attr, value);
+            }
+        }, _text = function (node, text) {
+            if (text === undefined)
+                return node.textContent;
+            if (node.childNodes.length) {
+                var found = false;
+                for (var i = 0, len = node.childNodes.length; i < len; i++) {
+                    var n = node.childNodes[i];
+                    if (n.nodeType == 3) {
+                        n.nodeValue = text;
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found)
+                    _append(node, document.createTextNode(text));
+            }
+            else {
+                node.textContent = text;
+            }
+        }, _scrollbarWidth = function () {
+            var calculated = false;
+            var cw = 0;
+            return function () {
+                if (calculated)
+                    return cw;
+                var b, a = document.createElement("div");
+                a.style.cssText = "overflow:scroll; overflow-x:hidden; zoom:1; clear:both";
+                a.innerHTML = "&nbsp;";
+                document.body.appendChild(a);
+                b = a.offsetWidth - a.scrollWidth;
+                document.body.removeChild(a);
+                calculated = true;
+                cw = b;
+                return b;
+            };
+        }, _cover = null, _coverRefCount = 0, _inProcessing = function () {
+            return _cover != null;
+        }, _processing = function (value) {
+            if (value) {
+                _coverRefCount++;
+                if (!_cover) {
+                    _coverRefCount = 1;
+                    _cover = $('<div class="bs-cover"></div>').get(0);
+                    _cover.style.height = ($(document).height() - 1) + 'px';
+                    _append(document.body, _cover);
+                }
+            }
+            else {
+                _coverRefCount--;
+                if (_coverRefCount <= 0)
+                    _coverRefCount = 0;
+                if (_cover) {
+                    if (_coverRefCount === 0) {
+                        _remove(_cover);
+                        _cover = null;
+                    }
+                }
+            }
+        }, _touch = function () {
+            var calculated = false, touch = false;
+            return function () {
+                if (calculated)
+                    return touch;
+                touch = 'ontouchend' in document;
+                calculated = true;
+                return touch;
+            };
+        }, _emitResize = function () {
+            $(window).trigger('global-phoenix-resize');
+        }, _resizeTimeOut = null, _setResizeHnd = function () {
+            $(window).on('resize.phoenix', function () {
+                if (_resizeTimeOut)
+                    clearTimeout(_resizeTimeOut);
+                _resizeTimeOut = setTimeout(_emitResize, 50);
+            });
+        };
+        dom.readyHandlers = [_setResizeHnd];
+        dom.keys = {
+            VK_TAB: 9, VK_UP: 38, VK_DOWN: 40, VK_INSERT: 45, VK_DELETE: 46, VK_LEFT: 37, VK_RIGHT: 39,
+            VK_ENTER: 13, VK_ESCAPE: 27, VK_F1: 112, VK_HOME: 36, VK_END: 35, VK_PGUP: 33, VK_PGDOWN: 34,
+            VK_SPACE: 32, VK_F2: 113, VK_F3: 114, VK_F4: 115, VK_BACKSPACE: 8, VK_F10: 121
+        };
+        dom.queryAll = _queryAll;
+        dom.find = _find;
+        dom.query = _query;
+        dom.addClass = _addClass;
+        dom.removeClass = _removeClass;
+        dom.hasClass = _hasClass;
+        dom.icon = _createIcon;
+        dom.iconClass = _iconClass;
+        dom.iconPrefix = _iconPrefix;
+        dom.bodyTheme = _setBodyTheme;
+        dom.offset = _offset;
+        dom.before = _before;
+        dom.after = _after;
+        dom.parentByTag = _parentByTag;
+        dom.parentByClass = _parentByCssClass;
+        dom.indexOf = _indexOf;
+        dom.append = _append;
+        dom.select = _select;
+        dom.empty = _empty;
+        dom.remove = _remove;
+        dom.detach = _detach;
+        dom.attr = _attr;
+        dom.text = _text;
+        dom.findByAttribute = _elemByAttribute;
+        dom.isChildOf = _isChildOf;
+        dom.parseStyle = _parseStyle;
+        dom.ignoreKeys = [0, dom.keys.VK_UP, dom.keys.VK_DOWN, dom.keys.VK_HOME, dom.keys.VK_END, dom.keys.VK_PGUP, dom.keys.VK_PGDOWN, dom.keys.VK_ENTER, dom.keys.VK_ESCAPE,
+            dom.keys.VK_DELETE, dom.keys.VK_BACKSPACE, dom.keys.VK_INSERT];
+        dom.processing = _processing;
+        dom.inProcessing = _inProcessing;
+        dom.scrollbar = _scrollbarWidth();
+        dom.documentScroll = _documentScroll;
+        dom.documentClientDim = _documentClientDim;
+        dom.touch = _touch();
+        dom.position = _position;
+        dom.childrenPositions = _childsPos;
+    })(dom = Phoenix.dom || (Phoenix.dom = {}));
+    $(document).ready(function () {
+        if (dom.readyHandlers.length) {
+            dom.readyHandlers.forEach(function (hnd) {
+                hnd();
+            });
+        }
+    });
+})(Phoenix || (Phoenix = {}));
+/// <reference path="../../../../typings/index.d.ts" />
+/// <reference path="./utils.ts" />
+/// <reference path="./dom.ts" />
+/// <reference path="./globals.ts" />
+/// <reference path="./authentication.ts" />
+var Phoenix;
+(function (Phoenix) {
+    var _utils = Phoenix.utils, _dom = Phoenix.dom, _device = Phoenix.device, _authentication = Phoenix.authentication;
+    var link;
+    (function (link) {
+        var _obj2Search = function (value) {
+            if (!value)
+                return '';
+            var a = [];
+            Object.keys(value).forEach(function (name) {
+                if (value[name] === null)
+                    return;
+                a.push(name + '=' + encodeURIComponent(value[name] || ''));
+            });
+            if (a.length > 0)
+                return '?' + a.join('&');
+            return '';
+        }, _parseUrl = function (value) {
+            var search = {};
+            var path = value;
+            var i = value.indexOf('?');
+            if (i >= 0) {
+                var s = value.substring(i + 1);
+                path = value.substring(0, i);
+                if (s) {
+                    var a = s.split('&');
+                    a.forEach(function (v) {
+                        if (v) {
+                            var h = v.split('=');
+                            search[h[0]] = decodeURIComponent(h[1]);
+                        }
+                    });
+                }
+            }
+            return {
+                path: path,
+                search: search
+            };
+        }, _urlSearch = function (value, replace) {
+            if (value == null) {
+                return _parseUrl(window.location.href).search;
+            }
+            else {
+                var searchString = _obj2Search(value);
+                if (!window.location.hash) {
+                    if (window.location.search != searchString)
+                        window.location.search = searchString;
+                }
+                else {
+                    var ch = window.location.hash;
+                    var ii = ch.indexOf('?');
+                    if (ii > 0) {
+                        ch = ch.substring(0, ii);
+                        ch = ch + searchString;
+                    }
+                    if (replace) {
+                        Phoenix.history.replaceHash(ch);
+                    }
+                    else {
+                        if (window.location.hash != ch) {
+                            if (window.history) {
+                                try {
+                                    window.history.replaceState(undefined, undefined, ch);
+                                }
+                                catch (ex) {
+                                    window.location.hash = ch;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }, _extractPage = function (cfg) {
+            var page = cfg.$page;
+            if (_device.phone && cfg.$pageMobile)
+                page = cfg.$pageMobile;
+            else if (_device.tablet && cfg.$pageTablet)
+                page = cfg.$pageTablet;
+            return page;
+        }, _context = function () {
+            var usr = null;
+            try {
+                usr = JSON.parse(_authentication.db().getItem("authentication"));
+            }
+            catch (e) {
+            }
+            return {
+                $url: _urlSearch(null, false),
+                $mem: Phoenix.$mem,
+                $user: {
+                    name: usr ? usr.name || usr.nom || usr.login : "",
+                    firstName: usr ? usr.firstName || usr.prenom || usr.login : "",
+                    lastName: usr ? usr.lastName || usr.nom || "" : ""
+                },
+                $item: null
+            };
+        }, _hashLink = function (cfg, data, params) {
+            if (cfg.$page) {
+                var page = _extractPage(cfg);
+                var res = '#/' + page;
+                var a = [];
+                if (data && cfg.$search && cfg.$search.length) {
+                    var dd = _context();
+                    Object.keys(data).forEach(function (pn) {
+                        dd[pn] = data[pn];
+                    });
+                    cfg.$search.forEach(function (v) {
+                        if (v && v.left)
+                            a.push(v.left + '=' + encodeURIComponent(_utils.parseVariable(v.right, dd)));
+                    });
+                }
+                if (params) {
+                    Object.keys(params).forEach(function (pn) {
+                        a.push(pn + '=' + encodeURIComponent(params[pn]));
+                    });
+                }
+                if (a.length)
+                    res = res + "?" + a.join("&");
+                return res;
+            }
+            return '#';
+        }, _customProtocols = {}, _isCustomLink = function (href) {
+            var i = href.indexOf('://');
+            if (i > 0) {
+                var p = _customProtocols[href.substring(0, i)];
+                if (p)
+                    return p.protocol;
+            }
+            return null;
+        }, _execCustomLink = function (clink, context, config, params) {
+            var p = _customProtocols[clink.protocol];
+            if (p && p.handler)
+                p.handler(clink.value, context, config, params);
+        }, _registerCustomLink = function (protocol, handler) {
+            _customProtocols[protocol] = {
+                protocol: protocol,
+                handler: handler
+            };
+        }, _getLink = function (e, event, dontStopPropagation) {
+            var target = event.target;
+            while (target && target != e) {
+                var href = _dom.attr(target, 'data-phoenix-href') || _dom.attr(target, 'href');
+                if (href) {
+                    if (href === '#') {
+                        if (!dontStopPropagation) {
+                            event.preventDefault();
+                            event.stopPropagation();
+                        }
+                        break;
+                    }
+                    var customLink = _isCustomLink(href);
+                    if (customLink) {
+                        if (!dontStopPropagation) {
+                            event.preventDefault();
+                            event.stopPropagation();
+                        }
+                        return {
+                            protocol: customLink,
+                            value: href
+                        };
+                    }
+                }
+                target = target.parentNode;
+            }
+            return null;
+        }, _navigateToModule = function (newhash, newModule, oldModule, replace) {
+            var lpath = location.pathname;
+            var lhref;
+            var segments = lpath.split('/');
+            var addAfter = '';
+            if (segments[segments.length - 1].indexOf('.html') > 0)
+                addAfter = segments.pop();
+            var ls = segments.pop();
+            if (!addAfter && ls == '')
+                segments.pop();
+            segments.push(newModule);
+            if (addAfter)
+                segments.push(addAfter);
+            lhref = segments.join('/');
+            if (!newhash || ('' + newhash).charAt(0) !== '#')
+                newhash = '#' + newhash;
+            lhref += newhash;
+            if (replace)
+                location.replace(lhref);
+            else
+                location.href = lhref;
+        }, _setHash = function (newhash, replace) {
+            if (!newhash || ('' + newhash).charAt(0) !== '#')
+                newhash = '#' + newhash;
+            if (window.location.hash == newhash)
+                return;
+            if (Phoenix.external.hashHandler) {
+                Phoenix.external.hashHandler(newhash, replace);
+            }
+            else {
+                Phoenix.history.removeLast();
+                if (replace && 'replaceState' in window.history) {
+                    window.history.replaceState(undefined, undefined, newhash);
+                }
+                else {
+                    location.hash = newhash;
+                }
+            }
+        }, _doFormAuthoring = function (params) {
+            if (!params.name)
+                return;
+            if (!params.schema)
+                return;
+            var ch = '/authoring/forms/' + params.name;
+            var search = [];
+            if (params.schema !== params.name)
+                search.push('prototype=' + encodeURIComponent(params.schema));
+            if (params.locale)
+                search.push('locale=' + encodeURIComponent(params.locale));
+            if (params.path)
+                search.push('path=' + encodeURIComponent(params.path));
+            var ii = window.location.href.lastIndexOf('?');
+            if (ii > 0)
+                search.push(window.location.href.substr(ii + 1));
+            if (search.length)
+                ch = ch + '?' + search.join('&');
+            window.location.hash = '#' + ch;
+        }, _doAuthoring = function (pageName, force) {
+            var auth = '/authoring';
+            var authform = '/authoring/forms/';
+            var ch = window.location.hash;
+            if (ch.charAt(0) == '#')
+                ch = ch.substring(1);
+            if (!force && ch.indexOf(auth) === 0) {
+                if (ch.indexOf(authform) === 0)
+                    window.history.back();
+                else
+                    window.location.hash = '#' + ch.substring(auth.length);
+            }
+            else {
+                window.location.hash = '#' + auth + (pageName ? ('/' + pageName) : ch);
+            }
+        }, _execLink = function (clink, context, params) {
+            var _application = Phoenix.application;
+            var modules = _application.configuration && _application.configuration.application ?
+                _application.configuration.application.modules : null;
+            if (clink.$page) {
+                var module = clink.$module ? clink.$module : _application.name;
+                if (modules && modules[module] && _application.licences) {
+                    var mlicence = _application.licences[modules[module]];
+                    if (mlicence && !mlicence.hasLicence) {
+                        if (Phoenix.external.forbiddenHandler)
+                            return Phoenix.external.forbiddenHandler();
+                    }
+                }
+                var hash = _hashLink(clink, context, params);
+                if (clink.$module) {
+                    if (clink.$module != _application.name) {
+                        return _navigateToModule(hash, clink.$module, _application.name, clink.$replace);
+                    }
+                }
+                _setHash(hash, clink.$replace);
+                if (clink.$authoring)
+                    _doAuthoring();
+            }
+            else if (clink.$logout) {
+                if (Phoenix.external.logoutHandler)
+                    Phoenix.external.logoutHandler();
+            }
+            else if (clink.$formAuthoring) {
+                _doFormAuthoring(clink);
+            }
+            else if (clink.$authoring) {
+                _doAuthoring();
+            }
+            else if (clink.$back) {
+                window.history.back();
+            }
+            else if (clink.href) {
+                var a = document.createElement("a");
+                a.href = clink.href;
+                if (clink.target)
+                    a.target = clink.target;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+            }
+        };
+        link.search = _urlSearch;
+        link.object2search = _obj2Search;
+        link.parseUrl = _parseUrl;
+        link.hashLink = _hashLink;
+        link.pageName = _extractPage;
+        link.isCustomLink = _getLink;
+        link.registerCustomProtocol = _registerCustomLink;
+        link.execCustomProtocol = _execCustomLink;
+        link.isCustomProtocol = _isCustomLink;
+        link.doAuthoring = _doAuthoring;
+        link.doFormAuthoring = _doFormAuthoring;
+        link.setHash = _setHash;
+        link.execLink = _execLink;
+        link.context = _context;
+    })(link = Phoenix.link || (Phoenix.link = {}));
+})(Phoenix || (Phoenix = {}));
 /// <reference path="./core.ts" />
+/// <reference path="./modules/utils.ts" />
+/// <reference path="./modules/links.ts" />
+/// <reference path="./modules/globals.ts" />
 var Phoenix;
 (function (Phoenix) {
     var _link = Phoenix.link;
@@ -2218,17 +2349,20 @@ var Phoenix;
     _link.registerCustomProtocol("click", null);
 })(Phoenix || (Phoenix = {}));
 /// <reference path="../core/core.ts" />
-/// <reference path="../core/ajax.ts" />
-/// <reference path="../core/locale.ts" />
+/// <reference path="../core/modules/application.ts" />
+/// <reference path="../core/modules/ajax.ts" />
+/// <reference path="../core/modules/locale.ts" />
+/// <reference path="../core/modules/ulocale.ts" />
 var Phoenix;
 (function (Phoenix) {
     var data;
     (function (data) {
         var _application = Phoenix.application;
+        var _ulocale = Phoenix.ulocale;
         var _menuProvider = {
             get: function (menu, localization, appName) {
-                if (localization && Phoenix.ulocale.lang) {
-                    menu = menu + '_' + Phoenix.ulocale.lang;
+                if (localization && _ulocale.lang) {
+                    menu = menu + '_' + _ulocale.lang;
                 }
                 var config = _application.config(appName);
                 if (!config)
@@ -2240,16 +2374,17 @@ var Phoenix;
     })(data = Phoenix.data || (Phoenix.data = {}));
 })(Phoenix || (Phoenix = {}));
 /// <reference path="../core/core.ts" />
-/// <reference path="../core/ajax.ts" />
-/// <reference path="../core/locale.ts" />
+/// <reference path="../core/modules/application.ts" />
+/// <reference path="../core/modules/ajax.ts" />
 var Phoenix;
 (function (Phoenix) {
     var data;
     (function (data_1) {
         var _application = Phoenix.application;
+        var _ulocale = Phoenix.ulocale;
         var _widgetSchema = {
             get: function (schema, localization, appName) {
-                if (localization && Phoenix.ulocale.lang) {
+                if (localization && _ulocale.lang) {
                     schema = schema + '_' + Phoenix.ulocale.lang;
                 }
                 var config = _application.config(appName);
@@ -2267,8 +2402,8 @@ var Phoenix;
         data_1.schema = _widgetSchema;
     })(data = Phoenix.data || (Phoenix.data = {}));
 })(Phoenix || (Phoenix = {}));
-/// <reference path="../core/core.ts" />
-/// <reference path="../core/ajax.ts" />
+/// <reference path="../core/modules/application.ts" />
+/// <reference path="../core/modules/ajax.ts" />
 var Phoenix;
 (function (Phoenix) {
     var data;
@@ -2339,12 +2474,14 @@ var Phoenix;
     })(data = Phoenix.data || (Phoenix.data = {}));
 })(Phoenix || (Phoenix = {}));
 /// <reference path="../core/core.ts" />
-/// <reference path="../core/ajax.ts" />
+/// <reference path="../core/modules/ajax.ts" />
+/// <reference path="../core/modules/links.ts" />
+/// <reference path="../core/modules/application.ts" />
 var Phoenix;
 (function (Phoenix) {
     var data;
     (function (data) {
-        var _application = Phoenix.application, _local = {
+        var _application = Phoenix.application, _link = Phoenix.link, _local = {
             getRessources: function (params, ondata) {
                 var _after = function (cd) {
                     if (ondata)
@@ -2356,7 +2493,7 @@ var Phoenix;
                     throw "Application configuration not found.";
                 var lurl = config.localData + '/' + params.$url;
                 var query = params.$query;
-                lurl = lurl + Phoenix.link.object2search(query);
+                lurl = lurl + _link.object2search(query);
                 return Phoenix.ajax.get(lurl, {}, function (ldata) {
                     return _after(ldata);
                 });
@@ -2365,14 +2502,16 @@ var Phoenix;
         data.local = _local;
     })(data = Phoenix.data || (Phoenix.data = {}));
 })(Phoenix || (Phoenix = {}));
-/// <reference path="../core/core.ts" />
-/// <reference path="../core/ajax.ts" />
-/// <reference path="../core/locale.ts" />
+/// <reference path="../core/modules/application.ts" />
+/// <reference path="../core/modules/ajax.ts" />
+/// <reference path="../core/modules/locale.ts" />
+/// <reference path="../core/modules/authentication.ts" />
+/// <reference path="../core/modules/utils.ts" />
 var Phoenix;
 (function (Phoenix) {
     var data;
     (function (data_2) {
-        var _application = Phoenix.application, _utils = Phoenix.utils, _ajax = Phoenix.ajax, _odatacache = {}, _addTenantId = function (lurl) {
+        var _application = Phoenix.application, _authentication = Phoenix.authentication, _utils = Phoenix.utils, _ajax = Phoenix.ajax, _odatacache = {}, _addTenantId = function (lurl) {
             return lurl;
         }, _odata = {
             v4: true,
@@ -2555,10 +2694,13 @@ var Phoenix;
             }
         };
         data_2.odata = _odata;
-        Phoenix.authentication.registerAfterLogout(_odata.afterLogout);
+        _authentication.registerAfterLogout(_odata.afterLogout);
     })(data = Phoenix.data || (Phoenix.data = {}));
 })(Phoenix || (Phoenix = {}));
-/// <reference path="../core/core.ts" />
+/// <reference path="../core/modules/application.ts" />
+/// <reference path="../core/modules/links.ts" />
+/// <reference path="../core/modules/application.ts" />
+/// <reference path="../core/modules/customdata.ts" />
 /// <reference path="./schema-provider.ts" />
 /// <reference path="./rest-provider.ts" />
 /// <reference path="./local-provider.ts" />
@@ -3536,6 +3678,7 @@ var Phoenix;
 })(Phoenix || (Phoenix = {}));
 /// <reference path="../../../typings/index.d.ts" />
 /// <reference path="../core/core.ts" />
+/// <reference path="../core/modules/application.ts" />
 var Phoenix;
 (function (Phoenix) {
     var ui;
@@ -4299,7 +4442,7 @@ var Phoenix;
 })(Phoenix || (Phoenix = {}));
 /// <reference path="../../../typings/index.d.ts" />
 /// <reference path="../core/core.ts" />
-/// <reference path="../core/locale.ts" />
+/// <reference path="../core/modules/locale.ts" />
 var Phoenix;
 (function (Phoenix) {
     var WidgetUtils;
@@ -5496,7 +5639,8 @@ var Phoenix;
 })(Phoenix || (Phoenix = {}));
 /// <reference path="../../../typings/index.d.ts" />
 /// <reference path="../core/core.ts" />
-/// <reference path="../core/locale.ts" />
+/// <reference path="../core/modules/application.ts" />
+/// <reference path="../core/modules/locale.ts" />
 /// <reference path="./page.control.ts" />
 var Phoenix;
 (function (Phoenix) {
@@ -7251,9 +7395,10 @@ var Phoenix;
         ui.LayoutClass = Layout;
     })(ui = Phoenix.ui || (Phoenix.ui = {}));
 })(Phoenix || (Phoenix = {}));
-/// <reference path="../../core/locale.ts" />
+/// <reference path="../../core/modules/locale.ts" />
 /// <reference path="../../core/core.ts" />
-/// <reference path="../../core/ajax.ts" />
+/// <reference path="../../core/modules/ajax.ts" />
+/// <reference path="../../core/modules/application.ts" />
 /// <reference path="../../data/datasets.ts" />
 /// <reference path="../datasets-plugin.ts" />
 var Phoenix;
@@ -7285,8 +7430,9 @@ var Phoenix;
         }, _parseCapabilities = function (schema) {
             if (!schema.features) {
                 schema.features = {};
-                if (schema.capabilities)
-                    schema.capabilities.split(",").forEach(function (capability) {
+                var cp = (schema.capabilities === undefined) ? 'filtrable,sortable' : schema.capabilities;
+                if (cp)
+                    cp.split(",").forEach(function (capability) {
                         schema.features[capability] = true;
                     });
             }
@@ -7369,6 +7515,28 @@ var Phoenix;
                             return;
                         var cp = prefix ? prefix + '.' + name : name;
                         if (_sutils.canFilter(ps)) {
+                            var v = { name: cp, schema: _utils.copy(ps) };
+                            v.schema.title = _ulocale.tt(v.schema.title || '', locale);
+                            res.push(v);
+                        }
+                    });
+                    return true;
+                });
+                return res;
+            },
+            columns: function (schema, locale) {
+                var res = [];
+                _enumCompositions(schema, '', false, null, function (prefix, cs, value, array) {
+                    if (array)
+                        return false;
+                    Object.keys(cs.properties).forEach(function (name) {
+                        var ps = cs.properties[name];
+                        if (!_sutils.inModel(ps))
+                            return;
+                        if (_sutils.isCompositionRef(ps) || _sutils.isCompositionList(ps, true))
+                            return;
+                        var cp = prefix ? prefix + '.' + name : name;
+                        if (_sutils.canShowField(ps)) {
                             var v = { name: cp, schema: _utils.copy(ps) };
                             v.schema.title = _ulocale.tt(v.schema.title || '', locale);
                             res.push(v);
@@ -7817,6 +7985,9 @@ var Phoenix;
                     return schema.features.sortable;
                 }
                 return false;
+            },
+            canShowField: function (schema) {
+                return true;
             },
             canFilter: function (schema) {
                 if (schema) {
@@ -8586,7 +8757,7 @@ var Phoenix;
     })(Observable = Phoenix.Observable || (Phoenix.Observable = {}));
 })(Phoenix || (Phoenix = {}));
 /// <reference path="../../core/core.ts" />
-/// <reference path="../../core/ajax.ts" />
+/// <reference path="../../core/modules/ajax.ts" />
 /// <reference path="./schema.data.ts" />
 /// <reference path="./state.data.ts" />
 /// <reference path="./errors.data.ts" />
@@ -9866,14 +10037,14 @@ var Phoenix;
         Observable.ObservableUtils = _dutils;
     })(Observable = Phoenix.Observable || (Phoenix.Observable = {}));
 })(Phoenix || (Phoenix = {}));
-/// <reference path="../../core/locale.ts" />
+/// <reference path="../../core/modules/locale.ts" />
 /// <reference path="../../core/core.ts" />
+/// <reference path="../../core/modules/utils.ts" />
 /// <reference path="../../data/datasets.ts" />
 /// <reference path="./proxy.data.ts" />
 /// <reference path="./schema.data.ts" />
 var Phoenix;
 (function (Phoenix) {
-    var _ulocale = Phoenix.ulocale, _application = Phoenix.application, _ajax = Phoenix.ajax;
     var Observable;
     (function (Observable) {
         var _data = Phoenix.data, _utils = Phoenix.utils, _su = Observable.SchemaUtils;
@@ -10557,7 +10728,8 @@ var Phoenix;
             };
             Form.prototype.afterAddedInDom = function () {
                 var that = this;
-                that.resizeList.forEach(function (c) { c.resize(); });
+                if (that.resizeList)
+                    that.resizeList.forEach(function (c) { c.resize(); });
                 _super.prototype.afterAddedInDom.call(this);
             };
             return Form;
@@ -10582,7 +10754,8 @@ var Phoenix;
 })(Phoenix || (Phoenix = {}));
 /// <reference path="../../../../typings/index.d.ts" />
 /// <reference path="../../core/core.ts" />
-/// <reference path="../../core/ajax.ts" />
+/// <reference path="../../core/modules/ajax.ts" />
+/// <reference path="../../core/modules/application.ts" />
 /// <reference path="../modal.control.ts" />
 /// <reference path="./form.control.ts" />
 /// <reference path="./schema.data.ts" />
@@ -10993,7 +11166,7 @@ var Phoenix;
                                 }
                             }
                             if (!res) {
-                                if (options.avanced.transform)
+                                if (options.avanced && options.avanced.transform)
                                     res = _transform(value, value, options.avanced.transform);
                                 else
                                     res = { value: value, html: false };
@@ -11313,11 +11486,414 @@ var Phoenix;
         _ui.registerControl(Alert, "string", false, 'alert', null);
     })(ui = Phoenix.ui || (Phoenix.ui = {}));
 })(Phoenix || (Phoenix = {}));
+/// <reference path="../../../../typings/index.d.ts" />
+/// <reference path="./utils.ts" />
+/// <reference path="./dom.ts" />
+var Phoenix;
+(function (Phoenix) {
+    var _dom = Phoenix.dom, _utils = Phoenix.utils;
+    var events;
+    (function (events) {
+        var EventManager = (function () {
+            function EventManager() {
+            }
+            EventManager.prototype.disable = function () {
+                this._isDisabled = true;
+            };
+            EventManager.prototype.enable = function () {
+                this._isDisabled = false;
+            };
+            return EventManager;
+        }());
+        events.EventManager = EventManager;
+        function isLeftButton(eventObject) {
+            if (_dom.touch())
+                return true;
+            return eventObject.which < 2;
+        }
+        events.isLeftButton = isLeftButton;
+        function stopEvent(eventObject) {
+            eventObject.stopPropagation();
+            eventObject.preventDefault();
+        }
+        events.stopEvent = stopEvent;
+        function point(event) {
+            var de = document.documentElement;
+            var res;
+            if (_dom.touch()) {
+                var t = event.targetTouches || event.touches;
+                if (t)
+                    res = {
+                        x: t[0].pageX || (t[0].clientX + (de.scrollLeft || document.body.scrollLeft)),
+                        y: t[0].pageY || (t[0].clientY + (de.scrollTop || document.body.scrollTop))
+                    };
+            }
+            if (!res)
+                res = {
+                    x: event.pageX || (event.clientX + (de.scrollLeft || document.body.scrollLeft)),
+                    y: event.pageY || (event.clientY + (de.scrollTop || document.body.scrollTop))
+                };
+            res.x = Math.round(res.x);
+            res.y = Math.round(res.y);
+            return res;
+        }
+        events.point = point;
+        events.eventManager = new EventManager();
+    })(events = Phoenix.events || (Phoenix.events = {}));
+})(Phoenix || (Phoenix = {}));
+/// <reference path="../../../../typings/index.d.ts" />
+/// <reference path="./utils.ts" />
+/// <reference path="./events.ts" />
+/// <reference path="./dom.ts" />
+var Phoenix;
+(function (Phoenix) {
+    var _dom = Phoenix.dom, _utils = Phoenix.utils, _events = Phoenix.events;
+    var drag;
+    (function (drag_1) {
+        var _mouseEvents = function (eventType) {
+            if (_dom.touch()) {
+                switch (eventType) {
+                    case "mousedown":
+                        return "touchstart";
+                    case "mouseup":
+                        return "touchend";
+                    case "mousemove":
+                        return "touchmove";
+                }
+            }
+            return eventType;
+        };
+        var DragAndDropManager = (function () {
+            function DragAndDropManager() {
+                var that = this;
+            }
+            DragAndDropManager.prototype.initialize = function () {
+                var that = this;
+                var $doc = $(document);
+                that._mu = that.mouseUp.bind(that);
+                that._md = that.mouseDownEmpty.bind(that);
+                $doc.on(_mouseEvents('mouseup'), that._mu);
+                $doc.on(_mouseEvents('mousedown'), that._md);
+            };
+            DragAndDropManager.prototype.finalize = function () {
+                var that = this;
+                var $doc = $(document);
+                if (that._mu) {
+                    $doc.off(_mouseEvents('mouseup'), that._mu);
+                    that._mu = null;
+                }
+                if (that._md) {
+                    $doc.off(_mouseEvents('mousedown'), that._mu);
+                    that._md = null;
+                }
+                that._listeners = null;
+                that._current = null;
+            };
+            DragAndDropManager.prototype.startMouseMove = function () {
+                var that = this;
+                if (!that._mm) {
+                    that._mm = that.mouseMove.bind(that);
+                    $(document).on(_mouseEvents('mousemove'), that._mm);
+                }
+            };
+            DragAndDropManager.prototype.stopMouseMove = function () {
+                var that = this;
+                if (that._mm) {
+                    $(document).off(_mouseEvents('mousemove'), that._mm);
+                    that._mm = null;
+                }
+            };
+            DragAndDropManager.prototype._canExecuteEvent = function (event) {
+                return !!this._current;
+            };
+            DragAndDropManager.prototype.mouseUp = function (eventObject) {
+                var that = this;
+                var current = that._current;
+                if (!current)
+                    return true;
+                if (current.inDragging)
+                    current.notifyDragEnd(false, eventObject);
+                that.setCurrent(null);
+                current.clear();
+                return false;
+            };
+            DragAndDropManager.prototype.mouseDownEmpty = function (eventObject) {
+                return false;
+            };
+            DragAndDropManager.prototype.mouseMove = function (eventObject) {
+                var that = this;
+                if (!that._canExecuteEvent(eventObject))
+                    return;
+                var current = that._current;
+                if (!current)
+                    return true;
+                if (!current.ready(eventObject)) {
+                    if (!_events.isLeftButton(eventObject)) {
+                        that.setCurrent(null);
+                        current.clear();
+                    }
+                    return true;
+                }
+                if (!_events.isLeftButton(eventObject)) {
+                    that.cancelDrag();
+                    return true;
+                }
+                try {
+                    current.notifyDrag(eventObject);
+                }
+                catch (e) {
+                    that.cancelDrag();
+                }
+                _events.stopEvent(eventObject);
+                return true;
+            };
+            DragAndDropManager.prototype.addDrag = function (listeners) {
+                var that = this;
+                var cd = new DragElement(listeners);
+                that._listeners = that._listeners || [];
+                that._listeners.push(cd);
+                return cd;
+            };
+            DragAndDropManager.prototype.rmvDrag = function (drag) {
+                var that = this;
+                if (that._listeners) {
+                    var i = that._listeners.indexOf(drag);
+                    if (i >= 0) {
+                        that._listeners.splice(i, 1);
+                        drag.finalize();
+                    }
+                }
+            };
+            DragAndDropManager.prototype.setCurrent = function (dragObject) {
+                var that = this;
+                if (dragObject && that._current)
+                    return false;
+                that._current = dragObject;
+                if (!that._current)
+                    that.stopMouseMove();
+                return true;
+            };
+            DragAndDropManager.prototype.cancelDrag = function () {
+                var that = this;
+                var current = that._current;
+                if (current) {
+                    if (current.inDragging)
+                        current.notifyDragEnd(true, null);
+                    that.setCurrent(null);
+                    current.clear();
+                }
+            };
+            DragAndDropManager.prototype.cover = function (value, cursor, zindex) {
+                var that = this;
+                if (value) {
+                    if (!that._coverId) {
+                        that._coverId = _utils.allocID();
+                        var scroll = _dom.documentScroll();
+                        var client = _dom.documentClientDim();
+                        client.width += scroll.left;
+                        client.height += scroll.top;
+                        client.width = Math.round(Math.max(client.width, document.body.offsetWidth));
+                        client.height = Math.round(Math.max(client.height, Math.round(document.body.offsetHeight)));
+                        var ce = document.createElement('div');
+                        ce.id = that._coverId;
+                        ce.style.position = 'absolute';
+                        ce.style.top = '0px';
+                        ce.style.left = '0px';
+                        ce.style.backgroundColor = "white";
+                        ce.style.opacity = '0.01';
+                        ce.style.width = client.width + "px";
+                        ce.style.height = client.height + "px";
+                        ce.style.zIndex = (zindex || 10000) + '';
+                        ce.style.cursor = cursor;
+                        _dom.append(document.body, ce);
+                    }
+                }
+                else {
+                    if (that._coverId) {
+                        var e = _dom.find(document.body, that._coverId);
+                        that._coverId = null;
+                        if (e)
+                            _dom.remove(e);
+                    }
+                }
+                //
+            };
+            return DragAndDropManager;
+        }());
+        drag_1.DragAndDropManager = DragAndDropManager;
+        var DragElement = (function () {
+            function DragElement(elements) {
+                var that = this;
+                that._elements = elements;
+                that._mdEvent = that.mousedown.bind(that);
+                that.clear();
+                that._setEvents();
+            }
+            DragElement.prototype.clear = function () {
+                var that = this;
+                //save
+                var ose = that.stopEvent;
+                //init
+                that.mouseMoveCount = 0;
+                that.minLeft = null;
+                that.maxLeft = null;
+                that.minTop = null;
+                that.maxTop = null;
+                that.currentLeft = 0;
+                that.currentTop = 0;
+                that.moveX = false;
+                that.moveY = false;
+                that.inDragging = false;
+                that.coverDocument = true;
+                that.cursor = "default";
+                that.startPoint = null;
+                that.currentPoint = null;
+                that.startOffset = null;
+                that.stopEvent = false;
+                that.data = {};
+                // restore
+                that.stopEvent = ose;
+            };
+            DragElement.prototype._removeEvents = function () {
+                var that = this;
+                if (that._elements) {
+                    that._elements.forEach(function (e) {
+                        $(e).off(_mouseEvents('mousedown'), that._mdEvent);
+                    });
+                    that._elements = null;
+                }
+            };
+            DragElement.prototype._setEvents = function () {
+                var that = this;
+                if (that._elements) {
+                    that._elements.forEach(function (e) {
+                        $(e).on(_mouseEvents('mousedown'), that._mdEvent);
+                    });
+                }
+            };
+            DragElement.prototype.mousedown = function (eventObject) {
+                var that = this;
+                that.mouseMoveCount = 0;
+                that.inDragging = false;
+                if (!_events.isLeftButton(eventObject))
+                    return true;
+                if (!that.canStartDrag(eventObject))
+                    return true;
+                if (!drag_1.dragManager.setCurrent(that))
+                    return true;
+                that.startPoint = _events.point(eventObject);
+                if (that.floatElement) {
+                    that.startOffset = _dom.position(that.floatElement, that.floatParent);
+                }
+                drag_1.dragManager.startMouseMove();
+                if (that.stopEvent)
+                    _events.stopEvent(eventObject);
+                return true;
+            };
+            DragElement.prototype.finalize = function () {
+                var that = this;
+                that._removeEvents();
+                _utils.cleanUpObject(that);
+            };
+            DragElement.prototype.ready = function (eventObject) {
+                var that = this;
+                that.mouseMoveCount++;
+                if (that.mouseMoveCount == 2)
+                    that.notifyDragStart(eventObject);
+                return that.inDragging;
+            };
+            DragElement.prototype.notifyDrag = function (eventObject) {
+                var that = this;
+                if (!that.inDragging)
+                    return;
+                that.currentPoint = _events.point(eventObject);
+                var e = that.floatElement;
+                if (e && that.moveX) {
+                    var cl = that.startOffset.left + that.currentPoint.x - that.startPoint.x;
+                    if (that.minLeft !== null) {
+                        if (cl < that.minLeft)
+                            cl = that.minLeft;
+                    }
+                    if (that.maxLeft !== null) {
+                        if (cl > that.maxLeft)
+                            cl = that.maxLeft;
+                    }
+                    that.currentLeft = cl;
+                    e.style.left = cl + "px";
+                }
+                if (e && that.moveY) {
+                    var ct = that.startOffset.top + that.currentPoint.y - that.startPoint.y;
+                    if ((that.minTop !== null) && (ct < that.minTop))
+                        ct = that.minTop;
+                    if ((that.maxTop !== null) && (ct > that.maxTop))
+                        ct = that.maxTop;
+                    that.currentTop = ct;
+                    e.style.top = ct + "px";
+                }
+                if (that.onDrag)
+                    that.onDrag(eventObject);
+            };
+            DragElement.prototype.notifyDragStart = function (eventObject) {
+                var that = this;
+                that.inDragging = true;
+                _events.eventManager.disable();
+                if (that.coverDocument)
+                    drag_1.dragManager.cover(true, that.cursor);
+                try {
+                    if (that.onDragStart) {
+                        if (!that.onDragStart(eventObject))
+                            that.notifyDragEnd(true, eventObject);
+                    }
+                }
+                catch (e) {
+                }
+            };
+            DragElement.prototype.canStartDrag = function (event) {
+                var self = this;
+                if (self.canStartDragHandler)
+                    return self.canStartDragHandler(event);
+                else
+                    return true;
+            };
+            DragElement.prototype.canDrop = function (value) {
+                var that = this;
+                if (that.coverDocument) {
+                    drag_1.dragManager.cover(true, value ? that.cursor : "no-drop");
+                }
+            };
+            DragElement.prototype.notifyDragEnd = function (doCancel, event) {
+                var that = this;
+                that.inDragging = false;
+                var uc = that.coverDocument;
+                if (that.onDragEnd)
+                    that.onDragEnd(doCancel, event);
+                _utils.nextTick(function () {
+                    _events.eventManager.enable();
+                    if (uc)
+                        drag_1.dragManager.cover(false);
+                });
+            };
+            return DragElement;
+        }());
+        drag_1.DragElement = DragElement;
+        drag_1.dragManager = new DragAndDropManager();
+        Phoenix.dom.readyHandlers.push(function () {
+            drag_1.dragManager.initialize();
+        });
+        var _dragData, _setDragData = function (data) {
+            _dragData = data;
+        }, _getDragData = function () {
+            return _dragData;
+        };
+        drag_1.setData = _setDragData;
+        drag_1.getData = _getDragData;
+    })(drag = Phoenix.drag || (Phoenix.drag = {}));
+})(Phoenix || (Phoenix = {}));
 /// <reference path="../../../../../typings/index.d.ts" />
 /// <reference path="../../../core/core.ts" />
 /// <reference path="./absfield.control.ts" />
 /// <reference path="../schema.data.ts" />
-/// <reference path="../../../core/locale.ts" />
+/// <reference path="../../../core/modules/locale.ts" />
 var Phoenix;
 (function (Phoenix) {
     var ui;
@@ -11362,6 +11938,14 @@ var Phoenix;
             if ((parseInt(value, 10) + ' ') === value.trim())
                 return value.trim() + 'px';
             return value;
+        }, _widthFromSchema = function (schema) {
+            if (_su.isBoolean(schema))
+                return 50;
+            if (_su.isDate(schema))
+                return 90;
+            if (_su.isNumber(schema))
+                return 80;
+            return 150;
         }, _createDetail = function (id, childBefore) {
             var res = document.createElement('tr');
             res.className = "bs-table-row-detail";
@@ -11387,7 +11971,10 @@ var Phoenix;
             columns.forEach(function (col, colIndex) {
                 var css;
                 var th = document.createElement('th');
-                _dom.attr(th, "colId", col.$bind);
+                _dom.attr(th, 'colId', col.$bind);
+                if (options.allowColumnMove) {
+                    _dom.attr(th, 'data-drag', "move");
+                }
                 if (!options._useColGrp) {
                     if (col.options.width)
                         th.style.width = _ensureWidth(col.options.width);
@@ -11446,9 +12033,6 @@ var Phoenix;
                 _dom.append(tr, td);
             });
             return tr;
-        }, _hasFrozenColumns = function (opts, frozenColumns) {
-            var res = !!(opts.allowFrozenColumns && frozenColumns && frozenColumns.length);
-            return res;
         }, _setRowsSelected = function (id, value, options, parent) {
             if (options.selecting && options.selecting.row) {
                 var p = [];
@@ -11604,6 +12188,9 @@ var Phoenix;
                 }
             }
             return res;
+        }, _hasFrozenColumns = function (opts, frozenColumns) {
+            var res = !!(opts.allowFrozenColumns && frozenColumns && frozenColumns.length);
+            return res;
         }, _cssTable = function (options, isHeader, isFrozen) {
             var css = ["table"];
             if (isHeader) {
@@ -11622,6 +12209,8 @@ var Phoenix;
             else if (!isHeader && options.allowFrozenColumns) {
                 css.push('nowrap');
             }
+            if (isHeader && options.allowFrozenColumns)
+                css.push('headernowrap');
             //remove 
             //if ((options.selecting && options.selecting.cell) ||  {
             //    css.push('nowrap');
@@ -11693,9 +12282,39 @@ var Phoenix;
             var p = _dom.find(e, id + '_frozen_header_parent');
             if (p)
                 p.style.width = cw + 'px';
+        }, _cloneForMove = function (element) {
+            var fe = element.cloneNode(true);
+            if (fe.tagName.toLowerCase() === 'th') {
+                var tr = element.parentElement;
+                var table = tr.parentElement.parentElement;
+                var html = ['<div>'];
+                html.push('<table class="');
+                html.push(table.className);
+                html.push('">');
+                html.push('<thead>');
+                html.push('<tr class="');
+                html.push(tr.className);
+                html.push('">');
+                html.push('</tr></thead><table>');
+                html.push('</div>');
+                var ce = $(html.join('')).get(0);
+                var ctr = ce.firstChild.firstChild.firstChild;
+                ctr.style.height = element.offsetHeight + "px";
+                _dom.append(ctr, fe);
+                fe = ce;
+            }
+            var p = _dom.position(element, null);
+            fe.style.top = p.top + "px";
+            fe.style.left = p.left + "px";
+            fe.style.width = element.offsetWidth + "px";
+            fe.style.height = element.offsetHeight + "px";
+            fe.style.zIndex = '5000';
+            fe.style.position = 'absolute';
+            return fe;
         }, _createGridContainer = function (id, options, authoring, title, locale, columns, frozenColumns) {
             title = title || '';
             options._useColGrp = _canUseColGroups(options, columns);
+            options._headernowrap = options.xxx;
             options._useStripedCss = !!!(options.rows && options.rows.detail);
             options = $.extend({ right: false, icon: null, type: 'default', width: "auto", height: "auto", size: null, scrolling: { horizontal: false } }, options);
             //create div container 
@@ -11961,14 +12580,17 @@ var Phoenix;
             updateEvenOdd: _updateEvenOdd,
             ensureWidth: _ensureWidth,
             updateFrozenWidth: _updatecolumnsWidth,
-            hasFrozenColumns: _hasFrozenColumns
+            hasFrozenColumns: _hasFrozenColumns,
+            cloneForMove: _cloneForMove,
+            widthFromSchema: _widthFromSchema
         };
         ui.GridUtil = _gridUtil;
     })(ui = Phoenix.ui || (Phoenix.ui = {}));
 })(Phoenix || (Phoenix = {}));
 /// <reference path="../../../../../typings/index.d.ts" />
 /// <reference path="../../../core/core.ts" />
-/// <reference path="../../../core/locale.ts" />
+/// <reference path="../../../core/modules/locale.ts" />
+/// <reference path="../../../core/modules/drag.ts" />
 /// <reference path="./absfield.control.ts" />
 /// <reference path="../errors.data.ts" />
 /// <reference path="../../pager.control.ts" />
@@ -11977,7 +12599,7 @@ var Phoenix;
 (function (Phoenix) {
     var ui;
     (function (ui) {
-        var _ui = ui, _utils = Phoenix.utils, _dom = Phoenix.dom, _ui = ui, _ulocale = Phoenix.ulocale, _gu = _ui.GridUtil, _eu = Phoenix.Observable.errorsUtils, _link = Phoenix.link, _locale = Phoenix.locale, _sutils = Phoenix.Observable.SchemaUtils;
+        var _ui = ui, _utils = Phoenix.utils, _dom = Phoenix.dom, _ui = ui, _ulocale = Phoenix.ulocale, _gu = _ui.GridUtil, _eu = Phoenix.Observable.errorsUtils, _link = Phoenix.link, _locale = Phoenix.locale, _drag = Phoenix.drag, _sutils = Phoenix.Observable.SchemaUtils;
         var withModifier = function ($event, key) {
             if (key === _dom.keys.VK_TAB && $event.shiftKey)
                 return false;
@@ -11991,17 +12613,32 @@ var Phoenix;
             return false;
         };
         ui.glbGridFilter = null;
+        ui.glbGridSettings = null;
         var BasicGrid = (function (_super) {
             __extends(BasicGrid, _super);
             function BasicGrid(fp, options, form) {
                 _super.call(this, fp, options, form);
+                this._refreshGrid = function () {
+                    var that = this;
+                    var opts = that.renderOptions;
+                    that.removeEvents();
+                    that._initCols(opts);
+                    that._renderColumns(opts);
+                    that._renderRows();
+                    that.setEvents(that.renderOptions);
+                    that.resize();
+                };
                 var that = this;
                 form.registerListenerFor(that.$bind + ".$item", that);
                 that._state();
-                that._mapCols = {};
-                that._initCols(fp.options || {});
+                that.checkOptions(that.fieldOptions);
+                that._initCols(that.fieldOptions);
                 that._details = [];
             }
+            BasicGrid.prototype.checkOptions = function (opts) {
+                if (opts.allowColumnMove === undefined)
+                    opts.allowColumnMove = true;
+            };
             BasicGrid.prototype._inplaceEditValue2Model = function (value, item, col) {
                 var that = this;
                 var nv = _sutils.text2Value(value, col.schema);
@@ -12138,6 +12775,10 @@ var Phoenix;
                     $(that.scrollableFrozenContent).off('scroll');
                 that.scrollableMaster = null;
                 that.scrollableHeaderOfMaster = null;
+                if (that._drag) {
+                    _drag.dragManager.rmvDrag(that._drag);
+                    that._drag = null;
+                }
             };
             BasicGrid.prototype.setEvents = function (opts) {
                 var that = this;
@@ -12153,6 +12794,107 @@ var Phoenix;
                     if (that.scrollableFrozenContent && that.fieldOptions.editing)
                         $(that.scrollableFrozenContent).on('scroll', that.syncMasterScroll.bind(that));
                 }
+                if ((opts.allowColumnResize || opts.allowColumnMove) && !opts.headerIsHidden) {
+                    var drag = _drag.dragManager.addDrag([that.$element.get(0)]);
+                    that._drag = drag;
+                    drag.canStartDragHandler = that._canStartDrag.bind(that);
+                    drag.onDragStart = that._onDragStart.bind(that);
+                    drag.onDrag = that._onDrag.bind(that);
+                    drag.onDragEnd = that._onDragEnd.bind(that);
+                }
+            };
+            BasicGrid.prototype._getColsInfo = function (columns, parent) {
+                var res = [];
+                columns.forEach(function (col, index) {
+                    var th = parent.childNodes[index];
+                    if (!th.id)
+                        th.id = _utils.allocID();
+                    res.push({ htmlId: th.id, info: col });
+                });
+                return res;
+            };
+            BasicGrid.prototype._canStartDrag = function (event) {
+                var that = this;
+                var target = event.target;
+                var opDrag = _dom.attr(target, 'data-drag');
+                var colElement = target;
+                if (!opDrag) {
+                    opDrag = _dom.attr(target.parentNode, 'data-drag');
+                    colElement = target.parentNode;
+                }
+                if (opDrag) {
+                    if (!colElement.id)
+                        colElement.id = _utils.allocID();
+                    that._drag.data.op = opDrag;
+                    that._drag.data.cloneId = colElement.id;
+                    that._drag.data.column = _dom.attr(colElement, 'colId');
+                    if (!that._drag.data.column)
+                        return false;
+                    return that['_cdd' + opDrag](event);
+                }
+                return false;
+            };
+            BasicGrid.prototype._onDragStart = function (event) {
+                var that = this;
+                if (that._drag.data.op)
+                    return that['_sdd' + that._drag.data.op](event);
+                return false;
+            };
+            BasicGrid.prototype._onDrag = function (event) {
+                return true;
+            };
+            BasicGrid.prototype._onDragEnd = function (cancel, event) {
+                var that = this;
+                if (that._drag.data.op)
+                    return that['_edd' + that._drag.data.op](cancel, event);
+                return false;
+            };
+            BasicGrid.prototype._cddmove = function (event) {
+                var that = this, opts = that.renderOptions;
+                if (!opts.allowColumnMove)
+                    return false;
+                var grid = that.$element.get(0);
+                var drag = that._drag;
+                drag.coverDocument = true;
+                drag.cursor = 'move';
+                drag.moveX = true;
+                drag.moveY = true;
+                drag.startOffset = _dom.position(_dom.find(grid, drag.data.cloneId), null);
+                var pc, children;
+                if (opts.allowFrozenColumns) {
+                    pc = _dom.find(grid, that.id + '_frozen_cols');
+                    if (pc)
+                        children = _dom.childrenPositions(pc, that._getColsInfo(that.frozenColumns, pc), false);
+                }
+                pc = _dom.find(grid, that.id + '_cols');
+                if (pc) {
+                    var fc = _dom.childrenPositions(pc, that._getColsInfo(that.columns, pc), false);
+                    if (children)
+                        children = children.concat(fc);
+                    else
+                        children = fc;
+                }
+                return true;
+            };
+            BasicGrid.prototype._sddmove = function (event) {
+                var that = this;
+                var drag = that._drag;
+                var toClone = _dom.find(that.$element.get(0), drag.data.cloneId);
+                drag.floatElement = _gu.cloneForMove(toClone);
+                _dom.append(document.body, drag.floatElement);
+                return true;
+            };
+            BasicGrid.prototype._eddmove = function (cancel, event) {
+                var that = this;
+                var drag = that._drag;
+                if (!drag)
+                    return;
+                if (drag.floatElement) {
+                    _dom.remove(drag.floatElement);
+                    drag.floatElement = null;
+                }
+                if (cancel)
+                    return;
             };
             BasicGrid.prototype.destroy = function () {
                 var that = this;
@@ -12213,7 +12955,26 @@ var Phoenix;
                 if (toolElement.name === 'filter' && ui.glbGridFilter) {
                     return ui.glbGridFilter(that.filtrableColumns(), that.state.value, that.form.$locale);
                 }
-                that.form.execAction(that.$bind + ".$toolbar." + toolName, { toolElement: toolElement, grid: that });
+                else if (toolElement.name === 'settings' && ui.glbGridSettings) {
+                    return ui.glbGridSettings(that.getColumnsForSettings(), function (columns) {
+                        that.setColumns(columns);
+                    });
+                }
+                else if (toolElement.name === 'multiselect') {
+                    that.toggleMultiselect();
+                }
+                else
+                    that.form.execAction(that.$bind + ".$toolbar." + toolName, { toolElement: toolElement, control: that });
+            };
+            BasicGrid.prototype.setColumns = function (columns) {
+                var that = this;
+                that.renderOptions.columns = columns.map(function (col) {
+                    var oldCol = that._colByField(col.$bind);
+                    if (oldCol)
+                        col.options = oldCol.options;
+                    return col;
+                });
+                that._refreshGrid();
             };
             BasicGrid.prototype._state = function () {
                 _super.prototype._state.call(this);
@@ -12231,10 +12992,14 @@ var Phoenix;
                 if (opts.toolbar && opts.toolbar.items) {
                     var toolbarOptions = $.extend(true, {}, opts.toolbar);
                     toolbarOptions.items.forEach(function (te) {
-                        if (te.type === "count")
-                            te = $.extend({ "name": "count", "right": true, "value": that.state.value.totalCount() }, te);
-                        if (te.type === "filter")
-                            te = $.extend({ "name": "filter", "value": that.state.value.filter || "", icon: "filter" }, te);
+                        if (te.type === 'count')
+                            te = $.extend({ name: 'count', right: true, value: that.state.value.totalCount() }, te);
+                        else if (te.type === 'filter')
+                            te = $.extend({ name: 'filter', value: that.state.value.filter || "", icon: 'filter' }, te);
+                        else if (te.type === 'multiselect') {
+                            var cv = !!(opts.selecting && opts.selecting.row && opts.selecting.multiselect);
+                            te = $.extend(te, { name: 'multiselect', type: 'default', icon: 'check', value: cv });
+                        }
                         toolElements.push(te);
                     });
                 }
@@ -12267,6 +13032,7 @@ var Phoenix;
             };
             BasicGrid.prototype._initCols = function (options) {
                 var that = this;
+                that._mapCols = {};
                 if (!options.columns || !options.columns.length) {
                     options.columns = [{ $bind: '$index' }];
                 }
@@ -12284,6 +13050,7 @@ var Phoenix;
                     if (ii >= 0)
                         options.columns.splice(ii, 1);
                 }
+                var addWidth = options.scrolling && options.scrolling.vertical || options.editing;
                 options.columns.forEach(function (col) {
                     var c = $.extend({}, col);
                     c.options = c.options || {};
@@ -12300,12 +13067,13 @@ var Phoenix;
                     if (_sutils.isLink(col.$bind)) {
                         c.isLink = true;
                     }
+                    if (addWidth && !c.options.width)
+                        c.options.width = _gu.widthFromSchema(c.schema);
                     if (c.options.frozen && options.allowFrozenColumns) {
                         if (!c.options.width) {
-                            console.log('Invalid frozen column "' + c.$bind + '": no explicit width');
-                            return;
+                            c.options.width = _gu.widthFromSchema(c.schema);
                         }
-                        if (!checkPixels(c.options.width)) {
+                        else if (!checkPixels(c.options.width)) {
                             c.options.width = 50;
                         }
                         that.frozenColumns.push(c);
@@ -13132,6 +13900,36 @@ var Phoenix;
                 }
                 return [];
             };
+            BasicGrid.prototype._getColumnsFromSchema = function () {
+                var that = this;
+                var schema = that.$schema;
+                if (schema && schema.type === "array" && schema.items && schema.items.type === "object") {
+                    return _sutils.columns(schema.items, that.form.$locale);
+                }
+                return [];
+            };
+            BasicGrid.prototype._getSelectedColumns = function () {
+                var that = this, res = {};
+                Object.keys(that._mapCols).forEach(function (key) { res[key] = true; });
+                return res;
+            };
+            BasicGrid.prototype._getGroupsFromSchema = function () {
+                var that = this;
+                var schema = that.$schema;
+                if (schema && schema.type === "array" && schema.items && schema.items.type === "object" && schema.items.groups) {
+                    return schema.items.groups;
+                }
+                return {};
+            };
+            BasicGrid.prototype.getColumnsForSettings = function () {
+                var that = this;
+                return {
+                    schemaGroups: that._getGroupsFromSchema(),
+                    schemaColumns: that._getColumnsFromSchema(),
+                    selectedColumns: that._getSelectedColumns(),
+                    locale: that.form.$locale
+                };
+            };
             BasicGrid.prototype._updateSorting = function () {
                 var that = this;
                 var opts = that.renderOptions;
@@ -13194,14 +13992,8 @@ var Phoenix;
                     return;
                 var opts = that.renderOptions;
                 if (opts.selecting && opts.selecting.row) {
-                    //ToDo scroll
-                    that.removeEvents();
                     opts.selecting.multiselect = !!!opts.selecting.multiselect;
-                    that._initCols(opts);
-                    that._renderColumns(opts);
-                    that._renderRows();
-                    that.setEvents(that.renderOptions);
-                    that.resize();
+                    that._refreshGrid();
                 }
             };
             BasicGrid.prototype.render = function ($parent) {
@@ -13357,7 +14149,7 @@ var Phoenix;
 })(Phoenix || (Phoenix = {}));
 /// <reference path="../../../../../typings/index.d.ts" />
 /// <reference path="../../../core/core.ts" />
-/// <reference path="../../../core/locale.ts" />
+/// <reference path="../../../core/modules/locale.ts" />
 /// <reference path="./absfield.control.ts" />
 /// <reference path="../errors.data.ts" />
 /// <reference path="./basicgrid.ts" />
@@ -13743,7 +14535,7 @@ var Phoenix;
 })(Phoenix || (Phoenix = {}));
 /// <reference path="../../../../../typings/index.d.ts" />
 /// <reference path="../../../core/core.ts" />
-/// <reference path="../../../core/locale.ts" />
+/// <reference path="../../../core/modules/locale.ts" />
 /// <reference path="../../page.control.ts" />
 /// <reference path="../schema.data.ts" />
 var Phoenix;
@@ -14091,7 +14883,7 @@ var Phoenix;
 })(Phoenix || (Phoenix = {}));
 /// <reference path="../../../../../typings/index.d.ts" />
 /// <reference path="../../../core/core.ts" />
-/// <reference path="../../../core/locale.ts" />
+/// <reference path="../../../core/modules/locale.ts" />
 /// <reference path="./absfield.control.ts" />
 /// <reference path="../schema.data.ts" />
 /// <reference path="../errors.data.ts" />
@@ -14589,7 +15381,7 @@ var Phoenix;
 })(Phoenix || (Phoenix = {}));
 /// <reference path="../../../../../typings/index.d.ts" />
 /// <reference path="../../../core/core.ts" />
-/// <reference path="../../../core/locale.ts" />
+/// <reference path="../../../core/modules/locale.ts" />
 /// <reference path="./absfield.control.ts" />
 /// <reference path="../schema.data.ts" />
 /// <reference path="../errors.data.ts" />
@@ -15127,7 +15919,7 @@ var Phoenix;
 })(Phoenix || (Phoenix = {}));
 /// <reference path="../../../../../typings/index.d.ts" />
 /// <reference path="../../../core/core.ts" />
-/// <reference path="../../../core/locale.ts" />
+/// <reference path="../../../core/modules/locale.ts" />
 /// <reference path="./absfield.control.ts" />
 var Phoenix;
 (function (Phoenix) {
@@ -15184,7 +15976,7 @@ var Phoenix;
     })(ui = Phoenix.ui || (Phoenix.ui = {}));
 })(Phoenix || (Phoenix = {}));
 /// <reference path="../../../core/core.ts" />
-/// <reference path="../../../core/locale.ts" />
+/// <reference path="../../../core/modules/locale.ts" />
 /// <reference path="./pictures.control.ts" />
 var Phoenix;
 (function (Phoenix) {
@@ -15473,7 +16265,7 @@ var Phoenix;
 })(Phoenix || (Phoenix = {}));
 /// <reference path="../../../../../typings/index.d.ts" />
 /// <reference path="../../../core/core.ts" />
-/// <reference path="../../../core/locale.ts" />
+/// <reference path="../../../core/modules/locale.ts" />
 /// <reference path="../../../data/datasets.ts" />
 /// <reference path="../schema.data.ts" />
 /// <reference path="./absfield.control.ts" />
@@ -16089,7 +16881,7 @@ var Phoenix;
 })(Phoenix || (Phoenix = {}));
 /// <reference path="../../../../../typings/index.d.ts" />
 /// <reference path="../../../core/core.ts" />
-/// <reference path="../../../core/locale.ts" />
+/// <reference path="../../../core/modules/locale.ts" />
 /// <reference path="./absfield.control.ts" />
 /// <reference path="../schema.data.ts" />
 /// <reference path="../errors.data.ts" />
@@ -16420,7 +17212,7 @@ var Phoenix;
 })(Phoenix || (Phoenix = {}));
 /// <reference path="../../../typings/index.d.ts" />
 /// <reference path="../core/core.ts" />
-/// <reference path="../core/locale.ts" />
+/// <reference path="../core/modules/locale.ts" />
 /// <reference path="../ui/form/modalform.control.ts" />
 var Phoenix;
 (function (Phoenix) {
@@ -16470,6 +17262,7 @@ var Phoenix;
 })(Phoenix || (Phoenix = {}));
 /// <reference path="../../../typings/index.d.ts" />
 /// <reference path="../core/core.ts" />
+/// <reference path="../core/modules/application.ts" />
 /// <reference path="../ui/form/modalform.control.ts" />
 /// <reference path="../ui/datasets-plugin.ts" />
 var Phoenix;
@@ -16544,7 +17337,7 @@ var Phoenix;
 })(Phoenix || (Phoenix = {}));
 /// <reference path="../../../typings/index.d.ts" />
 /// <reference path="../core/core.ts" />
-/// <reference path="../core/locale.ts" />
+/// <reference path="../core/modules/locale.ts" />
 /// <reference path="../ui/form/modalform.control.ts" />
 var Phoenix;
 (function (Phoenix) {
@@ -16689,7 +17482,7 @@ var Phoenix;
 })(Phoenix || (Phoenix = {}));
 /// <reference path="../../../typings/index.d.ts" />
 /// <reference path="../core/core.ts" />
-/// <reference path="../core/locale.ts" />
+/// <reference path="../core/modules/locale.ts" />
 /// <reference path="../ui/form/modalform.control.ts" />
 var Phoenix;
 (function (Phoenix) {
@@ -16738,8 +17531,9 @@ var Phoenix;
         };
     })(ui = Phoenix.ui || (Phoenix.ui = {}));
 })(Phoenix || (Phoenix = {}));
-/// <reference path="../core/locale.ts" />
+/// <reference path="../core/modules/locale.ts" />
 /// <reference path="../core/core.ts" />
+/// <reference path="../core/modules/application.ts" />
 /// <reference path="../data/datasets.ts" />
 /// <reference path="../ui/form/schema.data.ts" />
 var Phoenix;
@@ -16939,7 +17733,7 @@ var Phoenix;
     })(ui = Phoenix.ui || (Phoenix.ui = {}));
 })(Phoenix || (Phoenix = {}));
 /// <reference path="../../../typings/index.d.ts" />
-/// <reference path="../../js/core/locale.ts" />
+/// <reference path="../../js/core/modules/locale.ts" />
 /// <reference path="../../js/ui/form/form.control.ts" />
 /// <reference path="../../js/ui/form/controls/absfield.control.ts" />
 /// <reference path="./filter-lookup.ts" />
@@ -19135,7 +19929,162 @@ var Phoenix;
     })(ui = Phoenix.ui || (Phoenix.ui = {}));
 })(Phoenix || (Phoenix = {}));
 /// <reference path="../../../typings/index.d.ts" />
-/// <reference path="../../js/core/locale.ts" />
+/// <reference path="../../js/core/core.ts" />
+/// <reference path="../../js/ui/form/modalform.control.ts" />
+var Phoenix;
+(function (Phoenix) {
+    var ui;
+    (function (ui) {
+        var _ui = ui;
+        _ui["glbGridSettings"] = function (params, callback, locale) {
+            var layout = {
+                "name": "settings",
+                "$type": "block",
+                "$items": [
+                    {
+                        "$type": "block",
+                        "$items": [
+                            {
+                                "$bind": "mselect",
+                                "$widget": "multiselectlist",
+                                "options": {
+                                    multiSelect: true
+                                }
+                            }
+                        ]
+                    }
+                ],
+                "form": true
+            };
+            var model = {
+                "properties": {
+                    "mselect": {
+                        "type": "object",
+                        "properties": {
+                            "entree": {
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "properties": {
+                                        "title": {
+                                            "type": "string"
+                                        },
+                                        "name": {
+                                            "type": "string"
+                                        },
+                                        "items": {
+                                            "type": "array"
+                                        }
+                                    }
+                                }
+                            },
+                            "sortie": {
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "properties": {
+                                        "title": {
+                                            "type": "string"
+                                        },
+                                        "name": {
+                                            "type": "string"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            };
+            var ldata = {
+                mselect: {
+                    entree: ui.multiSelectUtils.transformPropsToMultiselectFormat(params.schemaColumns, params.schemaGroups),
+                    sortie: ui.multiSelectUtils.transformSelectedColumnsToMultiSelectFormat(params.schemaColumns, params.selectedColumns)
+                }
+            };
+            var opts = { "title": params.locale.settingsTitle || "Options", "buttons": [{ "pattern": "validate" }] };
+            _ui.OpenModalForm(opts, layout, model, ldata, locale, function (form, action, model, formControl) {
+                switch (action.property) {
+                    case "validate":
+                        if (!model.validate())
+                            return;
+                        var sortie = model.model().mselect.sortie;
+                        if (sortie <= 0)
+                            return;
+                        var columns = ui.multiSelectUtils.transformMultiSelectColumnsToGridColumnsFormat(sortie);
+                        if (callback)
+                            callback(columns);
+                        form.close();
+                        break;
+                }
+            });
+        };
+        var _transformPropsToMultiselectFormat = function (columns, groups) {
+            var gs = groups && groups.items ? groups.items : [];
+            var items = groups && groups.items ? $.extend(true, [], gs) : [];
+            constructeItems(items, columns);
+            function constructeItems(groups, columns) {
+                columns.forEach(function (column) {
+                    var item = {
+                        name: column.name,
+                        title: column.schema.title || column.name
+                    };
+                    var g = getGroup(groups, column.schema.group);
+                    if (g) {
+                        g.items = g.items || [];
+                        g.items.push(item);
+                    }
+                    else
+                        groups.push(item);
+                });
+                function getGroup(groups, name) {
+                    var that = this;
+                    var item = null;
+                    groups.every(function (g) {
+                        if (g.name === name) {
+                            item = g;
+                            return false;
+                        }
+                        else if (g.items) {
+                            item = getGroup(g.items, name);
+                            if (item)
+                                return false;
+                        }
+                        return true;
+                    });
+                    return item;
+                }
+            }
+            return items;
+        }, _transformMultiSelectColumnsToGridColumnsFormat = function (columns) {
+            var cols = [];
+            columns.forEach(function (col) {
+                cols.push({ $bind: col.name });
+            });
+            return cols;
+        }, _transformSelectedColumnsToMultiSelectFormat = function (columns, selectedColumns) {
+            var cols = [];
+            Object.keys(selectedColumns).forEach(function (name) {
+                columns.every(function (col) {
+                    if (col.name === name) {
+                        if (selectedColumns[name])
+                            cols.push({ name: name, title: col.schema.title || col.name });
+                        return false;
+                    }
+                    return true;
+                });
+            });
+            return cols;
+        };
+        ui.multiSelectUtils = {
+            transformPropsToMultiselectFormat: _transformPropsToMultiselectFormat,
+            transformMultiSelectColumnsToGridColumnsFormat: _transformMultiSelectColumnsToGridColumnsFormat,
+            transformSelectedColumnsToMultiSelectFormat: _transformSelectedColumnsToMultiSelectFormat
+        };
+    })(ui = Phoenix.ui || (Phoenix.ui = {}));
+})(Phoenix || (Phoenix = {}));
+/// <reference path="../../../typings/index.d.ts" />
+/// <reference path="../../js/core/modules/locale.ts" />
 /// <reference path="../../js/ui/form/form.control.ts" />
 /// <reference path="../../js/ui/form/controls/absfield.control.ts" />
 var Phoenix;
@@ -19143,209 +20092,14 @@ var Phoenix;
     var ui;
     (function (ui) {
         var _ui = ui, _utils = Phoenix.utils, _ulocale = Phoenix.ulocale, _dom = Phoenix.dom, _sutils = Phoenix.Observable.SchemaUtils, _bootstrap4 = Phoenix.bootstrap4;
-        // function _toggleClass(element: HTMLElement, className: string) {
-        //     if (_dom.hasClass(element, className))
-        //         _dom.removeClass(element, className);
-        //     else
-        //         _dom.addClass(element, className);
-        // }
-        // function _createGroup(id, index, group, options) {
-        //     var container = document.createElement('div');
-        //     _dom.addClass(container, "panel");
-        //     _dom.addClass(container, "panel-default");
-        //     _dom.addClass(container, "group");
-        //     _dom.attr(container, "id", index);
-        //     var header = document.createElement('div');
-        //     _dom.addClass(header, "panel-heading");
-        //     _dom.addClass(header, "group-title");
-        //     header.innerHTML = group[options.label];
-        //     _dom.append(container, header);
-        //     var content = document.createElement('div');
-        //     _dom.addClass(content, "panel-body");
-        //     _dom.addClass(content, 'group-content');
-        //     _dom.append(container, content);
-        //     var item = document.createElement("label");
-        //     _dom.addClass(item, "group-item");
-        //     _dom.addClass(item, "checkbox-inline");
-        //     group[options.children.name].forEach(function (e) {
-        //         var itemTMP = <HTMLElement>item.cloneNode(true);
-        //         itemTMP.innerHTML = '<input type="checkbox" value="' + e[options.children.items.code] + '"> ' + e[options.children.items.code] + '';
-        //         _dom.append(content, itemTMP);
-        //     });
-        //     return container;
-        // }
-        // function _createGroups(id, groups, options) {
-        //     var frag = document.createDocumentFragment();
-        //     groups && groups.forEach(function (group, groupIndex) {
-        //         _dom.append(frag, _createGroup(id, groupIndex, group, options));
-        //     });
-        //     return frag;
-        // }
-        // function _createContainer(id) {
-        //     return _utils.format('<div id="{0}" data-render="{0}"><div class="bs-multigroup-link"><div style="display:inline-block">Liste des indices</div><i class="glyphicon glyphicon-chevron-down"></i></div><div  class="bs-multigroup bs-none"></div></div>', id);
-        // };
-        // function _addItem(item, collection) {
-        //     collection.push(item);
-        // }
-        // function _removeItem(itemName, collection) {
-        //     collection.remove(collection.find("code", itemName));
-        // }
-        // function _classerParGroupe(data, columns) {
-        //     let parent = columns ? (columns.parent || "parent") : null;
-        //     let code = columns ? (columns.code || "code") : null;
-        //     // D�terminer les groupes
-        //     var groups = [];
-        //     for (var i = 0; i < data.length; i++) {
-        //         var item = data[i];
-        //         var trouve = null;
-        //         for (var j = 0; j < groups.length; j++) {
-        //             if (item[parent] == groups[j][code]) {
-        //                 trouve = groups[j];
-        //                 break;
-        //             }
-        //         }
-        //         if (trouve)
-        //             trouve.children.push(item[code]);
-        //         else {
-        //             let groupe = {};
-        //             groupe[code] = item[parent];
-        //             groupe[parent] = null;
-        //             groupe["children"] = [item[code]];
-        //             groups.push(groupe);
-        //         }
-        //     }
-        //     return groups;
-        // }
-        // export class ListeMultiSelect extends AbsField {
-        //     state: any;
-        //     context = {
-        //         data: [],
-        //         entree: {
-        //             code: "code",
-        //             label: "lib",
-        //             children: {
-        //                 name: "children",
-        //                 items: {
-        //                     code: "code",
-        //                     parent: "parent"
-        //                 }
-        //             }
-        //         },
-        //         sortie: { code: "code", parent: "parent" } // {code: "name", parent: "group"}
-        //     };
-        //     opts: any;
-        //     constructor(fp, options, form) {
-        //         super(fp, options, form);
-        //         form.registerListenerFor(this.$bind + ".$item", this);
-        //         this._state();
-        //     }
-        //     _state() {
-        //         let that = this;
-        //         that.state = that.state || {};
-        //         let state = that.form.getState(that.$bind);
-        //         Object.keys(state).forEach(function (pn) {
-        //             that.state[pn] = state[pn];
-        //         });
-        //         that.state.value = that.form.getValue(that.$bind);
-        //     }
-        //     click(event) {
-        //         let that = this;
-        //         if (event.target.nodeName.toUpperCase() == "INPUT") {
-        //             var itemName = event.target.value;
-        //             var itemGroup = null;
-        //             that.state.value.forEach(function (item) {
-        //                 if (item[that.context.sortie.code] == itemName) {
-        //                     itemGroup = item[that.context.sortie.parent];
-        //                     return false;
-        //                 }
-        //             });
-        //             //var parent = event.target.parentNode.parentNode.parentNode;
-        //             //if (!parent) return;
-        //             //var itemGroup = that.context.data[_dom.attr(parent, "id")].code;
-        //             if (event.target.checked) {
-        //                 let item = {};
-        //                 item[that.context.sortie.code] = itemName;
-        //                 item[that.context.sortie.parent] = itemGroup;
-        //                 _addItem(item, that.state.value);
-        //             }
-        //             else
-        //                 _removeItem(itemName, that.state.value);
-        //         }
-        //         else if (event.target.nodeName.toUpperCase() == "I") {
-        //             let container = _dom.query(that.$element.get(0), "#" + that.id + " .bs-multigroup");
-        //             if (_dom.hasClass(container, "bs-none")) {
-        //                 _dom.removeClass(event.target, "glyphicon-chevron-down");
-        //                 _dom.addClass(event.target, "glyphicon-chevron-up");
-        //             }
-        //             else {
-        //                 _dom.removeClass(event.target, "glyphicon-chevron-up");
-        //                 _dom.addClass(event.target, "glyphicon-chevron-down");
-        //             }
-        //             _toggleClass(container, "bs-none");
-        //         }
-        //     }
-        //     _setDisabled(button, element) {
-        //     }
-        //     _setHidden(input, element) {
-        //     }
-        //     _state2UI() {
-        //         let that = this;
-        //         let container = _dom.query(that.$element.get(0), "#" + that.id + " .bs-multigroup");
-        //         that.state.value.forEach(function (indiceSelected) {
-        //             var itemNode = <HTMLInputElement>_dom.query(container, 'input[value="' + indiceSelected[that.context.sortie.code] + '"]');
-        //             itemNode.checked = true;
-        //         });
-        //     }
-        //     changed(propName, ov, nv, op, params) {
-        //         let that = this;
-        //         let container = _dom.query(that.$element.get(0), "#" + that.id + " .bs-multigroup");
-        //         if (op === "add") {
-        //             var itemNode = <HTMLInputElement>_dom.query(container, 'input[value="' + nv[that.context.sortie.code] + '"]');
-        //             itemNode.checked = true;
-        //         }
-        //         else if (op === "remove") {
-        //             var itemNode = <HTMLInputElement>_dom.query(container, 'input[value="' + params.$value[that.context.sortie.code] + '"]');
-        //             itemNode.checked = false;
-        //         }
-        //     }
-        //     stateChanged(propName) {
-        //     }
-        //     _renderGroups() {
-        //         let that = this;
-        //         var groups = that.context.data; //_classerParGroupe(that.context.data, that.context.entree);
-        //         if (that.$element) {
-        //             let container = _dom.query(that.$element.get(0), "#" + that.id + " .bs-multigroup");
-        //             _dom.empty(container);
-        //             _dom.append(container, _createGroups(that.id, groups, that.context.entree));
-        //         }
-        //     }
-        //     _internalRender($parent) {
-        //         let that = this;
-        //         let opts = that._initOptions(_ui.Utils.defaultOptions);
-        //         if (!that.$element) {
-        //             that.$element = $(_createContainer(that.id));
-        //             that._renderGroups();
-        //             that._state2UI();
-        //         }
-        //         that.appendElement($parent, opts);
-        //         return that.$element;
-        //     }
-        //     render($parent) {
-        //         let that = this;
-        //         if (that.$lookup) {
-        //             that.context.entree = that.$lookup.mapping || that.context.entree;
-        //             _sutils.executeLookup(that.$lookup, null, function (data) {
-        //                 that.context.data = data.value;
-        //                 return that._internalRender($parent);
-        //             });
-        //         } else
-        //             return that._internalRender($parent);
-        //     }
-        // }
         var MultiSelectList = (function () {
             function MultiSelectList(data, options, callback) {
                 var that = this;
                 var defaultOptions = {
+                    mapping: {
+                        id: "name",
+                        lib: "title"
+                    },
                     expandIcon: "plus",
                     collapseIcon: "minus",
                     checkedIcon: 'check',
@@ -19355,12 +20109,16 @@ var Phoenix;
                     multiSelect: false,
                     showTags: false,
                     groupLink: false,
-                    itemLink: true
+                    itemLink: true,
+                    border: false,
+                    maxHeight: "300px"
                 };
                 that._options = $.extend(true, defaultOptions, options);
-                that._data = data || {};
+                that._name = that._options.mapping.id;
+                that._title = that._options.mapping.libelle || that._options.mapping.lib;
+                that._data = data || [];
                 that._callback = callback || null;
-                that._nodes = $.extend(true, [], data.items);
+                that._nodes = $.extend(true, [], data);
                 that._selectedItems = [];
                 that._init();
             }
@@ -19369,21 +20127,25 @@ var Phoenix;
                     return this._selectedItems;
                 },
                 set: function (value) {
-                    this._selectedItems = value;
+                    var that = this;
+                    that._selectedItems = value;
+                    that._selectedItems.forEach(function (item) {
+                        that.addItem(item[that._name]);
+                    });
                 },
                 enumerable: true,
                 configurable: true
             });
             MultiSelectList.prototype._init = function () {
                 var that = this;
-                that._contructeArbreNodes(that._nodes, that._options);
+                that._contructeNodes(that._nodes, that._options);
             };
             MultiSelectList.prototype._getGroupNode = function (groups, name) {
                 var that = this;
                 var group = null;
                 groups.every(function (node) {
                     if (node.items) {
-                        group = node.name === name ? node : null;
+                        group = node[that._name] === name ? node : null;
                         if (!group)
                             group = that._getGroupNode(node.items, name);
                     }
@@ -19397,7 +20159,7 @@ var Phoenix;
                 var that = this;
                 var item = null;
                 items.every(function (node) {
-                    item = (!node.items && node.name === name) ? node : null;
+                    item = (!node.items && node[that._name] === name) ? node : null;
                     if (!item && node.items)
                         item = that._getItemNode(node.items, name);
                     if (item)
@@ -19406,19 +20168,24 @@ var Phoenix;
                 });
                 return item;
             };
-            MultiSelectList.prototype._getItem = function (name) {
+            MultiSelectList.prototype._getItem = function (items, name) {
                 var that = this;
                 var item = null;
-                that._data.items.every(function (elt) {
-                    if (elt.name === name) {
+                items.every(function (elt) {
+                    if (elt[that._name] === name) {
                         item = elt;
                         return false;
+                    }
+                    if (elt.items) {
+                        item = that._getItem(elt.items, name);
+                        if (item)
+                            return false;
                     }
                     return true;
                 });
                 return item;
             };
-            MultiSelectList.prototype._contructeArbreNodes = function (items, options) {
+            MultiSelectList.prototype._contructeNodes = function (items, options) {
                 var that = this;
                 if (Array.isArray(items) && items.length) {
                     constructeItems(items, null, 0, true, options);
@@ -19428,7 +20195,11 @@ var Phoenix;
                 }
                 function constructeItems(items, parent, level, show, options) {
                     var html = $(that._template().item).get(0);
+                    if (!that._options.border)
+                        _dom.addClass(html, "noborder");
                     items.forEach(function (item) {
+                        if (!item[that._name])
+                            return;
                         item.level = level || 0;
                         item.show = (show == true);
                         item.parent = parent || null;
@@ -19449,7 +20220,7 @@ var Phoenix;
                             _dom.attr(iconDisplay, "data-event", "click");
                             _dom.attr(iconDisplay, "data-action", "expand");
                             if (options.multiSelect && options.groupLink) {
-                                var iconCheck = that._createIcon(item.component, options.uncheckedIcon, "bs-cursor-p");
+                                var iconCheck = that._createIcon(item.component, options.uncheckedIcon, "icon-check bs-cursor-p");
                                 _dom.attr(iconCheck, "data-event", "click");
                                 _dom.attr(iconCheck, "data-action", "uncheck");
                             }
@@ -19463,7 +20234,7 @@ var Phoenix;
                             var iconDisplay = that._createIcon(item.component);
                             _dom.addClass(iconDisplay, "icon-exist");
                             if (options.multiSelect && options.itemLink) {
-                                var iconCheck = that._createIcon(item.component, options.uncheckedIcon, "bs-cursor-p");
+                                var iconCheck = that._createIcon(item.component, options.uncheckedIcon, "icon-check bs-cursor-p");
                                 _dom.attr(iconCheck, "data-event", "click");
                                 _dom.attr(iconCheck, "data-action", "uncheck");
                             }
@@ -19473,8 +20244,8 @@ var Phoenix;
                             }
                             that._createIcon(item.component, options.itemIcon);
                         }
-                        _dom.append(item.component, document.createTextNode(item.title));
-                        _dom.attr(item.component, "data-id", item.name);
+                        _dom.append(item.component, document.createTextNode(item[that._title] || item[that._name]));
+                        _dom.attr(item.component, "data-id", item[that._name]);
                     });
                 }
             };
@@ -19522,26 +20293,24 @@ var Phoenix;
                         else
                             itemHTML = _dom.parentByTag(that._container, target, "LI");
                         if (itemHTML && _dom.attr(itemHTML, "data-event") === "click") {
+                            var parentHTML = _dom.parentByTag(that._container, itemHTML, "LI");
+                            var name_1 = _dom.attr(parentHTML, "data-id");
                             var action = _dom.attr(itemHTML, "data-action");
                             if (action === "expand")
-                                that._display(itemHTML, true);
+                                that._display(name_1, true);
                             else if (action === "collapse")
-                                that._display(itemHTML, false);
+                                that._display(name_1, false);
                             else if (action === "selectitem")
-                                that._select(itemHTML);
+                                that._select(name_1, that._callback);
                             else if (action === "check" && that._options.multiSelect)
-                                that._check(itemHTML, false);
+                                that._check(name_1, false, that._callback);
                             else if (action === "uncheck" && that._options.multiSelect)
-                                that._check(itemHTML, true);
+                                that._check(name_1, true, that._callback);
                         }
                     });
             };
-            MultiSelectList.prototype._display = function (html, show) {
+            MultiSelectList.prototype._display = function (name, show) {
                 var that = this;
-                var parentHTML = _dom.parentByTag(that._container, html, "LI");
-                if (!parentHTML)
-                    return;
-                var name = _dom.attr(parentHTML, "data-id");
                 var group = that._getGroupNode(that._nodes, name);
                 if (group) {
                     var displayItem_1 = function (items, open) {
@@ -19558,39 +20327,49 @@ var Phoenix;
                         });
                     };
                     displayItem_1(group.items, show);
-                    that._addIcon(html, show ? that._options.collapseIcon : that._options.expandIcon, "icon-group bs-cursor-p");
-                    _dom.attr(html, "data-action", show ? "collapse" : "expand");
-                    that.renderItems(that._nodes);
+                    var gHTML = _dom.query(group.component, ".icon-group");
+                    that._addIcon(gHTML, show ? that._options.collapseIcon : that._options.expandIcon, "icon-group bs-cursor-p");
+                    _dom.attr(gHTML, "data-action", show ? "collapse" : "expand");
+                    that._renderItems(that._nodes);
                 }
             };
-            MultiSelectList.prototype._select = function (html) {
+            MultiSelectList.prototype._select = function (name, callback) {
                 var that = this;
-                var parentHTML = _dom.parentByTag(that._container, html, "LI");
-                if (!parentHTML)
-                    return;
                 var oldHTML = _dom.query(that._container, ".active");
                 if (oldHTML)
                     _dom.removeClass(oldHTML, "active");
-                _dom.addClass(html, "active");
-                var name = _dom.attr(parentHTML, "data-id");
-                var item = that._getItem(name);
+                var item = that._getItem(that._nodes, name);
+                if (!item)
+                    return;
+                _dom.addClass(item.component, "active");
+                item = that._getItem(that._data, name);
                 that._selectedItems.splice(0);
                 if (item) {
                     that._selectedItems.push(item);
-                    if (that._callback)
-                        that._callback({ action: "select", data: item });
+                    if (callback)
+                        callback({ action: "add", data: item });
                 }
             };
-            MultiSelectList.prototype._check = function (html, isCheck) {
+            MultiSelectList.prototype._unSelect = function (name, callback) {
                 var that = this;
-                var parentHTML = _dom.parentByTag(that._container, html, "LI");
-                if (!parentHTML)
-                    return;
-                var name = _dom.attr(parentHTML, "data-id");
-                var item = that._getItem(name);
+                var oldHTML = _dom.query(that._container, ".active");
+                if (oldHTML)
+                    _dom.removeClass(oldHTML, "active");
+                var item = that._getItem(that._selectedItems, name);
                 if (item) {
-                    that._addIcon(html, isCheck ? that._options.checkedIcon : that._options.uncheckedIcon, "bs-cursor-p");
-                    _dom.attr(html, "data-action", isCheck ? "check" : "uncheck");
+                    that._selectedItems.splice(0);
+                    if (callback)
+                        callback({ action: "remove", data: item });
+                }
+            };
+            MultiSelectList.prototype._check = function (name, isCheck, callback) {
+                var that = this;
+                var item = that._getItem(that._data, name);
+                if (item) {
+                    var gHTML = that._getItem(that._nodes, name).component;
+                    var cHTML = _dom.query(gHTML, ".icon-check");
+                    that._addIcon(cHTML, isCheck ? that._options.checkedIcon : that._options.uncheckedIcon, "icon-check bs-cursor-p");
+                    _dom.attr(cHTML, "data-action", isCheck ? "check" : "uncheck");
                     var action = void 0;
                     if (isCheck) {
                         that._selectedItems.push(item);
@@ -19599,7 +20378,7 @@ var Phoenix;
                     else {
                         var selectedItemIndex_1 = -1;
                         that._selectedItems.every(function (elt, index) {
-                            if (elt.name === name) {
+                            if (elt[that._name] === name) {
                                 selectedItemIndex_1 = index;
                                 return false;
                             }
@@ -19610,11 +20389,25 @@ var Phoenix;
                             action = "remove";
                         }
                     }
-                    if (that._callback)
-                        that._callback({ action: action, data: item });
+                    if (callback)
+                        callback({ action: action, data: item });
                 }
             };
-            MultiSelectList.prototype.renderItems = function (nodes) {
+            MultiSelectList.prototype.addItem = function (name) {
+                var that = this;
+                if (that._options.multiSelect)
+                    that._check(name, true);
+                else
+                    that._select(name);
+            };
+            MultiSelectList.prototype.removeItem = function (name) {
+                var that = this;
+                if (that._options.multiSelect)
+                    that._check(name, false);
+                else
+                    that._unSelect(name);
+            };
+            MultiSelectList.prototype._renderItems = function (nodes) {
                 var that = this;
                 _dom.empty(that._container);
                 var frag = document.createDocumentFragment();
@@ -19633,7 +20426,10 @@ var Phoenix;
                 var that = this;
                 if (!that._container) {
                     that._container = $(that._template().list).get(0);
-                    that.renderItems(that._nodes);
+                    that._container.style.maxHeight = that._options.maxHeight;
+                    if (!that._options.border)
+                        _dom.addClass(that._container, "noborder");
+                    that._renderItems(that._nodes);
                     that._setEvents();
                 }
                 if (parent)
@@ -19642,57 +20438,10 @@ var Phoenix;
             };
             return MultiSelectList;
         }());
-        var MultiSelectListForm = (function (_super) {
-            __extends(MultiSelectListForm, _super);
-            function MultiSelectListForm(fp, options, form) {
-                _super.call(this, fp, options, form);
-                var that = this;
-                that._state();
-                var liste = that.state.value.model();
-                if (Array.isArray(liste.items) && liste.items.length)
-                    that.multiSelectList = new MultiSelectList(liste, liste.options, function (data) {
-                        console.log(data);
-                        console.log(that.multiSelectList.selectedItems);
-                    });
-            }
-            MultiSelectListForm.prototype._state = function () {
-                var that = this;
-                that.state = that.state || {};
-                var state = that.form.getState(that.$bind);
-                Object.keys(state).forEach(function (pn) {
-                    that.state[pn] = state[pn];
-                });
-                that.state.value = that.form.getValue(that.$bind);
-            };
-            MultiSelectListForm.prototype.click = function (event) {
-                var that = this;
-            };
-            MultiSelectListForm.prototype._state2UI = function () {
-                var that = this;
-            };
-            MultiSelectListForm.prototype.changed = function (propName, ov, nv, op, params) {
-                var that = this;
-            };
-            MultiSelectListForm.prototype.stateChanged = function (propName) {
-            };
-            MultiSelectListForm.prototype.render = function ($parent) {
-                var that = this;
-                var opts = that._initOptions(_ui.Utils.defaultOptions);
-                if (!that.$element) {
-                    that.$element = $(that.multiSelectList.render());
-                }
-                if ($parent)
-                    _dom.append($parent.get(0), that.$element.get(0));
-                return that.$element;
-            };
-            return MultiSelectListForm;
-        }(ui.AbsField));
-        ui.MultiSelectListForm = MultiSelectListForm;
-        _ui.registerControl(MultiSelectListForm, "object", false, "multiselectlist");
+        ui.MultiSelectList = MultiSelectList;
     })(ui = Phoenix.ui || (Phoenix.ui = {}));
 })(Phoenix || (Phoenix = {}));
 /// <reference path="../../../typings/index.d.ts" />
-/// <reference path="../../js/core/locale.ts" />
 /// <reference path="../../js/ui/form/form.control.ts" />
 /// <reference path="../../js/ui/form/controls/absfield.control.ts" />
 var Phoenix;
@@ -19811,146 +20560,329 @@ var Phoenix;
                 }
             }
         }
-        var PillBox = (function (_super) {
-            __extends(PillBox, _super);
-            function PillBox(fp, options, form) {
-                _super.call(this, fp, options, form);
-                this.context = {
-                    data: [],
-                    entree: { code: "code", parent: "parent" },
-                    sortie: { code: "code", parent: "parent" }
+        var PillBox = (function () {
+            function PillBox(data, options, callback) {
+                var that = this;
+                var defaultOptions = {
+                    mapping: {
+                        id: "name",
+                        lib: "title"
+                    },
+                    removeIcon: "remove",
+                    border: false
                 };
-                form.registerListenerFor(this.$bind + ".$item", this);
-                this._state();
+                that._options = $.extend(true, defaultOptions, options);
+                that._name = that._options.mapping.id;
+                that._title = that._options.mapping.libelle || that._options.mapping.lib;
+                that._data = data || [];
+                that._callback = callback || null;
+                that._nodes = $.extend(true, [], data);
+                that._selectedItems = [];
+                that._init();
             }
-            PillBox.prototype._state = function () {
+            Object.defineProperty(PillBox.prototype, "selectedItems", {
+                get: function () {
+                    return this._selectedItems;
+                },
+                set: function (value) {
+                    this._selectedItems = value;
+                },
+                enumerable: true,
+                configurable: true
+            });
+            PillBox.prototype._init = function () {
+                var that = this;
+                that._constructeNodes(that._nodes, that._options);
+            };
+            PillBox.prototype._constructeNodes = function (items, options) {
+                if (!Array.isArray(items) || !items.length)
+                    return;
+                var that = this;
+                var htmlItem = $(that._template().itemTag).get(0);
+                var htmlOption = $(that._template().itemOption).get(0);
+                var htmlIcon = $(that._template().icon).get(0);
+                items.forEach(function (item) {
+                    if (!item[that._name])
+                        return;
+                    item.component = htmlItem.cloneNode();
+                    item.componentOption = htmlOption.cloneNode();
+                    _dom.append(item.component, document.createTextNode(item[that._title] || item[that._name]));
+                    item.componentOption.value = item[that._name];
+                    _dom.append(item.componentOption, document.createTextNode(item[that._title] || item[that._name]));
+                    _dom.attr(item.component, "data-id", item[that._name]);
+                    _dom.append(item.component, htmlIcon.cloneNode());
+                });
+                that._input = $(that._template().itemInput).get(0);
+            };
+            PillBox.prototype._getItem = function (items, name) {
+                var that = this;
+                var elt = null;
+                items.every(function (item) {
+                    if (item[that._name] === name) {
+                        elt = item;
+                        return false;
+                    }
+                    return true;
+                });
+                return elt;
+            };
+            PillBox.prototype._getItemIndex = function (items, name) {
+                var that = this;
+                var index = -1;
+                items.every(function (item, i) {
+                    if (item[that._name] === name) {
+                        index = i;
+                        return false;
+                    }
+                    return true;
+                });
+                return index;
+            };
+            PillBox.prototype._addTag = function (name, callback) {
+                var that = this;
+                var item = that._getItem(that._selectedItems, name);
+                if (!item) {
+                    item = that._getItem(that._data, name);
+                    if (item) {
+                        that._selectedItems.push(item);
+                        that._renderItems();
+                        if (callback)
+                            callback({ action: "add", data: item });
+                    }
+                }
+            };
+            PillBox.prototype._removeTag = function (name, callback) {
+                var that = this;
+                var index = that._getItemIndex(that._selectedItems, name);
+                if (index >= 0) {
+                    that._selectedItems.splice(index, 1);
+                    that._renderItems();
+                    if (callback)
+                        callback({ action: "remove", data: that._getItem(that._data, name) });
+                }
+            };
+            PillBox.prototype._setEvents = function () {
+                var that = this;
+                if (that._container)
+                    that._container.addEventListener("click", function (event) {
+                        var target = event.target;
+                        if (target && _dom.attr(target, "data-event") === "click") {
+                            var action = _dom.attr(target, "data-action");
+                            if (action === "remove") {
+                                var parentHTML = _dom.parentByTag(that._container, target, "LI");
+                                var name_2 = _dom.attr(parentHTML, "data-id");
+                                that._removeTag(name_2, that._callback);
+                            }
+                        }
+                    });
+                if (that._input) {
+                    that._input.addEventListener("keyup", function (event) {
+                        var target = event.target;
+                        if (event.keyCode == 13 && target && _dom.attr(target, "data-event") === "keyup") {
+                            var input = target;
+                            that._addTag(input.value, that._callback);
+                            input.value = "";
+                        }
+                    });
+                    that._input.addEventListener("keypress", function (event) {
+                        var target = event.target;
+                        if (event.keyCode == 8 && that._selectedItems.length && target && _dom.attr(target, "data-event") === "keyup") {
+                            var input = target;
+                            var node = that._selectedItems[that._selectedItems.length - 1];
+                            if (input.value.length <= 0) {
+                                that._removeTag(node[that._name], that._callback);
+                                input.value = "";
+                            }
+                        }
+                    });
+                }
+            };
+            PillBox.prototype._template = function () {
+                var that = this;
+                return {
+                    list: '<ul class="bs-pillbox noborder"></ul>',
+                    itemTag: '<li class="item item-tag"></li>',
+                    icon: '<span class="icon pull-right ' + _dom.iconClass(that._options.removeIcon) + ' icon-remove bs-cursor-p" data-event="click" data-action="remove"></span>',
+                    itemInput: '<li class="item item-edit"><input autocomplete="off" autofocus="true" placeholder="..." data-event="keyup" data-action="add,remove" list="bsliste" /><datalist id="bsliste"></datalist></li>',
+                    itemOption: '<option value=""></option>'
+                };
+            };
+            PillBox.prototype.addItem = function (name) {
+                this._addTag(name);
+            };
+            PillBox.prototype.removeItem = function (name) {
+                this._removeTag(name);
+            };
+            PillBox.prototype._renderItems = function () {
+                var that = this;
+                _dom.empty(that._container);
+                var frag = document.createDocumentFragment();
+                renderTag(that._selectedItems, frag);
+                _dom.append(frag, that._input);
+                _dom.append(that._container, frag);
+                var datalistHTML = _dom.query(that._input, "datalist");
+                if (datalistHTML) {
+                    frag = document.createDocumentFragment();
+                    renderDatalist(that._nodes, frag);
+                    _dom.empty(datalistHTML);
+                    _dom.append(datalistHTML, frag);
+                }
+                function renderTag(nodes, frag) {
+                    nodes.forEach(function (node) {
+                        _dom.append(frag, that._getItem(that._nodes, node[that._name]).component);
+                    });
+                }
+                function renderDatalist(nodes, frag) {
+                    nodes.forEach(function (node) {
+                        var n = that._getItem(that._selectedItems, node[that._name]);
+                        if (!n)
+                            _dom.append(frag, node.componentOption);
+                    });
+                }
+            };
+            PillBox.prototype.render = function (parent) {
+                var that = this;
+                if (!that._container) {
+                    that._container = $(that._template().list).get(0);
+                    that._renderItems();
+                    that._setEvents();
+                }
+                if (parent)
+                    _dom.append(parent, that._container);
+                return that._container;
+            };
+            return PillBox;
+        }());
+        ui.PillBox = PillBox;
+    })(ui = Phoenix.ui || (Phoenix.ui = {}));
+})(Phoenix || (Phoenix = {}));
+/// <reference path="../../../typings/index.d.ts" />
+/// <reference path="../../js/ui/form/form.control.ts" />
+/// <reference path="../../js/ui/form/controls/absfield.control.ts" />
+/// <reference path="./multiselect.ts" />
+/// <reference path="./pillbox.ts" />
+var Phoenix;
+(function (Phoenix) {
+    var ui;
+    (function (ui) {
+        var _ui = ui, _utils = Phoenix.utils, _ulocale = Phoenix.ulocale, _dom = Phoenix.dom, _sutils = Phoenix.Observable.SchemaUtils, _bootstrap4 = Phoenix.bootstrap4;
+        var ComposantMultiSelect = (function (_super) {
+            __extends(ComposantMultiSelect, _super);
+            function ComposantMultiSelect(fp, options, form) {
+                _super.call(this, fp, options, form);
+                var that = this;
+                that._state();
+                var optionsParDefaut = {
+                    mapping: {
+                        id: "name",
+                        lib: "title"
+                    },
+                    groupLink: false,
+                    itemLink: true,
+                    multiSelect: true,
+                    showTags: false
+                };
+                var entree = that.state.value.model().entree || [];
+                var sortie = that.state.value.sortie || [];
+                var ops = $.extend(true, optionsParDefaut, that.renderOptions);
+                that._name = ops.mapping.id;
+                that._title = ops.mapping.libelle || ops.mapping.lib;
+                if (Array.isArray(entree) && entree.length) {
+                    that.multiSelectList = new ui.MultiSelectList(entree, ops, function (data) {
+                        if (data.action === "add") {
+                            that.pillBox.addItem(data.data[that._name]);
+                            sortie.push(data.data);
+                        }
+                        else if (data.action === "remove") {
+                            that.pillBox.removeItem(data.data[that._name]);
+                            var item = getSortieItem(sortie, data.data[that._name]);
+                            if (item)
+                                sortie.remove(item.data);
+                        }
+                    });
+                    that.multiSelectList.selectedItems = that.state.value.model().sortie;
+                    var itemList = that._extractItems(entree, ops.groupLink);
+                    that.pillBox = new ui.PillBox(itemList, ops, function (data) {
+                        if (data.action === "add") {
+                            that.multiSelectList.addItem(data.data[that._name]);
+                            sortie.push(data.data);
+                        }
+                        else if (data.action === "remove") {
+                            that.multiSelectList.removeItem(data.data[that._name]);
+                            var item = getSortieItem(sortie, data.data[that._name]);
+                            if (item)
+                                sortie.remove(item.data);
+                        }
+                    });
+                    that.pillBox.selectedItems = that.state.value.model().sortie;
+                }
+                function getSortieItem(items, name) {
+                    var elt = null;
+                    items.forEach(function (item, i) {
+                        if (item[that._name] === name) {
+                            elt = { id: i, data: item };
+                            return false;
+                        }
+                        return true;
+                    });
+                    return elt;
+                }
+            }
+            ComposantMultiSelect.prototype._extractItems = function (liste, groupIsItem) {
+                var that = this;
+                var items = [];
+                extract(liste, items, groupIsItem);
+                function extract(oldListe, newList, groupIsItem) {
+                    oldListe.forEach(function (item) {
+                        if (item.items) {
+                            if (groupIsItem)
+                                newList.push(item);
+                            extract(item.items, newList, groupIsItem);
+                        }
+                        else
+                            newList.push(item);
+                    });
+                }
+                return items;
+            };
+            ComposantMultiSelect.prototype._state = function () {
                 var that = this;
                 that.state = that.state || {};
-                that.state.value = that.form.getValue(that.$bind);
                 var state = that.form.getState(that.$bind);
-                Object.keys(state).forEach(function (pn) { that.state[pn] = state[pn]; });
-            };
-            PillBox.prototype.destroy = function () {
-                var that = this;
-                that.form.registerListenerFor(that.$bind + ".$item", that);
-                _super.prototype.destroy.call(this);
-            };
-            PillBox.prototype.click = function (event) {
-                var that = this;
-                if (!that.$element)
-                    return;
-                var container = _dom.query(that.$element.get(0), "#" + that.id + ".pillbox");
-                var item = _dom.parentByTag(container, event.target, 'li');
-                var itemIsEdit = item ? _dom.hasClass(item, "item-edit") : false;
-                if (item && itemIsEdit) {
-                    var liste = _dom.query(container, '.item-edit .list-open');
-                    if (!liste)
-                        return;
-                    var input = _dom.query(item, "input");
-                    var itemName = event.target.textContent;
-                    if (that.state.value.find("code", itemName) == null) {
-                        var itemGroup = null;
-                        that.context.data.forEach(function (item) {
-                            if (itemName === item[that.context.sortie.code]) {
-                                itemGroup = item[that.context.sortie.parent];
-                            }
-                        });
-                        var item_2 = {};
-                        item_2[that.context.sortie.code] = itemName;
-                        item_2[that.context.sortie.parent] = itemGroup;
-                        that.state.value.push(item_2);
-                    }
-                    input.value = "";
-                    _dom.removeClass(liste, "list-open");
-                }
-                else if (item && event.target.nodeName.toUpperCase() == "I") {
-                    var itemName_1 = _dom.query(item, "span").textContent;
-                    that.state.value.remove(that.state.value.find("code", itemName_1));
-                }
-            };
-            PillBox.prototype._setDisabled = function (input, element) {
-            };
-            PillBox.prototype._setReadOnly = function (input, element) {
-            };
-            PillBox.prototype._setHidden = function (input, element) {
-                if (this.state.isHidden)
-                    _dom.addClass(element, "bs-none");
-                else
-                    _dom.removeClass(element, "bs-none");
-            };
-            PillBox.prototype._setMandatory = function (input, element) { };
-            PillBox.prototype._state2UI = function () {
-                var that = this;
-                var container = _dom.query(that.$element.get(0), "#" + that.id + ".pillbox");
-                that.state.value.forEach(function (indiceSelected) {
-                    _dom.append(container, that._addOldItem(indiceSelected));
+                Object.keys(state).forEach(function (pn) {
+                    that.state[pn] = state[pn];
                 });
+                that.state.value = that.form.getValue(that.$bind);
             };
-            PillBox.prototype.changed = function (propName, ov, nv, op, obj) {
+            ComposantMultiSelect.prototype._state2UI = function () {
                 var that = this;
-                if (op === "add") {
-                    var container = _dom.query(that.$element.get(0), "#" + that.id + ".pillbox");
-                    container.insertBefore(that._addOldItem(nv), container.lastChild);
-                }
-                else if (op === "remove") {
-                    _removeSelection(that, obj.$value);
-                }
             };
-            PillBox.prototype.stateChanged = function (propName) {
-            };
-            PillBox.prototype._addNewItem = function () {
+            ComposantMultiSelect.prototype.changed = function (propName, ov, nv, op, params) {
                 var that = this;
-                var newListe = document.createElement("li");
-                _dom.addClass(newListe, "item");
-                _dom.addClass(newListe, "item-edit");
-                newListe.innerHTML = '<input autocomplete="off" autofocus="true" placeholder="indice ..."/><div></div>';
-                var input = _dom.query(newListe, "input");
-                var liste = _dom.addClass(newListe, "div");
-                input.addEventListener("keypress", function (event) { _effacerSelections(event, that); }, false);
-                input.addEventListener("keyup", function (event) { _afficherListe(event, that); }, false);
-                //newListe.addEventListener("blur", function (event) { console.log("ok"); _dom.removeClass(liste, "list-open"); }, false);
-                return newListe;
             };
-            PillBox.prototype._addOldItem = function (item) {
-                var that = this;
-                var oldListe = document.createElement("li");
-                _dom.addClass(oldListe, "boxed-tags-item");
-                _dom.addClass(oldListe, "item");
-                // _dom.addClass(oldListe, "btn");
-                // _dom.addClass(oldListe, "btn-info");
-                oldListe.innerHTML = '<i class="glyphicon glyphicon-remove"></i><span></span>';
-                var label = _dom.query(oldListe, "span");
-                label.textContent = item.code;
-                return oldListe;
+            ComposantMultiSelect.prototype.stateChanged = function (propName) {
             };
-            PillBox.prototype._internalRender = function ($parent) {
+            ComposantMultiSelect.prototype._template = function (id) {
+                return _utils.format('<div id="{0}" data-render="{0}"><div data-id="pillbox"></div><div data-id="multiselect"></div></div>', id);
+            };
+            ComposantMultiSelect.prototype.render = function ($parent) {
                 var that = this;
                 var opts = that._initOptions(_ui.Utils.defaultOptions);
                 if (!that.$element) {
-                    that.$element = $(_createPillboxContainer(that.id, opts, that.options.design, _ulocale.tt(that.$schema.title, that.form.$locale)));
-                    var container = _dom.query(that.$element.get(0), "#" + that.id + ".pillbox");
-                    that._state2UI();
-                    _dom.append(container, that._addNewItem());
+                    that.$element = $(that._template(that.id));
+                    var e = that.$element.get(0);
+                    var pillBoxHTML = _dom.query(e, 'div[data-id="pillbox"]');
+                    var multiselectHTML = _dom.query(e, 'div[data-id="multiselect"]');
+                    _dom.append(pillBoxHTML, that.pillBox.render());
+                    _dom.append(multiselectHTML, that.multiSelectList.render());
                 }
                 that.appendElement($parent, opts);
                 return that.$element;
             };
-            PillBox.prototype.render = function ($parent) {
-                var that = this;
-                if (that.$lookup) {
-                    that.context.entree = that.$lookup.mapping || that.context.entree;
-                    _sutils.executeLookup(that.$lookup, null, function (data) {
-                        that.context.data = data.value;
-                        return that._internalRender($parent);
-                    });
-                }
-                else
-                    return that._internalRender($parent);
-            };
-            return PillBox;
+            return ComposantMultiSelect;
         }(ui.AbsField));
-        ui.PillBox = PillBox;
-        _ui.registerControl(PillBox, "array", false, "pillbox", { lookup: true });
+        ui.ComposantMultiSelect = ComposantMultiSelect;
+        _ui.registerControl(ComposantMultiSelect, "object", false, "multiselectlist", null);
     })(ui = Phoenix.ui || (Phoenix.ui = {}));
 })(Phoenix || (Phoenix = {}));
 /// <reference path="../../../typings/index.d.ts" />
@@ -19984,7 +20916,7 @@ var Phoenix;
                 }
             };
             ToolElement.prototype.createElement = function (index, config, data) {
-                var css = ["bs-button btn"];
+                var css = ["bs-button btn btn-default"];
                 if (config.type)
                     css.push('btn-' + config.type);
                 if (config.right)
@@ -19992,7 +20924,7 @@ var Phoenix;
                 var html = [
                     '<div class="input-group ' + (config.right ? "pull-right" : "") + '">',
                     '<button toolClick="' + index + '" type="button" class="' + css.join(" ") + '">',
-                    (config.icon ? '<span class="' + _dom.iconClass(config.icon) + '"></span>' : ''),
+                    (config.icon ? '<span class="' + _dom.iconClass(config.icon) + '" toolClick="' + index + '" ></span>' : ''),
                     (config.title ? '&nbsp;' + config.title : ''),
                     '</button>',
                     '</div>'
@@ -20059,7 +20991,7 @@ var Phoenix;
                     '<div tabindex="' + index + '" class="input-group ' + css.join(" ") + '">',
                     '<input toolKeyup="' + index + '" type="text" class="form-control" placeholder="' + (config.title || "Recherche") + '" />',
                     '<span class="input-group-btn">',
-                    '<button toolClick="' + index + '" class="btn btn-default" type="button">',
+                    '<button toolClick="' + index + '" class="bs-button btn btn-default" type="button">',
                     '<span toolClick="' + index + '" class="' + _dom.iconClass(config.icon || "search") + '"> </span>',
                     '</button>',
                     '</span>',
@@ -20120,11 +21052,11 @@ var Phoenix;
                 _super.call(this, config, options);
             }
             ToolElementFilter.prototype.createElement = function (index, config, data) {
-                var css = ["bs-button btn btn-primary"];
+                var css = ["bs-button btn btn-default"];
                 var html = [
                     '<div class="input-group ' + (config.right ? "pull-right" : "") + '">',
                     '<button toolClick="' + index + '" type="button" class="' + css.join(" ") + '">',
-                    (config.icon ? '<span class="' + _dom.iconClass(config.icon) + '"></span>' : ''),
+                    (config.icon ? '<span toolClick="' + index + '" class="' + _dom.iconClass(config.icon) + '"></span>' : ''),
                     (config.title ? '&nbsp;' + config.title : ''),
                     '</button>',
                     '<span class="bs-toolbar-filter form-control-static bs-cursor-h"></span>',

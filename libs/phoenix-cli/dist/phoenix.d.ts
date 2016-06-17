@@ -1,29 +1,5 @@
 /// <reference path="../typings/index.d.ts" />
 declare namespace Phoenix {
-    var bootstrap4: boolean;
-    module external {
-        var hashHandler: Function;
-        var logoutHandler: Function;
-        var forbiddenHandler: Function;
-        var changePasswordHandler: Function;
-        var checkLoggedInHandler: Function;
-        var historyChangedHandler: Function;
-    }
-    module history {
-        var removeLast: () => void;
-        var add: (hash: any, reset: any) => void;
-        var hasBack: () => boolean;
-        var value: string[];
-        var replaceHash: any;
-    }
-    module customData {
-        var register: (namespace: string, value: any) => void;
-        var get: (namespace: string) => any;
-    }
-    module render {
-        var register: (context: any, name: any, handler: any) => void;
-        var get: (context: any, name: any) => any;
-    }
     module utils {
         var Promise: any;
         var allocUuid: () => string;
@@ -51,11 +27,86 @@ declare namespace Phoenix {
         var confirm: (title: any, message: any, success: any) => void;
         var alert: (title: any, message: any, success: any) => void;
         var prompt: (title: string, defaultValue: string, success: (res: string) => void) => void;
+        var cleanUpObject: (src: any) => void;
     }
+}
+declare namespace Phoenix {
+    var bootstrap4: boolean;
+    module external {
+        var hashHandler: Function;
+        var logoutHandler: Function;
+        var forbiddenHandler: Function;
+        var changePasswordHandler: Function;
+        var checkLoggedInHandler: Function;
+        var historyChangedHandler: Function;
+    }
+    module history {
+        var removeLast: () => void;
+        var add: (hash: any, reset: any) => void;
+        var hasBack: () => boolean;
+        var value: string[];
+        var replaceHash: any;
+    }
+    module render {
+        var register: (context: any, name: any, handler: any) => void;
+        var get: (context: any, name: any) => any;
+    }
+    module ipc {
+        var emit: (eventName: any, data: any) => void;
+        var listen: (eventName: any, handler: any, listener: any) => void;
+        var unlisten: (listener: any, eventName?: string) => void;
+    }
+}
+declare namespace Phoenix {
+    module utils {
+        class Serial {
+            private _eventList;
+            private _inExec;
+            constructor();
+            execute(proc: any): void;
+            private _execute();
+        }
+        class SingleEventBus {
+            private currentEvent;
+            defaultDelay: number;
+            onError: Function;
+            private _error;
+            private _dispose;
+            constructor(delay: any);
+            private _errorHandler(error);
+            clear(): void;
+            _onEventDisposed(event: any): void;
+            push(promise: any, onsuccess: any, nodelay: any): void;
+            destroy(): void;
+        }
+        var GlbSerial: Serial;
+    }
+}
+declare namespace Phoenix {
+    var locale: any;
+}
+declare namespace Phoenix {
+    module customData {
+        var register: (namespace: string, value: any) => void;
+        var get: (namespace: string) => any;
+    }
+}
+declare namespace Phoenix {
+    var device: {
+        phone: boolean;
+        tablet: boolean;
+        deviceType: string;
+    };
+    var $mem: any;
+    function save$mem(): void;
+    function sessionPreferences(name: string, value?: any): any;
+    function preferences(name: string, value?: any): any;
     var build: {
         version: string;
         release: boolean;
     };
+}
+declare namespace Phoenix {
     module authentication {
         var db: () => any;
         var save: (credentials: any, onlyCredentials?: boolean) => void;
@@ -63,21 +114,8 @@ declare namespace Phoenix {
         var clear: () => void;
         var registerAfterLogout: (hnd: Function) => void;
     }
-    module drag {
-        var setData: (data: any) => void;
-        var getData: () => any;
-    }
-    module ipc {
-        var emit: (eventName: any, data: any) => void;
-        var listen: (eventName: any, handler: any, listener: any) => void;
-        var unlisten: (listener: any, eventName?: string) => void;
-    }
-    var locale: any;
-    module ulocale {
-        var register: (hnd: any) => void;
-        var translate: (ll: any, lang: any) => void;
-        var tt: (v: any, context: any) => any;
-    }
+}
+declare namespace Phoenix {
     module application {
         var angularApplication: any;
         var core: string;
@@ -92,13 +130,55 @@ declare namespace Phoenix {
         function portailName(): string;
         function isPortail(): boolean;
     }
-    var device: {
-        phone: boolean;
-        tablet: boolean;
-        deviceType: string;
-    };
-    var $mem: any;
-    function save$mem(): void;
+}
+declare namespace Phoenix {
+    module ajax {
+        var extractAjaxErrors: (ex: any) => any;
+        var get: (lurl: string, options?: any, ondata?: any) => any;
+        var getScript: (lurl: any) => any;
+        var getDefaultAjaxOptions: () => any;
+        var put: (lurl: any, data: any, options?: any) => any;
+        var patch: (lurl: any, data: any, options?: any) => any;
+        var post: (lurl: any, data: any, options?: any) => any;
+        var remove: (lurl: any, options?: any) => any;
+        var postAndDownload: (lurl: string, postData: any) => any;
+        var loadScript: (name: any, lurl: any, after: any, loader: any) => any;
+        var interceptError: (status: any, handler: any) => void;
+        var activateInterceptError: (status: any, value: any) => void;
+    }
+}
+declare namespace Phoenix {
+    module ulocale {
+        var register: (hnd: any) => void;
+        var translate: (ll: any, lang: any) => void;
+        var tt: (v: any, context: any) => any;
+        var currentLang: string;
+        var defCountry: string;
+        var lang: string;
+        var country: string;
+        var money: (value: number, useSymbol: boolean) => any;
+        var truncMoney: (value: number) => number;
+        var decimal: (value: any, decimals: any, symbol: any) => any;
+        var format: (desc: any, value: any) => any;
+        var parseISODate: (value: any) => any;
+        var parseISODateAsUTC: (value: string) => number;
+        var isoDatePart: (isoDate: string) => string;
+        var shortDate: (date: any) => any;
+        var longDate: (date: any) => any;
+        var monthYear: (date: any) => any;
+        var localeDate2ISO: (value: any) => string;
+        var date2ISO: (value: any) => string;
+        var string2Float: (value: any) => number;
+        var localeTitle: (title: any) => any;
+        function loadLocale(newLang: any): void;
+    }
+    module angularjs {
+        var registerFilters: (app: any) => void;
+    }
+}
+declare namespace Phoenix {
+}
+declare namespace Phoenix {
     module dom {
         var readyHandlers: (() => void)[];
         const keys: {
@@ -153,7 +233,23 @@ declare namespace Phoenix {
         var processing: (value: any) => void;
         var inProcessing: () => boolean;
         var scrollbar: () => number;
+        var documentScroll: () => {
+            left: number;
+            top: number;
+        };
+        var documentClientDim: () => {
+            width: number;
+            height: number;
+        };
+        var touch: () => boolean;
+        var position: (element: HTMLElement, parent: HTMLElement) => {
+            left: number;
+            top: number;
+        };
+        var childrenPositions: (parent: HTMLElement, list: any[], vertical: boolean) => any[];
     }
+}
+declare namespace Phoenix {
     module link {
         var search: (value: any, replace: any) => any;
         var object2search: (value: any) => string;
@@ -184,77 +280,6 @@ declare namespace Phoenix {
             };
             $item: any;
         };
-    }
-    function sessionPreferences(name: string, value?: any): any;
-    function preferences(name: string, value?: any): any;
-}
-declare namespace Phoenix {
-    module utils {
-        class Serial {
-            private _eventList;
-            private _inExec;
-            constructor();
-            execute(proc: any): void;
-            private _execute();
-        }
-        class SingleEventBus {
-            private currentEvent;
-            defaultDelay: number;
-            onError: Function;
-            private _error;
-            private _dispose;
-            constructor(delay: any);
-            private _errorHandler(error);
-            clear(): void;
-            _onEventDisposed(event: any): void;
-            push(promise: any, onsuccess: any, nodelay: any): void;
-            destroy(): void;
-        }
-        var GlbSerial: Serial;
-    }
-}
-declare namespace Phoenix {
-    module ajax {
-        var extractAjaxErrors: (ex: any) => any;
-        var get: (lurl: string, options?: any, ondata?: any) => any;
-        var getScript: (lurl: any) => any;
-        var getDefaultAjaxOptions: () => any;
-        var put: (lurl: any, data: any, options?: any) => any;
-        var patch: (lurl: any, data: any, options?: any) => any;
-        var post: (lurl: any, data: any, options?: any) => any;
-        var remove: (lurl: any, options?: any) => any;
-        var postAndDownload: (lurl: string, postData: any) => any;
-        var loadScript: (name: any, lurl: any, after: any, loader: any) => any;
-        var interceptError: (status: any, handler: any) => void;
-        var activateInterceptError: (status: any, value: any) => void;
-    }
-}
-declare namespace Phoenix {
-}
-declare namespace Phoenix {
-    module ulocale {
-        var currentLang: string;
-        var defCountry: string;
-        var lang: string;
-        var country: string;
-        var money: (value: number, useSymbol: boolean) => any;
-        var truncMoney: (value: number) => number;
-        var decimal: (value: any, decimals: any, symbol: any) => any;
-        var format: (desc: any, value: any) => any;
-        var parseISODate: (value: any) => any;
-        var parseISODateAsUTC: (value: string) => number;
-        var isoDatePart: (isoDate: string) => string;
-        var shortDate: (date: any) => any;
-        var longDate: (date: any) => any;
-        var monthYear: (date: any) => any;
-        var localeDate2ISO: (value: any) => string;
-        var date2ISO: (value: any) => string;
-        var string2Float: (value: any) => number;
-        var localeTitle: (title: any) => any;
-        function loadLocale(newLang: any): void;
-    }
-    module angularjs {
-        var registerFilters: (app: any) => void;
     }
 }
 declare namespace Phoenix {
@@ -783,6 +808,7 @@ declare namespace Phoenix {
             checkLookup: (lookup: any) => any;
             schema2Authoring: (schema: any, locale: any) => any[];
             filtrableFields: (schema: any, locale: any) => any[];
+            columns: (schema: any, locale: any) => any[];
             allData: (lookup: any) => boolean;
             pkFields: (pk: string) => string[];
             entityId: (pkValue: any) => string;
@@ -830,6 +856,7 @@ declare namespace Phoenix {
             formatNumber: (schema: any, value: number) => string;
             _title: (title: any, locale: any) => any;
             canSort: (schema: any) => any;
+            canShowField: (schema: any) => boolean;
             canFilter: (schema: any) => any;
             checkNumber: (value: any, schema: any, locale: any, errors: any) => boolean;
             _validateEmail: (email: string, error: any) => boolean;
@@ -1275,6 +1302,91 @@ declare namespace Phoenix {
     }
 }
 declare namespace Phoenix {
+    module events {
+        class EventManager {
+            private _isDisabled;
+            constructor();
+            disable(): void;
+            enable(): void;
+        }
+        function isLeftButton(eventObject: JQueryMouseEventObject): boolean;
+        function stopEvent(eventObject: any): void;
+        function point(event: any): {
+            x: number;
+            y: number;
+        };
+        var eventManager: EventManager;
+    }
+}
+declare namespace Phoenix {
+    module drag {
+        class DragAndDropManager {
+            private _listeners;
+            private _current;
+            private _coverId;
+            private _md;
+            private _mu;
+            private _mm;
+            constructor();
+            initialize(): void;
+            finalize(): void;
+            startMouseMove(): void;
+            stopMouseMove(): void;
+            private _canExecuteEvent(event);
+            private mouseUp(eventObject);
+            private mouseDownEmpty(eventObject);
+            private mouseMove(eventObject);
+            addDrag(listeners: HTMLElement[]): DragElement;
+            rmvDrag(drag: DragElement): void;
+            setCurrent(dragObject: DragElement): boolean;
+            cancelDrag(): void;
+            cover(value: boolean, cursor?: string, zindex?: number): void;
+        }
+        class DragElement {
+            minLeft: number;
+            maxLeft: number;
+            minTop: number;
+            maxTop: number;
+            currentLeft: number;
+            currentTop: number;
+            moveX: boolean;
+            moveY: boolean;
+            stopEvent: boolean;
+            floatElement: HTMLElement;
+            floatParent: HTMLElement;
+            startOffset: any;
+            startPoint: any;
+            currentPoint: any;
+            data: any;
+            private mouseMoveCount;
+            private _elements;
+            private _mdEvent;
+            inDragging: boolean;
+            coverDocument: boolean;
+            cursor: string;
+            onDragEnd: any;
+            onDragStart: any;
+            onDrag: any;
+            canStartDragHandler: any;
+            constructor(elements: HTMLElement[]);
+            clear(): void;
+            private _removeEvents();
+            private _setEvents();
+            private mousedown(eventObject);
+            finalize(): void;
+            ready(eventObject: JQueryMouseEventObject): boolean;
+            notifyDrag(eventObject: JQueryMouseEventObject): void;
+            private notifyDragStart(eventObject);
+            private canStartDrag(event);
+            private canDrop(value);
+            notifyDragEnd(doCancel: any, event: JQueryMouseEventObject): void;
+        }
+        var dragManager: DragAndDropManager;
+        var setData: (data: any) => void;
+        var getData: () => any;
+    }
+}
+declare namespace Phoenix {
     module ui {
         var GridUtil: {
             createCols: (id: any, columns: any, options: any, authoring: boolean, locale: any, orderby: string, isFrozen: boolean) => DocumentFragment;
@@ -1299,12 +1411,15 @@ declare namespace Phoenix {
             ensureWidth: (value: any) => string;
             updateFrozenWidth: (e: HTMLElement, id: string, cols: any) => void;
             hasFrozenColumns: (opts: any, frozenColumns: any[]) => boolean;
+            cloneForMove: (element: HTMLElement) => HTMLElement;
+            widthFromSchema: (schema: any) => number;
         };
     }
 }
 declare namespace Phoenix {
     module ui {
         var glbGridFilter: any;
+        var glbGridSettings: any;
         class BasicGrid extends AbsField {
             columns: any[];
             frozenColumns: any[];
@@ -1319,8 +1434,10 @@ declare namespace Phoenix {
             private scrollableMaster;
             private scrollableHeaderOfMaster;
             private scrollableFrozenContent;
+            private _drag;
             private inplace;
             constructor(fp: any, options: any, form: any);
+            private checkOptions(opts);
             private _inplaceEditValue2Model(value, item, col);
             private _inplaceEditAcceptKeys(key);
             private _inplaceEditAddEvents();
@@ -1331,10 +1448,19 @@ declare namespace Phoenix {
             private _inplaceEditModel2Control(item, field, td);
             removeEvents(): void;
             setEvents(opts: any): void;
+            private _getColsInfo(columns, parent);
+            private _canStartDrag(event);
+            private _onDragStart(event);
+            private _onDrag(event);
+            private _onDragEnd(cancel, event);
+            private _cddmove(event);
+            private _sddmove(event);
+            private _eddmove(cancel, event);
             destroy(): void;
             private _moveToPage(page);
             private _onselectPage(page);
             private _onSelectToolElement(toolElement);
+            setColumns(columns: any[]): void;
             protected _state(): void;
             private _destroyDetails();
             private _destroyDetailById(id);
@@ -1392,8 +1518,13 @@ declare namespace Phoenix {
             private _updOddEven();
             private _createRow(id);
             filtrableColumns(): any[];
+            private _getColumnsFromSchema();
+            private _getSelectedColumns();
+            private _getGroupsFromSchema();
+            getColumnsForSettings(): any;
             private _updateSorting();
             private _renderColumns(opts);
+            private _refreshGrid;
             toggleMultiselect(): void;
             render($parent: any): JQuery;
         }
@@ -1928,49 +2059,92 @@ declare namespace Phoenix {
 }
 declare namespace Phoenix {
     module ui {
-        class MultiSelectListForm extends AbsField {
-            state: any;
-            opts: any;
-            private multiSelectList;
-            constructor(fp: any, options: any, form: any);
-            _state(): void;
-            click(event: any): void;
-            _state2UI(): void;
-            changed(propName: any, ov: any, nv: any, op: any, params: any): void;
-            stateChanged(propName: any): void;
-            render($parent: any): JQuery;
+        var multiSelectUtils: {
+            transformPropsToMultiselectFormat: (columns: any, groups: any) => any;
+            transformMultiSelectColumnsToGridColumnsFormat: (columns: any) => any[];
+            transformSelectedColumnsToMultiSelectFormat: (columns: any, selectedColumns: any) => any[];
+        };
+    }
+}
+declare namespace Phoenix {
+    module ui {
+        class MultiSelectList {
+            private _data;
+            private _options;
+            private _callback;
+            private _selectedItems;
+            private _container;
+            private _nodes;
+            private _name;
+            private _title;
+            constructor(data: any, options: any, callback?: any);
+            selectedItems: any;
+            private _init();
+            private _getGroupNode(groups, name);
+            private _getItemNode(items, name);
+            private _getItem(items, name);
+            private _contructeNodes(items, options);
+            private _addTags(nodes);
+            private _template();
+            private _createIcon(elt, icon?, autre?);
+            private _addIcon(elt, icon, autre?);
+            private _setEvents();
+            private _display(name, show);
+            private _select(name, callback?);
+            private _unSelect(name, callback?);
+            private _check(name, isCheck?, callback?);
+            addItem(name: any): void;
+            removeItem(name: any): void;
+            private _renderItems(nodes);
+            render(parent?: HTMLElement): HTMLElement;
         }
     }
 }
 declare namespace Phoenix {
     module ui {
-        class PillBox extends AbsField {
+        class PillBox {
+            private _data;
+            private _options;
+            private _callback;
+            private _selectedItems;
+            private _container;
+            private _nodes;
+            private _input;
+            private _name;
+            private _title;
+            constructor(data: any, options: any, callback: any);
+            selectedItems: any;
+            private _init();
+            private _constructeNodes(items, options);
+            private _getItem(items, name);
+            private _getItemIndex(items, name);
+            private _addTag(name, callback?);
+            private _removeTag(name, callback?);
+            private _setEvents();
+            private _template();
+            addItem(name: any): void;
+            removeItem(name: any): void;
+            private _renderItems();
+            render(parent?: HTMLElement): HTMLElement;
+        }
+    }
+}
+declare namespace Phoenix {
+    module ui {
+        class ComposantMultiSelect extends AbsField {
             state: any;
-            context: {
-                data: any[];
-                entree: {
-                    code: string;
-                    parent: string;
-                };
-                sortie: {
-                    code: string;
-                    parent: string;
-                };
-            };
+            opts: any;
+            private multiSelectList;
+            private pillBox;
+            private _name;
+            private _title;
             constructor(fp: any, options: any, form: any);
+            private _extractItems(liste, groupIsItem);
             _state(): void;
-            destroy(): void;
-            click(event: any): void;
-            _setDisabled(input: any, element: any): void;
-            _setReadOnly(input: any, element: any): void;
-            _setHidden(input: any, element: any): void;
-            _setMandatory(input: any, element: any): void;
             _state2UI(): void;
-            changed(propName: any, ov: any, nv: any, op: any, obj: any): void;
+            changed(propName: any, ov: any, nv: any, op: any, params: any): void;
             stateChanged(propName: any): void;
-            _addNewItem(): HTMLLIElement;
-            _addOldItem(item: any): HTMLLIElement;
-            _internalRender($parent: any): JQuery;
+            _template(id: any): any;
             render($parent: any): JQuery;
         }
     }
