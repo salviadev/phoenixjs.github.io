@@ -870,6 +870,7 @@ declare namespace Phoenix {
             isPassword: (schema: any) => boolean;
             isDate: (schema: any) => boolean;
             isBoolean: (schema: any) => boolean;
+            isSelectField: (fieldName: string) => boolean;
             isNumber: (schema: any) => boolean;
             isText: (schema: any) => boolean;
             isMoney: (schema: any) => boolean;

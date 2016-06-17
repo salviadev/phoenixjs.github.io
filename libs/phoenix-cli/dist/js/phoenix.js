@@ -8162,6 +8162,9 @@ var Phoenix;
             isBoolean: function (schema) {
                 return schema.type === "boolean";
             },
+            isSelectField: function (fieldName) {
+                return fieldName === '$selected';
+            },
             isNumber: function (schema) {
                 return (schema.type === "number" || schema.type === "integer");
             },
@@ -12192,6 +12195,7 @@ var Phoenix;
             var res = !!(opts.allowFrozenColumns && frozenColumns && frozenColumns.length);
             return res;
         }, _cssTable = function (options, isHeader, isFrozen) {
+            var vscrolling = options.scrolling && options.scrolling.vertical;
             var css = ["table"];
             if (isHeader) {
                 css.push("table-header");
@@ -12209,8 +12213,12 @@ var Phoenix;
             else if (!isHeader && options.allowFrozenColumns) {
                 css.push('nowrap');
             }
-            if (isHeader && options.allowFrozenColumns)
-                css.push('headernowrap');
+            if (options.allowFrozenColumns && !options.headerIsHidden) {
+                if (isHeader)
+                    css.push('headernowrap');
+                else if (!vscrolling)
+                    css.push('headernowrap');
+            }
             //remove 
             //if ((options.selecting && options.selecting.cell) ||  {
             //    css.push('nowrap');
@@ -12261,7 +12269,7 @@ var Phoenix;
                     html.push('<thead><tr class="bs-va-middle" id="{0}' + (isFrozen ? '_frozen' : '') + '_cols"></tr></thead>');
                 }
                 else if (!vscrolling) {
-                    html.push('<thead><tr class="bs-va-middle" id="{0}' + '_cols"></tr></thead>');
+                    html.push('<thead><tr class="bs-va-middle" id="{0}' + (isFrozen ? '_frozen' : '') + '_cols"></tr></thead>');
                 }
             }
             if (!isHeader) {
@@ -12638,6 +12646,7 @@ var Phoenix;
             BasicGrid.prototype.checkOptions = function (opts) {
                 if (opts.allowColumnMove === undefined)
                     opts.allowColumnMove = true;
+                opts.align = opts.align || 'middle';
             };
             BasicGrid.prototype._inplaceEditValue2Model = function (value, item, col) {
                 var that = this;
@@ -13039,7 +13048,7 @@ var Phoenix;
                 that.columns = [];
                 that.frozenColumns = [];
                 var ii = options.columns.findIndex(function (item) {
-                    return item.$bind === '$selected';
+                    return _sutils.isSelectField(item.$bind);
                 });
                 var addSelected = options.selecting && options.selecting.row && options.selecting.multiselect;
                 if (addSelected) {
@@ -13143,7 +13152,7 @@ var Phoenix;
                             var item = params && params.$id ? that.state.value.findById(params.$id) : null;
                             if (item) {
                                 that._modifyCell(item, params.property);
-                                if (params.property === '$selected')
+                                if (_sutils.isSelectField(params.property))
                                     _gu.setRowsSelected(item.$id, item.$selected, that.fieldOptions, that.$element.get(0));
                             }
                         }
@@ -13402,7 +13411,7 @@ var Phoenix;
                                             _link.execLink(c.options.$link, { $item: item }, null);
                                     }
                                 }
-                                if (that.fieldOptions.editing && c.options.editable && _sutils.isBoolean(c.schema)) {
+                                if (_sutils.isSelectField(c.$bind) || (that.fieldOptions.editing && c.options.editable && _sutils.isBoolean(c.schema))) {
                                     if (_dom.attr(event.target, 'data-clickable')) {
                                         var state = item.getRelativeState(c.$bind);
                                         if (!state.isDisabled && !state.isReadOnly) {
