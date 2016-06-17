@@ -19,7 +19,6 @@ $(function () {
 								"row": true
 							},
                             "border": true,
-							"editing": false,
 							"columns": [
 								{ "$bind": "$index", "options": { "width": 50, "frozen": true } },
 								{ "$bind": "Name", "options": { "width": "200px", "selectable": true } },
@@ -38,33 +37,29 @@ $(function () {
 			}
 		]
 	};
-	var schema = {
-        "type": "object",
-        "properties": {
-            "Pokemon": {
-                "type": "array",
-                "items": {
-                    "type": "object",
-                    "properties": {
-                        "Name": { "type": "string", "title": "Name" },
-                        "Type": {
-                            "type": "string", "title": "Type",
-                            "enum": ["fire", "grass", "ground", "water"],
-                            "enumNames": ["Fire", "Grass", "Ground", "Water"],
-                            "default": "ground"
-                        },
-                        "DateOfBirth": { "type": "string", "title": "Date of birth", "format": "date" },
-                        "PV": { "type": "integer", "title": "PV" },
-                        "Price": { "type": "number", "format": "money", "title": "Price" }
-                    }
-                }
-            }
-        },
-        "states": {},
-        "links": {}
-    };
+	var schema =
+    {
+		"type": "object",
+		"properties": {
+			"Pokemon": {
+				"type": "array",
+				"items": {
+					"type": "object",
+					"properties": {
+                        "Name": { "type": "string", title: "Name" },
+                        "Type": { "type": "string", title: "Type", "enum": ['fire', 'grass', 'ground', 'water'], "enumNames": ['Fire', 'Grass', 'Ground', 'Water'], "default": "ground" },
+                        "DateOfBirth": { "type": "string", title: "Date of birth", format: "date" },
+                        "PV": { "type": "integer", title: "PV" },
+                        "Price": { "type": "number", format: "money", title: "Price" }
+					}
+				}
+			}
+		},
+		"states": {},
+		"links": {}
+	};
 	var data = {
-		Offres: [
+		Pokemon: [
             {Name : "Taupiqueur", Type : "ground", DateOfBirth : "2004-12-16", PV : 150, Price : 350},
             {Name : "Reptincel", Type : "fire", DateOfBirth : "1986-12-04", PV : 220, Price : 600},
             {Name : "Locklass", Type : "water", DateOfBirth : "1983-06-06", PV : 300, Price : 1050},
@@ -82,7 +77,9 @@ $(function () {
 	(function om() {
 		Phoenix.ui.OpenForm(
 			$('#form'), layout, schema, data, {},
-			function (action, data, formControl) {});
+			function (action, data, formControl) {
+				
+			});
 	})();
 });
 
