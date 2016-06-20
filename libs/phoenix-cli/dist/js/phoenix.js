@@ -35,8 +35,9 @@ var Phoenix;
                 dst[p] = src[p];
             }
         }, _cleanUpObject = function (src) {
-            for (var p in src)
+            Object.keys(src).forEach(function (p) {
                 src[p] = null;
+            });
         }, _logModules = {
             scope: false,
             destroy: false,
@@ -1701,17 +1702,24 @@ var Phoenix;
                 var elementRect = element.getBoundingClientRect();
                 return _addScrolls({ left: elementRect.left, top: elementRect.top });
             }
-        }, _childsPos = function (parent, list, vertical) {
+        }, _childsPos = function (parent, list, vertical, zone, options) {
             var let = 0, element = parent;
             var res = new Array(list.length + 1);
+            var firstDelta = options.firstDelta || 0;
+            var lastDelta = options.lastDelta || 0;
+            var delta = options.delta || 0;
+            var height = options.height || 0;
+            var top = options.top || 0;
             list.forEach(function (child, index) {
                 var chtml = _find(parent, child.htmlId);
                 var p = _position(chtml, null);
                 res[index] = {
                     info: child.info,
+                    zone: zone,
+                    position: 'before',
                     vertical: vertical,
                     point: { x: 0, y: 0 },
-                    left: p.left, top: p.top,
+                    left: p.left + (vertical ? 0 : (index === 0 ? firstDelta : delta)), top: top || p.top,
                     width: Math.round(chtml.offsetWidth),
                     height: Math.round(chtml.offsetHeight),
                     htmlId: child.htmlId
@@ -1725,34 +1733,143 @@ var Phoenix;
                 last = c;
             });
             if (last) {
+                var cd = lastDelta - (res.length === 0 ? firstDelta : delta);
                 last = {
-                    last: true,
+                    position: 'after',
+                    zone: zone,
                     info: last.info,
                     vertical: last.vertical,
                     point: { x: 0, y: 0 },
-                    left: last.left + (vertical ? 0 : last.width),
+                    left: last.left + (vertical ? 0 : cd) + (vertical ? 0 : last.width),
                     top: last.top + (vertical ? last.height : 0),
                     width: (last.vertical ? last.width : 0),
-                    height: (last.vertical ? 0 : last.height),
+                    height: height || (last.vertical ? 0 : last.height),
                     htmlId: last.htmlId
                 };
             }
             else {
                 var pp = _position(parent, null);
                 last = {
-                    info: null,
+                    info: {},
+                    position: 'empty',
+                    zone: zone,
                     vertical: vertical,
                     point: { x: 0, y: 0 },
-                    left: pp.left,
-                    top: pp.top,
+                    left: pp.left + (vertical ? 0 : lastDelta),
+                    top: top || pp.top,
                     width: Math.round(parent.offsetWidth),
-                    height: Math.round(parent.offsetHeight),
+                    height: height || Math.round(parent.offsetHeight),
                     html: parent.id
                 };
             }
             last.point.y = last.top + (last.height >> 1);
             last.point.x = last.left + (last.width >> 1);
             res[list.length] = last;
+            return res;
+        }, _findNearest = function (x, y, elements) {
+            var best, deltax, delta = 1000000;
+            elements.forEach(function (c) {
+                var ctl, ctd = Math.abs(c.point.y - y);
+                if (ctd < delta) {
+                    delta = ctd;
+                    deltax = Math.abs(c.point.x - x);
+                    best = c;
+                }
+                else if (ctd == delta) {
+                    ctl = Math.abs(c.point.x - x);
+                    if (ctl < deltax) {
+                        deltax = ctl;
+                        best = c;
+                    }
+                }
+            });
+            return best;
+        }, _text = function (node, text) {
+            if (text === undefined)
+                return node.textContent;
+            if (node.childNodes.length) {
+                var found = false;
+                for (var i = 0, len = node.childNodes.length; i < len; i++) {
+                    var n = node.childNodes[i];
+                    if (n.nodeType == 3) {
+                        n.nodeValue = text;
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found)
+                    _append(node, document.createTextNode(text));
+            }
+            else {
+                node.textContent = text;
+            }
+        }, _showMove = function (res, vertical, pos, cssClass) {
+            cssClass = cssClass || 'bs-drag-color-info';
+            if (res) {
+                if (res['vertical'] !== vertical) {
+                    _remove(res);
+                    res = null;
+                }
+                else {
+                    var fe = res.firstChild.firstChild;
+                    if (!_hasClass(fe, cssClass)) {
+                        _remove(res);
+                        res = null;
+                    }
+                }
+            }
+            if (!res) {
+                var html = ['<div class="bs-absolute">'];
+                html.push('<div class="bs-absolute" style="left: 0px; top: 0px"><span class="');
+                if (vertical) {
+                    html.push(_iconClass('arrow-left'));
+                }
+                else {
+                    html.push(_iconClass('arrow-down'));
+                }
+                if (cssClass)
+                    html.push(' ' + cssClass);
+                html.push('"></span></div>');
+                var css = [];
+                html.push('<div class="bs-absolute" style="');
+                if (vertical) {
+                    css.push('right: 0px;');
+                    css.push('bottom: 0px;');
+                    html.push(css.join(''));
+                    html.push('"><span class="');
+                    html.push(_iconClass('arrow-right'));
+                }
+                else {
+                    css.push('left: 0px;');
+                    css.push('bottom: 0px;');
+                    html.push(css.join(''));
+                    html.push('"><span class="');
+                    html.push(_iconClass('arrow-up'));
+                }
+                if (cssClass)
+                    html.push(' ' + cssClass);
+                html.push('"></span></div>');
+                html.push('</div>');
+                res = $(html.join('')).get(0);
+                res['vertical'] = vertical;
+                _append(document.body, res);
+            }
+            var style = res.style;
+            var fc = res.firstElementChild;
+            var lc = res.lastElementChild;
+            var ww = Math.round(fc.offsetWidth), hh = Math.round(lc.offsetHeight);
+            if (vertical) {
+                style.height = hh + "px";
+                style.width = pos.width + 2 * ww + "px";
+                style.left = pos.left - ww + "px";
+                style.top = pos.top - (hh >> 2) - 4 + "px";
+            }
+            else {
+                style.height = pos.height + 2 * hh + "px";
+                style.top = pos.top - hh + "px";
+                style.left = pos.left - (ww >> 2) + "px";
+            }
+            style.zIndex = '5002';
             return res;
         }, _elemByAttribute = function (el, root, attr) {
             var t = el;
@@ -1858,25 +1975,6 @@ var Phoenix;
             else {
                 element.setAttribute(attr, value);
             }
-        }, _text = function (node, text) {
-            if (text === undefined)
-                return node.textContent;
-            if (node.childNodes.length) {
-                var found = false;
-                for (var i = 0, len = node.childNodes.length; i < len; i++) {
-                    var n = node.childNodes[i];
-                    if (n.nodeType == 3) {
-                        n.nodeValue = text;
-                        found = true;
-                        break;
-                    }
-                }
-                if (!found)
-                    _append(node, document.createTextNode(text));
-            }
-            else {
-                node.textContent = text;
-            }
         }, _scrollbarWidth = function () {
             var calculated = false;
             var cw = 0;
@@ -1976,6 +2074,8 @@ var Phoenix;
         dom.touch = _touch();
         dom.position = _position;
         dom.childrenPositions = _childsPos;
+        dom.findNearest = _findNearest;
+        dom.showMove = _showMove;
     })(dom = Phoenix.dom || (Phoenix.dom = {}));
     $(document).ready(function () {
         if (dom.readyHandlers.length) {
@@ -4878,7 +4978,7 @@ var Phoenix;
                                 watcher(that.props.data.ds[that.props.data.ds[name]]);
                             });
                         }
-                        console.log(name + ' data changed');
+                        //console.log(name + ' data changed');
                     });
             };
             Widget.prototype.render = function ($parent) {
@@ -7242,7 +7342,6 @@ var Phoenix;
                     });
                     that._disableRules = false;
                     if (structChanged) {
-                        console.log('reloadChildrens');
                         if (reloadChildrens) {
                             return _ipc.emit('LoadNestedLayouts', {
                                 data: dst,
@@ -11017,7 +11116,7 @@ var Phoenix;
             if (iconName)
                 css.push(_dom.iconClass(iconName));
             var cc = options.tableOptions && options.tableOptions.small ? ' small-table' : '';
-            var html = '<center class="bs-image-center' + cc + '"><span class="' + css.join(' ') + '"> </span></center>';
+            var html = '<center class="bs-image-cell' + cc + '"><span class="' + css.join(' ') + '"> </span></center>';
             return { value: html, html: true };
         }, _afutils = {
             useDatePicker: function () { return !_afutils.nativeDate() && $.fn.datepicker != null; },
@@ -11216,7 +11315,7 @@ var Phoenix;
                                     var css = [ces, curs];
                                     if (iconName)
                                         css.push(_dom.iconClass(iconName));
-                                    html.push('<center class="bs-image-center' + cc + '"><span data-clickable="true" class="' + css.join(' ') + '"> </span></center>');
+                                    html.push('<center class="bs-image-cell' + cc + '"><span data-clickable="true" class="' + css.join(' ') + '"> </span></center>');
                                     res = { value: html.join(''), html: true };
                                 }
                                 else {
@@ -12290,6 +12389,13 @@ var Phoenix;
             var p = _dom.find(e, id + '_frozen_header_parent');
             if (p)
                 p.style.width = cw + 'px';
+            p = _dom.find(e, id + '_frozen_header_sep');
+            if (p) {
+                if (cw)
+                    _dom.removeClass(p, 'empty');
+                else
+                    _dom.addClass(p, 'empty');
+            }
         }, _cloneForMove = function (element) {
             var fe = element.cloneNode(true);
             if (fe.tagName.toLowerCase() === 'th') {
@@ -12387,7 +12493,7 @@ var Phoenix;
                 html.push('</div>');
                 html.push('</div>');
                 html.push('</div>'); // bs-table-frozen-cols
-                html.push('<div class="bs-table-cols-sep"></div>');
+                html.push('<div id="{0}_frozen_header_sep" class="bs-table-cols-sep' + (frozenColumns.length ? '' : ' empty') + '"></div>');
                 html.push('<div class="bs-table-free-cols">');
             }
             if (vscrolling && !options.headerIsHidden) {
@@ -12607,7 +12713,7 @@ var Phoenix;
 (function (Phoenix) {
     var ui;
     (function (ui) {
-        var _ui = ui, _utils = Phoenix.utils, _dom = Phoenix.dom, _ui = ui, _ulocale = Phoenix.ulocale, _gu = _ui.GridUtil, _eu = Phoenix.Observable.errorsUtils, _link = Phoenix.link, _locale = Phoenix.locale, _drag = Phoenix.drag, _sutils = Phoenix.Observable.SchemaUtils;
+        var _ui = ui, _utils = Phoenix.utils, _dom = Phoenix.dom, _ui = ui, _ulocale = Phoenix.ulocale, _gu = _ui.GridUtil, _eu = Phoenix.Observable.errorsUtils, _link = Phoenix.link, _locale = Phoenix.locale, _drag = Phoenix.drag, _events = Phoenix.events, _sutils = Phoenix.Observable.SchemaUtils;
         var withModifier = function ($event, key) {
             if (key === _dom.keys.VK_TAB && $event.shiftKey)
                 return false;
@@ -12850,7 +12956,10 @@ var Phoenix;
                 return false;
             };
             BasicGrid.prototype._onDrag = function (event) {
-                return true;
+                var that = this;
+                if (that._drag.data.op)
+                    return that["_ddd" + that._drag.data.op](event);
+                return false;
             };
             BasicGrid.prototype._onDragEnd = function (cancel, event) {
                 var that = this;
@@ -12864,25 +12973,34 @@ var Phoenix;
                     return false;
                 var grid = that.$element.get(0);
                 var drag = that._drag;
+                var cloned = _dom.find(grid, drag.data.cloneId);
                 drag.coverDocument = true;
                 drag.cursor = 'move';
                 drag.moveX = true;
                 drag.moveY = true;
-                drag.startOffset = _dom.position(_dom.find(grid, drag.data.cloneId), null);
+                drag.startOffset = _dom.position(cloned, null);
                 var pc, children;
+                var copts = {
+                    firstDelta: 0,
+                    lastDelta: -6,
+                    delta: -4,
+                    top: drag.startOffset.top,
+                    height: cloned.offsetHeight
+                };
                 if (opts.allowFrozenColumns) {
                     pc = _dom.find(grid, that.id + '_frozen_cols');
                     if (pc)
-                        children = _dom.childrenPositions(pc, that._getColsInfo(that.frozenColumns, pc), false);
+                        children = _dom.childrenPositions(pc, that._getColsInfo(that.frozenColumns, pc), false, 'frozen', copts);
                 }
                 pc = _dom.find(grid, that.id + '_cols');
                 if (pc) {
-                    var fc = _dom.childrenPositions(pc, that._getColsInfo(that.columns, pc), false);
+                    var fc = _dom.childrenPositions(pc, that._getColsInfo(that.columns, pc), false, 'free', copts);
                     if (children)
                         children = children.concat(fc);
                     else
                         children = fc;
                 }
+                drag.data.childrenPositions = children;
                 return true;
             };
             BasicGrid.prototype._sddmove = function (event) {
@@ -12902,8 +13020,64 @@ var Phoenix;
                     _dom.remove(drag.floatElement);
                     drag.floatElement = null;
                 }
+                if (drag.data.mdiv) {
+                    _dom.remove(drag.data.mdiv);
+                    drag.data.mdiv = null;
+                }
                 if (cancel)
                     return;
+                if (drag.data.best && drag.data.column) {
+                    var info = drag.data.best.info;
+                    var toMove = that._mapCols[drag.data.column];
+                    if (drag.data.best.position === 'empty') {
+                        //frozen --> free or free -> frozen
+                        toMove.column.options.frozen = !!!toMove.column.options.frozen;
+                    }
+                    else {
+                        if (info.$bind === toMove.column.$bind)
+                            return;
+                        var where = that._mapCols[info.$bind];
+                        var src = toMove.column;
+                        var dst = where.column;
+                        var ci = toMove.tindex;
+                        var ni = drag.data.best.position === 'after' ? where.tindex + 1 : where.tindex;
+                        var frozenChanged = false;
+                        if (!!src.options.frozen !== !!dst.options.frozen) {
+                            src.options.frozen = dst.options.frozen;
+                            frozenChanged = true;
+                        }
+                        if (ci === ni - 1) {
+                            if (!frozenChanged)
+                                return;
+                        }
+                        else {
+                            // remove src
+                            that.renderOptions.columns.splice(ci, 1);
+                            if (ci < ni)
+                                ni--;
+                            // insert at ni
+                            that.renderOptions.columns.splice(ni, 0, src);
+                        }
+                    }
+                    that._refreshGrid();
+                }
+            };
+            BasicGrid.prototype._dddmove = function (event) {
+                var that = this;
+                var drag = that._drag;
+                var p = _events.point(event);
+                var best = _dom.findNearest(p.x, p.y, drag.data.childrenPositions);
+                if (drag.data.best != best) {
+                    var pos = {
+                        left: best.left,
+                        top: best.top,
+                        width: best.width,
+                        height: best.height
+                    };
+                    drag.data.mdiv = _dom.showMove(drag.data.mdiv, best.vertical, pos, (best.zone === 'frozen' ? 'bs-drag-color-success' : 'bs-drag-color-info'));
+                }
+                drag.data.best = best;
+                return true;
             };
             BasicGrid.prototype.destroy = function () {
                 var that = this;
@@ -13060,11 +13234,9 @@ var Phoenix;
                         options.columns.splice(ii, 1);
                 }
                 var addWidth = options.scrolling && options.scrolling.vertical || options.editing;
-                options.columns.forEach(function (col) {
+                options.columns.forEach(function (col, index) {
                     var c = $.extend({}, col);
                     c.options = c.options || {};
-                    if (c.options.isHidden)
-                        return;
                     if (!c.schema)
                         c.schema = _sutils.getSchema(col.$bind, that.$schema.items);
                     if (!c.schema) {
@@ -13086,11 +13258,11 @@ var Phoenix;
                             c.options.width = 50;
                         }
                         that.frozenColumns.push(c);
-                        that._mapCols[col.$bind] = { column: c, index: that.frozenColumns.length - 1 };
+                        that._mapCols[col.$bind] = { column: c, index: that.frozenColumns.length - 1, tindex: index };
                         return;
                     }
                     that.columns.push(c);
-                    that._mapCols[col.$bind] = { column: c, index: that.columns.length - 1 };
+                    that._mapCols[col.$bind] = { column: c, index: that.columns.length - 1, tindex: index };
                 });
             };
             BasicGrid.prototype._colByField = function (field) {
@@ -13610,9 +13782,10 @@ var Phoenix;
                 if (!hasFrozenColumns)
                     return;
                 var sh = _dom.scrollbar();
-                if (!sh)
-                    return;
-                that._updateFrozenColumnsHeight();
+                if (sh) {
+                    that._updateFrozenColumnsHeight();
+                }
+                that._vscroll();
             };
             BasicGrid.prototype.syncHeaderAndFrozenScroll = function (e) {
                 var that = this;
@@ -19837,7 +20010,7 @@ var Phoenix;
                 }
                 if (item.schema.enum) {
                     sc.enum = item.schema.enum.map(function (en, i) {
-                        return { code: en, libelle: item.schema.enumNames[i] || en };
+                        return { code: en, libelle: item.schema.enumNames ? item.schema.enumNames[i] : en };
                     });
                 }
                 _ui.filter.addField2(ui.filterData.filter.champs, item.name, sc.title, sc.type, { decimals: sc.decimals, enum: sc.enum });

@@ -246,7 +246,14 @@ declare namespace Phoenix {
             left: number;
             top: number;
         };
-        var childrenPositions: (parent: HTMLElement, list: any[], vertical: boolean) => any[];
+        var childrenPositions: (parent: HTMLElement, list: any[], vertical: boolean, zone: string, options: any) => any[];
+        var findNearest: (x: any, y: any, elements: any) => any;
+        var showMove: (res: HTMLElement, vertical: boolean, pos: {
+            left: number;
+            top: number;
+            width: number;
+            height: number;
+        }, cssClass: string) => HTMLElement;
     }
 }
 declare namespace Phoenix {
@@ -1457,6 +1464,7 @@ declare namespace Phoenix {
             private _cddmove(event);
             private _sddmove(event);
             private _eddmove(cancel, event);
+            _dddmove(event: any): boolean;
             destroy(): void;
             private _moveToPage(page);
             private _onselectPage(page);
