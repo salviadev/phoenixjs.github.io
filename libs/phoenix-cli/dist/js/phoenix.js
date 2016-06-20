@@ -11720,7 +11720,7 @@ var Phoenix;
                 return false;
             };
             DragAndDropManager.prototype.mouseDownEmpty = function (eventObject) {
-                return false;
+                return true;
             };
             DragAndDropManager.prototype.mouseMove = function (eventObject) {
                 var that = this;
@@ -11890,7 +11890,7 @@ var Phoenix;
                 drag_1.dragManager.startMouseMove();
                 if (that.stopEvent)
                     _events.stopEvent(eventObject);
-                return true;
+                return false;
             };
             DragElement.prototype.finalize = function () {
                 var that = this;
@@ -12020,12 +12020,12 @@ var Phoenix;
             if (!options.sorting)
                 return;
             if (pc && pc.childElementCount) {
-                var aorderby = (orderby || '').split(" ");
+                var aorderby = (orderby || '').split(' ');
                 if (!aorderby.length)
                     aorderby = [''];
-                for (var i = 0, len = pc.children.length - 1; i < len; i++) {
+                for (var i = 0, len = pc.children.length; i < len; i++) {
                     var e = pc.children[i];
-                    var cid = _dom.attr(e, "colId");
+                    var cid = _dom.attr(e, 'colId');
                     if (aorderby[0] === cid) {
                         _rmvSortIndicator(e);
                         _addSortIndicator(e, aorderby.length == 1);
@@ -13600,7 +13600,7 @@ var Phoenix;
                     var th = _dom.parentByTag(that.$element.get(0), event.target, 'th');
                     if (th) {
                         var cid = _dom.attr(th, 'colid');
-                        if (cid) {
+                        if (that.renderOptions.sorting && cid) {
                             var col = that._colByField(cid);
                             if (col && _sutils.canSort(col.schema)) {
                                 var no = col.$bind;
@@ -17107,7 +17107,7 @@ var Phoenix;
                 }
                 if (options.columns)
                     html.push('<div class="no-x-padding col-sm-' + (12 - options.labelCol) + '">');
-                html.push('<select type="text" class="form-control');
+                html.push('<select class="form-control');
                 if (options.size && _bootstrap4)
                     html.push(' form-control-' + options.size);
                 html.push('" id="{0}_input"');
@@ -17117,8 +17117,8 @@ var Phoenix;
                 if (options.minWidth)
                     style.push('min-width: ' + options.minWidth + ';');
                 if (style.length)
-                    html.push(' style="' + style.join("") + '"');
-                html.push('">');
+                    html.push(' style="' + style.join('') + '"');
+                html.push('>');
                 enums.forEach(function (en, index) {
                     html.push('<option value="' + en + '">' + enumsNames[index] + '</option>');
                 });
@@ -20184,7 +20184,7 @@ var Phoenix;
                     sortie: ui.multiSelectUtils.transformSelectedColumnsToMultiSelectFormat(params.schemaColumns, params.selectedColumns)
                 }
             };
-            var opts = { "title": params.locale.settingsTitle || "Options", "buttons": [{ "pattern": "validate" }] };
+            var opts = { "title": params.locale.settingsTitle || "Choix de colonnes", "buttons": [{ "pattern": "validate" }] };
             _ui.OpenModalForm(opts, layout, model, ldata, locale, function (form, action, model, formControl) {
                 switch (action.property) {
                     case "validate":
