@@ -318,6 +318,23 @@ tr.bs-table-row.even {
 .bs-row-selected {
   background-color: rgba(33, 153, 224, 0.5) !important;
 }
+.bs-col-resize {
+  position: absolute;
+  right: 0px;
+  top: 0px;
+  width: 6px;
+  height: 100%;
+  cursor: ew-resize;
+  cursor: col-resize;
+  background-color: transparent;
+}
+.bs-col-resize-indicator {
+  height: 100%;
+  width: 2px;
+  top: 0px;
+  cursor: col-resize;
+  border-left: 2px dotted #31708f;
+}
 
 .bs-edit-number {
   text-align: right;
@@ -1145,11 +1162,20 @@ td.nowrap {
 .table.headernowrap > thead > tr > th {
   white-space: nowrap;
 }
+.table.bs-control > thead > tr > th {
+  padding: 0px !important;
+}
 .table > tbody > tr > td.no-padding {
   padding: 0px;
 }
 .table > tbody > tr > td.no-padding > div.bs-td-padding {
   padding: 8px;
+}
+.bs-column-header {
+  padding: 8px;
+  position: relative;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .bs-style-island {

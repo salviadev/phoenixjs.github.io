@@ -876,6 +876,7 @@ declare namespace Phoenix {
             stateProps: (schema: any) => string[];
             isPassword: (schema: any) => boolean;
             isDate: (schema: any) => boolean;
+            isDateTime: (schema: any) => boolean;
             isBoolean: (schema: any) => boolean;
             isSelectField: (fieldName: string) => boolean;
             isNumber: (schema: any) => boolean;
@@ -1418,9 +1419,13 @@ declare namespace Phoenix {
             updateEvenOdd: (pr: HTMLElement) => void;
             ensureWidth: (value: any) => string;
             updateFrozenWidth: (e: HTMLElement, id: string, cols: any) => void;
+            setColumnWidth: (colId: string, colsParents: HTMLElement[], width: number) => void;
             hasFrozenColumns: (opts: any, frozenColumns: any[]) => boolean;
             cloneForMove: (element: HTMLElement) => HTMLElement;
+            isPixel: (value: any) => boolean;
             widthFromSchema: (schema: any) => number;
+            resizeDiv: (parent: HTMLElement, point: any) => HTMLElement;
+            getColumnsSizeParents: (id: string, parent: HTMLElement, options: any, isFrozen: boolean) => HTMLElement[];
         };
     }
 }
@@ -1461,6 +1466,11 @@ declare namespace Phoenix {
             private _onDragStart(event);
             private _onDrag(event);
             private _onDragEnd(cancel, event);
+            private _cddresize(event);
+            private _sddresize(event);
+            _dddresize(event: any): boolean;
+            private _eddresize(cancel, event);
+            private _updateColWidth(col, width);
             private _cddmove(event);
             private _sddmove(event);
             private _eddmove(cancel, event);

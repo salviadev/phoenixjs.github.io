@@ -1694,8 +1694,8 @@ var Phoenix;
                 var parentRect = parent.getBoundingClientRect();
                 var elementRect = element.getBoundingClientRect();
                 return {
-                    left: Math.round(parentRect.left - elementRect.left),
-                    top: Math.round(parentRect.top - elementRect.top)
+                    left: Math.round(elementRect.left - parentRect.left),
+                    top: Math.round(elementRect.top - parentRect.top)
                 };
             }
             else {
@@ -8258,6 +8258,9 @@ var Phoenix;
             isDate: function (schema) {
                 return schema.type === "string" && schema.format === "date";
             },
+            isDateTime: function (schema) {
+                return schema.type === "string" && schema.format === "date-time";
+            },
             isBoolean: function (schema) {
                 return schema.type === "boolean";
             },
@@ -11853,6 +11856,8 @@ var Phoenix;
                 that.startOffset = null;
                 that.stopEvent = false;
                 that.data = {};
+                that.floatElement = null;
+                that.floatParent = null;
                 // restore
                 that.stopEvent = ose;
             };
@@ -11884,9 +11889,6 @@ var Phoenix;
                 if (!drag_1.dragManager.setCurrent(that))
                     return true;
                 that.startPoint = _events.point(eventObject);
-                if (that.floatElement) {
-                    that.startOffset = _dom.position(that.floatElement, that.floatParent);
-                }
                 drag_1.dragManager.startMouseMove();
                 if (that.stopEvent)
                     _events.stopEvent(eventObject);
@@ -11945,6 +11947,9 @@ var Phoenix;
                     if (that.onDragStart) {
                         if (!that.onDragStart(eventObject))
                             that.notifyDragEnd(true, eventObject);
+                        if (that.floatElement) {
+                            that.startOffset = _dom.position(that.floatElement, that.floatParent);
+                        }
                     }
                 }
                 catch (e) {
@@ -12009,13 +12014,54 @@ var Phoenix;
             var lc = _dom.icon(asc ? "caret-up" : "caret-down");
             _dom.addClass(lc, "bs-basictable-sort");
             _dom.attr(lc, "sort", "true");
-            _dom.append(th, lc);
+            _dom.append(th.firstElementChild, lc);
         }, _rmvSortIndicator = function (th) {
-            if (th.lastElementChild) {
-                if (_dom.attr(th.lastElementChild, "sort") === "true") {
-                    _dom.remove(th.lastElementChild);
+            var lc = (th.lastElementChild ? th.firstElementChild.lastElementChild : null);
+            if (lc) {
+                if (_dom.attr(lc, 'sort') === 'true') {
+                    _dom.remove(lc);
                 }
             }
+        }, _getColumnsSizeParents = function (id, parent, options, isFrozen) {
+            var res = [], el;
+            if (options._useColGrp) {
+                if (isFrozen) {
+                    el = Phoenix.dom.find(parent, id + '_colgrp_frozen_header');
+                    if (el)
+                        res.push(el);
+                    el = Phoenix.dom.find(parent, id + '_colgrp_frozen');
+                    if (el)
+                        res.push(el);
+                }
+                else {
+                    el = Phoenix.dom.find(parent, id + '_colgrp_header');
+                    if (el)
+                        res.push(el);
+                    el = Phoenix.dom.find(parent, id + '_colgrp');
+                    if (el)
+                        res.push(el);
+                }
+            }
+            if (!options.headerIsHidden) {
+                if (isFrozen)
+                    el = Phoenix.dom.find(parent, id + '_frozen_cols');
+                else
+                    el = Phoenix.dom.find(parent, id + '_cols');
+                if (el)
+                    res.push(el);
+            }
+            return res;
+        }, _setColumnWidth = function (colId, colsParents, width) {
+            colsParents.forEach(function (parent) {
+                for (var i = 0, len = parent.childNodes.length; i < len; i++) {
+                    var col = parent.childNodes[i];
+                    var c = _dom.attr(col, 'colid');
+                    if (c === colId) {
+                        col.style.width = width + 'px';
+                        break;
+                    }
+                }
+            });
         }, _updSorting = function (options, pc, colMap, orderby) {
             if (!options.sorting)
                 return;
@@ -12034,10 +12080,21 @@ var Phoenix;
                         _rmvSortIndicator(e);
                 }
             }
+        }, _isPixel = function (value) {
+            if (typeof value === 'number')
+                return true;
+            if (typeof value === 'string') {
+                var ps = parseInt(value, 10) + '';
+                if (ps === value.trim())
+                    return true;
+                if ((ps + 'px') === value.trim())
+                    return true;
+            }
+            return false;
         }, _ensureWidth = function (value) {
             if (typeof value === 'number')
                 return value + 'px';
-            if ((parseInt(value, 10) + ' ') === value.trim())
+            if ((parseInt(value, 10) + '') === value.trim())
                 return value.trim() + 'px';
             return value;
         }, _widthFromSchema = function (schema) {
@@ -12060,6 +12117,7 @@ var Phoenix;
             var frag = document.createDocumentFragment();
             columns.forEach(function (col) {
                 var cc = document.createElement('col');
+                _dom.attr(cc, 'colid', col.$bind);
                 if (col.options.width)
                     cc.style.width = _ensureWidth(col.options.width);
                 if (col.options.minWidth)
@@ -12074,9 +12132,7 @@ var Phoenix;
                 var css;
                 var th = document.createElement('th');
                 _dom.attr(th, 'colId', col.$bind);
-                if (options.allowColumnMove) {
-                    _dom.attr(th, 'data-drag', "move");
-                }
+                _dom.attr(th, 'data-drag', "move");
                 if (!options._useColGrp) {
                     if (col.options.width)
                         th.style.width = _ensureWidth(col.options.width);
@@ -12085,17 +12141,26 @@ var Phoenix;
                 }
                 if (css)
                     th.className = css.join(' ');
-                if (!col.isLink)
-                    _dom.append(th, document.createTextNode(_ulocale.tt(col.title || String.fromCharCode(160), locale)));
+                var cth = document.createElement('div');
+                cth.className = 'bs-column-header';
+                _dom.append(cth, document.createTextNode(_ulocale.tt((col.isLink ? '' : col.title) || String.fromCharCode(160), locale)));
+                if (options.allowColumnResize && _isPixel(col.options.width)) {
+                    var re = document.createElement('div');
+                    re.className = 'bs-col-resize';
+                    _dom.attr(re, 'data-drag', "resize");
+                    _dom.attr(th, 'colId', col.$bind);
+                    _dom.append(cth, re);
+                }
                 if (options.sorting && _su.canSort(col.schema)) {
                     css = css || [];
                     css.push('bs-cursor-p');
                     if (aorderby && aorderby.length && aorderby[0] === col.$bind) {
-                        _addSortIndicator(th, orderby.length === 1);
+                        _addSortIndicator(cth, orderby.length === 1);
                     }
                 }
                 if (css)
                     th.className = css.join(' ');
+                _dom.append(th, cth);
                 _dom.append(frag, th);
             });
             return frag;
@@ -12177,12 +12242,23 @@ var Phoenix;
                         td.style.minWidth = _ensureWidth(col.options.minWidth);
                 }
                 var css = [];
-                if (col.schema && _su.isNumber(col.schema))
-                    css.push("nowrap");
-                if (col.options.align) {
-                    if (col.options.align == "center")
+                var align = col.options.align;
+                if (col.schema) {
+                    var isNumber = _su.isNumber(col.schema);
+                    var isDate = _su.isDate(col.schema) || _su.isDateTime(col.schema);
+                    if (!options._nowrap && (isNumber || isDate))
+                        css.push("nowrap");
+                    if (!align) {
+                        if (isNumber)
+                            align = 'right';
+                        else if (isDate)
+                            align = 'center';
+                    }
+                }
+                if (align) {
+                    if (align == 'center')
                         css.push('align-center');
-                    else if (col.options.align == "right")
+                    else if (align == 'right')
                         css.push('align-end');
                 }
                 if (css.length)
@@ -12295,22 +12371,24 @@ var Phoenix;
             return res;
         }, _cssTable = function (options, isHeader, isFrozen) {
             var vscrolling = options.scrolling && options.scrolling.vertical;
-            var css = ["table"];
+            var css = ['table', 'bs-control'];
             if (isHeader) {
-                css.push("table-header");
+                css.push('table-header');
             }
             if (!isHeader && options._useStripedCss) {
                 css.push("table-striped");
             }
             if (options._useColGrp) {
-                css.push("bs-fixed");
+                css.push('bs-fixed');
             }
             //adde
             if (!isHeader && (options.editing || options.nowrap)) {
                 css.push('nowrap');
+                options._nowrap = true;
             }
             else if (!isHeader && options.allowFrozenColumns) {
                 css.push('nowrap');
+                options._nowrap = true;
             }
             if (options.allowFrozenColumns && !options.headerIsHidden) {
                 if (isHeader)
@@ -12318,14 +12396,6 @@ var Phoenix;
                 else if (!vscrolling)
                     css.push('headernowrap');
             }
-            //remove 
-            //if ((options.selecting && options.selecting.cell) ||  {
-            //    css.push('nowrap');
-            //}
-            //add :
-            //if (options.editing || options.nowrap) {
-            //    css.push('nowrap');
-            //}
             css.push('bs-theme');
             if (options.border)
                 css.push('table-bordered');
@@ -12538,6 +12608,13 @@ var Phoenix;
             _ui.Utils.addErrorDiv(html);
             html.push('</div>');
             return _utils.format(html.join(''), id);
+        }, _resizeDiv = function (parent, point) {
+            var res = document.createElement('div');
+            res.className = 'bs-absolute bs-col-resize-indicator';
+            res.style.top = '0px';
+            res.style.left = point.left + 'px';
+            _dom.append(parent, res);
+            return res;
         }, _updateInplaceSelect = function (inplace, svalue, value, state, parent, cell, col, opts) {
             var enums = state.filter ? col.schema.filters[state.filter] || [] : col.schema.enum;
             var ii = enums.indexOf(value);
@@ -12694,9 +12771,13 @@ var Phoenix;
             updateEvenOdd: _updateEvenOdd,
             ensureWidth: _ensureWidth,
             updateFrozenWidth: _updatecolumnsWidth,
+            setColumnWidth: _setColumnWidth,
             hasFrozenColumns: _hasFrozenColumns,
             cloneForMove: _cloneForMove,
-            widthFromSchema: _widthFromSchema
+            isPixel: _isPixel,
+            widthFromSchema: _widthFromSchema,
+            resizeDiv: _resizeDiv,
+            getColumnsSizeParents: _getColumnsSizeParents
         };
         ui.GridUtil = _gridUtil;
     })(ui = Phoenix.ui || (Phoenix.ui = {}));
@@ -12714,6 +12795,7 @@ var Phoenix;
     var ui;
     (function (ui) {
         var _ui = ui, _utils = Phoenix.utils, _dom = Phoenix.dom, _ui = ui, _ulocale = Phoenix.ulocale, _gu = _ui.GridUtil, _eu = Phoenix.Observable.errorsUtils, _link = Phoenix.link, _locale = Phoenix.locale, _drag = Phoenix.drag, _events = Phoenix.events, _sutils = Phoenix.Observable.SchemaUtils;
+        var MIN_COL_WIDTH = 20, MAX_COL_WIDTH = 2000;
         var withModifier = function ($event, key) {
             if (key === _dom.keys.VK_TAB && $event.shiftKey)
                 return false;
@@ -12932,22 +13014,21 @@ var Phoenix;
                 var that = this;
                 var target = event.target;
                 var opDrag = _dom.attr(target, 'data-drag');
-                var colElement = target;
-                if (!opDrag) {
-                    opDrag = _dom.attr(target.parentNode, 'data-drag');
-                    colElement = target.parentNode;
-                }
-                if (opDrag) {
-                    if (!colElement.id)
-                        colElement.id = _utils.allocID();
-                    that._drag.data.op = opDrag;
-                    that._drag.data.cloneId = colElement.id;
-                    that._drag.data.column = _dom.attr(colElement, 'colId');
-                    if (!that._drag.data.column)
-                        return false;
-                    return that['_cdd' + opDrag](event);
-                }
-                return false;
+                var colElement = _dom.parentByTag(that.$element.get(0), target, 'th');
+                if (!colElement)
+                    return;
+                if (!opDrag)
+                    opDrag = _dom.attr(colElement, 'data-drag');
+                if (!opDrag)
+                    return false;
+                if (!colElement.id)
+                    colElement.id = _utils.allocID();
+                that._drag.data.op = opDrag;
+                that._drag.data.cloneId = colElement.id;
+                that._drag.data.column = _dom.attr(colElement, 'colId');
+                if (!that._drag.data.column)
+                    return false;
+                return that['_cdd' + opDrag](event);
             };
             BasicGrid.prototype._onDragStart = function (event) {
                 var that = this;
@@ -12967,6 +13048,67 @@ var Phoenix;
                     return that['_edd' + that._drag.data.op](cancel, event);
                 return false;
             };
+            BasicGrid.prototype._cddresize = function (event) {
+                var that = this, opts = that.renderOptions;
+                if (!opts.allowColumnResize)
+                    return false;
+                var drag = that._drag;
+                drag.coverDocument = true;
+                drag.cursor = 'col-resize';
+                drag.moveX = true;
+                return true;
+            };
+            BasicGrid.prototype._sddresize = function (event) {
+                var that = this;
+                var drag = that._drag;
+                drag.floatParent = that._gridParentFocus();
+                var col = _dom.find(drag.floatParent, that._drag.data.cloneId);
+                var p = _dom.position(col, drag.floatParent);
+                drag.floatElement = _gu.resizeDiv(drag.floatParent, { left: Math.round(p.left + col.offsetWidth) });
+                drag.minLeft = Math.round(p.left + MIN_COL_WIDTH);
+                drag.maxLeft = Math.round(p.left + MAX_COL_WIDTH);
+                return true;
+            };
+            BasicGrid.prototype._dddresize = function (event) {
+                return true;
+            };
+            BasicGrid.prototype._eddresize = function (cancel, event) {
+                var that = this;
+                var drag = that._drag;
+                if (!drag)
+                    return;
+                if (drag.floatElement) {
+                    _dom.remove(drag.floatElement);
+                    drag.floatElement = null;
+                }
+                if (cancel)
+                    return;
+                var col = that._colByField(drag.data.column);
+                var point = _events.point(event);
+                var deltaWidth = point.x - drag.startPoint.x;
+                var colh = _dom.find(drag.floatParent, that._drag.data.cloneId);
+                var ow = parseInt(col.options.width + '', 10);
+                if (colh.offsetWidth - ow > 5) {
+                    var factor = ow / colh.offsetWidth;
+                    deltaWidth = Math.round(factor * deltaWidth);
+                }
+                var nw = Math.min(Math.max(MIN_COL_WIDTH, ow + deltaWidth), MAX_COL_WIDTH);
+                that._updateColWidth(col, nw);
+                return;
+            };
+            BasicGrid.prototype._updateColWidth = function (col, width) {
+                var that = this;
+                var oldvalue = Math.max(parseInt(col.options.width || '0', 10), MAX_COL_WIDTH);
+                if (oldvalue === width)
+                    return;
+                col.options.width = width;
+                var isFrozen = col.options.frozen && that.renderOptions.allowFrozenColumns;
+                var colSize = _gu.getColumnsSizeParents(that.id, that.$element.get(0), that.renderOptions, isFrozen);
+                _gu.setColumnWidth(col.$bind, colSize, width);
+                if (isFrozen)
+                    _gu.updateFrozenWidth(that.$element.get(0), that.id, that.frozenColumns);
+                that.resize();
+            };
             BasicGrid.prototype._cddmove = function (event) {
                 var that = this, opts = that.renderOptions;
                 if (!opts.allowColumnMove)
@@ -12982,7 +13124,7 @@ var Phoenix;
                 var pc, children;
                 var copts = {
                     firstDelta: 0,
-                    lastDelta: -6,
+                    lastDelta: -10,
                     delta: -4,
                     top: drag.startOffset.top,
                     height: cloned.offsetHeight
@@ -12992,6 +13134,7 @@ var Phoenix;
                     if (pc)
                         children = _dom.childrenPositions(pc, that._getColsInfo(that.frozenColumns, pc), false, 'frozen', copts);
                 }
+                copts.lastDelta = 0;
                 pc = _dom.find(grid, that.id + '_cols');
                 if (pc) {
                     var fc = _dom.childrenPositions(pc, that._getColsInfo(that.columns, pc), false, 'free', copts);
@@ -13187,8 +13330,8 @@ var Phoenix;
                     });
                 }
                 if (toolElements.length) {
-                    var options = $.extend({ selectToolElement: that._onSelectToolElement.bind(that) });
-                    that._toolBar = new _ui.ToolBar(toolElements, options);
+                    var toptions = { selectToolElement: that._onSelectToolElement.bind(that) };
+                    that._toolBar = new _ui.ToolBar(toolElements, toptions);
                 }
             };
             BasicGrid.prototype._destroyDetails = function () {

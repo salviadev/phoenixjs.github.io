@@ -15,6 +15,8 @@ $(function () {
 							"align": "middle",
 							"border": true,
 							"headerIsHidden": false,
+							"allowColumnMove": true,
+							"allowColumnResize": true,
 							"scrolling": {
 								"vertical": true
 							},
