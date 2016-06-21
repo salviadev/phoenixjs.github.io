@@ -11473,7 +11473,7 @@ var Phoenix;
         }());
         ui.AbsField = AbsField;
         ;
-        if (_afutils.useDatePicker) {
+        if (_afutils.useDatePicker()) {
             var tdp = function (lang) {
                 $.fn.datepicker.dates[lang] = {
                     days: _locale.date.weekdays,
