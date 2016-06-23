@@ -817,7 +817,7 @@ declare namespace Phoenix {
             filtrableFields: (schema: any, locale: any) => any[];
             columns: (schema: any, locale: any) => any[];
             allData: (lookup: any) => boolean;
-            pkFields: (pk: string) => string[];
+            pkFields: (pk: any) => string[];
             entityId: (pkValue: any) => string;
             extractPkValue: (item: any, map: string[]) => any;
             odataId: (keys: string[], item: any) => string;
@@ -979,7 +979,8 @@ declare namespace Phoenix {
     module Observable {
         class DataListCore {
             protected _map: any;
-            protected _selected: string[];
+            protected _selectedUids: string[];
+            protected _selectedPks: string[];
             protected _schema: any;
             protected _items: Data[];
             protected _model: any[];
@@ -992,8 +993,8 @@ declare namespace Phoenix {
             isNull: boolean;
             isUndefined: boolean;
             constructor(schema: any, parent: any, path: any, value: any, arrayParent: any, locale: any);
-            pushSelected(id: string): void;
-            removeSelected(id: string): void;
+            pushSelected(item: Data, persistent: boolean): void;
+            removeSelected(item: Data, persistent: boolean): void;
             protected notifyChangedProperty(propName: string): void;
             addAjaxException(ex: any): any;
             notifyPaginationChanged(): void;
@@ -1020,7 +1021,8 @@ declare namespace Phoenix {
         class DataListBase extends DataListCore {
             protected _fillItems(): void;
             protected _destroyItems(): void;
-            selectRow(id: string, value: boolean, exclusive: boolean): void;
+            updateSelecting(multiSelect: boolean): void;
+            selectItem(id: string, value: boolean, multiSelect: boolean): void;
             findById(id: string): Data;
             indexOf(value: any): number;
         }
@@ -1087,6 +1089,7 @@ declare namespace Phoenix {
             private _validate(validators);
             validate(): boolean;
             $selected: boolean;
+            internalSetSelected(value: boolean, notify: boolean): boolean;
             $index(value?: number): number;
             $save(): any;
             getRootModel(): Data;
@@ -1318,6 +1321,7 @@ declare namespace Phoenix {
             disable(): void;
             enable(): void;
         }
+        var mouseEvents: (eventType: string) => string;
         function isLeftButton(eventObject: JQueryMouseEventObject): boolean;
         function stopEvent(eventObject: any): void;
         function point(event: any): {
@@ -1440,6 +1444,7 @@ declare namespace Phoenix {
             private _mapCols;
             private _details;
             selectedCell: any;
+            private _originalCols;
             private _pager;
             private _toolBar;
             private _scroller;
@@ -1450,6 +1455,7 @@ declare namespace Phoenix {
             private _drag;
             private inplace;
             constructor(fp: any, options: any, form: any);
+            private _initOrigColumns(opts);
             private checkOptions(opts);
             private _inplaceEditValue2Model(value, item, col);
             private _inplaceEditAcceptKeys(key);
@@ -1541,6 +1547,7 @@ declare namespace Phoenix {
             private _getSelectedColumns();
             private _getGroupsFromSchema();
             getColumnsForSettings(): any;
+            getColumnsForFilter(): any;
             private _updateSorting();
             private _renderColumns(opts);
             private _refreshGrid;
@@ -2038,6 +2045,7 @@ declare namespace Phoenix {
         class ComposantFilter extends AbsField {
             state: any;
             options: Object;
+            listeChampsArbre: any;
             listeChamps: ListeChamps;
             listeFilters: ListeFilters;
             listeTypes: ListeTypes;
@@ -2065,6 +2073,7 @@ declare namespace Phoenix {
             filter: {
                 champs: any[];
                 filters: any[];
+                entree: any[];
             };
         };
         var filter: {
@@ -2112,6 +2121,7 @@ declare namespace Phoenix {
             private _select(name, callback?);
             private _unSelect(name, callback?);
             private _check(name, isCheck?, callback?);
+            private _showItem(name);
             addItem(name: any): void;
             removeItem(name: any): void;
             private _renderItems(nodes);

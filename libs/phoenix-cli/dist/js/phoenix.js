@@ -3006,6 +3006,28 @@ var Phoenix;
                 }
                 return rtree;
             }
+            else if (tree && typeof tree === 'object' && tree.$op === null && tree.$right === null && tree.$left) {
+                var rtree = {
+                    $left: null,
+                    $op: null,
+                    $right: null
+                };
+                if (tree.$left != null) {
+                    if (typeof tree.$left === 'object' && tree.$left.$op) {
+                        rtree.$left = _internalExecTree(tree.$left, lurl, context, localContext, addQuote);
+                    }
+                    else {
+                        rtree.$left = _getValue(tree.$left, {
+                            $url: lurl,
+                            $context: context,
+                            $data: null,
+                            $mem: Phoenix.$mem,
+                            $local: localContext
+                        }, false, false);
+                    }
+                }
+                return rtree;
+            }
             else {
                 return _getValue(tree, {
                     $url: lurl,
@@ -3074,6 +3096,10 @@ var Phoenix;
                         return { value: lv + ' ' + tree.$op + ' ' + rv, op: tree.$op };
                     }
                 }
+            }
+            else if (tree && typeof tree == 'object' && tree.$op === null && tree.$right === null && tree.$left) {
+                var cleft = _tree2filter(tree.$left);
+                return { value: cleft.value, op: null };
             }
             else
                 return { value: tree, op: null };
@@ -7649,7 +7675,10 @@ var Phoenix;
                 return !lookup.pagination;
             },
             pkFields: function (pk) {
-                return pk.split(',').map(function (v) { return v.trim(); });
+                if (Array.isArray(pk))
+                    return pk;
+                else
+                    return pk.split(',').map(function (v) { return v.trim(); });
             },
             entityId: function (pkValue) {
                 if (typeof pkValue === 'object') {
@@ -7687,7 +7716,7 @@ var Phoenix;
                     keys.forEach(function (key) {
                         a_1.push(key + '=' + encodeURIComponent(item[key] + ''));
                     });
-                    return a_1.join('');
+                    return a_1.join(',');
                 }
             },
             pk2Id: function (pk, keys) {
@@ -7858,10 +7887,10 @@ var Phoenix;
                                 cs = cs.properties ? cs.properties[s] : null;
                                 if (!cs && i === (len - 1)) {
                                     if (s === '$index') {
-                                        return { type: 'integer', title: "#" };
+                                        return { type: 'integer', title: "#", capabilities: null };
                                     }
                                     else if (s === '$selected') {
-                                        return { type: 'boolean', title: _locale.ui.Selected };
+                                        return { type: 'boolean', title: _locale.ui.Selected, capabilities: null };
                                     }
                                 }
                             }
@@ -8080,16 +8109,22 @@ var Phoenix;
             },
             canSort: function (schema) {
                 if (schema) {
+                    if (schema.hidden)
+                        return false;
                     _parseCapabilities(schema);
                     return schema.features.sortable;
                 }
                 return false;
             },
             canShowField: function (schema) {
+                if (schema.hidden)
+                    return false;
                 return true;
             },
             canFilter: function (schema) {
                 if (schema) {
+                    if (schema.hidden)
+                        return false;
                     _parseCapabilities(schema);
                     return schema.features.filtrable;
                 }
@@ -8976,7 +9011,8 @@ var Phoenix;
             function DataListCore(schema, parent, path, value, arrayParent, locale) {
                 var that = this;
                 that._map = {};
-                that._selected = [];
+                that._selectedUids = [];
+                that._selectedPks = [];
                 that._model = [];
                 that._items = [];
                 that._path = path;
@@ -8988,17 +9024,32 @@ var Phoenix;
                 that._setModel(value, false);
                 that._createCustomProps();
             }
-            DataListCore.prototype.pushSelected = function (id) {
+            DataListCore.prototype.pushSelected = function (item, persistent) {
                 var that = this;
-                var ii = that._selected.indexOf(id);
+                var id = item.$id;
+                var ii = that._selectedUids.indexOf(id);
                 if (ii < 0)
-                    that._selected.push(id);
+                    that._selectedUids.push(id);
+                if (persistent && that._schema.items.primaryKey) {
+                    var keys = _su.pkFields(that._schema.items.primaryKey);
+                    id = _su.pk2Id(_su.extractPkValue(item, keys), keys);
+                    ii = that._selectedPks.indexOf(id);
+                    if (ii < 0)
+                        that._selectedPks.push(id);
+                }
             };
-            DataListCore.prototype.removeSelected = function (id) {
+            DataListCore.prototype.removeSelected = function (item, persistent) {
                 var that = this;
-                var ii = that._selected.indexOf(id);
+                var ii = that._selectedUids.indexOf(item.$id);
                 if (ii >= 0)
-                    that._selected.splice(ii, 1);
+                    that._selectedUids.splice(ii, 1);
+                if (persistent && that._schema.items.primaryKey) {
+                    var keys = _su.pkFields(that._schema.items.primaryKey);
+                    var id = _su.pk2Id(_su.extractPkValue(item, keys), keys);
+                    ii = that._selectedPks.indexOf(id);
+                    if (ii >= 0)
+                        that._selectedPks.splice(ii, 1);
+                }
             };
             DataListCore.prototype.notifyChangedProperty = function (propName) {
                 var that = this;
@@ -9132,39 +9183,86 @@ var Phoenix;
                 _super.apply(this, arguments);
             }
             DataListBase.prototype._fillItems = function () {
-                var that = this;
+                var that = this, keys = null;
                 that._map = {};
-                that._selected = [];
+                that._selectedUids = [];
+                if (that._selectedPks.length) {
+                    keys = _su.pkFields(that._schema.items.primaryKey);
+                }
                 that._model.forEach(function (item, index) {
                     var citem = new Data(that._schema.items, that._parent, that._path, item, that, false, that._locale, null);
                     that._items.push(citem);
                     that._map[citem.$id] = citem;
+                    if (keys) {
+                        var pkId = _su.pk2Id(_su.extractPkValue(item, keys), keys);
+                        if (that._selectedPks.lastIndexOf(pkId) >= 0) {
+                            citem.internalSetSelected(true, false);
+                            that.pushSelected(citem, false);
+                        }
+                    }
                 });
             };
             DataListBase.prototype._destroyItems = function () {
                 var that = this;
                 that._map = {};
-                that._selected = [];
+                that._selectedUids = [];
                 if (that._items) {
                     that._items.forEach(function (item) { item.destroy(); });
                     that._model = [];
                     that._items = [];
                 }
             };
-            DataListBase.prototype.selectRow = function (id, value, exclusive) {
+            DataListBase.prototype.updateSelecting = function (multiSelect) {
+                var that = this;
+                if (multiSelect) {
+                    for (var i = 0, len = that._selectedUids.length; i < len; i++) {
+                        var ii = that._map[that._selectedUids[i]];
+                        if (ii)
+                            that.pushSelected(ii, true);
+                    }
+                }
+                else {
+                    that._selectedPks = [];
+                    var sel = that._selectedUids.slice();
+                    var ni = sel.pop();
+                    for (var i = 0, len = sel.length; i < len; i++) {
+                        var ii = that._map[sel[i]];
+                        if (ii)
+                            ii.$selected = false;
+                    }
+                }
+            };
+            DataListBase.prototype.selectItem = function (id, value, multiSelect) {
                 var that = this;
                 var item = that.findById(id);
                 if (value) {
                     if (!item.$selected) {
-                        if (exclusive) {
-                            var sel = that._selected.slice(0);
-                            sel.forEach(function (sid) {
-                                var ii = that.findById(sid);
-                                if (ii)
-                                    ii.$selected = false;
-                            });
+                        if (multiSelect) {
+                            item.$selected = true;
                         }
-                        item.$selected = true;
+                        else {
+                            var sel = that._selectedUids.slice();
+                            that._selectedUids = [];
+                            sel.forEach(function (sid) {
+                                var ii = that._map[sid];
+                                if (ii) {
+                                    ii.internalSetSelected(false, true);
+                                }
+                            });
+                            item.internalSetSelected(true, true);
+                            that.pushSelected(item, false);
+                        }
+                    }
+                }
+                else {
+                    if (item.$selected) {
+                        if (multiSelect) {
+                            item.$selected = false;
+                        }
+                        else {
+                            item.internalSetSelected(false, true);
+                            that.removeSelected(item, false);
+                        }
                     }
                 }
             };
@@ -9428,7 +9526,7 @@ var Phoenix;
                 that.frozen = ofv;
                 that._map[ii.$id] = ii;
                 if (ii.$selected)
-                    that.pushSelected(ii.$id);
+                    that.pushSelected(ii, true);
                 ii._notifyChanged('', undefined, item, "add", { $index: that._items.length - 1, $id: ii.$id }, false);
                 ii.notifyStateChanged('', {});
             };
@@ -9444,11 +9542,11 @@ var Phoenix;
                     notify = true;
                     that._items.splice(ii, 1);
                     that._model.splice(ii, 1);
+                    that.removeSelected(item, true);
                     item.destroy();
                 }
                 that.frozen = ofv;
                 delete that._map[id];
-                that.removeSelected(id);
                 if (notify) {
                     var path = (that._path ? that._path + '.' : '') + '$item';
                     that._parent._notifyChanged(path, undefined, undefined, "remove", { $index: ii, $value: removed, $id: id }, false);
@@ -9599,20 +9697,28 @@ var Phoenix;
                 },
                 set: function (value) {
                     var that = this;
-                    if (this._selected !== value) {
-                        that._selected = value;
-                        that._notifyChanged('$selected', !that._selected, value, "propchange", {}, true);
+                    if (that.internalSetSelected(value, true)) {
                         if (that._arrayParent) {
                             if (that._selected)
-                                that._arrayParent.pushSelected(that.$id);
+                                that._arrayParent.pushSelected(that, true);
                             else
-                                that._arrayParent.removeSelected(that.$id);
+                                that._arrayParent.removeSelected(that, true);
                         }
                     }
                 },
                 enumerable: true,
                 configurable: true
             });
+            Data.prototype.internalSetSelected = function (value, notify) {
+                var that = this;
+                if (that._selected !== value) {
+                    that._selected = value;
+                    if (notify)
+                        that._notifyChanged('$selected', !that._selected, value, "propchange", {}, true);
+                    return true;
+                }
+                return false;
+            };
             Data.prototype.$index = function (value) {
                 var that = this;
                 if (that._arrayParent) {
@@ -10065,7 +10171,7 @@ var Phoenix;
                 if (propertyName) {
                     if (!ldata) {
                         var value = that.getValue(propertyName, params);
-                        if (value == undefined)
+                        if (value === undefined)
                             return !error;
                     }
                 }
@@ -11611,6 +11717,19 @@ var Phoenix;
             return EventManager;
         }());
         events.EventManager = EventManager;
+        events.mouseEvents = function (eventType) {
+            if (_dom.touch()) {
+                switch (eventType) {
+                    case "mousedown":
+                        return "touchstart";
+                    case "mouseup":
+                        return "touchend";
+                    case "mousemove":
+                        return "touchmove";
+                }
+            }
+            return eventType;
+        };
         function isLeftButton(eventObject) {
             if (_dom.touch())
                 return true;
@@ -11655,19 +11774,6 @@ var Phoenix;
     var _dom = Phoenix.dom, _utils = Phoenix.utils, _events = Phoenix.events;
     var drag;
     (function (drag_1) {
-        var _mouseEvents = function (eventType) {
-            if (_dom.touch()) {
-                switch (eventType) {
-                    case "mousedown":
-                        return "touchstart";
-                    case "mouseup":
-                        return "touchend";
-                    case "mousemove":
-                        return "touchmove";
-                }
-            }
-            return eventType;
-        };
         var DragAndDropManager = (function () {
             function DragAndDropManager() {
                 var that = this;
@@ -11677,18 +11783,18 @@ var Phoenix;
                 var $doc = $(document);
                 that._mu = that.mouseUp.bind(that);
                 that._md = that.mouseDownEmpty.bind(that);
-                $doc.on(_mouseEvents('mouseup'), that._mu);
-                $doc.on(_mouseEvents('mousedown'), that._md);
+                $doc.on(_events.mouseEvents('mouseup'), that._mu);
+                $doc.on(_events.mouseEvents('mousedown'), that._md);
             };
             DragAndDropManager.prototype.finalize = function () {
                 var that = this;
                 var $doc = $(document);
                 if (that._mu) {
-                    $doc.off(_mouseEvents('mouseup'), that._mu);
+                    $doc.off(_events.mouseEvents('mouseup'), that._mu);
                     that._mu = null;
                 }
                 if (that._md) {
-                    $doc.off(_mouseEvents('mousedown'), that._mu);
+                    $doc.off(_events.mouseEvents('mousedown'), that._mu);
                     that._md = null;
                 }
                 that._listeners = null;
@@ -11698,13 +11804,13 @@ var Phoenix;
                 var that = this;
                 if (!that._mm) {
                     that._mm = that.mouseMove.bind(that);
-                    $(document).on(_mouseEvents('mousemove'), that._mm);
+                    $(document).on(_events.mouseEvents('mousemove'), that._mm);
                 }
             };
             DragAndDropManager.prototype.stopMouseMove = function () {
                 var that = this;
                 if (that._mm) {
-                    $(document).off(_mouseEvents('mousemove'), that._mm);
+                    $(document).off(_events.mouseEvents('mousemove'), that._mm);
                     that._mm = null;
                 }
             };
@@ -11865,7 +11971,7 @@ var Phoenix;
                 var that = this;
                 if (that._elements) {
                     that._elements.forEach(function (e) {
-                        $(e).off(_mouseEvents('mousedown'), that._mdEvent);
+                        $(e).off(_events.mouseEvents('mousedown'), that._mdEvent);
                     });
                     that._elements = null;
                 }
@@ -11874,7 +11980,7 @@ var Phoenix;
                 var that = this;
                 if (that._elements) {
                     that._elements.forEach(function (e) {
-                        $(e).on(_mouseEvents('mousedown'), that._mdEvent);
+                        $(e).on(_events.mouseEvents('mousedown'), that._mdEvent);
                     });
                 }
             };
@@ -12101,9 +12207,9 @@ var Phoenix;
             if (_su.isBoolean(schema))
                 return 50;
             if (_su.isDate(schema))
-                return 90;
+                return 110;
             if (_su.isNumber(schema))
-                return 80;
+                return 110;
             return 150;
         }, _createDetail = function (id, childBefore) {
             var res = document.createElement('tr');
@@ -12151,16 +12257,16 @@ var Phoenix;
                     _dom.attr(th, 'colId', col.$bind);
                     _dom.append(cth, re);
                 }
+                _dom.append(th, cth);
                 if (options.sorting && _su.canSort(col.schema)) {
                     css = css || [];
                     css.push('bs-cursor-p');
                     if (aorderby && aorderby.length && aorderby[0] === col.$bind) {
-                        _addSortIndicator(cth, orderby.length === 1);
+                        _addSortIndicator(th, orderby.length === 1);
                     }
                 }
                 if (css)
                     th.className = css.join(' ');
-                _dom.append(th, cth);
                 _dom.append(frag, th);
             });
             return frag;
@@ -12498,7 +12604,6 @@ var Phoenix;
         }, _createGridContainer = function (id, options, authoring, title, locale, columns, frozenColumns) {
             title = title || '';
             options._useColGrp = _canUseColGroups(options, columns);
-            options._headernowrap = options.xxx;
             options._useStripedCss = !!!(options.rows && options.rows.detail);
             options = $.extend({ right: false, icon: null, type: 'default', width: "auto", height: "auto", size: null, scrolling: { horizontal: false } }, options);
             //create div container 
@@ -12828,9 +12933,19 @@ var Phoenix;
                 form.registerListenerFor(that.$bind + ".$item", that);
                 that._state();
                 that.checkOptions(that.fieldOptions);
+                that._initOrigColumns(that.fieldOptions);
                 that._initCols(that.fieldOptions);
                 that._details = [];
             }
+            BasicGrid.prototype._initOrigColumns = function (opts) {
+                var that = this;
+                that._originalCols = {};
+                opts.columns = opts.columns || [];
+                opts.columns.forEach(function (col) {
+                    col.options = col.options || {};
+                    that._originalCols[col.$bind] = $.extend(true, {}, col);
+                });
+            };
             BasicGrid.prototype.checkOptions = function (opts) {
                 if (opts.allowColumnMove === undefined)
                     opts.allowColumnMove = true;
@@ -13249,6 +13364,7 @@ var Phoenix;
                 }
                 that._details = null;
                 that._mapCols = null;
+                that._originalCols = null;
                 _super.prototype.destroy.call(this);
             };
             BasicGrid.prototype._moveToPage = function (page) {
@@ -13279,7 +13395,7 @@ var Phoenix;
                 var that = this;
                 var toolName = toolElement.name || toolElement.id;
                 if (toolElement.name === 'filter' && ui.glbGridFilter) {
-                    return ui.glbGridFilter(that.filtrableColumns(), that.state.value, that.form.$locale);
+                    return ui.glbGridFilter(that.getColumnsForFilter(), that.state.value);
                 }
                 else if (toolElement.name === 'settings' && ui.glbGridSettings) {
                     return ui.glbGridSettings(that.getColumnsForSettings(), function (columns) {
@@ -13296,8 +13412,11 @@ var Phoenix;
                 var that = this;
                 that.renderOptions.columns = columns.map(function (col) {
                     var oldCol = that._colByField(col.$bind);
-                    if (oldCol)
+                    if (!oldCol)
+                        oldCol = that._originalCols[col.$bind];
+                    if (oldCol) {
                         col.options = oldCol.options;
+                    }
                     return col;
                 });
                 that._refreshGrid();
@@ -13697,6 +13816,7 @@ var Phoenix;
             };
             BasicGrid.prototype.click = function (event) {
                 var that = this;
+                var opts = that.renderOptions;
                 var td = _dom.parentByTag(that.$element.get(0), event.target, 'td');
                 if (td) {
                     var cell = that._td2cell(td);
@@ -13731,7 +13851,7 @@ var Phoenix;
                                         var state = item.getRelativeState(c.$bind);
                                         if (!state.isDisabled && !state.isReadOnly) {
                                             var ov = item.getValue(c.$bind);
-                                            item.setValue(c.$bind, !ov);
+                                            that.state.value.selectItem(item.$id, !ov, opts.selecting && opts.selecting.row && opts.selecting.multiselect);
                                         }
                                     }
                                 }
@@ -13743,7 +13863,7 @@ var Phoenix;
                     var th = _dom.parentByTag(that.$element.get(0), event.target, 'th');
                     if (th) {
                         var cid = _dom.attr(th, 'colid');
-                        if (that.renderOptions.sorting && cid) {
+                        if (opts.sorting && cid) {
                             var col = that._colByField(cid);
                             if (col && _sutils.canSort(col.schema)) {
                                 var no = col.$bind;
@@ -13817,8 +13937,9 @@ var Phoenix;
                 that._gridParentFocus().tabIndex = 0;
             };
             BasicGrid.prototype._selectRow = function (id) {
-                var that = this;
-                that.state.value.selectRow(id, true, true);
+                var that = this, opts = that.renderOptions;
+                var multiselect = opts.selecting && opts.selecting.row && opts.selecting.multiselect;
+                that.state.value.selectItem(id, true, multiselect);
             };
             BasicGrid.prototype._selectCell = function (cell, target, mousedown) {
                 var that = this;
@@ -14074,12 +14195,14 @@ var Phoenix;
                     if (_gu.hasFrozenColumns(that.renderOptions, that.frozenColumns)) {
                         pr = _dom.find(that.$element.get(0), that.id + '_frozen_rows');
                         if (pr) {
+                            //TODO: use iterator for that.state.value
                             rows = _gu.createRows(that.id, that.state.value, that.frozenColumns, that.renderOptions, that.options.design, that.form.$locale, true);
                             _dom.empty(pr);
                             _dom.append(pr, rows);
                         }
                     }
                     pr = _dom.find(that.$element.get(0), that.id + '_rows');
+                    //TODO: use iterator for that.state.value
                     rows = _gu.createRows(that.id, that.state.value, that.columns, that.renderOptions, that.options.design, that.form.$locale, false);
                     _dom.empty(pr);
                     _dom.append(pr, rows);
@@ -14204,6 +14327,7 @@ var Phoenix;
             BasicGrid.prototype._createRow = function (id) {
                 var that = this;
                 if (that.$element) {
+                    //TODO use iterator that.state.value
                     var item = that.state.value.findById(id);
                     var index = that.state.value.indexOf(item);
                     var pr = void 0, nr = void 0, hasFc = _gu.hasFrozenColumns(that.renderOptions, that.frozenColumns);
@@ -14252,6 +14376,14 @@ var Phoenix;
                     schemaGroups: that._getGroupsFromSchema(),
                     schemaColumns: that._getColumnsFromSchema(),
                     selectedColumns: that._getSelectedColumns(),
+                    locale: that.form.$locale
+                };
+            };
+            BasicGrid.prototype.getColumnsForFilter = function () {
+                var that = this;
+                return {
+                    schemaGroups: that._getGroupsFromSchema(),
+                    schemaColumns: that.filtrableColumns(),
                     locale: that.form.$locale
                 };
             };
@@ -14318,6 +14450,7 @@ var Phoenix;
                 var opts = that.renderOptions;
                 if (opts.selecting && opts.selecting.row) {
                     opts.selecting.multiselect = !!!opts.selecting.multiselect;
+                    that.state.value.updateSelecting(opts.selecting.multiselect);
                     that._refreshGrid();
                 }
             };
@@ -19031,133 +19164,10 @@ var Phoenix;
             };
             return FilterEditView;
         }());
-        // class RenderModel1 {
-        //     container;
-        //     listContent;
-        //     listeChamps: ListeChamps;
-        //     listeFilters: ListeFilters;
-        //     listeOperateurs: ListeOperateurs;
-        //     listeTypes: ListeTypes;
-        //     options;
-        //     champListView;
-        //     filterListView;
-        //     filterEditView;
-        //     constructor(listeChamps: ListeChamps, listeFilters: ListeFilters, listeOperateurs: ListeOperateurs, listeTypes: ListeTypes, options?) {
-        //         this.listeChamps = listeChamps;
-        //         this.listeFilters = listeFilters;
-        //         this.listeOperateurs = listeOperateurs;
-        //         this.listeTypes = listeTypes;
-        //         this.options = options || {};
-        //     }
-        //     createContainer() {
-        //         let that = this;
-        //         let _html = [
-        //             '<div class="row">',
-        //             '<div class="col-sm-4 champ-list">',
-        //             '</div>',
-        //             '<div class="col-sm-8 filter-edit">',
-        //             '</div>',
-        //             '</div>',
-        //             '<div class="row">',
-        //             '<div class="col-sm-12 filter-list">',
-        //             '</div>',
-        //             '</div>'
-        //         ];
-        //         that.container = document.createElement("div");
-        //         _dom.addClass(that.container, "filter-view");
-        //         that.container.innerHTML = _html.join("");
-        //         that.champListView = _dom.query(that.container, ".champ-list");
-        //         that.filterListView = _dom.query(that.container, ".filter-list");
-        //         that.filterEditView = _dom.query(that.container, ".filter-edit");
-        //     }
-        //     render() {
-        //         let that = this;
-        //         that.createContainer();
-        //         if (that.listeChamps.gets().length) {
-        //             that.showChampList();
-        //             that.selecteChamp(that, that.listeChamps.gets()[0].code);
-        //         }
-        //         return that.container;
-        //     }
-        //     showChampList() {
-        //         let that = this;
-        //         let list = document.createElement("select");
-        //         list.multiple = false;
-        //         _dom.attr(list, "size", that.options.listSize || "7");
-        //         _dom.addClass(list, "form-control");
-        //         list.addEventListener("change", function(event) {
-        //             let target = <HTMLSelectElement> event.target;
-        //             that.selecteChamp(that, (<HTMLOptionElement>target.options[target.selectedIndex]).value);
-        //         }, false);
-        //         _dom.append(that.champListView, list);
-        //         let option = document.createElement("option");
-        //         that.listeChamps && that.listeChamps.gets().forEach(function(champ, key) {
-        //             let optionClone = <HTMLOptionElement> option.cloneNode(true);
-        //             optionClone.value = champ.code;
-        //             optionClone.textContent = champ.libelle;
-        //             _dom.append(list, optionClone);
-        //         });
-        //     }
-        //     selecteChamp(that, codeChamp) {
-        //         let select = <HTMLSelectElement> _dom.query(that.champListView, 'select');
-        //         let length = select.options.length;
-        //         for (var i = 0; i < length; i++) {
-        //             let option = <HTMLOptionElement>select.options.item(i);
-        //             if (option.selected) option.selected = false;
-        //         }
-        //         let newOption = <HTMLOptionElement> _dom.query(that.champListView, 'option[value="' + codeChamp + '"]');
-        //         if (newOption) newOption.selected = true;
-        //         that.updateFilter(that, codeChamp);
-        //         let filters = that.listeFilters.getsByChamp(codeChamp);
-        //         let filter = null;
-        //         if (filters && filters.length)
-        //             filter = filters[0];
-        //         that.showFilterList(that, filter);
-        //     }
-        //     showFilterList(that, filter?) {
-        //         let editView = new FilterListView(that.listeChamps, that.listeFilters, that.listeOperateurs, function(action, data) {
-        //             if (action == "EDIT") {
-        //                 let filter = that.listeFilters.get(data.id);
-        //                 if (filter)
-        //                     that.selecteChamp(that, filter.code);
-        //             }
-        //             else
-        //                 that.removeFilter(that, data.id);
-        //         }, filter);
-        //         _dom.empty(that.filterListView);
-        //         editView.render(that.filterListView);
-        //     }
-        //     updateFilter(that, codeChamp) {
-        //         let champ = that.listeChamps.get(codeChamp);
-        //         let filters = that.listeFilters.getsByChamp(codeChamp);
-        //         let filter = null;
-        //         if (filters && filters.length)
-        //             filter = filters[0];
-        //         let editView = new FilterEditView(champ, that.listeFilters, that.listeOperateurs, that.listeTypes, function(data) {
-        //             that.addFilter(that, data);
-        //         }, filter, that.options);
-        //         _dom.empty(that.filterEditView);
-        //         editView.render(that.filterEditView);
-        //     }
-        //     addFilter(that, data) {
-        //         let filters = that.listeFilters.getsByChamp(data.code);
-        //         let filter;
-        //         if (!that.options.multiple && filters && filters.length)
-        //             filter = that.listeFilters.set(filters[0].id, data);
-        //         else
-        //             filter = that.listeFilters.add(data.code, data.op, data.values);
-        //         that.showFilterList(that, filter);
-        //     }
-        //     removeFilter(that, codeFilter) {
-        //         let codeChamp = that.listeFilters.get(codeFilter).code;
-        //         that.listeFilters.remove(codeFilter);
-        //         that.selecteChamp(that, codeChamp);
-        //         that.showFilterList(that);
-        //     }
-        // }
         var RenderModel1 = (function () {
-            function RenderModel1(listeChamps, listeFilters, listeOperateurs, listeTypes, options) {
+            function RenderModel1(listeChamps, listeChampsArbre, listeFilters, listeOperateurs, listeTypes, options) {
                 this.listeChamps = listeChamps;
+                this.listeChampsArbre = listeChampsArbre;
                 this.listeFilters = listeFilters;
                 this.listeOperateurs = listeOperateurs;
                 this.listeTypes = listeTypes;
@@ -19167,9 +19177,9 @@ var Phoenix;
                 var that = this;
                 var _html = [
                     '<div class="row">',
-                    '<div class="col-sm-4 champ-list">',
+                    '<div class="col-sm-5 champ-list">',
                     '</div>',
-                    '<div class="col-sm-8 filter-edit">',
+                    '<div class="col-sm-7 filter-edit">',
                     '</div>',
                     '</div>',
                     '<div class="row">',
@@ -19194,40 +19204,50 @@ var Phoenix;
                 return that.container;
             };
             RenderModel1.prototype.showChampList = function () {
+                // let that = this;
+                // let list = $('<div class="list-group"></div>').get(0);
+                // list.addEventListener("click", function (event) {
+                //     item = <HTMLLinkElement>event.target;
+                //     if (item["href"]) {
+                //         var href = _dom.attr(item, 'href');
+                //         if (href === '#') {
+                //             event.preventDefault();
+                //             event.stopPropagation();
+                //         }
+                //     }
+                //     let champCode = _dom.attr(item, "data-code");
+                //     if (champCode)
+                //         that.selecteChamp(that, champCode);
+                // }, false);
+                // let listHeightSize = 70 * (that.options.listSize || 7);
+                // let containerScroll = $('<div style="overflow-y:auto;max-height:' + listHeightSize + 'px;"></div>').get(0);
+                // _dom.append(containerScroll, list);
+                // _dom.append(that.champListView, containerScroll);
+                // let item = $('<a href="#" class="list-group-item"></a>').get(0);
+                // that.listeChamps && that.listeChamps.gets().forEach(function (champ, key) {
+                //     let itemClone = <HTMLLinkElement>item.cloneNode(true);
+                //     _dom.attr(itemClone, "data-code", champ.code);
+                //     _dom.text(itemClone, champ.libelle);
+                //     _dom.append(list, itemClone);
+                // });
                 var that = this;
-                var list = $('<div class="list-group"></div>').get(0);
-                list.addEventListener("click", function (event) {
-                    item = event.target;
-                    if (item["href"]) {
-                        var href = _dom.attr(item, 'href');
-                        if (href === '#') {
-                            event.preventDefault();
-                            event.stopPropagation();
-                        }
-                    }
-                    var champCode = _dom.attr(item, "data-code");
-                    if (champCode)
-                        that.selecteChamp(that, champCode);
-                }, false);
-                var listHeightSize = 70 * (that.options.listSize || 7);
-                var containerScroll = $('<div style="overflow-y:auto;max-height:' + listHeightSize + 'px;"></div>').get(0);
-                _dom.append(containerScroll, list);
-                _dom.append(that.champListView, containerScroll);
-                var item = $('<a href="#" class="list-group-item"></a>').get(0);
-                that.listeChamps && that.listeChamps.gets().forEach(function (champ, key) {
-                    var itemClone = item.cloneNode(true);
-                    _dom.attr(itemClone, "data-code", champ.code);
-                    _dom.text(itemClone, champ.libelle);
-                    _dom.append(list, itemClone);
+                that._multiSelectList = new ui.MultiSelectList(this.listeChampsArbre, { maxHeight: "auto" }, function (data) {
+                    if (data && data.data.name)
+                        that.selecteChamp(that, data.data.name);
                 });
+                var listHeightSize = 70 * (that.options.listSize || 7);
+                var containerScroll = $('<div style="border: 1px solid #dddddd; overflow:auto;max-height:' + listHeightSize + 'px;"></div>').get(0);
+                that._multiSelectList.render(containerScroll);
+                _dom.append(that.champListView, containerScroll);
             };
             RenderModel1.prototype.selecteChamp = function (that, codeChamp) {
-                var oldItem = _dom.query(that.champListView, ".active");
-                var newItem = _dom.query(that.champListView, 'a[data-code="' + codeChamp + '"]');
-                if (oldItem)
-                    _dom.removeClass(oldItem, "active");
-                if (newItem)
-                    _dom.addClass(newItem, "active");
+                // let oldItem = _dom.query(that.champListView, ".active");
+                // let newItem = _dom.query(that.champListView, 'a[data-code="' + codeChamp + '"]');
+                // if (oldItem)
+                //     _dom.removeClass(oldItem, "active");
+                // if (newItem)
+                //     _dom.addClass(newItem, "active");
+                that._multiSelectList.addItem(codeChamp);
                 that.updateFilter(that, codeChamp);
                 var filters = that.listeFilters.getsByChamp(codeChamp);
                 var filter = null;
@@ -19281,9 +19301,9 @@ var Phoenix;
         }());
         var RenderModel2 = (function (_super) {
             __extends(RenderModel2, _super);
-            function RenderModel2(listeChamps, listeFilters, listeOperateurs, listeTypes, options, callback) {
+            function RenderModel2(listeChamps, listeChampsArbre, listeFilters, listeOperateurs, listeTypes, options, callback) {
                 options.btnValidate = true;
-                _super.call(this, listeChamps, listeFilters, listeOperateurs, listeTypes, options);
+                _super.call(this, listeChamps, listeChampsArbre, listeFilters, listeOperateurs, listeTypes, options);
                 this._callback = callback;
             }
             RenderModel2.prototype.createContainer = function () {
@@ -19427,65 +19447,6 @@ var Phoenix;
             return TagView;
         }(ui.AbsField));
         _ui.registerControl(TagView, "array", false, 'tagview');
-        //export class CheckBoxElement {
-        //    config: any;
-        //    data: any;
-        //    props: any;
-        //    protected $element;
-        //    protected options;
-        //    constructor(config, options?) {
-        //        let that = this;
-        //        that.config = config || {};
-        //        that.options = that.options || {};
-        //        that.data = {
-        //            value: config.value
-        //        };
-        //        that.props = {};
-        //        that._defineProps();
-        //    }
-        //    private _defineProps(): void {
-        //        let that = this, _dp = utils.defineProperty;
-        //        _dp("value", that);
-        //    }
-        //    private _notifyChange(propertyName: string): void {
-        //        var that = this;
-        //        switch (propertyName) {
-        //            case "value":
-        //                that.update();
-        //                break;
-        //        }
-        //    }
-        //    protected createElement(index, config, data) {
-        //        let css = ["bs-button btn"];
-        //        if (config.type)
-        //            css.push('btn-' + config.type);
-        //        if (config.right)
-        //            css.push("pull-right");
-        //        let html = [
-        //            '<button tool="' + index + '" type="button" class="' + css.join(" ") + '">',
-        //            (config.icon ? '<span class="' + _dom.iconClass(config.icon) + '"></span>' : ''),
-        //            (config.title ? '&nbsp;' + config.title : ''),
-        //            '</button>'
-        //        ];
-        //        return html.join('');
-        //    }
-        //    protected update() { }
-        //    public render($parent) {
-        //        let that = this;
-        //        if (!that.$element) {
-        //            that.$element = $(that.createElement(that.config.id, that.config, that.data.value));
-        //        }
-        //        if ($parent)
-        //            _dom.append($parent.get(0), that.$element.get(0));
-        //        return that.$element;
-        //    }
-        //    public destroy(): void {
-        //        var that = this;
-        //        that.$element = null;
-        //        that.options = null;
-        //        that.config = null;
-        //    }
-        //}
         var CheckBoxList = (function () {
             function CheckBoxList(options) {
                 var that = this;
@@ -19824,13 +19785,13 @@ var Phoenix;
                     var view;
                     switch (options["renderModel"]) {
                         case "model2":
-                            view = new RenderModel2(that.listeChamps, that.listeFilters, that.listeOperateurs, that.listeTypes, options, function (action, data) {
+                            view = new RenderModel2(that.listeChamps, that.listeChampsArbre, that.listeFilters, that.listeOperateurs, that.listeTypes, options, function (action, data) {
                                 if (action == "VALIDE")
                                     that.form.execAction("validate", {});
                             });
                             break;
                         default:
-                            view = new RenderModel1(that.listeChamps, that.listeFilters, that.listeOperateurs, that.listeTypes, options);
+                            view = new RenderModel1(that.listeChamps, that.listeChampsArbre, that.listeFilters, that.listeOperateurs, that.listeTypes, options);
                     }
                     _dom.append(that.$element.get(0), view.render());
                 };
@@ -19884,8 +19845,10 @@ var Phoenix;
                         options["enum"] = [{ code: "true", libelle: "Vrai" }, { code: "false", libelle: "Faux" }];
                         options["format"] = "enum";
                     }
-                    else
+                    else {
                         options["decimals"] = item.decimals;
+                        options["format"] = item.format || null;
+                    }
                     that.listeChamps.add(item.code, item.libelle, item.type, options);
                 });
                 var filters = that.state.value && that.state.value.filters ? that.state.value.filters : [];
@@ -19903,6 +19866,7 @@ var Phoenix;
                     }
                     that.listeFilters.add2(item.code, item.op, values2.length ? values2 : values);
                 });
+                that.listeChampsArbre = that.state.value && that.state.value.entree ? that.state.value.model().entree : [];
             };
             ComposantFilter.prototype._state = function () {
                 var that = this;
@@ -19959,6 +19923,7 @@ var Phoenix;
                 code: code,
                 libelle: libelle,
                 type: type,
+                format: options.format || null,
                 decimals: options.decimals,
                 enum: options.enum,
                 enumName: options.enumName,
@@ -20032,9 +19997,9 @@ var Phoenix;
                 }
                 function like(code, type, value) {
                     return {
-                        $left: 'contains(' + code + ', \'' + value + '\')',
-                        $op: "eq",
-                        $right: true
+                        $left: 'contains(' + code + ',\'' + value + '\')',
+                        $op: null,
+                        $right: null
                     };
                 }
             };
@@ -20047,11 +20012,12 @@ var Phoenix;
         ui.filterData = {
             filter: {
                 champs: [],
-                filters: []
+                filters: [],
+                entree: []
             }
         };
-        _ui["glbGridFilter"] = function (filtrableColumns, documents, locale) {
-            if (!filtrableColumns.length)
+        _ui["glbGridFilter"] = function (params, documents, locale) {
+            if (!params.schemaColumns.length)
                 return;
             var layout = {
                 "name": "filtre",
@@ -20087,6 +20053,7 @@ var Phoenix;
                                         "code": { "type": "string" },
                                         "libelle": { "type": "string" },
                                         "type": { "type": "string" },
+                                        "format": { "type": "string" },
                                         "decimals": { "type": "number" },
                                         "enumName": { "type": "string" },
                                         "enum": {
@@ -20134,6 +20101,23 @@ var Phoenix;
                                         }
                                     }
                                 }
+                            },
+                            "entree": {
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "properties": {
+                                        "title": {
+                                            "type": "string"
+                                        },
+                                        "name": {
+                                            "type": "string"
+                                        },
+                                        "items": {
+                                            "type": "array"
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
@@ -20141,7 +20125,7 @@ var Phoenix;
             };
             if (ui.filterData.filter.champs.length)
                 ui.filterData.filter.champs.splice(0);
-            filtrableColumns.forEach(function (item) {
+            params.schemaColumns.forEach(function (item) {
                 var sc = $.extend(true, {}, item.schema);
                 switch (sc.type) {
                     case "number":
@@ -20156,8 +20140,10 @@ var Phoenix;
                         return { code: en, libelle: item.schema.enumNames ? item.schema.enumNames[i] : en };
                     });
                 }
-                _ui.filter.addField2(ui.filterData.filter.champs, item.name, sc.title, sc.type, { decimals: sc.decimals, enum: sc.enum });
+                _ui.filter.addField2(ui.filterData.filter.champs, item.name, sc.title, sc.type, { decimals: sc.decimals, enum: sc.enum, format: sc.format });
             });
+            if (ui.filterData.filter.entree)
+                ui.filterData.filter.entree = ui.multiSelectUtils.transformPropsToMultiselectFormat(params.schemaColumns, params.schemaGroups);
             var opts = { "title": "Filtre", "buttons": [{ "pattern": "validate" }] };
             _ui.OpenModalForm(opts, layout, model, ui.filterData, locale, function (form, action, model, formControl) {
                 switch (action.property) {
@@ -20327,7 +20313,7 @@ var Phoenix;
                     sortie: ui.multiSelectUtils.transformSelectedColumnsToMultiSelectFormat(params.schemaColumns, params.selectedColumns)
                 }
             };
-            var opts = { "title": params.locale.settingsTitle || "Choix de colonnes", "buttons": [{ "pattern": "validate" }] };
+            var opts = { "title": params.locale.settingsTitle || "Options", "buttons": [{ "pattern": "validate" }] };
             _ui.OpenModalForm(opts, layout, model, ldata, locale, function (form, action, model, formControl) {
                 switch (action.property) {
                     case "validate":
@@ -20425,8 +20411,8 @@ var Phoenix;
                         id: "name",
                         lib: "title"
                     },
-                    expandIcon: "plus",
-                    collapseIcon: "minus",
+                    expandIcon: "plus-sign",
+                    collapseIcon: "minus-sign",
                     checkedIcon: 'check',
                     uncheckedIcon: 'unchecked',
                     itemIcon: "",
@@ -20552,6 +20538,7 @@ var Phoenix;
                             else if (options.groupLink) {
                                 _dom.attr(item.component, "data-event", "click");
                                 _dom.attr(item.component, "data-action", "selectitem");
+                                _dom.addClass(item.component, "bs-cursor-p");
                             }
                             that._createIcon(item.component, options.groupIcon);
                         }
@@ -20566,10 +20553,11 @@ var Phoenix;
                             else if (options.itemLink) {
                                 _dom.attr(item.component, "data-event", "click");
                                 _dom.attr(item.component, "data-action", "selectitem");
+                                _dom.addClass(item.component, "bs-cursor-p");
                             }
                             that._createIcon(item.component, options.itemIcon);
                         }
-                        _dom.append(item.component, document.createTextNode(item[that._title] || item[that._name]));
+                        _dom.append(item.component, $('<span>' + (item[that._title] || item[that._name]) + '</span>').get(0));
                         _dom.attr(item.component, "data-id", item[that._name]);
                     });
                 }
@@ -20663,12 +20651,13 @@ var Phoenix;
                 var oldHTML = _dom.query(that._container, ".active");
                 if (oldHTML)
                     _dom.removeClass(oldHTML, "active");
+                that._selectedItems.splice(0);
                 var item = that._getItem(that._nodes, name);
                 if (!item)
                     return;
+                that._showItem(name);
                 _dom.addClass(item.component, "active");
                 item = that._getItem(that._data, name);
-                that._selectedItems.splice(0);
                 if (item) {
                     that._selectedItems.push(item);
                     if (callback)
@@ -20717,6 +20706,35 @@ var Phoenix;
                     if (callback)
                         callback({ action: action, data: item });
                 }
+            };
+            MultiSelectList.prototype._showItem = function (name) {
+                var that = this;
+                var item = that._getItem(that._nodes, name);
+                if (item) {
+                    var parent_1 = item.parent;
+                    while (parent_1) {
+                        displayItem(parent_1.items, true);
+                        var gHTML = _dom.query(parent_1.component, ".icon-group");
+                        that._addIcon(gHTML, that._options.collapseIcon, "icon-group bs-cursor-p");
+                        _dom.attr(gHTML, "data-action", "collapse");
+                        parent_1 = parent_1.parent;
+                    }
+                    that._renderItems(that._nodes);
+                }
+                function displayItem(items, open) {
+                    items.forEach(function (item) {
+                        item.show = open;
+                        if (item.items) {
+                            displayItem(item.items, false);
+                            var ic = _dom.query(item.component, ".icon-group");
+                            if (ic) {
+                                that._addIcon(ic, that._options.expandIcon, "icon-group bs-cursor-p");
+                                _dom.attr(ic, "data-action", "expand");
+                            }
+                        }
+                    });
+                }
+                ;
             };
             MultiSelectList.prototype.addItem = function (name) {
                 var that = this;
@@ -20988,7 +21006,7 @@ var Phoenix;
             };
             PillBox.prototype._setEvents = function () {
                 var that = this;
-                if (that._container)
+                if (that._container) {
                     that._container.addEventListener("click", function (event) {
                         var target = event.target;
                         if (target && _dom.attr(target, "data-event") === "click") {
@@ -20999,7 +21017,11 @@ var Phoenix;
                                 that._removeTag(name_2, that._callback);
                             }
                         }
+                        var input = _dom.query(that._input, "input");
+                        if (input)
+                            input.focus();
                     });
+                }
                 if (that._input) {
                     that._input.addEventListener("keyup", function (event) {
                         var target = event.target;
@@ -21007,6 +21029,7 @@ var Phoenix;
                             var input = target;
                             that._addTag(input.value, that._callback);
                             input.value = "";
+                            input.focus();
                         }
                     });
                     that._input.addEventListener("keypress", function (event) {
@@ -21188,7 +21211,7 @@ var Phoenix;
             ComposantMultiSelect.prototype.stateChanged = function (propName) {
             };
             ComposantMultiSelect.prototype._template = function (id) {
-                return _utils.format('<div id="{0}" data-render="{0}"><div data-id="pillbox"></div><div data-id="multiselect"></div></div>', id);
+                return _utils.format('<div id="{0}" data-render="{0}"><h5 class="bs-block-title">Choix de colonnes</h5><div data-id="pillbox"></div><h5 class="bs-block-title">Liste de champs</h5><div data-id="multiselect" style="overflow-y:auto;max-height:300px;border: 1px solid #dddddd;"></div></div>', id);
             };
             ComposantMultiSelect.prototype.render = function ($parent) {
                 var that = this;

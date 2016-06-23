@@ -613,7 +613,7 @@ tr.bs-table-row.even {
 }
 
 .bs-treeview {
-  overflow-y: auto;
+  white-space: nowrap;
 }
 .bs-treeview span.indent {
   margin-left: 10px;
@@ -627,8 +627,8 @@ tr.bs-table-row.even {
   margin-right: 5px;
 }
 .bs-treeview.noborder {
+  border: 0 none;
   box-shadow: none;
-  border: 1px solid #dddddd;
 }
 .bs-treeview li.noborder {
   border: 0 none;
@@ -688,8 +688,12 @@ tr.bs-table-row.even {
   margin-right: 0;
 }
 .bs-pillbox > li > input {
-  border: none;
+  border: 1px solid white;
   display: inline;
+}
+.bs-pillbox > li > input:focus {
+  border: 1px solid white;
+  outline: none;
 }
 .bs-pillbox > li.item.item-tag span.icon.icon-remove {
   width: 30px;
