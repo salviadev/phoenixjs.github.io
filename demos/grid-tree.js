@@ -75,10 +75,6 @@ $(function () {
 					}
 
 				]
-			},
-			{
-				"$type": "block",
-				"$items": [{ "$bind": "$links.action" }]
 			}
 		]
 	};
