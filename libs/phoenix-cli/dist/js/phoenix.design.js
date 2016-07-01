@@ -1774,7 +1774,7 @@ var Phoenix;
                 }, this);
                 _ipc.listen('onFormData', function (value) {
                     if (value.schema) {
-                        var fields = _sutils.schema2Authoring(value.schema, value.locale);
+                        var fields = _sutils.schema2Authoring(value.schema, value.schema, value.locale);
                         this.updateFieldItems(fields);
                     }
                 }, this);

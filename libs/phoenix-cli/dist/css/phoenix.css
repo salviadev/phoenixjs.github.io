@@ -188,15 +188,18 @@
   margin-top: -4px;
   margin-bottom: -4px;
 }
+.bs-expand-space {
+  padding-right: 4px;
+}
 .bs-image-center,
-.bs-image-cell > span {
+.bs-image-cell > span.bs-image-size {
   font-size: 120%;
 }
 .bs-image-cell {
   height: 20px;
 }
 .bs-image-center.small-table,
-.bs-image-cell.small-table > span {
+.bs-image-cell.small-table > span.bs-image-size {
   font-size: 110%;
 }
 .bs-bool-edit {
@@ -667,24 +670,29 @@ tr.bs-table-row.even {
   color: #ff6600;
 }
 .bs-pillbox {
+  position: relative;
   padding: 0 2px;
   border: 1px solid #d5d5d5;
   font-size: 12px;
 }
-.bs-pillbox > li.item {
+.bs-pillbox-item {
   line-height: 30px;
   display: inline-block;
   position: relative;
 }
-.bs-pillbox > li.item.item-tag {
+.bs-pillbox-item-tag {
   margin: 2px 2px 2px 0;
   padding: 0 10px;
   padding-right: 40px;
   background-color: #337ab7;
   color: white;
   border-radius: 4px;
+  cursor: initial;
 }
-.bs-pillbox > li.item.item-tag:last-child {
+.bs-pillbox-item-tag.focus {
+  background-color: #5a5858;
+}
+.bs-pillbox-item-tag:last-child {
   margin-right: 0;
 }
 .bs-pillbox > li > input {
@@ -695,7 +703,7 @@ tr.bs-table-row.even {
   border: 1px solid white;
   outline: none;
 }
-.bs-pillbox > li.item.item-tag span.icon.icon-remove {
+.bs-pillbox-item-tag span.icon.icon-remove {
   width: 30px;
   height: 30px;
   position: absolute;
@@ -704,6 +712,9 @@ tr.bs-table-row.even {
   padding-top: 8px;
   right: 0;
   text-align: center;
+}
+.bs-pillbox-item-tag {
+  cursor: default;
 }
 
 .bs-style-island {
@@ -741,7 +752,11 @@ tr.bs-table-row.even {
 .bs-toolbar {
   padding: 5px 0;
 }
-.bs-toolbarandgrid-count {
+.bs-toolbar-item {
+  display: inline-block;
+  margin-left: 4px;
+}
+.bs-toolbar-item-count {
   display: inline-block !important;
   min-width: 35px;
   height: 34px;
@@ -751,7 +766,7 @@ tr.bs-table-row.even {
   padding: 0 8px !important;
   border-radius: 10px !important;
 }
-.bs-toolbar-filter > span {
+.bs-toolbar-item-filter > span {
   display: inline-block;
   max-width: 200px;
   white-space: nowrap;
@@ -759,9 +774,6 @@ tr.bs-table-row.even {
   text-overflow: ellipsis;
   vertical-align: middle;
   padding-left: 5px;
-}
-.bs-toolbar > .input-group {
-  margin-left: 4px;
 }
 
 /* Mode design */
@@ -1383,4 +1395,8 @@ th {
 }
 html {
   font-size: 14px;
+}
+.glyphicon-none:before {
+  content: "\2122";
+  color: transparent !important;
 }
