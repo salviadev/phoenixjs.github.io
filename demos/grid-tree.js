@@ -55,9 +55,8 @@ $(function () {
 							},
                             "toolbar": {
 								"items": [
-									{
-										"type": "multiselect"
-									}
+									{ "type": "multiselect" },
+									{ "type": "button", "icon": "wrench", "name": "settings" }
 								]
 							},
 

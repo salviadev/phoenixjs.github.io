@@ -13201,7 +13201,7 @@ var Phoenix;
 (function (Phoenix) {
     var ui;
     (function (ui) {
-        var _ui = ui, _utils = Phoenix.utils, _dom = Phoenix.dom, _ui = ui, _ulocale = Phoenix.ulocale, _gu = _ui.GridUtil, _eu = Phoenix.Observable.errorsUtils, _link = Phoenix.link, _locale = Phoenix.locale, _drag = Phoenix.drag, _events = Phoenix.events, _sutils = Phoenix.Observable.SchemaUtils;
+        var _ui = ui, _utils = Phoenix.utils, _dom = Phoenix.dom, _ui = ui, _ulocale = Phoenix.ulocale, _observable = Phoenix.Observable, _gu = _ui.GridUtil, _eu = _observable.errorsUtils, _link = Phoenix.link, _locale = Phoenix.locale, _drag = Phoenix.drag, _events = Phoenix.events, _sutils = _observable.SchemaUtils;
         var MIN_COL_WIDTH = 20, MAX_COL_WIDTH = 2000;
         var withModifier = function ($event, key) {
             if (key === _dom.keys.VK_TAB && $event.shiftKey)
@@ -13248,7 +13248,10 @@ var Phoenix;
                 opts.columns = opts.columns || [];
                 opts.columns.forEach(function (col) {
                     col.options = col.options || {};
-                    that._originalCols[col.$bind] = $.extend(true, {}, col);
+                    if (col.$bind === _observable.EXPANDED_FIELD_NAME && col.options.display) {
+                        that._originalCols[col.options.display] = $.extend(true, {}, col);
+                        that._originalCols[col.options.display].options._expandItem = true;
+                    }
                 });
             };
             BasicGrid.prototype.checkOptions = function (opts) {
@@ -13723,6 +13726,9 @@ var Phoenix;
                     if (!oldCol)
                         oldCol = that._originalCols[col.$bind];
                     if (oldCol) {
+                        if (oldCol.options._expandItem) {
+                            col.$bind = _observable.EXPANDED_FIELD_NAME;
+                        }
                         col.options = oldCol.options;
                     }
                     return col;
@@ -14793,6 +14799,7 @@ var Phoenix;
                     var index = 0;
                     var ii = that._viewMap[item.$id];
                     if (!ii) {
+                        //TODO find level when expandingProperty is not null
                         ii = { level: 0, value: item };
                         that._view.push(ii);
                         that._view.push(item.$id);
@@ -14832,7 +14839,12 @@ var Phoenix;
             };
             BasicGrid.prototype._getSelectedColumns = function () {
                 var that = this, res = {};
-                Object.keys(that._mapCols).forEach(function (key) { res[key] = true; });
+                Object.keys(that._mapCols).forEach(function (key) {
+                    var c = that._mapCols[key].column;
+                    if (c.options._expandItem && c.options.display)
+                        key = c.options.display;
+                    res[key] = true;
+                });
                 return res;
             };
             BasicGrid.prototype._getGroupsFromSchema = function () {
