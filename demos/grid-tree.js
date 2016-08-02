@@ -6,6 +6,10 @@ $(function () {
 			"documents": {
 				"type": "array",
 				"items": { "$ref": "#/definitions/Population" }
+			},
+			"totals": {
+				"type": "array",
+				"items": { "$ref": "#/definitions/Population" }
 			}
 
 		},
@@ -53,6 +57,9 @@ $(function () {
 								"row": true,
                                 "multiselect": false
 							},
+							"total": {
+								"property": "totals"
+							},
                             "toolbar": {
 								"items": [
 									{ "type": "multiselect" },
@@ -73,7 +80,8 @@ $(function () {
 						}
 					}
 
-				]
+				],
+				totals: [{ "Area": 209331555, "Population": 5969056888 }]
 			}
 		]
 	};

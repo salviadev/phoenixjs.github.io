@@ -8,7 +8,7 @@
     "@gray-lighter": "lighten(@gray-base, 93.5%)",
     "@brand-primary": "darken(#428bca, 6.5%)",
     "@brand-success": "#5cb85c",
-    "@brand-info": "#1972cc",
+    "@brand-info": "#5bc0de",
     "@brand-warning": "#f0ad4e",
     "@brand-danger": "#d9534f",
     "@body-bg": "#fff",
@@ -16,7 +16,7 @@
     "@link-color": "@brand-primary",
     "@link-hover-color": "darken(@link-color, 15%)",
     "@link-hover-decoration": "underline",
-    "@font-family-sans-serif": "'Montserrat', \"Helvetica Neue\", Helvetica, Arial, sans-serif",
+    "@font-family-sans-serif": "\"Montserrat\", \"Helvetica Neue\", Helvetica, Arial, sans-serif",
     "@font-family-serif": "Georgia, \"Times New Roman\", Times, serif",
     "@font-family-monospace": "Menlo, Monaco, Consolas, \"Courier New\", monospace",
     "@font-family-base": "@font-family-sans-serif",
@@ -163,8 +163,8 @@
     "@navbar-default-toggle-icon-bar-bg": "#888",
     "@navbar-default-toggle-border-color": "#ddd",
     "@navbar-inverse-color": "lighten(@gray-light, 15%)",
-    "@navbar-inverse-bg": "#525050",
-    "@navbar-inverse-border": "#595656",
+    "@navbar-inverse-bg": "#222",
+    "@navbar-inverse-border": "darken(@navbar-inverse-bg, 10%)",
     "@navbar-inverse-link-color": "lighten(@gray-light, 15%)",
     "@navbar-inverse-link-hover-color": "#fff",
     "@navbar-inverse-link-hover-bg": "transparent",
@@ -431,5 +431,5 @@
     "scrollspy.js",
     "transition.js"
   ],
-  "customizerUrl": "http://getbootstrap.com/customize/?id=92c6e1dd809c8ec4902f"
+  "customizerUrl": "http://getbootstrap.com/customize/?id=26ee6ead4fb2649d328eb4cbf1c18401"
 }

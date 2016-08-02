@@ -30,6 +30,12 @@ var Phoenix;
             return value.replace(/{([^{]*)}/g, function (match, val) {
                 return params[val] || '';
             });
+        }, _isNull = function (value) {
+            return value === null;
+        }, _isUndefined = function (value) {
+            return value === undefined;
+        }, _isNullOrUndefined = function (value) {
+            return value === null || value === undefined;
         }, _merge = function (src, dst) {
             for (var p in src) {
                 dst[p] = src[p];
@@ -228,6 +234,9 @@ var Phoenix;
         utils.log = _log;
         utils.equals = _equals;
         utils.copy = _copy;
+        utils.isNull = _isNull;
+        utils.isUndefined = _isUndefined;
+        utils.isNullOrUndefined = _isNullOrUndefined;
         utils.escapeHtml = _escapeHtml;
         utils.phoenixPath = _getPath;
         utils.parseExpression = _parseexp;
@@ -681,7 +690,8 @@ var Phoenix;
         }, _afterLogout = [], _db = function () {
             var db = null;
             try {
-                db = (_build.release ? window.sessionStorage : window.localStorage);
+                //db = (_build.release ? window.sessionStorage : window.localStorage);
+                db = window.localStorage;
             }
             catch (ex) {
                 db = null;
@@ -4186,7 +4196,7 @@ var Phoenix;
         };
         var _createModal = function (options, locale) {
             var html = [
-                '<div class="modal fade" data-backdrop = "static"  id="{0}" tabindex="-1" role="dialog" aria-labelledby="{0}_label">',
+                '<div class="modal fade" data-backdrop="static"  id="{0}" role="dialog" aria-labelledby="{0}_label">',
                 '	<div class="modal-dialog' + (options.size ? (' modal-' + options.size) : '') + '" role="document">',
                 '		<div class="modal-content">',
                 '		<div class="modal-header">',
@@ -7534,9 +7544,12 @@ var Phoenix;
     (function (Observable) {
         var DEF_LINK = '#/definitions/';
         var DEF_LINK_LEN = DEF_LINK.length;
-        var SELECTED_FIELD_NAME = '$select';
+        Observable.INDEX_FIELD_NAME = '$index';
+        Observable.SELECTED_FIELD_NAME = '$select';
         Observable.EXPANDED_FIELD_NAME = '$expand';
-        var _ulocale = Phoenix.ulocale, _application = Phoenix.application, _ajax = Phoenix.ajax, _dom = Phoenix.dom, _link = Phoenix.link, _data = Phoenix.data, _utils = Phoenix.utils, _ulocale = Phoenix.ulocale, _locale = Phoenix.locale, _customData = Phoenix.customData, _localeSchema = Phoenix.locale.schema, _dsPlugin = Phoenix.DatasetPlugin, _registerEnumManager = function () {
+        var _ulocale = Phoenix.ulocale, _application = Phoenix.application, _ajax = Phoenix.ajax, _dom = Phoenix.dom, _link = Phoenix.link, _data = Phoenix.data, _utils = Phoenix.utils, _ulocale = Phoenix.ulocale, _locale = Phoenix.locale, _customData = Phoenix.customData, _localeSchema = Phoenix.locale.schema, _dsPlugin = Phoenix.DatasetPlugin, _fwFields = [Observable.INDEX_FIELD_NAME, Observable.SELECTED_FIELD_NAME, Observable.EXPANDED_FIELD_NAME], _isFwField = function (fieldName) {
+            return _fwFields.indexOf(fieldName) >= 0;
+        }, _registerEnumManager = function () {
             var _enumsManager = {};
             return {
                 register: function (name, manager) {
@@ -7667,6 +7680,7 @@ var Phoenix;
                 });
                 return res;
             },
+            isFwField: _isFwField,
             columns: function (schema, rootSchema, locale) {
                 var res = [];
                 _enumCompositions(schema, rootSchema, '', false, null, function (prefix, cs, rs, value, array) {
@@ -7905,10 +7919,10 @@ var Phoenix;
                             else {
                                 cs = cs.properties ? cs.properties[s] : null;
                                 if (!cs && i === (len - 1)) {
-                                    if (s === '$index') {
+                                    if (s === Observable.INDEX_FIELD_NAME) {
                                         return { type: 'integer', title: "#", capabilities: null };
                                     }
-                                    else if (s === SELECTED_FIELD_NAME) {
+                                    else if (s === Observable.SELECTED_FIELD_NAME) {
                                         return { type: 'boolean', title: _locale.ui.Selected, capabilities: null };
                                     }
                                     else if (s === Observable.EXPANDED_FIELD_NAME) {
@@ -8346,7 +8360,7 @@ var Phoenix;
                 return schema.type === "boolean";
             },
             isSelectField: function (fieldName) {
-                return fieldName === SELECTED_FIELD_NAME;
+                return fieldName === Observable.SELECTED_FIELD_NAME;
             },
             isExpandField: function (fieldName) {
                 return fieldName === Observable.EXPANDED_FIELD_NAME;
@@ -9274,14 +9288,14 @@ var Phoenix;
                     index++;
                     var list = item[expandingProperty];
                     if (list && list.$expand) {
-                        index = list._expandForEach(cb, expandingProperty, level++, index);
+                        index = list._expandForEach(cb, expandingProperty, level + 1, index);
                     }
                 });
                 return index;
             };
             DataListCore.prototype.forEach = function (cb, expandingProperty) {
                 if (!expandingProperty)
-                    return this._items.forEach(cb);
+                    return this._items.forEach(function (item, index) { return cb(item, index, 0); });
                 this._expandForEach(cb, expandingProperty, 0, 0);
             };
             DataListCore.prototype.get = function (index) { return this._items[index]; };
@@ -9764,7 +9778,7 @@ var Phoenix;
                 that._rootParent = parent ? parent._rootParent : that;
                 that.$id = _utils.allocID();
                 that.$create = false;
-                that._selected = false;
+                that._selected = value && value.$select ? true : false;
                 that._model = {};
                 that.datasets = datasets;
                 that.transform = transform;
@@ -10085,7 +10099,7 @@ var Phoenix;
             };
             Data.prototype.getValue = function (path, params) {
                 var that = this;
-                if (path == '')
+                if (!path)
                     return that;
                 var v = that, segments = path.split('.'), propertyName = segments.pop(), cpath = [];
                 for (var i = 0, len = segments.length; i < len; i++) {
@@ -10143,14 +10157,14 @@ var Phoenix;
                         //TODO : params for $item
                         cs = cs[s];
                     }
-                    else if (i == len && s == "$links") {
-                        islink = true;
-                        break;
+                    else if (i === len) {
+                        if (s === "$links") {
+                            islink = true;
+                            break;
+                        }
                     }
-                    else {
-                        ps = cs.$states[s] ? cs.$states[s].state() : null;
-                        cs = cs[s];
-                    }
+                    ps = cs.$states[s] ? cs.$states[s].state() : null;
+                    cs = cs[s];
                     if (!cs || cs.isNull || cs.isUndefined) {
                         res.isDisabled = true;
                     }
@@ -10164,6 +10178,17 @@ var Phoenix;
                         break;
                 }
                 var state = {};
+                if (!islink) {
+                    if (propertyName === Observable.SELECTED_FIELD_NAME) {
+                        return { isDisabled: false, isReadOnly: false, isHidden: false };
+                    }
+                    else if (propertyName === Observable.INDEX_FIELD_NAME) {
+                        return { isDisabled: false, isReadOnly: true, isHidden: false };
+                    }
+                    else if (propertyName === Observable.EXPANDED_FIELD_NAME) {
+                        return { isDisabled: false, isReadOnly: true, isHidden: false };
+                    }
+                }
                 if (cs) {
                     var pp = '$states';
                     if (islink)
@@ -11411,7 +11436,7 @@ var Phoenix;
     var ui;
     (function (ui) {
         var DATE_PICKER_NAME = 'datepicker';
-        var _render = Phoenix.render, _ui = ui, _dom = Phoenix.dom, _device = Phoenix.device, _observable = Phoenix.Observable, _bootstrap4 = Phoenix.bootstrap4, _ulocale = Phoenix.ulocale, _locale = Phoenix.locale, _customData = Phoenix.customData, _sutils = _observable.SchemaUtils, _registerControl = function (factory, type, isEnum, widget, options) {
+        var _render = Phoenix.render, _ui = ui, _dom = Phoenix.dom, _utils = Phoenix.utils, _device = Phoenix.device, _observable = Phoenix.Observable, _bootstrap4 = Phoenix.bootstrap4, _ulocale = Phoenix.ulocale, _locale = Phoenix.locale, _customData = Phoenix.customData, _sutils = _observable.SchemaUtils, _registerControl = function (factory, type, isEnum, widget, options) {
             isEnum = isEnum || false;
             widget = widget || '';
             if (isEnum)
@@ -11623,11 +11648,17 @@ var Phoenix;
                 return textValue;
             },
             defaultOptions: { titleIsHidden: false, placeHolder: false, labelCol: 3 },
-            displayValue: function (value, schema, locale, options) {
+            displayValue: function (value, schema, locale, options, fieldName) {
                 var res;
                 options = options || {};
-                if (value === undefined)
-                    value = '';
+                if (_utils.isNullOrUndefined(value)) {
+                    res = { value: '', html: false };
+                    return res;
+                }
+                if (options.isTotal && _sutils.isFwField(fieldName)) {
+                    res = { value: '', html: false };
+                    return res;
+                }
                 if (schema.enum) {
                     var si = schema.enum.indexOf(value);
                     var dv = si >= 0 ? (schema.enumNames ? _ulocale.tt(schema.enumNames[si], locale) : value) : '';
@@ -11681,6 +11712,10 @@ var Phoenix;
                                 res = { value: idv, html: false };
                             break;
                         case "boolean":
+                            if (options.isTotal) {
+                                res = { value: '', html: false };
+                                return res;
+                            }
                             if (options.avanced && options.avanced.transform) {
                                 res = _transform(value, value ? _locale.ui.Yes : _locale.ui.No, options.avanced.transform);
                             }
@@ -12404,9 +12439,9 @@ var Phoenix;
                 html.push(' draggable="true"');
             html.push(' data-render="{0}"');
         }, _addSortIndicator = function (th, asc) {
-            var lc = _dom.icon(asc ? "caret-up" : "caret-down");
-            _dom.addClass(lc, "bs-basictable-sort");
-            _dom.attr(lc, "sort", "true");
+            var lc = _dom.icon(asc ? 'caret-up' : 'caret-down');
+            _dom.addClass(lc, 'bs-basictable-sort');
+            _dom.attr(lc, 'sort', 'true');
             _dom.append(th.firstElementChild, lc);
         }, _rmvSortIndicator = function (th) {
             var lc = (th.lastElementChild ? th.firstElementChild.lastElementChild : null);
@@ -12425,6 +12460,11 @@ var Phoenix;
                     el = Phoenix.dom.find(parent, id + '_colgrp_frozen');
                     if (el)
                         res.push(el);
+                    if (options.total && options.total.property) {
+                        el = Phoenix.dom.find(parent, id + '_colgrp_frozen_footer');
+                        if (el)
+                            res.push(el);
+                    }
                 }
                 else {
                     el = Phoenix.dom.find(parent, id + '_colgrp_header');
@@ -12433,15 +12473,22 @@ var Phoenix;
                     el = Phoenix.dom.find(parent, id + '_colgrp');
                     if (el)
                         res.push(el);
+                    if (options.total && options.total.property) {
+                        el = Phoenix.dom.find(parent, id + '_colgrp_footer');
+                        if (el)
+                            res.push(el);
+                    }
                 }
             }
-            if (!options.headerIsHidden) {
-                if (isFrozen)
-                    el = Phoenix.dom.find(parent, id + '_frozen_cols');
-                else
-                    el = Phoenix.dom.find(parent, id + '_cols');
-                if (el)
-                    res.push(el);
+            else {
+                if (!options.headerIsHidden) {
+                    if (isFrozen)
+                        el = Phoenix.dom.find(parent, id + '_frozen_cols');
+                    else
+                        el = Phoenix.dom.find(parent, id + '_cols');
+                    if (el)
+                        res.push(el);
+                }
             }
             return res;
         }, _setColumnWidth = function (colId, colsParents, width) {
@@ -12500,7 +12547,7 @@ var Phoenix;
             return 150;
         }, _createDetail = function (id, childBefore) {
             var res = document.createElement('tr');
-            res.className = "bs-table-row-detail";
+            res.className = 'bs-table-row-detail';
             res.id = id + '_detail';
             var td = document.createElement('td');
             td.colSpan = childBefore.childNodes.length;
@@ -12525,7 +12572,7 @@ var Phoenix;
                 var css;
                 var th = document.createElement('th');
                 _dom.attr(th, 'colId', col.$bind);
-                _dom.attr(th, 'data-drag', "move");
+                _dom.attr(th, 'data-drag', 'move');
                 if (!options._useColGrp) {
                     if (col.options.width)
                         th.style.width = _ensureWidth(col.options.width);
@@ -12540,7 +12587,7 @@ var Phoenix;
                 if (options.allowColumnResize && _isPixel(col.options.width)) {
                     var re = document.createElement('div');
                     re.className = 'bs-col-resize';
-                    _dom.attr(re, 'data-drag', "resize");
+                    _dom.attr(re, 'data-drag', 'resize');
                     _dom.attr(th, 'colId', col.$bind);
                     _dom.append(cth, re);
                 }
@@ -12569,20 +12616,20 @@ var Phoenix;
         */
         _createGridRow = function (id, index, row, values, columns, options, authoring, locale) {
             var tr = document.createElement('tr');
-            if (options.align === "middle")
-                _dom.addClass(tr, "bs-va-middle");
+            if (options.align === 'middle')
+                _dom.addClass(tr, 'bs-va-middle');
             columns.forEach(function (col, colIndex) {
                 var td = document.createElement('td');
                 if (colIndex == 0) {
                     _dom.append(td, document.createTextNode(row.schema.title || String.fromCharCode(160)));
                 }
                 else {
-                    _dom.attr(td, "rowId", col.id);
-                    _dom.attr(td, "colId", row.name);
-                    td["rowIndex"] = index;
-                    td["colIndex"] = colIndex - 1;
+                    _dom.attr(td, 'rowId', col.id);
+                    _dom.attr(td, 'colId', row.name);
+                    td['rowIndex'] = index;
+                    td['colIndex'] = colIndex - 1;
                     var item = values.get(colIndex - 1);
-                    var v = _ui.Utils.displayValue(item.getRelativeValue(row.name), row.schema, locale, { html: true, useSymbol: true, editable: row.canEdit, check: row.check, avanced: null, tableOptions: options });
+                    var v = _ui.Utils.displayValue(item.getRelativeValue(row.name), row.schema, locale, { html: true, useSymbol: true, editable: row.canEdit, check: row.check, avanced: null, tableOptions: options }, row.name);
                     if (v.html) {
                         var $c = $(v.value);
                         _dom.append(td, $c.get(0));
@@ -12611,14 +12658,15 @@ var Phoenix;
                         _dom.removeClass(ctr, 'bs-row-selected');
                 });
             }
-        }, _createRow = function (id, index, level, row, columns, options, authoring, locale, isOdd, isFrozen) {
+        }, _createRow = function (id, index, level, row, columns, options, authoring, locale, isOdd, isFrozen, isTotal) {
             var tr = document.createElement('tr');
             tr.id = row.$id + (isFrozen ? '_frozen' : '');
             var rcss = ['bs-table-row'];
-            if (options.align === "middle")
+            if (options.align === 'middle')
                 rcss.push('bs-va-middle');
             if (row.$select && options.selecting && options.selecting.row) {
-                rcss.push('bs-row-selected');
+                if (!options.noRowSelectedIndicator)
+                    rcss.push('bs-row-selected');
             }
             if (level)
                 rcss.push('bs-row-level-' + level);
@@ -12626,10 +12674,11 @@ var Phoenix;
             if (!options._useStripedCss) {
                 var isOdd_1 = index % 2 === 1;
                 if (!isOdd_1)
-                    _dom.addClass(tr, "even");
+                    _dom.addClass(tr, 'even');
             }
             columns.forEach(function (col, colIndex) {
                 var td = document.createElement('td');
+                var appendSpace = false;
                 if (index === 0 && options.headerIsHidden && !options._useColGrp) {
                     if (col.options.width)
                         td.style.width = _ensureWidth(col.options.width);
@@ -12644,7 +12693,7 @@ var Phoenix;
                     var isNumber = _su.isNumber(col.schema);
                     var isDate = _su.isDate(col.schema) || _su.isDateTime(col.schema);
                     if (!options._nowrap && (isNumber || isDate))
-                        css.push("nowrap");
+                        css.push('nowrap');
                     if (!align) {
                         if (isNumber)
                             align = 'right';
@@ -12656,104 +12705,102 @@ var Phoenix;
                     css.push(_ui.Utils.align2Css(align));
                 if (css.length)
                     td.className = css.join(' ');
-                _dom.attr(td, "colId", col.$bind);
+                _dom.attr(td, 'colId', col.$bind);
                 var state = row.getRelativeState(col.$bind);
-                if (state.isHidden) {
-                }
-                else {
+                if (!state.isHidden) {
                     if (col.isLink) {
-                        var btn = void 0, span = void 0;
-                        if (col.options.button) {
-                            var _space = "";
-                            btn = document.createElement('button');
-                            btn.type = "button";
-                            if (state.isDisabled)
-                                btn.disabled = true;
-                            var sizeCss = col.options.size === 'normal' ? '' : ' btn-' + (options.size || 'sm');
-                            btn.className = 'bs-button btn btn-' + (col.options.type || 'link') + sizeCss + (state.isDisabled ? ' disabled' : '');
-                            if (col.options.icon) {
+                        if (!isTotal) {
+                            var btn = void 0, span = void 0;
+                            if (col.options.button) {
+                                var _space = '';
+                                btn = document.createElement('button');
+                                btn.type = 'button';
+                                if (state.isDisabled)
+                                    btn.disabled = true;
+                                var sizeCss = col.options.size === 'normal' ? '' : ' btn-' + (options.size || 'sm');
+                                btn.className = 'bs-button btn btn-' + (col.options.type || 'link') + sizeCss + (state.isDisabled ? ' disabled' : '');
+                                if (col.options.icon) {
+                                    span = document.createElement('span');
+                                    span.className = _dom.iconClass(col.options.icon);
+                                    _dom.append(btn, span);
+                                    _space = ' ';
+                                }
+                                if (col.schema.title) {
+                                    var tn = document.createTextNode(_space + col.schema.title);
+                                    _dom.append(btn, tn);
+                                }
+                            }
+                            else if (col.options.icon) {
+                                btn = document.createElement('center');
+                                if (state.isDisabled) {
+                                    _dom.addClass(btn, 'bs-disabled');
+                                }
                                 span = document.createElement('span');
-                                span.className = _dom.iconClass(col.options.icon);
+                                var cssb = ['text-' + (col.options.type || 'default')];
+                                cssb.push('bs-basictable-btn');
+                                cssb.push(_dom.iconClass(col.options.icon));
+                                span.className = cssb.join(' ');
                                 _dom.append(btn, span);
-                                _space = ' ';
                             }
-                            if (col.schema.title) {
-                                var tn = document.createTextNode(_space + col.schema.title);
-                                _dom.append(btn, tn);
+                            else {
+                                appendSpace = true;
                             }
-                        }
-                        else if (col.options.icon) {
-                            btn = document.createElement('center');
-                            if (state.isDisabled) {
-                                _dom.addClass(btn, 'bs-disabled');
+                            if (btn) {
+                                btn['$link'] = col.$bind;
+                                _dom.append(td, btn);
                             }
-                            span = document.createElement('span');
-                            var cssb = ['text-' + (col.options.type || 'default')];
-                            cssb.push("bs-basictable-btn");
-                            cssb.push(_dom.iconClass(col.options.icon));
-                            span.className = cssb.join(' ');
-                            _dom.append(btn, span);
-                        }
-                        else {
-                        }
-                        if (btn) {
-                            btn["$link"] = col.$bind;
-                            _dom.append(td, btn);
                         }
                     }
                     else {
                         var p = td;
                         var co = col.options || {};
-                        var editable = co.editable && !state.isDisabled && !state.isReadOnly && !state.isHidden;
+                        var editable = (options.editing || _su.isSelectField(col.$bind)) && !state.isDisabled && !state.isReadOnly && !state.isHidden;
                         if (!state.isHidden) {
                             var dv = null;
                             if (co.display && co.displaySchema)
-                                dv = _ui.Utils.displayValue(row.getRelativeValue(co.display), co.displaySchema, locale, { tableOptions: options }).value;
-                            var v = _ui.Utils.displayValue(row.getRelativeValue(col.$bind), col.schema, locale, { html: true, useSymbol: false, selectable: co.selectable, editable: editable, check: co.check, avanced: co, tableOptions: options, display: dv, level: level });
+                                dv = _ui.Utils.displayValue(row.getRelativeValue(co.display), co.displaySchema, locale, { tableOptions: options }, co.display).value;
+                            var v = _ui.Utils.displayValue(row.getRelativeValue(col.$bind), col.schema, locale, { html: true, useSymbol: false, selectable: !state.isDisabled, editable: editable, isTotal: isTotal, check: options.editing, avanced: co, tableOptions: options, display: dv, level: level }, col.$bind);
                             if (v.html) {
                                 var $c = $(v.value);
                                 _dom.append(p, $c.get(0));
                             }
-                            else
-                                _dom.append(p, document.createTextNode(v.value));
+                            else {
+                                if (v.value === '')
+                                    appendSpace = true;
+                                else
+                                    _dom.append(p, document.createTextNode(v.value));
+                            }
                         }
                     }
+                }
+                else
+                    appendSpace = true;
+                if (appendSpace) {
+                    _dom.append(td, document.createTextNode(String.fromCharCode(160)));
                 }
                 _dom.append(tr, td);
             });
             return tr;
-        }, _createBulkRows = function (id, rows, columns, options, authoring, locale, isFrozen, cb) {
+        }, _createBulkRows = function (id, rows, columns, options, authoring, locale, isFrozen, isTotal, cb) {
             var frag = document.createDocumentFragment();
             rows && rows.forEach(function (row, rowIndex) {
                 var level = row.level || 0;
                 if (cb)
                     cb(row.value, rowIndex, level);
                 var isOdd = rowIndex % 2 === 1;
-                _dom.append(frag, _createRow(id, rowIndex, level, row.value, columns, options, authoring, locale, isOdd, isFrozen));
+                _dom.append(frag, _createRow(id, rowIndex, level, row.value, columns, options, authoring, locale, isOdd, isFrozen, isTotal));
             });
             return frag;
-        }, _createRows = function (id, rows, columns, options, authoring, locale, isFrozen, cb) {
+        }, _createRows = function (id, rows, columns, options, authoring, locale, isFrozen, isTotal, cb) {
             var frag = document.createDocumentFragment();
             rows && rows.forEach(function (row, rowIndex, level) {
                 level = level || 0;
                 if (cb)
                     cb(row, rowIndex, level);
                 var isOdd = rowIndex % 2 === 1;
-                _dom.append(frag, _createRow(id, rowIndex, level, row, columns, options, authoring, locale, isOdd, isFrozen));
+                _dom.append(frag, _createRow(id, rowIndex, level, row, columns, options, authoring, locale, isOdd, isFrozen, isTotal));
             }, options.expandingProperty);
             return frag;
-        }, _onlyBoolsEditables = function (columns) {
-            var res = true;
-            for (var i = 0, len = columns.length; i < len; i++) {
-                var col = columns[i];
-                if (col.options.editable) {
-                    if (!_su.isBoolean(col.schema)) {
-                        res = false;
-                        break;
-                    }
-                }
-            }
-            return res;
         }, _canUseColGroups = function (options, columns) {
             var that = this;
             var res = true;
@@ -12765,39 +12812,38 @@ var Phoenix;
                     break;
                 }
             }
-            res = res && options.width !== "auto";
+            res = res && options.width !== 'auto';
             if (!res) {
                 var vscrolling = options.scrolling && options.scrolling.vertical;
                 if (vscrolling) {
-                    throw "To support scrolling vertical, all columns must have explicit widths but not explicit minWidth.";
+                    throw 'To support scrolling vertical, all columns must have explicit widths but not explicit minWidth.';
                 }
                 if (options.editing) {
-                    if (!_onlyBoolsEditables(columns))
-                        throw "To support inline editing, all columns must have explicit widths but not explicit minWidth.";
+                    throw 'To support inline editing, all columns must have explicit widths but not explicit minWidth.';
                 }
             }
             return res;
         }, _hasFrozenColumns = function (opts, frozenColumns) {
             var res = !!(opts.allowFrozenColumns && frozenColumns && frozenColumns.length);
             return res;
-        }, _cssTable = function (options, isHeader, isFrozen) {
+        }, _cssTable = function (options, isHeader, isFrozen, isFooter) {
             var vscrolling = options.scrolling && options.scrolling.vertical;
             var css = ['table', 'bs-control'];
-            if (isHeader) {
+            if (isHeader || isFooter) {
                 css.push('table-header');
             }
-            if (!isHeader && options._useStripedCss) {
-                css.push("table-striped");
+            if (!isHeader && !isFooter && options._useStripedCss) {
+                css.push('table-striped');
             }
             if (options._useColGrp) {
                 css.push('bs-fixed');
             }
             //adde
-            if (!isHeader && (options.editing || options.nowrap)) {
+            if (!isHeader && !isFooter && (options.editing || options.nowrap)) {
                 css.push('nowrap');
                 options._nowrap = true;
             }
-            else if (!isHeader && options.allowFrozenColumns) {
+            else if (!isHeader && !isFooter && options.allowFrozenColumns) {
                 css.push('nowrap');
                 options._nowrap = true;
             }
@@ -12813,17 +12859,17 @@ var Phoenix;
             if (options.small)
                 css.push('bs-style-small-table');
             return css;
-        }, _styleTable = function (options, isHeader, isFrozen) {
+        }, _styleTable = function (options, isHeader, isFrozen, isFooter) {
             var style = [];
             if (isFrozen)
                 return style;
-            if (options.width && options.width !== "auto") {
-                style.push("min-width: " + _ensureWidth(options.width));
+            if (options.width && options.width !== 'auto') {
+                style.push('min-width: ' + _ensureWidth(options.width));
             }
             return style;
-        }, _createTable = function (html, options, isHeader, isFrozen) {
+        }, _createTable = function (html, options, isHeader, isFrozen, isFooter) {
             var vscrolling = options.scrolling && options.scrolling.vertical;
-            var css = _cssTable(options, isHeader, isFrozen);
+            var css = _cssTable(options, isHeader, isFrozen, isFooter);
             html.push('<table');
             if (css.length)
                 html.push(' class="' + css.join(' ') + '"');
@@ -12832,8 +12878,10 @@ var Phoenix;
                 html.push('_frozen');
             if (isHeader)
                 html.push('_header');
+            if (isFooter)
+                html.push('_footer');
             html.push('"');
-            var style = _styleTable(options, isHeader, isFrozen);
+            var style = _styleTable(options, isHeader, isFrozen, isFooter);
             if (style.length)
                 html.push(' style="' + style.join(';') + '"');
             html.push('>');
@@ -12843,16 +12891,22 @@ var Phoenix;
             //    html.push("</caption>");
             //}
             if (options._useColGrp)
-                html.push('<colgroup id="{0}_colgrp' + (isFrozen ? '_frozen' : '') + (isHeader ? '_header' : '') + '"></colgroup>');
-            if (!options.headerIsHidden) {
-                if (isHeader) {
+                html.push('<colgroup id="{0}_colgrp' + (isFrozen ? '_frozen' : '') + (isHeader ? '_header' : '') + (isFooter ? '_footer' : '') + '"></colgroup>');
+            if (isHeader) {
+                if (!options.headerIsHidden)
                     html.push('<thead><tr class="bs-va-middle" id="{0}' + (isFrozen ? '_frozen' : '') + '_cols"></tr></thead>');
-                }
-                else if (!vscrolling) {
-                    html.push('<thead><tr class="bs-va-middle" id="{0}' + (isFrozen ? '_frozen' : '') + '_cols"></tr></thead>');
-                }
             }
-            if (!isHeader) {
+            else if (!vscrolling) {
+                if (!options.headerIsHidden)
+                    html.push('<thead><tr class="bs-va-middle" id="{0}' + (isFrozen ? '_frozen' : '') + '_cols"></tr></thead>');
+                if (options.total && options.total.property)
+                    html.push('<tfoot id="{0}' + (isFrozen ? '_frozen' : '') + '_totals"></tfoot>');
+            }
+            if (isFooter) {
+                if (options.total && options.total.property)
+                    html.push('<tfoot id="{0}' + (isFrozen ? '_frozen' : '') + '_totals"></tfoot>');
+            }
+            if (!isHeader && !isFooter) {
                 html.push('<tbody id="{0}');
                 if (isFrozen)
                     html.push('_frozen');
@@ -12894,15 +12948,15 @@ var Phoenix;
                 html.push('</div>');
                 var ce = $(html.join('')).get(0);
                 var ctr = ce.firstChild.firstChild.firstChild;
-                ctr.style.height = element.offsetHeight + "px";
+                ctr.style.height = element.offsetHeight + 'px';
                 _dom.append(ctr, fe);
                 fe = ce;
             }
             var p = _dom.position(element, null);
-            fe.style.top = p.top + "px";
-            fe.style.left = p.left + "px";
-            fe.style.width = element.offsetWidth + "px";
-            fe.style.height = element.offsetHeight + "px";
+            fe.style.top = p.top + 'px';
+            fe.style.left = p.left + 'px';
+            fe.style.width = element.offsetWidth + 'px';
+            fe.style.height = element.offsetHeight + 'px';
             fe.style.zIndex = '5000';
             fe.style.position = 'absolute';
             return fe;
@@ -12910,28 +12964,28 @@ var Phoenix;
             title = title || '';
             options._useColGrp = _canUseColGroups(options, columns);
             options._useStripedCss = !!!(options.rows && options.rows.detail);
-            options = $.extend({ right: false, icon: null, type: 'default', width: "auto", height: "auto", size: null, scrolling: { horizontal: false } }, options);
+            options = $.extend({ right: false, icon: null, type: 'default', width: 'auto', height: 'auto', size: null, scrolling: { horizontal: false } }, options);
             //create div container 
             if (options.title !== undefined)
                 title = options.title;
-            var html = [], css = ["bs-field-group bs-island"];
+            var html = [], css = ['bs-field-group bs-island'];
             html.push('<div id="{0}" ');
             html.push(' class="');
             if (authoring)
-                css.push("design");
-            html.push(css.join(" "));
+                css.push('design');
+            html.push(css.join(' '));
             html.push('"');
             _addDesign(id, options, authoring, html);
             html.push('>');
             //create header div
             html.push('<div id="{0}_header"></div>');
-            css = ["bs-basictable-group"];
+            css = ['bs-basictable-group'];
             var hscrolling = options.scrolling && options.scrolling.horizontal;
             var vscrolling = options.scrolling && options.scrolling.vertical;
             if (vscrolling || options.allowFrozenColumns)
                 css.push('border');
             if (hscrolling && !vscrolling)
-                css.push("bs-scroll-x");
+                css.push('bs-scroll-x');
             html.push('<div id="{0}_focus" class="');
             html.push(css.join(' '));
             html.push('"');
@@ -12947,11 +13001,11 @@ var Phoenix;
                     // parent of frozen header table
                     html.push('<div id="{0}_table_frozen_header" class="bs-table-header">');
                     // frozen header table 
-                    _createTable(html, options, true, true);
+                    _createTable(html, options, true, true, false);
                     html.push('</div>'); //bs-table-header
                 }
                 // parent of frozen table content
-                css = ["bs-table-content-scroll frozen"];
+                css = ['bs-table-content-scroll frozen'];
                 html.push('<div  class="' + css.join(' ') + '">');
                 css = ["bs-table-content frozen"];
                 html.push('<div id="{0}_frozen_scroll" class="' + css.join(' ') + '"');
@@ -12968,10 +13022,15 @@ var Phoenix;
                 }
                 html.push('>');
                 html.push('<div  class="' + css.join(' ') + '">');
-                _createTable(html, options, false, true);
+                _createTable(html, options, false, true, false);
                 html.push('</div>');
-                html.push('</div>');
-                html.push('</div>');
+                html.push('</div>'); // {0}_frozen_scroll
+                html.push('</div>'); // 0}_frozen_header_parent
+                if (vscrolling && options.total && options.total.property) {
+                    html.push('<div id="{0}_table_frozen_footer" class="bs-table-header">');
+                    _createTable(html, options, false, true, true);
+                    html.push('</div>'); //bs-table-header
+                }
                 html.push('</div>'); // bs-table-frozen-cols
                 html.push('<div id="{0}_frozen_header_sep" class="bs-table-cols-sep' + (frozenColumns.length ? '' : ' empty') + '"></div>');
                 html.push('<div class="bs-table-free-cols">');
@@ -12981,12 +13040,12 @@ var Phoenix;
                 html.push(_dom.scrollbar());
                 html.push('px;">');
                 html.push('<div id="{0}_table_header_content" class="bs-table-header-content">');
-                _createTable(html, options, true, false);
+                _createTable(html, options, true, false, false);
                 html.push('</div></div>');
             }
             //create div table container
             if (vscrolling) {
-                html.push('<div  class="bs-table-content-scroll">');
+                html.push('<div class="bs-table-content-scroll">');
             }
             css = ["bs-table-content"];
             if (vscrolling)
@@ -13005,10 +13064,20 @@ var Phoenix;
             }
             html.push('>');
             // create table
-            _createTable(html, options, false, false);
+            _createTable(html, options, false, false, false);
             html.push('</div>');
-            if (vscrolling)
+            if (vscrolling) {
                 html.push('</div>'); //bs-table-content-scroll
+                if (options.total && options.total.property) {
+                    html.push('<div id="{0}_table_footer" class="bs-table-header" style="padding-right:');
+                    html.push(_dom.scrollbar());
+                    html.push('px;">');
+                    html.push('<div id="{0}_table_footer_content" class="bs-table-header-content">');
+                    _createTable(html, options, false, false, true);
+                    html.push('</div>');
+                    html.push('</div>');
+                }
+            }
             if (options.allowFrozenColumns) {
                 html.push('</div>'); //bs-table-free-cols
                 html.push('</div>'); //bs-table-cols
@@ -13228,6 +13297,7 @@ var Phoenix;
                     that._initCols(opts);
                     that._renderColumns(opts);
                     that._renderRows(true, '', null);
+                    that._renderTotalRows();
                     that.setEvents(that.renderOptions);
                     that.resize();
                 };
@@ -13236,6 +13306,10 @@ var Phoenix;
                 that._viewMap = {};
                 that._ignoreNotifications = false;
                 form.registerListenerFor(that.$bind + ".$item", that);
+                if (that.fieldOptions && that.fieldOptions.total && that.fieldOptions.total.property) {
+                    that._totalProperty = that.fieldOptions.total.property;
+                    form.registerListenerFor(that._totalProperty, that);
+                }
                 that._state();
                 that.checkOptions(that.fieldOptions);
                 that._initOrigColumns(that.fieldOptions);
@@ -13395,6 +13469,7 @@ var Phoenix;
                     $(that.scrollableFrozenContent).off('scroll');
                 that.scrollableMaster = null;
                 that.scrollableHeaderOfMaster = null;
+                that.scrollableFooterOfMaster = null;
                 if (that._drag) {
                     _drag.dragManager.rmvDrag(that._drag);
                     that._drag = null;
@@ -13407,6 +13482,8 @@ var Phoenix;
                     var e = that.$element.get(0);
                     that.scrollableMaster = _dom.find(e, that.id + '_master_scroll');
                     that.scrollableHeaderOfMaster = _dom.find(e, that.id + '_table_header_content');
+                    if (that._totalProperty)
+                        that.scrollableFooterOfMaster = _dom.find(e, that.id + '_table_footer_content');
                     var hasFrozenColumns = _gu.hasFrozenColumns(opts, that.frozenColumns);
                     that.scrollableFrozenContent = hasFrozenColumns ? _dom.find(e, that.id + '_frozen_scroll') : null;
                     if (that.scrollableMaster && that.scrollableHeaderOfMaster)
@@ -13661,6 +13738,9 @@ var Phoenix;
                     that.frozenColumns = null;
                 }
                 that.form.unRegisterListenerFor(that.$bind + ".$item", that);
+                if (that._totalProperty) {
+                    that.form.unRegisterListenerFor(that._totalProperty, that);
+                }
                 that._inplaceEditRemove(false, true);
                 if (that._pager) {
                     that._pager.destroy();
@@ -13703,10 +13783,14 @@ var Phoenix;
                 var that = this;
                 var toolName = toolElement.name || toolElement.id;
                 if (toolElement.name === 'filter' && ui.glbGridFilter) {
-                    return ui.glbGridFilter(that.getColumnsForFilter(), that.state.value);
+                    return ui.glbGridFilter(that.getColumnsForFilter(), function (filter) {
+                        that.state.value.filterManager.filterComplex = filter;
+                        that.state.value.filter = that.state.value.filterManager.constructeFilter();
+                    });
                 }
                 else if (toolElement.name === 'filterexpress') {
-                    that.state.value.filter = { value: toolElement.value };
+                    that.state.value.filterManager.filterExpress = toolElement.value;
+                    that.state.value.filter = that.state.value.filterManager.constructeFilter();
                 }
                 else if (toolElement.name === 'settings' && ui.glbGridSettings) {
                     return ui.glbGridSettings(that.getColumnsForSettings(), function (columns) {
@@ -13753,14 +13837,17 @@ var Phoenix;
                     toolbarOptions.items.forEach(function (te) {
                         if (te.type === 'count')
                             te = $.extend({ name: 'count', right: true, value: that.state.value.totalCount() }, te);
-                        else if (te.type === 'filter')
+                        else if (te.type === 'filter') {
                             te = $.extend({ name: 'filter', value: that.state.value.filter || "", icon: 'filter' }, te);
+                            that.state.value.filterManager = that.state.value.filterManager || new ui.FilterManager();
+                        }
                         else if (te.type === 'multiselect') {
                             var cv = !!(opts.selecting && opts.selecting.row && opts.selecting.multiselect);
                             te = $.extend(te, { name: 'multiselect', type: 'default', icon: 'check', value: cv });
                         }
                         else if (te.type === 'filterexpress') {
                             te = $.extend(te, { name: 'filterexpress', fields: that.getColumnsForFilterExpress(te.fields) });
+                            that.state.value.filterManager = that.state.value.filterManager || new ui.FilterManager();
                         }
                         toolElements.push(te);
                     });
@@ -13806,7 +13893,7 @@ var Phoenix;
                 var addSelected = options.selecting && options.selecting.row && options.selecting.multiselect;
                 if (addSelected) {
                     if (ii < 0)
-                        options.columns.splice(0, 0, { "$bind": "$select", "options": { "width": 50, "frozen": true, "editable": true } });
+                        options.columns.splice(0, 0, { "$bind": _observable.SELECTED_FIELD_NAME, "options": { "width": 50, "frozen": true } });
                 }
                 else {
                     if (ii >= 0)
@@ -13868,6 +13955,10 @@ var Phoenix;
                 var ff = this._mapCols[field];
                 return ff ? ff.column : null;
             };
+            BasicGrid.prototype._totalChanged = function (propName, ov, nv, op, params) {
+                var that = this;
+                debugger;
+            };
             BasicGrid.prototype.changed = function (propName, ov, nv, op, params) {
                 var that = this;
                 if (!that.$element)
@@ -13875,6 +13966,11 @@ var Phoenix;
                 if (that._ignoreNotifications)
                     return false;
                 var updOddEven = false, doResize = false;
+                if (that._totalProperty && propName.indexOf(that._totalProperty) === 0) {
+                    if (propName === params.propName)
+                        that._totalChanged(propName, ov, nv, op, params);
+                    return;
+                }
                 switch (op) {
                     case "count":
                         if (propName === params.propName) {
@@ -13886,8 +13982,8 @@ var Phoenix;
                     case "filter":
                         if (propName === params.propName) {
                             var t = that._toolBar;
-                            if (t && t.setValue && that.state.value.filter.title)
-                                t.setValue("filter", that.state.value.filter.title);
+                            if (t && t.setValue)
+                                t.setValue('filter', that.state.value.filter.title || '');
                         }
                         break;
                     case "pagination":
@@ -13930,8 +14026,10 @@ var Phoenix;
                                 if (opts.expandingProperty)
                                     prop = _sutils.removeExpand(prop, opts.expandingProperty);
                                 that._modifyCell(item, prop);
-                                if (_sutils.isSelectField(prop))
-                                    _gu.setRowsSelected(item.$id, item.$select, that.fieldOptions, that.$element.get(0));
+                                if (_sutils.isSelectField(prop)) {
+                                    if (!opts.noRowSelectedIndicator)
+                                        _gu.setRowsSelected(item.$id, item.$select, that.fieldOptions, that.$element.get(0));
+                                }
                             }
                         }
                         break;
@@ -13943,12 +14041,13 @@ var Phoenix;
             };
             BasicGrid.prototype._modifyTD = function (item, field, td) {
                 var that = this;
+                var opts = that.renderOptions;
                 var col = that._colByField(field);
                 if (!col)
                     return;
                 var state = item.getState(field);
                 var co = col.options || {};
-                var editable = co.editable && !state.isDisabled && !state.isReadOnly && !state.isHidden;
+                var editable = (opts.editing || _sutils.isSelectField(field)) && !state.isDisabled && !state.isReadOnly && !state.isHidden;
                 _dom.empty(td);
                 if (state.isHidden)
                     return;
@@ -13956,14 +14055,18 @@ var Phoenix;
                 var ii = that._viewMap[item.$id];
                 var level = ii ? ii.level || 0 : 0;
                 if (co.display && co.displaySchema)
-                    dv = _ui.Utils.displayValue(item.getValue(co.display), co.displaySchema, that.form.$locale, { tableOptions: that.config.options }).value;
-                var v = _ui.Utils.displayValue(item.getValue(field), col.schema, that.form.$locale, { html: true, useSymbol: false, editable: editable, selectable: co.selectable, check: co.check, avanced: co, tableOptions: that.config.options, display: dv, level: level });
+                    dv = _ui.Utils.displayValue(item.getValue(co.display), co.displaySchema, that.form.$locale, { tableOptions: opts }, co.display).value;
+                var v = _ui.Utils.displayValue(item.getValue(field), col.schema, that.form.$locale, { html: true, useSymbol: false, editable: editable, selectable: !state.isDisabled, check: opts.editing, avanced: co, tableOptions: opts, display: dv, level: level }, field);
                 if (v.html) {
                     var $c = $(v.value);
                     _dom.append(td, $c.get(0));
                 }
-                else
-                    _dom.append(td, document.createTextNode(v.value));
+                else {
+                    var cv = v.value;
+                    if (cv === '')
+                        cv = String.fromCharCode(160);
+                    _dom.append(td, document.createTextNode(cv));
+                }
             };
             BasicGrid.prototype._findTR = function (id, col) {
                 var that = this, opts = that.renderOptions;
@@ -14066,9 +14169,9 @@ var Phoenix;
             BasicGrid.prototype._doTab = function (forward) {
                 var that = this;
                 if (forward)
-                    return that._moveDownSelectedCell(1);
+                    return that._moveRightSelectedCell();
                 else
-                    return that._moveUpSelectedCell(1);
+                    return that._moveLeftSelectedCell();
             };
             BasicGrid.prototype.keypress = function (event) {
                 var that = this;
@@ -14236,10 +14339,10 @@ var Phoenix;
                                             _link.execLink(c.options.$link, { $item: item }, null);
                                     }
                                 }
-                                else if (_sutils.isSelectField(c.$bind) || (that.fieldOptions.editing && c.options.editable && _sutils.isBoolean(c.schema))) {
+                                else if (_sutils.isSelectField(c.$bind) || (opts.editing && _sutils.isBoolean(c.schema))) {
                                     if (_dom.attr(event.target, 'data-clickable')) {
                                         var state = item.getRelativeState(c.$bind);
-                                        if (!state.isDisabled && !state.isReadOnly) {
+                                        if (!state.isDisabled && !state.isReadOnly && !state.isHidden) {
                                             var ov = item.getValue(c.$bind);
                                             if (_sutils.isSelectField(c.$bind))
                                                 item.select(!!!ov, opts.selecting && opts.selecting.row && opts.selecting.multiselect, that.state.value, opts.expandingProperty);
@@ -14305,7 +14408,14 @@ var Phoenix;
                 if (!that.fieldOptions.selecting || !that.fieldOptions.selecting.cell)
                     return false;
                 var c = that._colByField(cell.col);
-                return c && c.options.selectable;
+                if (c) {
+                    var item = that._findById(cell.row);
+                    if (item) {
+                        var st = item.getState(c.$bind);
+                        return !st.isDisabled && !st.isHidden;
+                    }
+                }
+                return false;
             };
             BasicGrid.prototype.canEdit = function (cell) {
                 var that = this;
@@ -14314,13 +14424,9 @@ var Phoenix;
                 var c = that._colByField(cell.col);
                 if (c.options._expandItem)
                     return false;
-                var editable = c && c.options.editable;
-                if (editable) {
-                    var item = that._findById(cell.row);
-                    var st = item.getState(c.$bind);
-                    return !st.isReadOnly && !st.isDisabled;
-                }
-                return editable;
+                var item = that._findById(cell.row);
+                var st = item.getState(c.$bind);
+                return !st.isReadOnly && !st.isDisabled && !st.isHidden;
             };
             BasicGrid.prototype.clearSelected = function () {
                 var that = this;
@@ -14370,14 +14476,14 @@ var Phoenix;
                 var allCols = that.frozenColumns.concat(that.columns);
                 for (var i = 0, len = allCols.length; i < len; i++) {
                     var c = allCols[i];
-                    if (c.options.selectable) {
-                        if (opts.allowFrozenColumns && c.options.frozen)
-                            pr = _dom.find(that.$element.get(0), that.id + '_frozen_rows');
-                        var tr = pr.firstChild;
-                        var rid = that._tr2rowId(tr, c);
-                        cell = { col: c.$bind, row: rid };
+                    if (opts.allowFrozenColumns && c.options.frozen)
+                        pr = _dom.find(that.$element.get(0), that.id + '_frozen_rows');
+                    var tr = pr.firstChild;
+                    var rid = that._tr2rowId(tr, c);
+                    cell = { col: c.$bind, row: rid };
+                    if (that.canSelect(cell))
                         break;
-                    }
+                    cell = null;
                 }
                 if (cell) {
                     return that._selectCell(cell, null, false);
@@ -14424,11 +14530,11 @@ var Phoenix;
                     var hasHScroll = that.scrollableMaster.scrollWidth > that.scrollableMaster.clientWidth;
                     var ns = void 0;
                     if (hasHScroll)
-                        ns = (parseInt(opts.height + '', 10) - _dom.scrollbar()) + 'px';
+                        ns = _dom.scrollbar() + 'px';
                     else
-                        ns = parseInt(opts.height + '', 10) + 'px';
-                    if (that.scrollableFrozenContent.style.height !== ns) {
-                        that.scrollableFrozenContent.style.height = ns;
+                        ns = '0px';
+                    if (that.scrollableFrozenContent.style.paddingBottom !== ns) {
+                        that.scrollableFrozenContent.style.paddingBottom = ns;
                         that._vscroll();
                     }
                 }
@@ -14496,8 +14602,12 @@ var Phoenix;
             };
             BasicGrid.prototype._hscroll = function () {
                 var that = this, contentScrollLeft = that.scrollableMaster.scrollLeft, headerScrollLeft = that.scrollableHeaderOfMaster.scrollLeft;
-                if (contentScrollLeft !== headerScrollLeft) {
+                if (contentScrollLeft !== headerScrollLeft)
                     that.scrollableHeaderOfMaster.scrollLeft = contentScrollLeft;
+                if (that.scrollableFooterOfMaster) {
+                    var footerScrollLeft = that.scrollableFooterOfMaster.scrollLeft;
+                    if (contentScrollLeft !== footerScrollLeft)
+                        that.scrollableFooterOfMaster.scrollLeft = contentScrollLeft;
                 }
             };
             BasicGrid.prototype._moveDownSelectedCell = function (count) {
@@ -14514,15 +14624,67 @@ var Phoenix;
                 }
                 return false;
             };
-            BasicGrid.prototype._moveLeftSelectedCell = function () {
-                var that = this;
-                if (!that.selectedCell)
-                    return that._selectFirstCell();
-            };
             BasicGrid.prototype._moveRightSelectedCell = function () {
                 var that = this;
+                if (!that.fieldOptions.selecting || !that.fieldOptions.selecting.cell)
+                    return false;
                 if (!that.selectedCell)
                     return that._selectFirstCell();
+                var allCols = that.frozenColumns.concat(that.columns).map(function (col) { return col.$bind; });
+                ;
+                var si = allCols.indexOf(that.selectedCell.col);
+                var item = that._findById(that.selectedCell.row);
+                if (!item || si < 0)
+                    return false;
+                for (var i = si + 1, len = allCols.length; i < len; i++) {
+                    var c = allCols[i];
+                    var cell = { col: c, row: item.$id };
+                    if (that.canSelect(cell)) {
+                        return that._selectCell(cell, null, false);
+                    }
+                }
+                item = that._findNext(item.$id);
+                if (item) {
+                    for (var i = 0, len = si; i <= len; i++) {
+                        var c = allCols[i];
+                        var cell = { col: c, row: item.$id };
+                        if (that.canSelect(cell)) {
+                            return that._selectCell(cell, null, false);
+                        }
+                    }
+                }
+                return false;
+            };
+            BasicGrid.prototype._moveLeftSelectedCell = function () {
+                var that = this;
+                if (!that.fieldOptions.selecting || !that.fieldOptions.selecting.cell)
+                    return false;
+                if (!that.selectedCell)
+                    return that._selectFirstCell();
+                var allCols = that.frozenColumns.concat(that.columns).map(function (col) { return col.$bind; });
+                ;
+                var si = allCols.indexOf(that.selectedCell.col);
+                var item = that._findById(that.selectedCell.row);
+                if (!item || si < 0)
+                    return false;
+                for (var i = si - 1; i >= 0; i--) {
+                    var c = allCols[i];
+                    var cell = { col: c, row: item.$id };
+                    if (that.canSelect(cell)) {
+                        return that._selectCell(cell, null, false);
+                    }
+                }
+                item = that._findPrev(item.$id);
+                if (item) {
+                    for (var i = allCols.length - 1; i >= si; i--) {
+                        var c = allCols[i];
+                        var cell = { col: c, row: item.$id };
+                        if (that.canSelect(cell)) {
+                            return that._selectCell(cell, null, false);
+                        }
+                    }
+                }
+                return false;
             };
             BasicGrid.prototype._state2UI = function () {
                 var that = this;
@@ -14605,7 +14767,7 @@ var Phoenix;
                 if (that._useView) {
                     var ii = that._viewMap[id];
                     if (ii) {
-                        res.index = that._view.indexOf(ii.value);
+                        res.index = that._view.indexOf(ii);
                         res.level = ii.level;
                         res.value = ii.value;
                     }
@@ -14617,6 +14779,69 @@ var Phoenix;
                     }
                 }
                 return res;
+            };
+            BasicGrid.prototype._findNext = function (id) {
+                var that = this;
+                if (that._useView) {
+                    var ii = that._viewMap[id];
+                    if (ii) {
+                        var index = that._view.indexOf(ii);
+                        if (that._view.length > index + 1)
+                            return that._view[index + 1].value;
+                    }
+                }
+                else {
+                    var ii = that.state.value.findById(id);
+                    if (ii) {
+                        var index = that.state.value.indexOf(ii);
+                        if (that.state.value.length() > index + 1)
+                            return that.state.value.get(index + 1);
+                    }
+                }
+                return null;
+            };
+            BasicGrid.prototype._findPrev = function (id) {
+                var that = this;
+                if (that._useView) {
+                    var ii = that._viewMap[id];
+                    if (ii) {
+                        var index = that._view.indexOf(ii);
+                        if (index > 0)
+                            return that._view[index - 1].value;
+                    }
+                }
+                else {
+                    var ii = that.state.value.findById(id);
+                    if (ii) {
+                        var index = that.state.value.indexOf(ii);
+                        if (index > 0)
+                            return that.state.value.get(index - 1);
+                    }
+                }
+                return null;
+            };
+            BasicGrid.prototype._renderTotalRows = function () {
+                var that = this;
+                if (that.$element) {
+                    var opts = that.renderOptions;
+                    if (that._totalProperty) {
+                        var totals = that.form.getValue(that._totalProperty);
+                        console.log(totals);
+                        var pr = void 0, rows = void 0;
+                        if (_gu.hasFrozenColumns(that.renderOptions, that.frozenColumns)) {
+                            pr = _dom.find(that.$element.get(0), that.id + '_frozen_totals');
+                            if (pr) {
+                                rows = _gu.createRows(that.id, totals, that.frozenColumns, opts, that.options.design, that.form.$locale, true, true, null);
+                                _dom.empty(pr);
+                                _dom.append(pr, rows);
+                            }
+                        }
+                        pr = _dom.find(that.$element.get(0), that.id + '_totals');
+                        rows = _gu.createRows(that.id, totals, that.columns, opts, that.options.design, that.form.$locale, false, true, null);
+                        _dom.empty(pr);
+                        _dom.append(pr, rows);
+                    }
+                }
             };
             BasicGrid.prototype._renderRows = function (allRows, afterRow, values) {
                 var that = this;
@@ -14636,13 +14861,13 @@ var Phoenix;
                         pr = _dom.find(that.$element.get(0), that.id + '_frozen_rows');
                         if (pr) {
                             if (allRows) {
-                                rows = _gu.createRows(that.id, that.state.value, that.frozenColumns, opts, that.options.design, that.form.$locale, true, cb);
+                                rows = _gu.createRows(that.id, that.state.value, that.frozenColumns, opts, that.options.design, that.form.$locale, true, false, cb);
                                 cb = null;
                                 _dom.empty(pr);
                                 _dom.append(pr, rows);
                             }
                             else {
-                                rows = _gu.createBulkRows(that.id, values, that.frozenColumns, opts, that.options.design, that.form.$locale, true, cb);
+                                rows = _gu.createBulkRows(that.id, values, that.frozenColumns, opts, that.options.design, that.form.$locale, true, false, cb);
                                 var pp = _dom.find(pr, afterRow + '_frozen');
                                 _dom.after(pp, rows);
                             }
@@ -14650,12 +14875,12 @@ var Phoenix;
                     }
                     pr = _dom.find(that.$element.get(0), that.id + '_rows');
                     if (allRows) {
-                        rows = _gu.createRows(that.id, that.state.value, that.columns, opts, that.options.design, that.form.$locale, false, cb);
+                        rows = _gu.createRows(that.id, that.state.value, that.columns, opts, that.options.design, that.form.$locale, false, false, cb);
                         _dom.empty(pr);
                         _dom.append(pr, rows);
                     }
                     else {
-                        rows = _gu.createBulkRows(that.id, values, that.columns, opts, that.options.design, that.form.$locale, false, cb);
+                        rows = _gu.createBulkRows(that.id, values, that.columns, opts, that.options.design, that.form.$locale, false, false, cb);
                         var pp = _dom.find(pr, afterRow);
                         _dom.after(pp, rows);
                     }
@@ -14804,6 +15029,7 @@ var Phoenix;
                         that._view.push(ii);
                         that._view.push(item.$id);
                         index = that._view.length - 1;
+                        that._viewMap[item.$id] = ii;
                     }
                     else {
                         ii = that._viewMap[item.$id];
@@ -14811,11 +15037,11 @@ var Phoenix;
                     var pr = void 0, nr = void 0, hasFc = _gu.hasFrozenColumns(that.renderOptions, that.frozenColumns);
                     if (hasFc) {
                         pr = _dom.find(that.$element.get(0), that.id + '_frozen_rows');
-                        nr = _gu.createRow(that.id, index, ii.level, ii.value, that.frozenColumns, that.renderOptions, that.options.design, that.form.$locale, pr.childNodes.length % 2 === 1, true);
+                        nr = _gu.createRow(that.id, index, ii.level, ii.value, that.frozenColumns, that.renderOptions, that.options.design, that.form.$locale, pr.childNodes.length % 2 === 1, true, false);
                         _dom.append(pr, nr);
                     }
                     pr = _dom.find(that.$element.get(0), that.id + '_rows');
-                    nr = _gu.createRow(that.id, index, ii.level, ii.value, that.columns, that.renderOptions, that.options.design, that.form.$locale, pr.childNodes.length % 2 === 1, false);
+                    nr = _gu.createRow(that.id, index, ii.level, ii.value, that.columns, that.renderOptions, that.options.design, that.form.$locale, pr.childNodes.length % 2 === 1, false, false);
                     _dom.append(pr, nr);
                 }
             };
@@ -14929,6 +15155,14 @@ var Phoenix;
                     cg = _dom.find(that.$element.get(0), that.id + '_colgrp');
                     _dom.empty(cg);
                     _dom.append(cg, _gu.createColGroup(that.columns, opts, false));
+                    // add total
+                    if (opts.total && opts.total.property) {
+                        cg = _dom.find(that.$element.get(0), that.id + '_colgrp_footer');
+                        if (cg) {
+                            _dom.empty(cg);
+                            _dom.append(cg, _gu.createColGroup(that.columns, opts, true));
+                        }
+                    }
                     // create frozen columns
                     if (_gu.hasFrozenColumns(opts, that.frozenColumns)) {
                         var cg_1 = vscroll && !opts.headerIsHidden ? _dom.find(that.$element.get(0), that.id + '_colgrp_frozen_header') : null;
@@ -14940,6 +15174,14 @@ var Phoenix;
                         if (cg_1) {
                             _dom.empty(cg_1);
                             _dom.append(cg_1, _gu.createColGroup(that.frozenColumns, opts, true));
+                        }
+                        // add total
+                        if (opts.total && opts.total.property) {
+                            cg_1 = _dom.find(that.$element.get(0), that.id + '_colgrp_frozen_footer');
+                            if (cg_1) {
+                                _dom.empty(cg_1);
+                                _dom.append(cg_1, _gu.createColGroup(that.frozenColumns, opts, true));
+                            }
                         }
                     }
                 }
@@ -14979,6 +15221,7 @@ var Phoenix;
                     that.$element = $(_gu.gridContainer(that.id, opts, that.options.design, that.$schema.title, that.form.$locale, that.columns, that.frozenColumns));
                     that._renderColumns(opts);
                     that._renderRows(true, '', null);
+                    that._renderTotalRows();
                     that._state2UI();
                     that.setEvents(opts);
                 }
@@ -15215,7 +15458,7 @@ var Phoenix;
                 columns.push(header);
                 if (that.state.value) {
                     that.state.value.forEach(function (item) {
-                        var title = _ui.Utils.displayValue(item.getRelativeValue(headerBind), headerSchema, that.form.$locale, { html: false }).value;
+                        var title = _ui.Utils.displayValue(item.getRelativeValue(headerBind), headerSchema, that.form.$locale, { html: false }, headerBind).value;
                         var r = $.extend({}, row);
                         r.title = title || '';
                         r.id = item.$id;
@@ -15224,12 +15467,12 @@ var Phoenix;
                 }
                 return columns;
             };
-            ColumnGrid.prototype._modifyRow = function (value, schema, rowIndex, colIndex, opts) {
+            ColumnGrid.prototype._modifyRow = function (value, schema, rowIndex, colIndex, opts, fieldName) {
                 var that = this;
                 var pr = _dom.find(that.$element.get(0), that.id + '_rows');
                 var tr = pr.childNodes[rowIndex];
                 var td = tr.childNodes[colIndex];
-                var v = _ui.Utils.displayValue(value, schema, that.form.$locale, { html: true, useSymbol: false, editable: opts.editable, check: opts.check, tableOptions: that.config.options });
+                var v = _ui.Utils.displayValue(value, schema, that.form.$locale, { html: true, useSymbol: false, editable: opts.editable, check: opts.check, tableOptions: that.config.options }, fieldName);
                 _dom.empty(td);
                 if (v.html) {
                     var $c = $(v.value);
@@ -15245,7 +15488,7 @@ var Phoenix;
                     if (item_1) {
                         that.rows.forEach(function (row, index) {
                             if (row.name === params.property) {
-                                that._modifyRow(item_1.getValue(row.name), row.schema, index, that.state.value.indexOf(item_1) + 1, { editable: row.canEdit, check: row.check });
+                                that._modifyRow(item_1.getValue(row.name), row.schema, index, that.state.value.indexOf(item_1) + 1, { editable: row.canEdit, check: row.check }, row.name);
                             }
                         });
                     }
@@ -15361,7 +15604,7 @@ var Phoenix;
                 var that = this;
                 if (that.$element) {
                     var pr = _dom.find(that.$element.get(0), that.id + '_rows');
-                    var nr = _gu.createRow(that.id, index, 0, that.state.value.get(index), that.columns, that.renderOptions, that.options.design, that.form.$locale, index % 2 === 1, false);
+                    var nr = _gu.createRow(that.id, index, 0, that.state.value.get(index), that.columns, that.renderOptions, that.options.design, that.form.$locale, index % 2 === 1, false, false);
                     if (pr.childNodes.length >= index)
                         _dom.append(pr, nr);
                     else
@@ -15414,11 +15657,14 @@ var Phoenix;
                                     options: {
                                         border: true,
                                         align: "middle",
-                                        editing: true,
                                         small: true,
+                                        noRowSelectedIndicator: true,
                                         headerIsHidden: true,
+                                        selecting: {
+                                            row: true,
+                                            multiselect: true
+                                        },
                                         columns: [
-                                            { $bind: "selected", options: { "minWidth": "4em", editable: true, check: true } },
                                             { $bind: "caption", options: { "width": "100%" } }
                                         ]
                                     }
@@ -15435,7 +15681,6 @@ var Phoenix;
                             items: {
                                 type: "object",
                                 properties: {
-                                    selected: { type: "boolean" },
                                     name: { type: "string" },
                                     caption: { type: "string" }
                                 }
@@ -15450,7 +15695,7 @@ var Phoenix;
                 });
                 that._allColumns.forEach(function (col) {
                     var schema = _sutils.getSchema(col.name, that.$schemaItems, that.form.$rootSchema, false);
-                    data.columns.push({ name: col.name, caption: schema.title, selected: selectedColumns.indexOf(col.name) >= 0 });
+                    data.columns.push({ name: col.name, caption: schema.title, $select: selectedColumns.indexOf(col.name) >= 0 });
                 });
                 return { schema: schema, data: data, layout: layout };
             };
@@ -15477,10 +15722,9 @@ var Phoenix;
                     if (action.operation === "modal-action") {
                         switch (action.property) {
                             case "ok":
-                                var m = model.model(true);
                                 var cd_1 = { columns: [] };
-                                m.columns.forEach(function (col) {
-                                    if (col.selected) {
+                                model.columns.forEach(function (col) {
+                                    if (col.$select) {
                                         var ii = that._allColumnsNames.indexOf(col.name);
                                         if (ii >= 0) {
                                             cd_1.columns.push($.extend({}, that._allColumns[ii]));
@@ -17782,7 +18026,7 @@ var Phoenix;
                 that.state.isHidden = state.isHidden;
                 that._map.forEach(function (map) {
                     that.state.values[map.name] = that.form.getValue(map.name);
-                    that.state.fvalues[map.name] = _ui.Utils.displayValue(that.state.values[map.name], map.schema, that.form.$locale, { html: false, useSymbol: true }).value;
+                    that.state.fvalues[map.name] = _ui.Utils.displayValue(that.state.values[map.name], map.schema, that.form.$locale, { html: false, useSymbol: true }, map.name).value;
                 });
             };
             ReadOnlyField.prototype._value2UI = function () {
@@ -17811,7 +18055,7 @@ var Phoenix;
                         ;
                         if (map) {
                             that.state.values[propName] = nv;
-                            that.state.fvalues[propName] = _ui.Utils.displayValue(that.state.values[propName], map.schema, that.form.$locale, { html: false, useSymbol: true }).value;
+                            that.state.fvalues[propName] = _ui.Utils.displayValue(that.state.values[propName], map.schema, that.form.$locale, { html: false, useSymbol: true }, propName).value;
                             that._value2UI();
                         }
                     }
@@ -18569,14 +18813,17 @@ var Phoenix;
             ************ METHODS
             *******************************/
             function FilterExpress(fieldList, cb) {
+                this._oldFilter = null;
                 this._id = _utils.allocID();
-                this._fieldList = this._formatFieldList(fieldList);
+                this._fieldList = this._completeFieldList($.extend(true, [], fieldList));
                 this._cb = cb;
             }
             FilterExpress.prototype.destroy = function () {
                 // Events
                 this._nodeSelect.off("click");
                 this._nodeValidate.off("click");
+                this._nodeMain.off("blur");
+                this._removeEditEvents();
                 // Nodes
                 _dom.find(this._nodeParent[0], this._id).remove();
                 // Variables
@@ -18584,6 +18831,7 @@ var Phoenix;
                 this._fieldList = null;
                 this._cb = null;
                 this._selectedField = null;
+                this._nodeMain = null;
                 this._nodeSelect = null;
                 this._nodeSelectButtonTxt = null;
                 this._nodeEdit = null;
@@ -18599,34 +18847,37 @@ var Phoenix;
                 that._nodeSelect.click(function (e) {
                     var code = e.target.attributes["code"].value;
                     var field = that._getFieldByCode(code);
-                    if (field) {
-                        that._nodeSelectButtonTxt.text(field.lib + " ");
-                        that._changeEditField(field);
-                        that._selectedField = field;
-                    }
-                    // Style changed
-                    if (that._nodeSelectedLi)
-                        that._nodeSelectedLi.removeClass("bs-row-selected");
-                    that._nodeSelectedLi = $(e.target.parentNode);
-                    that._nodeSelectedLi.addClass("bs-row-selected");
+                    if (field)
+                        that._changeField(field);
                 });
                 // Validate filter event
                 that._nodeValidate.click(function () {
-                    if (that._selectedField) {
-                        var filter_1 = {
-                            "code": that._selectedField.code,
-                            "op": that._getOpField(that._selectedField),
-                            "values": [that._nodeEdit.val()]
-                        };
-                        if (that._cb && that._checkFilter(filter_1))
-                            that._cb(filter_1);
-                    }
+                    that._applyFilter();
                 });
+                // focusOut event
+                that._nodeMain.get(0).addEventListener("blur", function (e) {
+                    var parent = false;
+                    if (e.relatedTarget) {
+                        var node = e.relatedTarget;
+                        do {
+                            if (_dom.hasClass(node, "bs-filterexpress")) {
+                                parent = true;
+                                break;
+                            }
+                            node = node.parentNode;
+                        } while (node && !parent);
+                    }
+                    if (!parent && e.target == that._nodeEdit.get(0) && that._oldFilter && that._oldFilter.code) {
+                        if (that._selectedField.code !== that._oldFilter.code)
+                            that._changeField(that._getFieldByCode(that._oldFilter.code));
+                        that._nodeEdit.val(that._oldFilter.value);
+                    }
+                }, true);
             };
             FilterExpress.prototype._internalRender = function () {
                 var that = this;
                 // Create nodes
-                var nodeMain = $("<div id='" + that._id + "'></div>");
+                that._nodeMain = $("<div class='bs-filterexpress' id='" + that._id + "'></div>");
                 var nodeGroup = $("<div class='input-group'></div>");
                 var nodeGroupBtn = $("<div class='input-group-btn'></div>");
                 var txtNodeButton = "<button type='button' ";
@@ -18638,7 +18889,7 @@ var Phoenix;
                 // Fill fields in selectNode
                 that._nodeSelect = $("<ul class='dropdown-menu'></ul>");
                 that._fieldList.forEach(function (field) {
-                    var nodeOption = $("<li><a code='" + field.code + "'>" + field.lib + "</a></li>");
+                    var nodeOption = $("<li class='bs-cursor-p'><a code='" + field.code + "'>" + field.lib + "</a></li>");
                     that._nodeSelect.append(nodeOption);
                 });
                 // Add editNode
@@ -18647,7 +18898,7 @@ var Phoenix;
                 var nodeGroupBtnValidate = $("<div class='input-group-btn'></div>");
                 that._nodeValidate = $("<button class='btn btn-default' type='submit'><span class='" + _dom.iconClass(FilterExpress.VALIDATE_ICON_DEFAULT) + "'></span> " + FilterExpress.VALIDATE_TEXT_DEFAULT + "</button>");
                 // Append nodes to mainNode
-                nodeMain.append(nodeGroup);
+                that._nodeMain.append(nodeGroup);
                 nodeGroup.append(nodeGroupBtn);
                 nodeGroup.append(that._nodeEdit);
                 nodeGroup.append(nodeGroupBtnValidate);
@@ -18656,7 +18907,9 @@ var Phoenix;
                 nodeSelectButton.append(that._nodeSelectButtonTxt);
                 nodeSelectButton.append(nodeSelectButtonGlyph);
                 nodeGroupBtnValidate.append(that._nodeValidate);
-                return nodeMain;
+                if (that._fieldList && that._fieldList[0])
+                    that._changeField(that._fieldList[0]);
+                return that._nodeMain;
             };
             FilterExpress.prototype._getFieldByCode = function (code) {
                 var that = this;
@@ -18669,13 +18922,37 @@ var Phoenix;
             };
             FilterExpress.prototype._changeEditField = function (field) {
                 var that = this;
+                that._removeEditEvents();
                 var oldHTMLNodeEdit;
                 var newHTMLNodeEdit;
                 newHTMLNodeEdit = that._getEditField(field).get(0);
                 oldHTMLNodeEdit = that._nodeEdit.get(0);
                 var parent = oldHTMLNodeEdit.parentNode;
-                oldHTMLNodeEdit.parentNode.replaceChild(newHTMLNodeEdit, oldHTMLNodeEdit);
+                parent.replaceChild(newHTMLNodeEdit, oldHTMLNodeEdit);
                 that._nodeEdit = $(newHTMLNodeEdit);
+                newHTMLNodeEdit.focus();
+                // events 
+                if (field.enum) {
+                    _dom.addClass(that._nodeValidate.get(0), "bs-none");
+                    that._nodeEdit.change(function (e) {
+                        if (e.target === that._nodeEdit.get(0))
+                            that._applyFilter();
+                    });
+                    that._nodeEdit.get(0).style.borderTopRightRadius = "4px";
+                    that._nodeEdit.get(0).style.borderBottomRightRadius = "4px";
+                }
+                else {
+                    _dom.removeClass(that._nodeValidate.get(0), "bs-none");
+                    // touch enter event
+                    that._nodeEdit.keyup(function (e) {
+                        if (e.keyCode == 13)
+                            that._applyFilter();
+                    });
+                    // input focus event
+                    that._nodeEdit.focus(function (e) {
+                        that._nodeEdit.get(0).select();
+                    });
+                }
             };
             FilterExpress.prototype._getEditField = function (field) {
                 var textNode;
@@ -18699,6 +18976,11 @@ var Phoenix;
                 }
                 return $(textNode);
             };
+            FilterExpress.prototype._removeEditEvents = function () {
+                this._nodeEdit.off("focus");
+                this._nodeEdit.off("keyup");
+                this._nodeEdit.off("change");
+            };
             FilterExpress.prototype._getOpField = function (field) {
                 var op;
                 switch (field.format) {
@@ -18718,19 +19000,55 @@ var Phoenix;
                 return op;
             };
             FilterExpress.prototype._checkFilter = function (filter) {
+                if (!filter)
+                    return true;
                 if (filter.code == "")
                     return false;
                 if (filter.op == "")
                     return false;
-                if (filter.values[0] == "")
-                    return false;
                 return true;
             };
-            FilterExpress.prototype._formatFieldList = function (fields) {
+            FilterExpress.prototype._completeFieldList = function (fields) {
                 fields.forEach(function (field) {
-                    field.format = field.enum ? "enum" : (field.type === "number" ? "integer" : field.type);
+                    if (field.enum && Array.isArray(field.enum)) {
+                        field.format = "enum";
+                        field.enum.splice(0, 0, "");
+                        if (field.enumNames)
+                            field.enumNames.splice(0, 0, "");
+                    }
+                    else
+                        field.format = field.type === "number" ? "integer" : field.type;
                 });
                 return fields;
+            };
+            FilterExpress.prototype._changeField = function (field) {
+                var that = this;
+                if (field) {
+                    that._nodeSelectButtonTxt.text(field.lib + " ");
+                    that._changeEditField(field);
+                    that._selectedField = field;
+                }
+                // Style changed
+                if (that._nodeSelectedLi)
+                    that._nodeSelectedLi.removeClass("bs-row-selected");
+                if (field) {
+                    var liNode = _dom.query(that._nodeSelect.get(0), "a[code='" + field.code + "']");
+                    if (liNode) {
+                        that._nodeSelectedLi = $(liNode.parentNode);
+                        that._nodeSelectedLi.addClass("bs-row-selected");
+                    }
+                }
+            };
+            FilterExpress.prototype._applyFilter = function () {
+                var that = this;
+                if (that._selectedField) {
+                    var val = that._nodeEdit.val();
+                    var filter_1 = val === "" ? null : { "code": that._selectedField.code, "op": that._getOpField(that._selectedField), "values": [that._nodeEdit.val()] };
+                    if (that._cb && that._checkFilter(filter_1)) {
+                        that._oldFilter = { code: that._selectedField.code, value: val };
+                        that._cb(filter_1);
+                    }
+                }
             };
             // Constants
             FilterExpress.FIELD_SELECT_TEXT_DEFAULT = "Choix du champ";
@@ -18740,8 +19058,8 @@ var Phoenix;
             FilterExpress.FORMAT_INTEGER = "integer";
             FilterExpress.FORMAT_ENUM = "enum";
             FilterExpress.OP_STRING = "like";
-            FilterExpress.OP_INTEGER = "eq";
-            FilterExpress.OP_ENUM = "eq";
+            FilterExpress.OP_INTEGER = "in";
+            FilterExpress.OP_ENUM = "in";
             return FilterExpress;
         }());
         ui.FilterExpress = FilterExpress;
@@ -20648,6 +20966,8 @@ var Phoenix;
             options["enumName"] = enumName;
             _addField2(fieldList, code, libelle, type, options);
         }, _toPhenix = function (champs, filters) {
+            if (!champs || !filters)
+                return null;
             var constructeOdata = function (oFilters, op) {
                 var tmpFilters = [];
                 var isImpair = oFilters.length % 2 != 0;
@@ -20727,7 +21047,7 @@ var Phoenix;
                 entree: []
             }
         };
-        _ui["glbGridFilter"] = function (params, documents, locale) {
+        _ui["glbGridFilter"] = function (params, callback, locale) {
             if (!params.schemaColumns.length)
                 return;
             var layout = {
@@ -20865,7 +21185,8 @@ var Phoenix;
                         var $filter = null;
                         if (ui.filterData.filter.filters.length)
                             $filter = _ui.filter.format.toPhenix(ui.filterData.filter.champs, ui.filterData.filter.filters);
-                        documents.filter = { value: $filter, title: formatFiltersForTooltip(ui.filterData.filter.filters, ui.filterData.filter.champs) };
+                        if (callback)
+                            callback({ value: $filter, title: formatFiltersForTooltip(ui.filterData.filter.filters, ui.filterData.filter.champs) });
                         form.close();
                         break;
                 }
@@ -20948,6 +21269,24 @@ var Phoenix;
             addField: _addField,
             addField2: _addField2
         };
+        var FilterManager = (function () {
+            function FilterManager() {
+                this.filterComplex = null;
+                this.filterExpress = null;
+            }
+            FilterManager.prototype.constructeFilter = function () {
+                var that = this;
+                if (that.filterComplex && that.filterComplex.value && that.filterExpress && that.filterExpress.value)
+                    return { title: that.filterComplex.title + " et " + that.filterExpress.title, value: { $left: that.filterComplex.value, $op: "AND", $right: that.filterExpress.value } };
+                else if (that.filterComplex && that.filterComplex.value)
+                    return that.filterComplex;
+                else if (that.filterExpress && that.filterExpress.value)
+                    return that.filterExpress;
+                return { title: "", value: null };
+            };
+            return FilterManager;
+        }());
+        ui.FilterManager = FilterManager;
     })(ui = Phoenix.ui || (Phoenix.ui = {}));
 })(Phoenix || (Phoenix = {}));
 /// <reference path="../../../typings/index.d.ts" />
@@ -21713,6 +22052,10 @@ var Phoenix;
                             else
                                 menuShow_1 = true;
                         }
+                        else if (event.keyCode == 9 || event.keyCode == 27) {
+                            if (that._menu && that._menu.opened)
+                                that._menu.hide(target);
+                        }
                         var input = _dom.query(that._input, "input");
                         if (input)
                             input.focus();
@@ -21793,6 +22136,7 @@ var Phoenix;
                 cloneHTML.style.height = eltHTML.offsetHeight + "px";
                 cloneHTML.style.zIndex = '5000';
                 cloneHTML.style.position = 'absolute';
+                cloneHTML.style.cursor = "move";
                 drag.floatElement = cloneHTML;
                 _dom.append(document.body, drag.floatElement);
                 return true;
@@ -22220,8 +22564,13 @@ var Phoenix;
                 _super.call(this, config, options);
                 var that = this;
                 that.filterExpress = new _ui.FilterExpress(config.fields || [], function (filter) {
-                    if (that.options.callback)
-                        that.options.callback({ id: config.id, name: config.name, value: _ui.filter.format.toPhenix(config.fields, [filter]), toolData: config });
+                    if (that.options.callback) {
+                        var lfilter = filter ? _ui.filter.format.toPhenix(config.fields, [filter]) : null;
+                        var ltitle = "";
+                        if (lfilter)
+                            ltitle = that._format(config.fields, filter.code, filter.values[0]);
+                        that.options.callback({ id: config.id, name: config.name, value: { title: ltitle, value: lfilter }, toolData: config });
+                    }
                 });
             }
             ToolElementFilterExpress.prototype.createElement = function (index, config, data) {
@@ -22240,6 +22589,32 @@ var Phoenix;
                 if ($parent)
                     _dom.append($parent.get(0), that.$element.get(0));
                 return that.$element;
+            };
+            ToolElementFilterExpress.prototype._format = function (fields, code, value) {
+                var field = null;
+                fields.every(function (item) {
+                    if (item.code == code) {
+                        field = item;
+                        return false;
+                    }
+                    return true;
+                });
+                if (!field)
+                    return "";
+                if (field.enum) {
+                    var index_1 = -1;
+                    field.enumNames && field.enum.every(function (item, i) {
+                        if (item == value) {
+                            index_1 = i;
+                            return false;
+                        }
+                        return true;
+                    });
+                    if (index_1 >= 0)
+                        value = field.enumNames[index_1];
+                    return (field.lib || field.libelle) + " contient " + value;
+                }
+                return (field.lib || field.libelle) + " = " + value;
             };
             return ToolElementFilterExpress;
         }(ToolElement));

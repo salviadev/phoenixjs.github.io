@@ -304,41 +304,41 @@ fieldset[disabled] .btn-important.active {
   background-image: none;
 }
 .btn-info.bs-button {
-  background: -moz-linear-gradient(top, #3b91e7 50%, #1972cc 50%);
+  background: -moz-linear-gradient(top, #8ed4e8 50%, #5bc0de 50%);
   /* FF3.6+ */
-  background: -webkit-gradient(linear, left top, left bottom, color-stop(50%, #3b91e7), color-stop(50%, #1972cc));
+  background: -webkit-gradient(linear, left top, left bottom, color-stop(50%, #8ed4e8), color-stop(50%, #5bc0de));
   /* Chrome,Safari4+ */
-  background: -webkit-linear-gradient(top, #3b91e7 50%, #1972cc 50%);
+  background: -webkit-linear-gradient(top, #8ed4e8 50%, #5bc0de 50%);
   /* Chrome10+,Safari5.1+ */
-  background: -o-linear-gradient(top, #3b91e7 50%, #1972cc 50%);
+  background: -o-linear-gradient(top, #8ed4e8 50%, #5bc0de 50%);
   /* Opera 11.10+ */
-  background: -ms-linear-gradient(top, #3b91e7 50%, #1972cc 50%);
+  background: -ms-linear-gradient(top, #8ed4e8 50%, #5bc0de 50%);
   /* IE10+ */
-  background: linear-gradient(to bottom, #3b91e7 50%, #1972cc 50%);
+  background: linear-gradient(to bottom, #8ed4e8 50%, #5bc0de 50%);
   /* W3C */
-  filter: progid:DXImageTransform.Microsoft.gradient(startColorstr='#ff3b91e7', endColorstr='#ff1972cc', GradientType=0);
+  filter: progid:DXImageTransform.Microsoft.gradient(startColorstr='#ff8ed4e8', endColorstr='#ff5bc0de', GradientType=0);
   filter: progid:DXImageTransform.Microsoft.gradient(enabled = false);
   background-repeat: repeat-x;
   border-width: 0px;
-  border-bottom: 2px solid #125495;
+  border-bottom: 2px solid #2aabd2;
 }
 .btn-info.bs-button:hover,
 .btn-info.bs-button:focus,
 .btn-info.bs-button:active,
 .btn-info.bs-button.active {
-  background: -moz-linear-gradient(top, #60a5eb 50%, #2986e5 50%);
+  background: -moz-linear-gradient(top, #b0e1ef 50%, #7dcde5 50%);
   /* FF3.6+ */
-  background: -webkit-gradient(linear, left top, left bottom, color-stop(50%, #60a5eb), color-stop(50%, #2986e5));
+  background: -webkit-gradient(linear, left top, left bottom, color-stop(50%, #b0e1ef), color-stop(50%, #7dcde5));
   /* Chrome,Safari4+ */
-  background: -webkit-linear-gradient(top, #60a5eb 50%, #2986e5 50%);
+  background: -webkit-linear-gradient(top, #b0e1ef 50%, #7dcde5 50%);
   /* Chrome10+,Safari5.1+ */
-  background: -o-linear-gradient(top, #60a5eb 50%, #2986e5 50%);
+  background: -o-linear-gradient(top, #b0e1ef 50%, #7dcde5 50%);
   /* Opera 11.10+ */
-  background: -ms-linear-gradient(top, #60a5eb 50%, #2986e5 50%);
+  background: -ms-linear-gradient(top, #b0e1ef 50%, #7dcde5 50%);
   /* IE10+ */
-  background: linear-gradient(to bottom, #60a5eb 50%, #2986e5 50%);
+  background: linear-gradient(to bottom, #b0e1ef 50%, #7dcde5 50%);
   /* W3C */
-  filter: progid:DXImageTransform.Microsoft.gradient(startColorstr='#ff60a5eb', endColorstr='#ff2986e5', GradientType=0);
+  filter: progid:DXImageTransform.Microsoft.gradient(startColorstr='#ffb0e1ef', endColorstr='#ff7dcde5', GradientType=0);
   filter: progid:DXImageTransform.Microsoft.gradient(enabled = false);
 }
 .btn-info.bs-button.disabled,
@@ -354,8 +354,8 @@ fieldset[disabled] .btn-important.active {
 .btn-info.bs-button.disabled.active,
 .btn-info.bs-button[disabled] .btn-info.bs-button.active {
   background: none;
-  background-color: #1972cc;
-  border-bottom-color: #1972cc;
+  background-color: #5bc0de;
+  border-bottom-color: #5bc0de;
   background-image: none;
 }
 .btn-warning.bs-button {

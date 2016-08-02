@@ -687,7 +687,7 @@ tr.bs-table-row.even {
   background-color: #337ab7;
   color: white;
   border-radius: 4px;
-  cursor: initial;
+  cursor: default;
 }
 .bs-pillbox-item-tag.focus {
   background-color: #5a5858;
@@ -712,9 +712,6 @@ tr.bs-table-row.even {
   padding-top: 8px;
   right: 0;
   text-align: center;
-}
-.bs-pillbox-item-tag {
-  cursor: default;
 }
 
 .bs-style-island {
@@ -1125,12 +1122,18 @@ fieldset[disabled] .btn-important.active {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+.table > tfoot > tr > th,
+.table > tfoot > tr td {
+  empty-cells: show;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .table-line-bordered {
   border: 1px solid #ddd;
 }
-.table-line-bordered > thead > tr > th,
-.table-line-bordered > tbody > tr > th,
-.table-line-bordered > tfoot > tr > th {
+.table-line-bordered > thead > tr > td,
+.table-line-bordered > tbody > tr > td,
+.table-line-bordered > tfoot > tr > td {
   border: 1px solid #ddd;
 }
 .table-line-bordered > thead > tr > th {
@@ -1145,8 +1148,8 @@ fieldset[disabled] .btn-important.active {
 }
 .table-bordered.bs-theme > tfoot > tr > th,
 .table-line-bordered.bs-theme > tfoot > tr > th,
-.table-bordered.bs-theme > tfoot > tr > td,
-.table-line-bordered.bs-theme > tfoot > tr > td {
+.table-bordered.bs-theme > tfoot > tr td,
+.table-line-bordered.bs-theme > tfoot > tr td {
   color: #fff;
   background-color: #636363;
   border-bottom-width: 1px;
@@ -1154,6 +1157,11 @@ fieldset[disabled] .btn-important.active {
 }
 .table-bordered.bs-theme.table-header > thead > tr > th {
   border-bottom-width: 0px;
+}
+.table-bordered.bs-theme.table-header > tfoot > tr > th,
+.table-bordered.bs-theme.table-header > tfoot > tr td {
+  border-bottom-width: 0px;
+  border-top-width: 0px;
 }
 table.table-bordered.table-header.bs-theme {
   border-bottom-width: 0px;
