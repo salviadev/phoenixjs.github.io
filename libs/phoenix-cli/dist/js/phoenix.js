@@ -13957,7 +13957,28 @@ var Phoenix;
             };
             BasicGrid.prototype._totalChanged = function (propName, ov, nv, op, params) {
                 var that = this;
-                debugger;
+                if (!that.$element)
+                    return;
+                if (that._ignoreNotifications)
+                    return false;
+                switch (op) {
+                    case 'set':
+                    case 'propchange':
+                        if (propName === params.propName) {
+                            that._renderTotalRows();
+                        }
+                        break;
+                    case 'upd':
+                        if (propName === params.propName) {
+                            var totals = that.form.getValue(that._totalProperty);
+                            var item = params && params.$oid ? totals.findById(params.$oid) : null;
+                            if (item) {
+                                var prop = params.property;
+                                that._modifyFooterCell(item, prop);
+                            }
+                        }
+                        break;
+                }
             };
             BasicGrid.prototype.changed = function (propName, ov, nv, op, params) {
                 var that = this;
@@ -14084,6 +14105,33 @@ var Phoenix;
                 var cid = that.id + (col.options.frozen && opts.allowFrozenColumns ? '_frozen_rows' : '_rows');
                 return _dom.find(that.$element.get(0), cid);
             };
+            BasicGrid.prototype._modifyFooterCell = function (item, field) {
+                var that = this;
+                if (!that.$element)
+                    return;
+                var col = that._colByField(field);
+                if (!col)
+                    return;
+                var tr = that._findTR(item.$id, col);
+                if (!tr)
+                    return;
+                that._findCellAndModify(item, tr, field);
+            };
+            BasicGrid.prototype._findCellAndModify = function (item, tr, field) {
+                //TODO: optimize
+                var that = this;
+                for (var i = 0, len = tr.childNodes.length; i < len; i++) {
+                    var ctd = tr.childNodes[i];
+                    var cid = _dom.attr(ctd, 'colid');
+                    if (cid === field) {
+                        if (that.inplace && that.inplace.input && that.inplace.td === ctd) {
+                            that._inplaceEditModel2Control(item, field, ctd);
+                            return;
+                        }
+                        that._modifyTD(item, field, ctd);
+                    }
+                }
+            };
             BasicGrid.prototype._modifyCell = function (item, field, td) {
                 var that = this;
                 if (!that.$element)
@@ -14101,18 +14149,7 @@ var Phoenix;
                 var tr = that._findTR(item.$id, col);
                 if (!tr)
                     return;
-                //TODO: optimize
-                for (var i = 0, len = tr.childNodes.length; i < len; i++) {
-                    var ctd = tr.childNodes[i];
-                    var cid = _dom.attr(ctd, 'colid');
-                    if (cid === field) {
-                        if (that.inplace && that.inplace.input && that.inplace.td === ctd) {
-                            that._inplaceEditModel2Control(item, field, ctd);
-                            return;
-                        }
-                        that._modifyTD(item, field, ctd);
-                    }
-                }
+                that._findCellAndModify(item, tr, field);
             };
             BasicGrid.prototype._rootElement = function () {
                 return this.$element.get(0);
@@ -14826,7 +14863,6 @@ var Phoenix;
                     var opts = that.renderOptions;
                     if (that._totalProperty) {
                         var totals = that.form.getValue(that._totalProperty);
-                        console.log(totals);
                         var pr = void 0, rows = void 0;
                         if (_gu.hasFrozenColumns(that.renderOptions, that.frozenColumns)) {
                             pr = _dom.find(that.$element.get(0), that.id + '_frozen_totals');

@@ -1535,6 +1535,8 @@ declare namespace Phoenix {
             private _findTR(id, col);
             private _id2rowId(id);
             private _findtBody(col);
+            private _modifyFooterCell(item, field);
+            private _findCellAndModify(item, tr, field);
             private _modifyCell(item, field, td?);
             private _rootElement();
             private _gridParentFocus();
