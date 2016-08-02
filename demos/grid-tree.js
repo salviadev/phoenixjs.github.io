@@ -80,8 +80,7 @@ $(function () {
 						}
 					}
 
-				],
-				totals: [{ "Area": 209331555, "Population": 5969056888 }]
+				]
 			}
 		]
 	};
@@ -240,9 +239,8 @@ $(function () {
 				"Population": 318212000,
 				"TimeZone": "BST"
 			}
-
-
-		]
+		],
+		totals: [{ "Area": 209331555, "Population": 5969056888 }]
 	};
 
 	(function om() {
