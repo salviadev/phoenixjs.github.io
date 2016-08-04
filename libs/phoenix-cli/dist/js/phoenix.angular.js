@@ -146,7 +146,7 @@ var Phoenix;
                             });
                         }
                         else {
-                            scope.component = new _ui.LayoutClass(scope.layout.model || {}, options, {}, scope.layout.prototype, scope.layout.locale && scope.layout.locale.$view ? scope.layout.locale.$view : scope.layout.locale);
+                            scope.component = new _ui.LayoutClass(scope.layout.model || {}, options, {}, scope.layout.prototype, scope.layout.locale && scope.layout.locale.$view ? scope.layout.locale.$view : scope.layout.locale, null);
                             setComponentHandlers(scope);
                             scope.component.render(element);
                         }

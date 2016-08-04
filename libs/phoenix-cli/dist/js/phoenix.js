@@ -316,12 +316,43 @@ var Phoenix;
     Phoenix.bootstrap4 = false;
     var external;
     (function (external) {
+        var _defPrefsLoader = function (name) {
+            var promiseClass = _utils.Promise;
+            if (window.localStorage)
+                return new promiseClass(function (resolve, reject) {
+                    var d = window.localStorage.getItem('preferences.' + name);
+                    if (d)
+                        resolve(JSON.parse(d));
+                    else
+                        resolve(null);
+                });
+            else
+                return new promiseClass(function (resolve, reject) {
+                    resolve(null);
+                });
+        }, _defPrefsSaver = function (name, data) {
+            var promiseClass = _utils.Promise;
+            if (window.localStorage)
+                return new promiseClass(function (resolve, reject) {
+                    if (data)
+                        window.localStorage.setItem('preferences.' + name, JSON.stringify(data));
+                    else
+                        window.localStorage.setItem('preferences.' + name, '');
+                    resolve();
+                });
+            else
+                return new promiseClass(function (resolve, reject) {
+                    resolve();
+                });
+        };
         external.hashHandler = null;
         external.logoutHandler = null;
         external.forbiddenHandler = null;
         external.changePasswordHandler = null;
         external.checkLoggedInHandler = null;
         external.historyChangedHandler = null;
+        external.preferenceLoadHandler = _defPrefsLoader;
+        external.preferenceSaveHandler = _defPrefsSaver;
     })(external = Phoenix.external || (Phoenix.external = {}));
     var history;
     (function (history) {
@@ -337,9 +368,9 @@ var Phoenix;
                 return;
             }
             var len = _value.length;
-            var last = len ? _value[len - 1] : "";
+            var last = len ? _value[len - 1] : '';
             if (last != hash) {
-                var prev = (len >= 2) ? _value[len - 2] : "";
+                var prev = (len >= 2) ? _value[len - 2] : '';
                 if (hash == prev)
                     _value.pop();
                 else
@@ -576,7 +607,7 @@ var Phoenix;
     var customData;
     (function (customData) {
         var _userData = {}, _registerData = function (namespace, value) {
-            var a = namespace.split(".");
+            var a = namespace.split('.');
             var cp = _userData;
             for (var i = 0, len = a.length - 1; i < len; i++) {
                 var p = a[i];
@@ -585,7 +616,7 @@ var Phoenix;
             }
             cp[a[a.length - 1]] = value;
         }, _getRegisteredData = function (namespace) {
-            var a = namespace.split(".");
+            var a = namespace.split('.');
             var cp = _userData, cd = null;
             for (var i = 0, len = a.length; i < len; i++) {
                 cd = cp[a[i]];
@@ -605,12 +636,12 @@ var Phoenix;
     Phoenix.device = {
         phone: false,
         tablet: false,
-        deviceType: ""
+        deviceType: ''
     };
     var _load$Mem = function () {
         try {
             if (window.sessionStorage) {
-                return JSON.parse(window.sessionStorage.getItem("$mem")) || {};
+                return JSON.parse(window.sessionStorage.getItem('$mem')) || {};
             }
         }
         catch (ex) {
@@ -621,7 +652,7 @@ var Phoenix;
         value = value || {};
         try {
             if (window.sessionStorage) {
-                window.sessionStorage.setItem("$mem", JSON.stringify(value));
+                window.sessionStorage.setItem('$mem', JSON.stringify(value));
             }
         }
         catch (ex) {
@@ -635,7 +666,7 @@ var Phoenix;
     function sessionPreferences(name, value) {
         var p = null;
         try {
-            p = JSON.parse(window.sessionStorage.getItem("preferences"));
+            p = JSON.parse(window.sessionStorage.getItem('preferences'));
         }
         catch (ex) { }
         if (value === undefined) {
@@ -645,7 +676,7 @@ var Phoenix;
             p = p || {};
             p[name] = value;
             try {
-                window.sessionStorage.setItem("preferences", JSON.stringify(p));
+                window.sessionStorage.setItem('preferences', JSON.stringify(p));
             }
             catch (ex) { }
         }
@@ -655,7 +686,7 @@ var Phoenix;
     function preferences(name, value) {
         var p = null;
         try {
-            p = JSON.parse(window.localStorage.getItem("preferences"));
+            p = JSON.parse(window.localStorage.getItem('preferences'));
         }
         catch (ex) { }
         if (value === undefined) {
@@ -665,13 +696,13 @@ var Phoenix;
             p = p || {};
             p[name] = value;
             try {
-                window.localStorage.setItem("preferences", JSON.stringify(p));
+                window.localStorage.setItem('preferences', JSON.stringify(p));
             }
             catch (ex) { }
         }
     }
     Phoenix.preferences = preferences;
-    Phoenix.build = { version: "0.1.0.0", release: false };
+    Phoenix.build = { version: '0.1.0.0', release: false };
 })(Phoenix || (Phoenix = {}));
 /// <reference path="../../../../typings/index.d.ts" />
 /// <reference path="./globals.ts" />
@@ -789,7 +820,7 @@ var Phoenix;
     (function (ajax) {
         var _utils = Phoenix.utils, _application = Phoenix.application, _customData = Phoenix.customData, _authentication = Phoenix.authentication, _locale = Phoenix.locale;
         var _ajaxInterceptors = {}, _intercept = function (status) {
-            var ii = _ajaxInterceptors["s" + status];
+            var ii = _ajaxInterceptors['s' + status];
             if (ii && !ii.disabled) {
                 ii.handlers.forEach(function (v) {
                     v();
@@ -798,7 +829,7 @@ var Phoenix;
             }
             return false;
         }, _addAjaxInterceptor = function (status, handler) {
-            var p = "s" + status;
+            var p = 's' + status;
             var a = _ajaxInterceptors[p] || {
                 disabled: false,
                 handlers: []
@@ -806,11 +837,11 @@ var Phoenix;
             a.handlers.push(handler);
             _ajaxInterceptors[p] = a;
         }, _activateInterceptor = function (status, value) {
-            var a = _ajaxInterceptors["s" + status];
+            var a = _ajaxInterceptors['s' + status];
             if (a)
                 a.disabled = !value;
         }, _isFunction = function (obj) {
-            return obj && typeof obj === "function";
+            return obj && typeof obj === 'function';
         }, _parseError = function (jqXHR) {
             var res = null;
             if (jqXHR.responseText) {
@@ -845,7 +876,7 @@ var Phoenix;
                         me = ce;
                     cmessage = ce.message;
                     if (ce.innererror && ce.innererror.message) {
-                        if (ce.innererror.type === "Json") {
+                        if (ce.innererror.type === 'Json') {
                             me = JSON.parse(ce.innererror.message);
                         }
                     }
@@ -875,7 +906,7 @@ var Phoenix;
             var opts = {
                 type: 'GET',
                 url: lurl,
-                dataType: "json",
+                dataType: 'json',
                 accept: 'application/json'
             };
             var errors = null;
@@ -947,7 +978,7 @@ var Phoenix;
                 $.ajax(opts).done(function (data, textStatus, jqXHR) {
                     resolve(data);
                 }).fail(function (jqXHR, textStatus, errorThrown) {
-                    if (options && options.ignore && options.ignore["" + jqXHR.status])
+                    if (options && options.ignore && options.ignore['' + jqXHR.status])
                         return resolve({});
                     if (_intercept(jqXHR.status)) {
                         return resolve({});
@@ -986,7 +1017,7 @@ var Phoenix;
             if (cfg && cfg.odata && cfg.odata.headers)
                 opts.headers = cfg.odata.headers;
             opts.headers = opts.headers || {};
-            opts.headers.Accept = "application/json";
+            opts.headers.Accept = 'application/json';
             if (cfg && cfg.odata && cfg.odata.authentication) {
                 var ui = _authentication.load();
                 if (ui) {
@@ -1020,7 +1051,7 @@ var Phoenix;
                 else {
                     $.ajax({
                         url: lurl,
-                        dataType: "script",
+                        dataType: 'script',
                         cache: true
                     }).done(function (data, textStatus, jqXHR) {
                         _dynscripts[name] = { loaded: true };
@@ -1051,7 +1082,7 @@ var Phoenix;
             return new _promise(function (resolve, reject) {
                 $.ajax({
                     url: lurl,
-                    dataType: "script",
+                    dataType: 'script',
                     cache: true
                 }).done(function (data, textStatus, jqXHR) {
                     resolve(true);
@@ -1088,7 +1119,7 @@ var Phoenix;
                 xhr.responseType = 'arraybuffer';
                 xhr.onload = function () {
                     if (this.status === 200 || this.status === 201) {
-                        var filename = "";
+                        var filename = '';
                         var disposition = xhr.getResponseHeader('Content-Disposition');
                         if (disposition && disposition.indexOf('attachment') !== -1) {
                             var filenameRegex = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/;
@@ -1108,18 +1139,18 @@ var Phoenix;
                             resolve({});
                         }
                         else {
-                            var URL = window["URL"] || window["webkitURL"];
+                            var URL = window['URL'] || window['webkitURL'];
                             var downloadUrl = URL.createObjectURL(blob);
                             if (filename) {
                                 // use HTML5 a[download] attribute to specify filename
-                                var a = document.createElement("a");
+                                var a = document.createElement('a');
                                 // safari doesn't support this yet
-                                if (typeof a["download"] === 'undefined') {
+                                if (typeof a['download'] === 'undefined') {
                                     window.location = downloadUrl;
                                 }
                                 else {
                                     a.href = downloadUrl;
-                                    a["download"] = filename;
+                                    a['download'] = filename;
                                     document.body.appendChild(a);
                                     a.click();
                                     document.body.removeChild(a);
@@ -1192,7 +1223,7 @@ var Phoenix;
             }
             return v;
         };
-        var _supportedLanguages = ["en", "fr"], _checkPrecision = function (val, base) {
+        var _supportedLanguages = ['en', 'fr'], _checkPrecision = function (val, base) {
             val = Math.round(Math.abs(val));
             return isNaN(val) ? base : val;
         }, _toFixed = function (value, precision) {
@@ -1201,14 +1232,14 @@ var Phoenix;
             return (Math.round(value * power) / power).toFixed(precision);
         }, _formatNumber = function (number, precision, thousand, decimal) {
             if (number === null)
-                return "";
-            var usePrecision = _checkPrecision(precision, 0), negative = number < 0 ? "-" : "", base = parseInt(_toFixed(Math.abs(number || 0), usePrecision), 10) + "", mod = base.length > 3 ? base.length % 3 : 0;
-            return negative + (mod ? base.substr(0, mod) + thousand : "") + base.substr(mod).replace(/(\d{3})(?=\d)/g, "$1" + thousand) +
-                (usePrecision ? decimal + _toFixed(Math.abs(number), usePrecision).split('.')[1] : "");
+                return '';
+            var usePrecision = _checkPrecision(precision, 0), negative = number < 0 ? '-' : '', base = parseInt(_toFixed(Math.abs(number || 0), usePrecision), 10) + '', mod = base.length > 3 ? base.length % 3 : 0;
+            return negative + (mod ? base.substr(0, mod) + thousand : '') + base.substr(mod).replace(/(\d{3})(?=\d)/g, '$1' + thousand) +
+                (usePrecision ? decimal + _toFixed(Math.abs(number), usePrecision).split('.')[1] : '');
         }, _formatMoney = function (number, precision, thousand, decimal, symbol, format) {
             if (number === null)
-                return "";
-            format = format || "%v %s";
+                return '';
+            format = format || '%v %s';
             return format.replace('%s', symbol).replace('%v', _formatNumber(number, precision, thousand, decimal));
         }, _parseDateISO8601 = function (value) {
             if (value instanceof Date)
@@ -1231,7 +1262,7 @@ var Phoenix;
         _pad = function (val, len) {
             var sval = val + '';
             while (sval.length < len)
-                sval = "0" + val;
+                sval = '0' + val;
             return sval;
         }, _formatDate = function (value, format) {
             var token = /d{1,4}|m{1,4}|yy(?:yy)?|([HhMsTt])\1?|[LloSZ]|"[^"]*"|'[^']*'/g, md = value.getDate(), day = value.getDay(), month = value.getMonth(), year = value.getFullYear(), flags = {
@@ -1281,30 +1312,30 @@ var Phoenix;
             return sv;
         }, _shortDate = function (date) {
             if (!date)
-                return "";
+                return '';
             var d = _parseDateISO8601(date);
             if (!d)
-                return "";
+                return '';
             var format = _locale.date.dateShort;
             if (_locale.date.daySep != '/')
                 format = format.replace(/\//g, _locale.date.daySep);
             return _formatDate(d, format);
         }, _longDate = function (date) {
             if (!date)
-                return "";
+                return '';
             var d = _parseDateISO8601(date);
             if (!d)
-                return "";
+                return '';
             var format = _locale.date.dateLong;
             if (_locale.date.daySep != '/')
                 format = format.replace(/\//g, _locale.date.daySep);
             return _formatDate(d, format);
         }, _monthYear = function (date) {
             if (!date)
-                return "";
+                return '';
             var d = _parseDateISO8601(date);
             if (!d)
-                return "";
+                return '';
             var format = _locale.date.monthYear;
             if (_locale.date.daySep != '/')
                 format = format.replace(/\//g, _locale.date.daySep);
@@ -1319,9 +1350,9 @@ var Phoenix;
                 return _formatNumber(value, _locale.number.places, _locale.number.thousand, _locale.number.decimal);
         }, _decimal = function (value, decimals, symbol) {
             if (value === null)
-                return "";
+                return '';
             value = value || 0;
-            var format = symbol ? "%v %s" : "%v";
+            var format = symbol ? '%v %s' : '%v';
             return _formatMoney(value, decimals, _locale.number.thousand, _locale.number.decimal, symbol, format);
         }, _formatObject = function (desc, value) {
             if (!desc || !value)
@@ -1329,7 +1360,7 @@ var Phoenix;
             var props = [];
             Object.keys(desc).forEach(function (pn) {
                 var d = desc[pn];
-                if (d.type == "date" || d.type == "money" || d.type == "decimal" || d.type == "number") {
+                if (d.type === 'date' || d.type === 'money' || d.type === 'decimal' || d.type === 'number') {
                     props.push({
                         name: pn,
                         type: d.type,
@@ -1346,17 +1377,17 @@ var Phoenix;
             o.forEach(function (co) {
                 props.forEach(function (f) {
                     switch (f.type) {
-                        case "date":
+                        case 'date':
                             co[f.name] = _shortDate(co[f.name]);
                             break;
-                        case "money":
+                        case 'money':
                             co[f.name] = _money(co[f.name], f.useSymbol);
                             break;
-                        case "integer":
+                        case 'integer':
                             co[f.name] = _decimal(co[f.name], 0, f.symbol);
                             break;
-                        case "decimal":
-                        case "number":
+                        case 'decimal':
+                        case 'number':
                             co[f.name] = _decimal(co[f.name], f.decimals, f.symbol);
                             break;
                     }
@@ -1365,13 +1396,13 @@ var Phoenix;
             return value;
         }, _ISODatePart = function (isoDate) {
             var s = isoDate || '';
-            var ii = s.indexOf("T");
+            var ii = s.indexOf('T');
             if (ii > 0)
                 s = s.substr(0, ii);
             return s;
         }, _string2Float = function (value) {
             var val = value.replace(new RegExp(Phoenix.locale.number.thousand, 'g'), '');
-            if (Phoenix.locale.number.decimal != ".")
+            if (Phoenix.locale.number.decimal != '.')
                 val = val.replace(new RegExp(Phoenix.locale.number.decimal, 'g'), '.');
             var res = parseFloat(val);
             if (isNaN(res))
@@ -1382,7 +1413,7 @@ var Phoenix;
         ulocale.translate = _translate;
         ulocale.tt = _tt;
         ulocale.currentLang = 'en';
-        ulocale.defCountry = "US";
+        ulocale.defCountry = 'US';
         ulocale.lang = 'fr'; //(navigator.language || navigator.userLanguage || currentLang).split('-')[0];
         ulocale.country = 'FR';
         ulocale.money = _money;
@@ -1399,7 +1430,7 @@ var Phoenix;
         ulocale.date2ISO = _date2ISO;
         ulocale.string2Float = _string2Float;
         ulocale.localeTitle = function (title) {
-            if (typeof title === "object")
+            if (typeof title === 'object')
                 return title[ulocale.currentLang];
             return title;
         };
@@ -1572,46 +1603,46 @@ var Phoenix;
     var dom;
     (function (dom) {
         var _mapIcon = {
-            "times-circle": "remove-sign",
-            "times-circle-o": "remove-circle",
-            "times": "remove",
-            "chevron-left": "chevron-left",
-            "chevron-right": "chevron-right",
-            "backward": "backward",
-            "forward": "forward",
-            "file-o": 'file',
+            'times-circle': 'remove-sign',
+            'times-circle-o': 'remove-circle',
+            'times': 'remove',
+            'chevron-left': 'chevron-left',
+            'chevron-right': 'chevron-right',
+            'backward': 'backward',
+            'forward': 'forward',
+            'file-o': 'file',
             'floppy': 'floppy-save',
-            "power-off": "off",
-            "user": "user",
-            "pencil": "pencil",
-            "trash": "trash",
-            "check-square-o": "check",
-            "square-o": "unchecked",
-            "plus-circle": "plus-sign",
-            "minus-circle": "minus-sign",
-            "plus": "plus",
-            "minus": "minus",
-            "search": "search",
-            "chevron-down": "menu-down",
-            "ellipsis-v": "option-vertical",
-            "bars": "menu-hamburger",
-            "thumb-tack": "pushpin",
-            "calendar": "calendar",
-            "exclamation-circle": "exclamation-sign",
-            "cloud": "cloud",
-            "caret-up": "triangle-top",
-            "caret-down": "triangle-bottom",
-            "cog": "cog",
-            "lock": "lock",
-            "question-circle": "question-sign",
-            "info-circle": "info-sign"
+            'power-off': 'off',
+            'user': 'user',
+            'pencil': 'pencil',
+            'trash': 'trash',
+            'check-square-o': 'check',
+            'square-o': 'unchecked',
+            'plus-circle': 'plus-sign',
+            'minus-circle': 'minus-sign',
+            'plus': 'plus',
+            'minus': 'minus',
+            'search': 'search',
+            'chevron-down': 'menu-down',
+            'ellipsis-v': 'option-vertical',
+            'bars': 'menu-hamburger',
+            'thumb-tack': 'pushpin',
+            'calendar': 'calendar',
+            'exclamation-circle': 'exclamation-sign',
+            'cloud': 'cloud',
+            'caret-up': 'triangle-top',
+            'caret-down': 'triangle-bottom',
+            'cog': 'cog',
+            'lock': 'lock',
+            'question-circle': 'question-sign',
+            'info-circle': 'info-sign'
         };
         var _parseStyle = function (style, css) {
             if (style) {
-                var a = style.split(" ");
+                var a = style.split(' ');
                 a.forEach(function (e, index) {
                     e = e.trim();
-                    if (e && (e.charAt(0) === "$"))
+                    if (e && (e.charAt(0) === '$'))
                         e = 'bs-style-' + e.substring(1);
                     css.push(e);
                 });
@@ -1636,11 +1667,11 @@ var Phoenix;
             if (noPrefix === void 0) { noPrefix = false; }
             var icon = _mapIcon[iconName] ? _mapIcon[iconName] : iconName;
             if (noPrefix)
-                return (Phoenix.bootstrap4 ? "fa-" : "glyphicon-") + icon;
+                return (Phoenix.bootstrap4 ? 'fa-' : 'glyphicon-') + icon;
             else
-                return (Phoenix.bootstrap4 ? "fa fa-" : "glyphicon glyphicon-") + icon;
-        }, _iconPrefix = function () { return (Phoenix.bootstrap4 ? "fa" : "glyphicon"); }, _createIcon = function (iconName) {
-            var icon = document.createElement("span");
+                return (Phoenix.bootstrap4 ? 'fa fa-' : 'glyphicon glyphicon-') + icon;
+        }, _iconPrefix = function () { return (Phoenix.bootstrap4 ? 'fa' : 'glyphicon'); }, _createIcon = function (iconName) {
+            var icon = document.createElement('span');
             icon.className = _iconClass(iconName, false);
             return icon;
         }, _queryAll = function (parent, selector) {
@@ -1871,15 +1902,15 @@ var Phoenix;
             var lc = res.lastElementChild;
             var ww = Math.round(fc.offsetWidth), hh = Math.round(lc.offsetHeight);
             if (vertical) {
-                style.height = hh + "px";
-                style.width = pos.width + 2 * ww + "px";
-                style.left = pos.left - ww + "px";
-                style.top = pos.top - (hh >> 2) - 4 + "px";
+                style.height = hh + 'px';
+                style.width = pos.width + 2 * ww + 'px';
+                style.left = pos.left - ww + 'px';
+                style.top = pos.top - (hh >> 2) - 4 + 'px';
             }
             else {
-                style.height = pos.height + 2 * hh + "px";
-                style.top = pos.top - hh + "px";
-                style.left = pos.left - (ww >> 2) + "px";
+                style.height = pos.height + 2 * hh + 'px';
+                style.top = pos.top - hh + 'px';
+                style.left = pos.left - (ww >> 2) + 'px';
             }
             style.zIndex = '5002';
             return res;
@@ -1896,7 +1927,7 @@ var Phoenix;
             return null;
         }, _setBodyTheme = function (value) {
             var fc = document.body.firstElementChild;
-            if (!fc || !_hasClass(fc, "bs-content"))
+            if (!fc || !_hasClass(fc, 'bs-content'))
                 fc = document.body;
             var old = fc.className || '';
             var nc = value ? ('bs-body-theme-' + value) : '';
@@ -1993,9 +2024,9 @@ var Phoenix;
             return function () {
                 if (calculated)
                     return cw;
-                var b, a = document.createElement("div");
-                a.style.cssText = "overflow:scroll; overflow-x:hidden; zoom:1; clear:both";
-                a.innerHTML = "&nbsp;";
+                var b, a = document.createElement('div');
+                a.style.cssText = 'overflow:scroll; overflow-x:hidden; zoom:1; clear:both';
+                a.innerHTML = '&nbsp;';
                 document.body.appendChild(a);
                 b = a.offsetWidth - a.scrollWidth;
                 document.body.removeChild(a);
@@ -2184,7 +2215,7 @@ var Phoenix;
         }, _context = function () {
             var usr = null;
             try {
-                usr = JSON.parse(_authentication.db().getItem("authentication"));
+                usr = JSON.parse(_authentication.db().getItem('authentication'));
             }
             catch (e) {
             }
@@ -2192,9 +2223,9 @@ var Phoenix;
                 $url: _urlSearch(null, false),
                 $mem: Phoenix.$mem,
                 $user: {
-                    name: usr ? usr.name || usr.nom || usr.login : "",
-                    firstName: usr ? usr.firstName || usr.prenom || usr.login : "",
-                    lastName: usr ? usr.lastName || usr.nom || "" : ""
+                    name: usr ? usr.name || usr.nom || usr.login : '',
+                    firstName: usr ? usr.firstName || usr.prenom || usr.login : '',
+                    lastName: usr ? usr.lastName || usr.nom || '' : ''
                 },
                 $item: null
             };
@@ -2219,7 +2250,7 @@ var Phoenix;
                     });
                 }
                 if (a.length)
-                    res = res + "?" + a.join("&");
+                    res = res + '?' + a.join('&');
                 return res;
             }
             return '#';
@@ -2376,7 +2407,7 @@ var Phoenix;
                 window.history.back();
             }
             else if (clink.href) {
-                var a = document.createElement("a");
+                var a = document.createElement('a');
                 a.href = clink.href;
                 if (clink.target)
                     a.target = clink.target;
@@ -6617,7 +6648,7 @@ var Phoenix;
             return null;
         };
         var BaseLayout = (function () {
-            function BaseLayout(ldata, options, fdata, schema, locale) {
+            function BaseLayout(ldata, options, fdata, schema, locale, preferences) {
                 this.$locale = null;
                 this._init(ldata, options);
             }
@@ -7523,8 +7554,8 @@ var Phoenix;
         _utils.applyMixins(PageLayout, [Phoenix.DatasetPlugin.DatasetMethods]);
         var Layout = (function (_super) {
             __extends(Layout, _super);
-            function Layout(ldata, options, fdata, schema, locale) {
-                _super.call(this, ldata, options, fdata, schema, locale);
+            function Layout(ldata, options, fdata, schema, locale, preferences) {
+                _super.call(this, ldata, options, fdata, schema, locale, preferences);
             }
             return Layout;
         }(PageLayout));
@@ -10624,10 +10655,10 @@ var Phoenix;
         var _ui = ui, _utils = Phoenix.utils, _build = Phoenix.build, _link = Phoenix.link, _dom = Phoenix.dom, _preferences = Phoenix.preferences, _sutils = Phoenix.Observable.SchemaUtils, _outils = Phoenix.Observable.ObservableUtils, _ulocale = Phoenix.ulocale;
         var Form = (function (_super) {
             __extends(Form, _super);
-            function Form(layoutData, options, ldata, schema, locale) {
+            function Form(layoutData, options, ldata, schema, locale, preferences) {
                 options = options || {};
                 options.form = true;
-                _super.call(this, layoutData, options, ldata, schema, locale);
+                _super.call(this, layoutData, options, ldata, schema, locale, preferences);
                 var that = this;
                 if (options.module) {
                     that.module = options.module;
@@ -10641,8 +10672,14 @@ var Phoenix;
                     that.$schema = _sutils.getSchema(options.path, that.$schema, that.$rootSchema, true);
                 }
                 that.$locale = locale;
-                if (options && options.storageName)
+                if (options && options.preferenceName) {
+                    that._settingsName = options.preferenceName;
+                    that._settings = preferences;
+                }
+                if (options && options.storageName) {
                     that._settingsName = options.storageName;
+                    that._localSettings = true;
+                }
                 that.setData(ldata);
                 that.$model.onchange = that._modelChanged.bind(that);
                 that.$model.onstatechanged = that._stateChanged.bind(that);
@@ -10719,10 +10756,16 @@ var Phoenix;
                 });
                 return list.length ? list : null;
             };
+            //todo: remove use that._preferences 
             Form.prototype.loadPrefs = function () {
                 var that = this;
-                if (that._settingsName)
-                    that._settings = _preferences(that._settingsName);
+                if (that._localSettings) {
+                    if (that._settingsName)
+                        that._settings = _preferences(that._settingsName);
+                }
+            };
+            Form.prototype.supportSettings = function () {
+                return !!this._settingsName;
             };
             Form.prototype.getFieldSettings = function (field) {
                 var that = this;
@@ -10735,11 +10778,19 @@ var Phoenix;
                 that._settings = that._settings || {};
                 that._settings[field] = settings;
             };
-            Form.prototype.savePrefs = function () {
+            Form.prototype.savePrefs = function (after) {
                 var that = this;
                 if (that._settingsName) {
-                    that._settings = that._settings || {};
-                    _preferences(that._settingsName, that._settings);
+                    if (that._localSettings) {
+                        that._settings = that._settings || {};
+                        _preferences(that._settingsName, that._settings);
+                        after();
+                    }
+                    else {
+                        Phoenix.external.preferenceSaveHandler(that._settingsName, that._settings).then(function () {
+                            after();
+                        });
+                    }
                 }
             };
             Form.prototype.sendMessage = function (message, field, params) {
@@ -10814,11 +10865,13 @@ var Phoenix;
             };
             Form.prototype.afterRenderChildren = function ($e) {
                 //setup tooltip
-                $e.find('[data-phoenix-tooltip]')["tooltip"]({
-                    html: true,
-                    container: 'body',
-                    template: '<div class="tooltip bs-tooltip-help" role="tooltip"><div class="tooltip-arrow"></div><div class="tooltip-inner"></div></div>'
-                });
+                var $ttc = $e.find('[data-phoenix-tooltip]');
+                if ($ttc["tooltip"])
+                    $ttc["tooltip"]({
+                        html: true,
+                        container: 'body',
+                        template: '<div class="tooltip bs-tooltip-help" role="tooltip"><div class="tooltip-arrow"></div><div class="tooltip-inner"></div></div>'
+                    });
             };
             Form.prototype.afterRender = function ($e) {
                 var that = this;
@@ -11248,10 +11301,10 @@ var Phoenix;
 (function (Phoenix) {
     var ui;
     (function (ui) {
-        var _ajax = Phoenix.ajax, _utils = Phoenix.utils, _application = Phoenix.application, _su = Phoenix.Observable.SchemaUtils;
+        var _ajax = Phoenix.ajax, _utils = Phoenix.utils, _application = Phoenix.application, _su = Phoenix.Observable.SchemaUtils, _external = Phoenix.external;
         var ModalForm = (function (_super) {
             __extends(ModalForm, _super);
-            function ModalForm(formOptions, layout, schema, data, locale) {
+            function ModalForm(formOptions, layout, schema, data, locale, preferences) {
                 _super.call(this, formOptions, locale);
                 var that = this;
                 var opts = formOptions.opts ? formOptions.opts : {};
@@ -11259,7 +11312,7 @@ var Phoenix;
                     opts.validators = formOptions.validators;
                     delete formOptions.validators;
                 }
-                that.render = new ui.Form(layout, opts, data, schema, locale);
+                that.render = new ui.Form(layout, opts, data, schema, locale, preferences);
                 that.render.$locale = locale;
             }
             ModalForm.prototype.on = function (hnd) {
@@ -11277,18 +11330,23 @@ var Phoenix;
         ui.ModalForm = ModalForm;
         var _openForm = function (formOptions, params, handler) {
             _su.loadSchemaRefs(params.schema, params.data, params.layout, function (ldata) {
-                var f = new ModalForm(formOptions, params.layout, params.schema, ldata, params.locale);
+                var f = new ModalForm(formOptions, params.layout, params.schema, ldata, params.locale, params.preferences);
                 f.open();
                 if (handler)
                     f.on(handler);
             });
         };
-        var _OpenModalForm = function (formOptions, layout, schema, fdata, locale, handler) {
-            var ci = 0, li = -1, si = -1, promises = [], params = { locale: locale }, dataIndex = -1;
+        var _preferenceName = function (name, config) {
+            if (!Phoenix.application.name)
+                Phoenix.application.name = 'fscevegeegde';
+            console.log(_application.name);
+            if (name && _application.name)
+                return _application.name + '.form.' + name;
+            return '';
+        }, _prepareForm = function (layout, schema, fdata, locale, opts, after) {
+            var ci = 0, li = -1, si = -1, promises = [], params = { locale: locale }, dataIndex = -1, preferencesIndex = -1;
             var config = _application.config(_application.name);
-            var opts = {};
-            formOptions = formOptions || {};
-            formOptions.opts = opts;
+            opts = opts || {};
             if (locale && locale.$name)
                 opts.externalLocale = locale.$name;
             if (!fdata || !fdata.then)
@@ -11298,13 +11356,16 @@ var Phoenix;
                 dataIndex = 0;
                 ci++;
             }
+            var ln;
             if (typeof layout === 'object') {
                 params.layout = $.extend(true, {}, layout);
+                ln = params.layout.name;
             }
             else {
                 li = ci;
                 ci++;
                 opts.externalLayout = layout;
+                ln = layout;
                 promises.push(_ajax.get(config.forms + '/' + layout + '.json'));
             }
             if (typeof schema === 'object') {
@@ -11316,6 +11377,13 @@ var Phoenix;
                 opts.externalSchema = schema;
                 promises.push(_ajax.get(config.prototypes + '/' + schema + '.json'));
             }
+            var preferenceName = _preferenceName(ln, config);
+            if (preferenceName && _external.preferenceLoadHandler) {
+                preferencesIndex = ci;
+                ci++;
+                opts.preferenceName = preferenceName;
+                promises.push(_external.preferenceLoadHandler(preferenceName));
+            }
             if (promises.length) {
                 _utils.Promise.all(promises).then(function (values) {
                     if (li >= 0)
@@ -11324,14 +11392,24 @@ var Phoenix;
                         params.schema = values[si];
                     if (dataIndex >= 0)
                         params.data = values[dataIndex];
-                    _openForm(formOptions, params, handler);
+                    if (preferencesIndex >= 0) {
+                        params.preferences = values[preferencesIndex];
+                    }
+                    after(opts, params);
                 });
             }
             else
+                after(opts, params);
+        };
+        var _OpenModalForm = function (formOptions, layout, schema, fdata, locale, handler) {
+            _prepareForm(layout, schema, fdata, locale, null, function (opts, params) {
+                formOptions = formOptions || {};
+                formOptions.opts = opts;
                 _openForm(formOptions, params, handler);
+            });
         };
         var _openInlineForm = function ($parent, params, handler, opts) {
-            var render = new ui.Form(params.layout, opts || { design: false }, params.data, params.schema, params.locale);
+            var render = new ui.Form(params.layout, opts || { design: false }, params.data, params.schema, params.locale, params.preferences);
             render.$locale = params.locale;
             render.render($parent);
             if (handler)
@@ -11350,54 +11428,9 @@ var Phoenix;
             });
         };
         var _OpenFormExp = function ($parent, layout, schema, fdata, locale, handler, formOpts, after) {
-            var ci = 0, li = -1, si = -1, promises = [], params = { locale: locale }, dataIndex = -1;
-            formOpts = formOpts || {};
-            if (locale && locale.$name)
-                formOpts.externalLocale = locale.$name;
-            if (!fdata || !fdata.then)
-                params.data = $.extend(true, {}, fdata);
-            else {
-                promises.push(fdata);
-                dataIndex = 0;
-                ci++;
-            }
-            var config = _application.config(_application.name);
-            if (typeof layout === 'object') {
-                params.layout = $.extend(true, {}, layout);
-            }
-            else {
-                li = ci;
-                ci++;
-                formOpts.externalLayout = layout;
-                promises.push(_ajax.get(config.forms + '/' + layout + '.json'));
-            }
-            if (typeof schema === 'object') {
-                params.schema = $.extend(true, {}, schema);
-            }
-            else {
-                si = ci;
-                ci++;
-                formOpts.externalSchema = schema;
-                promises.push(_ajax.get(config.prototypes + '/' + schema + '.json'));
-            }
-            if (promises.length) {
-                _utils.Promise.all(promises).then(function (values) {
-                    if (li >= 0)
-                        params.layout = values[li];
-                    if (si >= 0)
-                        params.schema = values[si];
-                    if (dataIndex >= 0) {
-                        params.data = values[dataIndex];
-                    }
-                    _afterLoadSchema($parent, params, handler, formOpts, after);
-                }).catch(function (ex) {
-                    console.log(ex);
-                    throw ex;
-                });
-            }
-            else {
-                _afterLoadSchema($parent, params, handler, formOpts, after);
-            }
+            _prepareForm(layout, schema, fdata, locale, formOpts, function (opts, params) {
+                _afterLoadSchema($parent, params, handler, opts, after);
+            });
         };
         function _camelize(propName) {
             var s = propName.charAt(0).toUpperCase() + propName.slice(1);
@@ -11779,6 +11812,8 @@ var Phoenix;
                 that.form = form;
                 that.parent = that.form.getLayoutById(fp.$parentId);
                 that.$bind = fp.$bind;
+                if (fp.$name)
+                    that.name = fp.$name;
                 that.$display = that.config.$display || that.$bind;
                 if (fp.$lookup) {
                     that.useDisplay = (that.$display !== that.$bind);
@@ -11803,6 +11838,13 @@ var Phoenix;
                 }
                 that.id = fp.$id;
             }
+            AbsField.prototype.getSettingsName = function (controlName) {
+                var that = this;
+                var a = [that.$bind, controlName];
+                if (that.name)
+                    a.push(that.name);
+                return a.join('.');
+            };
             AbsField.prototype.targetInControl = function (target) {
                 var that = this;
                 if (that.$element) {
@@ -11810,6 +11852,14 @@ var Phoenix;
                     return _dom.isChildOf(e, target);
                 }
                 return false;
+            };
+            AbsField.prototype.beforeSaveSettings = function () { return false; };
+            AbsField.prototype.savePreferences = function (after) {
+                var that = this;
+                if (!that.form.supportSettings())
+                    return after();
+                if (that.beforeSaveSettings())
+                    that.form.savePrefs(after);
             };
             AbsField.prototype.getCustomBind = function () {
                 return '';
@@ -12043,12 +12093,12 @@ var Phoenix;
         events.mouseEvents = function (eventType) {
             if (_dom.touch()) {
                 switch (eventType) {
-                    case "mousedown":
-                        return "touchstart";
-                    case "mouseup":
-                        return "touchend";
-                    case "mousemove":
-                        return "touchmove";
+                    case 'mousedown':
+                        return 'touchstart';
+                    case 'mouseup':
+                        return 'touchend';
+                    case 'mousemove':
+                        return 'touchmove';
                 }
             }
             return eventType;
@@ -12233,10 +12283,10 @@ var Phoenix;
                         ce.style.position = 'absolute';
                         ce.style.top = '0px';
                         ce.style.left = '0px';
-                        ce.style.backgroundColor = "white";
+                        ce.style.backgroundColor = 'white';
                         ce.style.opacity = '0.01';
-                        ce.style.width = client.width + "px";
-                        ce.style.height = client.height + "px";
+                        ce.style.width = client.width + 'px';
+                        ce.style.height = client.height + 'px';
                         ce.style.zIndex = (zindex || 10000) + '';
                         ce.style.cursor = cursor;
                         _dom.append(document.body, ce);
@@ -12279,7 +12329,7 @@ var Phoenix;
                 that.moveY = false;
                 that.inDragging = false;
                 that.coverDocument = true;
-                that.cursor = "default";
+                that.cursor = 'default';
                 that.startPoint = null;
                 that.currentPoint = null;
                 that.startOffset = null;
@@ -12352,7 +12402,7 @@ var Phoenix;
                             cl = that.maxLeft;
                     }
                     that.currentLeft = cl;
-                    e.style.left = cl + "px";
+                    e.style.left = cl + 'px';
                 }
                 if (e && that.moveY) {
                     var ct = that.startOffset.top + that.currentPoint.y - that.startPoint.y;
@@ -12361,7 +12411,7 @@ var Phoenix;
                     if ((that.maxTop !== null) && (ct > that.maxTop))
                         ct = that.maxTop;
                     that.currentTop = ct;
-                    e.style.top = ct + "px";
+                    e.style.top = ct + 'px';
                 }
                 if (that.onDrag)
                     that.onDrag(eventObject);
@@ -12393,7 +12443,7 @@ var Phoenix;
             DragElement.prototype.canDrop = function (value) {
                 var that = this;
                 if (that.coverDocument) {
-                    drag_1.dragManager.cover(true, value ? that.cursor : "no-drop");
+                    drag_1.dragManager.cover(true, value ? that.cursor : 'no-drop');
                 }
             };
             DragElement.prototype.notifyDragEnd = function (doCancel, event) {
@@ -13305,12 +13355,19 @@ var Phoenix;
                 that._view = [];
                 that._viewMap = {};
                 that._ignoreNotifications = false;
+                if (form.supportSettings()) {
+                    that._settingsName = that.getSettingsName('basicgrid');
+                    that._settings = form.getFieldSettings(that._settingsName);
+                }
                 form.registerListenerFor(that.$bind + ".$item", that);
                 if (that.fieldOptions && that.fieldOptions.total && that.fieldOptions.total.property) {
                     that._totalProperty = that.fieldOptions.total.property;
                     form.registerListenerFor(that._totalProperty, that);
                 }
                 that._state();
+                // load config 
+                if (that._settings)
+                    that.fieldOptions = that._settings;
                 that.checkOptions(that.fieldOptions);
                 that._initOrigColumns(that.fieldOptions);
                 that._initCols(that.fieldOptions);
@@ -13332,6 +13389,24 @@ var Phoenix;
                 if (opts.allowColumnMove === undefined)
                     opts.allowColumnMove = true;
                 opts.align = opts.align || 'middle';
+            };
+            BasicGrid.prototype.beforeSaveSettings = function () {
+                var that = this;
+                if (that._settingsName) {
+                    that._settings = $.extend(true, {}, that.renderOptions);
+                    Object.keys(that._settings).forEach(function (propName) {
+                        if (propName.charAt(0) === '_')
+                            delete that._settings[propName];
+                    });
+                    if (that._settings.columns)
+                        that._settings.columns.forEach(function (col) {
+                            if (col.options && !Object.keys(col.options).length)
+                                delete col.options;
+                        });
+                    that.form.setFieldSettings(that._settingsName, that._settings);
+                    return true;
+                }
+                return false;
             };
             BasicGrid.prototype._inplaceEditValue2Model = function (value, item, col) {
                 var that = this;
@@ -13594,7 +13669,8 @@ var Phoenix;
                 }
                 var nw = Math.min(Math.max(MIN_COL_WIDTH, ow + deltaWidth), MAX_COL_WIDTH);
                 that._updateColWidth(col, nw);
-                return;
+                that.savePreferences(function () {
+                });
             };
             BasicGrid.prototype._updateColWidth = function (col, width) {
                 var that = this;
@@ -13702,7 +13778,9 @@ var Phoenix;
                             that.renderOptions.columns.splice(ni, 0, src);
                         }
                     }
-                    that._refreshGrid();
+                    that.savePreferences(function () {
+                        that._refreshGrid();
+                    });
                 }
             };
             BasicGrid.prototype._dddmove = function (event) {
@@ -13753,6 +13831,7 @@ var Phoenix;
                 that._details = null;
                 that._mapCols = null;
                 that._originalCols = null;
+                that._settings = null;
                 _super.prototype.destroy.call(this);
             };
             BasicGrid.prototype._moveToPage = function (page) {
@@ -13817,7 +13896,9 @@ var Phoenix;
                     }
                     return col;
                 });
-                that._refreshGrid();
+                that.savePreferences(function () {
+                    that._refreshGrid();
+                });
             };
             BasicGrid.prototype._state = function () {
                 _super.prototype._state.call(this);
@@ -15245,7 +15326,9 @@ var Phoenix;
                 if (opts.selecting && opts.selecting.row) {
                     opts.selecting.multiselect = !!!opts.selecting.multiselect;
                     that.state.value.updateSelecting(opts.selecting.multiselect, opts.expandingProperty);
-                    that._refreshGrid();
+                    that.savePreferences(function () {
+                        that._refreshGrid();
+                    });
                 }
             };
             BasicGrid.prototype.render = function ($parent) {
@@ -15769,12 +15852,13 @@ var Phoenix;
                                 });
                                 that._settings = cd_1;
                                 that.form.setFieldSettings(that.$bind, that._settings);
-                                that.form.savePrefs();
-                                that._settings = that.form.afterSettings(that.$bind, "columngrid", cd_1);
-                                that.rows = null;
-                                that._initRows();
-                                form.close();
-                                that._rrender();
+                                that.form.savePrefs(function () {
+                                    that._settings = that.form.afterSettings(that.$bind, "columngrid", cd_1);
+                                    that.rows = null;
+                                    that._initRows();
+                                    form.close();
+                                    that._rrender();
+                                });
                                 break;
                         }
                     }

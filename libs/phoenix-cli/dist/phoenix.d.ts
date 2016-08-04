@@ -24,7 +24,7 @@ declare namespace Phoenix {
         var applyMixins: (derivedCtor: any, baseCtors: any[]) => void;
         var nextTick: any;
         var focusDelay: (fn: any) => void;
-        var dataAsPromise: (ldata: any) => any;
+        var dataAsPromise: (ldata: any) => Promise<any>;
         var extractAngularVars: (expression: string, map: any[]) => string;
         var execAngularExpression: (expression: string, context: any) => string;
         var confirm: (title: any, message: any, success: any) => void;
@@ -42,6 +42,8 @@ declare namespace Phoenix {
         var changePasswordHandler: Function;
         var checkLoggedInHandler: Function;
         var historyChangedHandler: Function;
+        var preferenceLoadHandler: (name: string) => Promise<any>;
+        var preferenceSaveHandler: (name: string, data: any) => Promise<void>;
     }
     module history {
         var removeLast: () => void;
@@ -720,7 +722,7 @@ declare namespace Phoenix {
             controls: any;
             page: PageControl;
             private _disableRules;
-            constructor(ldata: any, options: any, fdata: any, schema: any, locale: any);
+            constructor(ldata: any, options: any, fdata: any, schema: any, locale: any, preferences: any);
             _afterCreate(): void;
             _init(ldata: any, options: any): void;
             pageLayoutInit(): void;
@@ -807,7 +809,7 @@ declare namespace Phoenix {
             updateMenu(mn: any, data: any): void;
         }
         class Layout extends PageLayout {
-            constructor(ldata: any, options: any, fdata: any, schema: any, locale: any);
+            constructor(ldata: any, options: any, fdata: any, schema: any, locale: any, preferences: any);
         }
         var LayoutClass: typeof Layout;
     }
@@ -1192,6 +1194,7 @@ declare namespace Phoenix {
             inAction: boolean;
             protected _mainDataSource: any;
             protected _nestedDataSources: any[];
+            private _localSettings;
             private _settingsName;
             private _settings;
             private _internalDelayedAction;
@@ -1202,14 +1205,15 @@ declare namespace Phoenix {
             formManager: FormManager;
             private _isInDelayedAction();
             private _setInDelayedAction(value);
-            constructor(layoutData: any, options: any, ldata: any, schema: any, locale: any);
+            constructor(layoutData: any, options: any, ldata: any, schema: any, locale: any, preferences: any);
             setData(ldata: any): void;
             processing(value: any): void;
             private _findControlByField(name);
             loadPrefs(): void;
-            getFieldSettings(field: any): any;
-            setFieldSettings(field: any, settings: any): void;
-            savePrefs(): void;
+            supportSettings(): boolean;
+            getFieldSettings(field: string): any;
+            setFieldSettings(field: string, settings: any): void;
+            savePrefs(after: any): void;
             sendMessage(message: string, field: string, params: any): any;
             afterSettings(field: string, widget: string, sdata: any): any;
             beforeSettings(field: string, widget: string): any;
@@ -1253,7 +1257,7 @@ declare namespace Phoenix {
 declare namespace Phoenix {
     module ui {
         class ModalForm extends Modal {
-            constructor(formOptions: any, layout: any, schema: any, data: any, locale: any);
+            constructor(formOptions: any, layout: any, schema: any, data: any, locale: any, preferences: any);
             on(hnd: any): void;
         }
         class FormController {
@@ -1269,6 +1273,7 @@ declare namespace Phoenix {
         class AbsField {
             protected $element: JQuery;
             state: any;
+            name: any;
             config: any;
             form: Form;
             options: any;
@@ -1286,11 +1291,14 @@ declare namespace Phoenix {
             $bind: string;
             parent: any;
             constructor(fp: any, options: any, form: Form);
+            getSettingsName(controlName: string): string;
             targetInControl(target: any): boolean;
+            protected beforeSaveSettings(): boolean;
+            savePreferences(after: any): any;
             protected getCustomBind(): string;
             setHidden(element: any): void;
             protected _state(): void;
-            _defineProps(): void;
+            private _defineProps();
             render($parent: JQuery): void;
             appendElement($parent: JQuery, options: any): void;
             setEvents(opts: any): void;
@@ -1473,6 +1481,9 @@ declare namespace Phoenix {
             columns: any[];
             frozenColumns: any[];
             opts: any;
+            selectedCell: any;
+            private _settings;
+            private _settingsName;
             private _ignoreNotifications;
             private _totalProperty;
             private _view;
@@ -1480,7 +1491,6 @@ declare namespace Phoenix {
             private _useView;
             private _mapCols;
             private _details;
-            selectedCell: any;
             private _originalCols;
             private _pager;
             private _toolBar;
@@ -1492,9 +1502,10 @@ declare namespace Phoenix {
             private scrollableFrozenContent;
             private _drag;
             private inplace;
-            constructor(fp: any, options: any, form: any);
+            constructor(fp: any, options: any, form: Form);
             private _initOrigColumns(opts);
             private checkOptions(opts);
+            protected beforeSaveSettings(): boolean;
             private _inplaceEditValue2Model(value, item, col);
             private _inplaceEditAcceptKeys(key);
             private _inplaceEditAddEvents();
