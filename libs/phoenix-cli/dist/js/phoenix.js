@@ -5954,7 +5954,7 @@ var Phoenix;
             if (map)
                 map[layout.$id] = layout;
             if (namedMap && layout.$name)
-                map[layout.$name] = layout;
+                namedMap[layout.$name] = layout;
             if (layout.$type === LayoutUtils.LAYOUT_HTML && !layout.$html) {
                 layout.$html = _locale.Html;
             }
@@ -5981,7 +5981,7 @@ var Phoenix;
             if (map)
                 map[field.$id] = field;
             if (namedMap && field.$name)
-                map[field.$name] = field;
+                namedMap[field.$name] = field;
         }, _checkRowChilds = function (layout) {
             _markEmptyRowAsBlock(layout);
             var setCol = false;
@@ -6954,8 +6954,11 @@ var Phoenix;
                 that._renderChildren($p);
                 var vc = that._getVisibleChildren(layout);
                 that._refreshDataSets(vc);
-                //XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
-                //call that.afterAddedInDom(list of childs);
+                that.afterAddedInDom();
+                if (that.options.design) {
+                    that._removeEvents();
+                    that._addEvents();
+                }
             };
             BaseLayout.prototype._isVisible = function (id) {
                 var that = this;
@@ -13459,14 +13462,14 @@ var Phoenix;
                     that._settings = form.getFieldSettings(that._settingsName);
                 }
                 form.registerListenerFor(that.$bind + ".$item", that);
+                if (that._settings)
+                    that.fieldOptions = that._settings;
                 if (that.fieldOptions && that.fieldOptions.total && that.fieldOptions.total.property) {
                     that._totalProperty = that.fieldOptions.total.property;
                     form.registerListenerFor(that._totalProperty, that);
                 }
                 that._state();
                 // load config 
-                if (that._settings)
-                    that.fieldOptions = that._settings;
                 that.checkOptions(that.fieldOptions);
                 that._initOrigColumns(that.fieldOptions);
                 that._initCols(that.fieldOptions);

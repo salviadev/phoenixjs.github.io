@@ -709,7 +709,7 @@ var Phoenix;
             },
             _removeEvents: function () {
                 var that = this;
-                that._removeAccordionEvents();
+                _removeEvents(that.$element, that, true);
                 that._removeBaseEvents();
             },
             _addEvents: function () {
