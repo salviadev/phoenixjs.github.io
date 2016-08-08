@@ -13,6 +13,7 @@ $(function () {
 				"$items": [
 					{
 						"$bind": "Pokemon",
+						"$name": "gfsfud3",
 						"$widget": "basicgrid",
 						"options": {
 							"height": "250px",
@@ -45,6 +46,7 @@ $(function () {
 					{
 						"$bind": "Pokemon",
 						"$widget": "basicgrid",
+						"$name": "gf25uiuz",
 						"options": {
 							"height": "250px",
 							"scrolling": {
@@ -76,6 +78,7 @@ $(function () {
 					{
 						"$bind": "Pokemon",
 						"$widget": "basicgrid",
+						"$name": "gfsfxy3",
 						"options": {
 							"height": "250px",
 							"scrolling": {

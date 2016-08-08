@@ -5926,10 +5926,17 @@ var Phoenix;
 (function (Phoenix) {
     var LayoutUtils;
     (function (LayoutUtils) {
+        LayoutUtils.LAYOUT_BLOCK = 'block';
+        LayoutUtils.LAYOUT_ROW = 'row';
+        LayoutUtils.LAYOUT_COLUMN = 'column';
+        LayoutUtils.LAYOUT_HTML = 'html';
+        LayoutUtils.LAYOUT_ACCORDION = 'accordion';
+        LayoutUtils.LAYOUT_ACCORDION_GROUP = 'accordion-group';
+        var EMPTY_TITLE = 'No title';
         var _dom = Phoenix.dom, _utils = Phoenix.utils, _locale = Phoenix.locale.layouts, _ulocale = Phoenix.ulocale, _render = Phoenix.render, _markEmptyRowAsBlock = function (layout) {
             if (!layout.$items.length) {
-                layout.$type = "block";
-                layout.$origin = "row";
+                layout.$type = LayoutUtils.LAYOUT_BLOCK;
+                layout.$origin = LayoutUtils.LAYOUT_ROW;
             }
         }, _checkLayout = function (layout, parent, map, namedMap) {
             if (!layout.$id)
@@ -5938,7 +5945,7 @@ var Phoenix;
                 layout.$parentId = parent.$id;
             layout.$idDesign = layout.$id;
             layout.$idDrag = layout.$id;
-            layout.$type = layout.$type || "block";
+            layout.$type = layout.$type || LayoutUtils.LAYOUT_BLOCK;
             layout.$items = layout.$items || [];
             if (!_onlyFields(layout)) {
                 delete layout.$inline;
@@ -5948,18 +5955,20 @@ var Phoenix;
                 map[layout.$id] = layout;
             if (namedMap && layout.$name)
                 map[layout.$name] = layout;
-            if (layout.$type === "html" && !layout.$html) {
+            if (layout.$type === LayoutUtils.LAYOUT_HTML && !layout.$html) {
                 layout.$html = _locale.Html;
             }
             switch (layout.$type) {
-                case "row":
+                case LayoutUtils.LAYOUT_ROW:
                     _markEmptyRowAsBlock(layout);
                     break;
             }
             if (layout.$origin && layout.$origin === layout.$type)
                 delete layout.$origin;
+            if (layout.$type !== LayoutUtils.LAYOUT_ACCORDION_GROUP && layout.$title && layout.$title.value === EMPTY_TITLE)
+                delete layout.$title;
         }, _layoutIsVisible = function (layout) {
-            if (layout.$type === "accordion-group") {
+            if (layout.$type === LayoutUtils.LAYOUT_ACCORDION_GROUP) {
                 return layout.opened;
             }
             return true;
@@ -5977,7 +5986,7 @@ var Phoenix;
             _markEmptyRowAsBlock(layout);
             var setCol = false;
             layout.$items.forEach(function (item) {
-                item.$type = "column";
+                item.$type = LayoutUtils.LAYOUT_COLUMN;
                 if (!item.$colSize)
                     setCol = true;
             });
@@ -5996,16 +6005,16 @@ var Phoenix;
         }, _checkAccordionChilds = function (layout) {
             if (!layout.$items.length) {
                 layout.$items.push({
-                    $type: "accordion-group"
+                    $type: LayoutUtils.LAYOUT_ACCORDION_GROUP
                 });
             }
             layout.$items.forEach(function (item, index) {
-                item.$type = "accordion-group";
+                item.$type = LayoutUtils.LAYOUT_ACCORDION_GROUP;
                 item.$title = item.$title || {};
-                item.$title.value = item.$title.value || "No title";
+                item.$title.value = item.$title.value || EMPTY_TITLE;
             });
         }, _canAddLayouts = function (layout) {
-            if ((layout.$type === "accordion") || (layout.$type === "html"))
+            if (layout.$type === LayoutUtils.LAYOUT_HTML)
                 return false;
             if (layout.$items.length > 0) {
                 var l = layout.$items[0];
@@ -6014,23 +6023,27 @@ var Phoenix;
             }
             return true;
         }, 
-        /*_hasBorder = function(layout) {
-        },*/
-        _needParentPadding = function (layout) {
-            return (layout.$type === "accordion" && !layout.$format);
-        }, _noPadding = function (layout) {
+        /*
+        _hasBorder = function(layout) {
+        },
+        */
+        _needParentPadding = function (layout, parent) {
+            return (layout.$type === LayoutUtils.LAYOUT_ACCORDION && !layout.$widget);
+        }, _noPadding = function (layout, parent) {
             var res = true;
             if (!layout.$items.length)
                 return res;
+            if (layout.$type === LayoutUtils.LAYOUT_ACCORDION_GROUP && !layout.$widget)
+                return false;
             layout.$items.forEach(function (item) {
                 if (res)
-                    res = !_needParentPadding(item);
+                    res = !_needParentPadding(item, layout);
             });
             return res;
         }, _canAddFields = function (layout) {
             if (layout.$type && !layout.$items)
                 layout.$items = [];
-            if ((layout.$type === "row") || (layout.$type === "accordion") || (layout.$type === "html"))
+            if ((layout.$type === LayoutUtils.LAYOUT_ROW) || (layout.$type === LayoutUtils.LAYOUT_ACCORDION) || (layout.$type === LayoutUtils.LAYOUT_HTML))
                 return false;
             if (layout.$items.length > 0) {
                 var l = layout.$items[0];
@@ -6048,175 +6061,175 @@ var Phoenix;
         }, _css = function (layout, parent, options) {
             var css = [], canAddLayouts, addpaddingclass;
             switch (layout.$type) {
-                case "block":
+                case LayoutUtils.LAYOUT_BLOCK:
                     addpaddingclass = true;
                     if (options.design && layout.selected) {
-                        css.push("selected");
+                        css.push('selected');
                     }
                     canAddLayouts = _canAddLayouts(layout);
                     if (canAddLayouts) {
-                        if (options.design || _noPadding(layout)) {
+                        if (options.design || _noPadding(layout, parent)) {
                             addpaddingclass = false;
                             if (parent)
-                                css.push("no-x-padding");
+                                css.push('no-x-padding');
                         }
                         if (options.design) {
-                            css.push("drop-layouts-zone");
-                            if (layout.$origin === "row") {
-                                css.push("row-color");
+                            css.push('drop-layouts-zone');
+                            if (layout.$origin === LayoutUtils.LAYOUT_ROW) {
+                                css.push('row-color');
                             }
                         }
                     }
                     if (_canAddFields(layout)) {
                         if (layout.$inline && (options.design || !layout.$html))
-                            css.push("form-inline bs-inline-container");
+                            css.push('form-inline bs-inline-container');
                         if (options.design) {
-                            css.push("drop-fields-zone");
+                            css.push('drop-fields-zone');
                             if (!canAddLayouts) {
                                 addpaddingclass = false;
                                 if (parent)
-                                    css.push("no-x-padding");
+                                    css.push('no-x-padding');
                             }
                         }
                     }
                     if (addpaddingclass) {
-                        css.push("field-container");
+                        css.push('field-container');
                     }
                     if (!parent) {
-                        css.push("bs-root-container");
+                        css.push('bs-root-container');
                         if (!layout.form)
-                            css.push("page");
+                            css.push('page');
                     }
                     if (options.design) {
-                        css.push("design");
+                        css.push('design');
                         if (layout.selected)
-                            css.push("selected");
+                            css.push('selected');
                     }
                     _addStdThemes(layout, css, options);
                     break;
-                case "accordion":
+                case LayoutUtils.LAYOUT_ACCORDION:
                     if (options.step === 1) {
-                        css.push("panel-group");
+                        css.push('panel-group bs-island');
                         if (options.design) {
-                            css.push("design");
+                            css.push('design');
+                            css.push('drop-layouts-zone');
                             if (layout.selected)
-                                css.push("selected");
+                                css.push('selected');
                         }
                         _addStdThemes(layout, css, options);
                     }
                     break;
-                case "row":
+                case LayoutUtils.LAYOUT_ROW:
                     if (options.step === 1) {
-                        css.push("container-fluid");
+                        css.push('container-fluid');
                         if (options.design) {
-                            css.push("design");
-                            css.push("no-x-padding");
+                            css.push('design');
+                            css.push('no-x-padding');
                             if (layout.selected)
-                                css.push("selected");
+                                css.push('selected');
                         }
                         _addStdThemes(layout, css, options);
                     }
                     else if (options.step === 2) {
-                        css.push("row");
+                        css.push(LayoutUtils.LAYOUT_ROW);
                         if (options.design) {
-                            css.push("design-table");
-                            css.push("row-color");
+                            css.push('design-table');
+                            css.push('row-color');
                             canAddLayouts = _canAddLayouts(layout);
                             if (canAddLayouts)
-                                css.push("drop-layouts-zone");
+                                css.push('drop-layouts-zone');
                         }
                     }
                     break;
-                case "accordion-group":
+                case LayoutUtils.LAYOUT_ACCORDION_GROUP:
                     if (options.step === 1) {
-                        css.push("panel panel-default");
+                        css.push('panel panel-default');
                         if (options.design) {
-                            css.push("design");
+                            css.push('design');
                             if (layout.selected)
-                                css.push("selected");
+                                css.push('selected');
                         }
                     }
                     else if (options.step === 2) {
-                        css.push("panel-collapse collapse");
+                        css.push('panel-collapse collapse');
                         if (layout.opened)
-                            css.push("in");
+                            css.push('in');
                     }
                     else if (options.step === 3) {
-                        css.push("panel-body");
+                        css.push('panel-body');
                         canAddLayouts = _canAddLayouts(layout);
                         if (canAddLayouts) {
-                            if (options.design || _noPadding(layout)) {
-                                css.push("no-x-padding");
-                                css.push("no-y-padding");
+                            if (options.design || _noPadding(layout, parent)) {
+                                css.push('no-x-padding');
+                                css.push('no-y-padding');
                             }
                             if (options.design)
-                                css.push("drop-layouts-zone");
+                                css.push('drop-layouts-zone');
                         }
                         if (_canAddFields(layout)) {
                             if (layout.$inline && (options.design || !layout.$html))
-                                css.push("form-inline bs-inline-container");
+                                css.push('form-inline bs-inline-container');
                             if (options.design) {
-                                css.push("drop-fields-zone");
+                                css.push('drop-fields-zone');
                                 if (!canAddLayouts)
-                                    css.push("no-x-padding");
+                                    css.push('no-x-padding');
                             }
                         }
                         _addStdThemes(layout, css, options);
                     }
                     break;
-                case "column":
+                case LayoutUtils.LAYOUT_COLUMN:
                     if (options.step === 1) {
                         if (options.design)
-                            css.push("col-design col-xs-" + layout.$colSize);
+                            css.push('col-design col-xs-' + layout.$colSize);
                         else {
                             if (layout.$customColSize)
                                 css.push(layout.$customColSize);
                             else
-                                css.push("col-" + (layout.$colType || "sm") + "-" + layout.$colSize);
+                                css.push('col-' + (layout.$colType || 'sm') + '-' + layout.$colSize);
                         }
-                        css.push("no-x-padding");
+                        css.push('no-x-padding');
                     }
                     else if (options.step === 2) {
                         addpaddingclass = true;
-                        css.push("container-fluid");
+                        css.push('container-fluid');
                         canAddLayouts = _canAddLayouts(layout);
                         if (canAddLayouts) {
-                            if (options.design || _noPadding(layout)) {
+                            if (options.design || _noPadding(layout, parent)) {
                                 addpaddingclass = false;
-                                css.push("no-x-padding");
+                                css.push('no-x-padding');
                             }
                             if (options.design && !layout.$auto)
-                                css.push("drop-layouts-zone");
+                                css.push('drop-layouts-zone');
                         }
                         if (_canAddFields(layout)) {
                             if (layout.$inline && (options.design || !layout.$html))
-                                css.push("form-inline bs-inline-container");
+                                css.push('form-inline bs-inline-container');
                             if (options.design) {
-                                css.push("drop-fields-zone");
+                                css.push('drop-fields-zone');
                                 if (!canAddLayouts) {
-                                    css.push("no-x-padding");
+                                    css.push('no-x-padding');
                                     addpaddingclass = false;
                                 }
                             }
                         }
-                        if (addpaddingclass) {
-                            css.push("field-container");
-                        }
+                        if (addpaddingclass)
+                            css.push('field-container');
                         if (options.design) {
-                            css.push("design col");
+                            css.push('design col');
                             if (layout.$auto)
-                                css.push("auto");
+                                css.push('auto');
                             if (layout.selected)
-                                css.push("selected");
+                                css.push('selected');
                         }
                         _addStdThemes(layout, css, options);
                     }
                     break;
-                case "html":
+                case LayoutUtils.LAYOUT_HTML:
                     if (options.design) {
-                        css.push("design");
+                        css.push('design');
                         if (layout.selected)
-                            css.push("selected");
+                            css.push('selected');
                     }
                     _addStdThemes(layout, css, options);
                     break;
@@ -6225,12 +6238,12 @@ var Phoenix;
         }, _setLayoutCss = function (e, layout, parent, options) {
             var css = _css(layout, parent, options), t;
             e.className = css.join(' ');
-            if (layout.$type === "accordion-group" && options.step === 1) {
-                t = _dom.find(e, layout.$id + "_title");
+            if (layout.$type === LayoutUtils.LAYOUT_ACCORDION_GROUP && options.step === 1) {
+                t = _dom.find(e, layout.$id + '_title');
                 if (t)
-                    _dom.text(t, (layout.$title && layout.$title.value) ? layout.$title.value : "");
+                    _dom.text(t, (layout.$title && layout.$title.value) ? layout.$title.value : '');
             }
-            else if (layout.$type === "html" && options.step === 1) {
+            else if (layout.$type === LayoutUtils.LAYOUT_HTML && options.step === 1) {
                 e.innerHTML = layout.$html || '';
             }
         }, _addLayoutCss = function (html, layout, parent, options) {
@@ -6242,7 +6255,7 @@ var Phoenix;
             }
         }, _addId = function (html, layout, prefix) {
             html.push(' id="');
-            html.push(prefix ? (prefix + "_" + layout.$id) : layout.$id);
+            html.push(prefix ? (prefix + '_' + layout.$id) : layout.$id);
             html.push('"');
         }, _addDataStep = function (html, step, design) {
             if (design) {
@@ -6266,6 +6279,10 @@ var Phoenix;
                 }
             }
         }, _addTitle = function (html, layout, llocale, isForm) {
+            if (layout.$title && layout.$title.value === EMPTY_TITLE) {
+                delete layout.$title;
+                return;
+            }
             if (isForm && layout.$title) {
                 var size = layout.$title.size || 4;
                 html.push('<h' + size);
@@ -6310,62 +6327,120 @@ var Phoenix;
                 html.push(layout.$html);
         }, _htmlAfter = function (html, layout, model, llocale, design) {
             html.push('</div>');
-        }, _accordionBefore = function (html, layout, parent, model, llocale, design, isForm, refBlock) {
-            html.push('<div role="tablist" aria-multiselectable="true"');
-            if (design)
-                html.push(' draggable="true"');
-            _addLayoutCss(html, layout, parent, {
-                design: design,
-                step: 1
-            });
-            _addLayoutId(html, 1, layout, design);
-            _addId(html, layout);
-            _addDataStep(html, 1, design);
-            html.push('>');
-            _checkAccordionChilds(layout);
-        }, _accordionAfter = function (html, layout, parent, model, llocale, design) {
-            html.push('</div>');
-        }, _accordionGroupBefore = function (html, layout, parent, model, llocale, design, isForm, refBlock) {
-            html.push('<div');
-            _addLayoutCss(html, layout, parent, {
-                design: design,
-                step: 1
-            });
-            _addId(html, layout);
-            layout.$idStep2 = layout.$id + "_s2";
-            layout.$idStep3 = layout.$id + "_s3";
-            layout.$idDesign = layout.$idStep3;
-            html.push('>');
-            html.push('<div class="panel-heading" role="tab"');
-            _addId(html, layout, "heading");
-            html.push('>');
-            html.push('<h4 class="panel-title bs-pointer collapsed" data-toggle="collapse" data-parent="#' + parent.$id + '"');
+        }, _tabBuilder = function (html, layout, parent, model, llocale, design, isForm, refBlock) {
+            html.push('<li role="presentation"');
             if (layout.opened)
-                html.push(' aria-expanded="true"');
+                html.push(' class="active"');
+            html.push('>');
+            html.push(_utils.format('<a href="#{0}" aria-controls="{0}"  data-layout="{0}" role="tab" data-toggle="tab">', layout.$id));
+            html.push(layout.$title.value);
+            html.push('</a></li>');
+        }, _accordionBefore = function (html, layout, parent, model, llocale, design, isForm, refBlock) {
+            _checkAccordionChilds(layout);
+            if (design || !layout.$widget) {
+                html.push('<div role="tablist" aria-multiselectable="true"');
+                if (design)
+                    html.push(' draggable="true"');
+                _addLayoutCss(html, layout, parent, {
+                    design: design,
+                    step: 1
+                });
+                _addLayoutId(html, 1, layout, design);
+                _addId(html, layout);
+                _addDataStep(html, 1, design);
+                html.push('>');
+            }
+            else if (layout.$widget === 'tabs') {
+                // design is allways false
+                html.push('<div');
+                if (design)
+                    html.push(' draggable="true"');
+                _addLayoutCss(html, layout, parent, {
+                    design: design,
+                    step: 1
+                });
+                _addLayoutId(html, 1, layout, design);
+                _addId(html, layout);
+                _addDataStep(html, 1, design);
+                html.push('>');
+                html.push('<ul class="nav nav-tabs" role="tablist">');
+                layout.$items.forEach(function (item) { return _tabBuilder(html, item, layout, model, llocale, design, isForm, refBlock); });
+                html.push('</ul>');
+                html.push('<div class="tab-content">');
+            }
             else
-                html.push(' aria-expanded="false"');
-            html.push(' data-target="#' + layout.$idStep2 + '" aria-controls="' + layout.$idStep2 + '"');
-            html.push(' id="' + layout.$id + '_title">');
-            html.push(_utils.escapeHtml(layout.$title ? layout.$title.value : ''));
-            html.push('</h4>');
-            html.push('</div>');
-            html.push('<div role="tabpanel" aria-labelledby="heading_' + layout.$id + '"');
-            _addLayoutCss(html, layout, parent, {
-                design: design,
-                step: 2
-            });
-            _addLayoutId(html, 2, layout, design, true);
-            _addDataStep(html, 2, design);
-            html.push('>');
-            html.push('<div');
-            _addLayoutCss(html, layout, parent, {
-                design: design,
-                step: 3
-            });
-            _addLayoutId(html, 3, layout, design, true);
-            html.push('>');
+                throw 'Invalid accordion $widget.';
+        }, _accordionAfter = function (html, layout, parent, model, llocale, design) {
+            if (design || !layout.$widget) {
+                html.push('</div>');
+            }
+            else if (layout.$widget === 'tabs') {
+                html.push('</div>'); //tab-content"
+                html.push('</div>');
+            }
+        }, _accordionGroupBefore = function (html, layout, parent, model, llocale, design, isForm, refBlock) {
+            if (design || !parent.$widget) {
+                html.push('<div');
+                _addLayoutCss(html, layout, parent, {
+                    design: design,
+                    step: 1
+                });
+                _addLayoutId(html, 1, layout, design);
+                _addId(html, layout);
+                _addDataStep(html, 1, design);
+                //_addId(html, layout);
+                layout.$idStep2 = layout.$id + '_s2';
+                layout.$idStep3 = layout.$id + '_s3';
+                layout.$idDesign = layout.$idStep3;
+                if (design)
+                    html.push(' draggable="true"');
+                html.push('>');
+                html.push('<div class="panel-heading" role="tab"');
+                _addId(html, layout, "heading");
+                html.push('>');
+                html.push('<h4 class="panel-title bs-pointer collapsed" data-toggle="collapse" data-parent="#' + parent.$id + '"');
+                if (layout.opened)
+                    html.push(' aria-expanded="true"');
+                else
+                    html.push(' aria-expanded="false"');
+                html.push(' data-target="#' + layout.$idStep2 + '" aria-controls="' + layout.$idStep2 + '"');
+                html.push(' id="' + layout.$id + '_title">');
+                html.push(_utils.escapeHtml(layout.$title ? layout.$title.value : ''));
+                html.push('</h4>');
+                html.push('</div>');
+                html.push('<div role="tabpanel" aria-labelledby="heading_' + layout.$id + '"');
+                _addLayoutCss(html, layout, parent, {
+                    design: design,
+                    step: 2
+                });
+                _addLayoutId(html, 2, layout, design, true);
+                _addDataStep(html, 2, design);
+                html.push('>');
+                html.push('<div');
+                _addLayoutCss(html, layout, parent, {
+                    design: design,
+                    step: 3
+                });
+                _addLayoutId(html, 3, layout, design, true);
+                html.push('>');
+            }
+            else if (parent.$widget === 'tabs') {
+                var css = ['tab-pane fade'];
+                if (layout.opened)
+                    css.push('in active');
+                html.push('<div role="tabpanel"');
+                html.push('< class="' + css.join(' ') + '"');
+                layout.$idDesign = layout.$id;
+                _addId(html, layout);
+                html.push('>');
+            }
         }, _accordionGroupAfter = function (html, layout, parent, model, llocale, design) {
-            html.push('</div></div></div>');
+            if (design || !parent.$widget) {
+                html.push('</div></div></div>');
+            }
+            else if (parent.$widget === 'tabs') {
+                html.push('</div>');
+            }
         }, _rowBefore = function (html, layout, parent, model, llocale, design, isForm, refBlock) {
             html.push('<div');
             if (design)
@@ -6453,8 +6528,8 @@ var Phoenix;
         }, _nullWidgetRender = function (html, item, layout, model, options) {
             html.push('<div id="' + item.$id + '"></div>');
         }, _renderLayout = function (layout, model, html, llocale, options) {
-            var wHtmlFieldRender = _render.get(options.context, "widget") || _nullWidgetRender;
-            var fHtmlFieldRender = _render.get(options.context, "field") || _nullHtmlFieldRender;
+            var wHtmlFieldRender = _render.get(options.context, 'widget') || _nullWidgetRender;
+            var fHtmlFieldRender = _render.get(options.context, 'field') || _nullHtmlFieldRender;
             var isForm = layout.form;
             var p = {
                 html: html
@@ -6464,23 +6539,23 @@ var Phoenix;
                     var rb = _blockBefore;
                     var ra = _blockAfter;
                     switch (item.$type) {
-                        case "row":
+                        case LayoutUtils.LAYOUT_ROW:
                             rb = _rowBefore;
                             ra = _rowAfter;
                             break;
-                        case "column":
+                        case LayoutUtils.LAYOUT_COLUMN:
                             rb = _columnBefore;
                             ra = _columnAfter;
                             break;
-                        case "accordion":
+                        case LayoutUtils.LAYOUT_ACCORDION:
                             rb = _accordionBefore;
                             ra = _accordionAfter;
                             break;
-                        case "accordion-group":
+                        case LayoutUtils.LAYOUT_ACCORDION_GROUP:
                             rb = _accordionGroupBefore;
                             ra = _accordionGroupAfter;
                             break;
-                        case "html":
+                        case LayoutUtils.LAYOUT_HTML:
                             rb = _htmlBefore;
                             ra = _htmlAfter;
                             break;
@@ -6522,7 +6597,7 @@ var Phoenix;
         }, _canSelectLayout = function (layout, level) {
             if (layout.$auto)
                 return false;
-            if (layout.$type === "column" && level === 1)
+            if (layout.$type === LayoutUtils.LAYOUT_COLUMN && level === 1)
                 return false;
             return true;
         }, _check = function (layout, parentLayout, map, mapFields, namedMap, namedFieldMap) {
@@ -6549,9 +6624,9 @@ var Phoenix;
                         delete item.$idStep2;
                         delete item.$idStep3;
                         delete item.selected;
-                        if (item.$type === 'column')
+                        if (item.$type === LayoutUtils.LAYOUT_COLUMN)
                             delete item.$type;
-                        else if (layout.$type === "html") {
+                        else if (layout.$type === LayoutUtils.LAYOUT_HTML) {
                             if (layout.$html === _locale.Html)
                                 delete layout.$html;
                         }
@@ -6590,9 +6665,9 @@ var Phoenix;
                 }
             }, true);
         }, _afterRemoveChild = function (layout, map, mapFields, namedMap, namedMapFields) {
-            if (layout.$type === "row") {
+            if (layout.$type === LayoutUtils.LAYOUT_ROW) {
                 layout.$items.forEach(function (item) {
-                    item.$type = "column";
+                    item.$type = LayoutUtils.LAYOUT_COLUMN;
                     delete item.$colSize;
                 });
                 _checkRowChilds(layout);
@@ -6600,7 +6675,7 @@ var Phoenix;
                     _check(item, layout, map, mapFields, namedMap, namedMapFields);
                 });
             }
-            else if (layout.$type === "accordion") {
+            else if (layout.$type === LayoutUtils.LAYOUT_ACCORDION) {
                 _checkAccordionChilds(layout);
                 layout.$items.forEach(function (item) {
                     _check(item, layout, map, mapFields, namedMap, namedMapFields);
@@ -6711,15 +6786,15 @@ var Phoenix;
             BaseLayout.prototype._showSelected = function ($element, layout) { };
             BaseLayout.prototype._setAccordionEvents = function () {
                 var that = this;
-                that.$element.on('show.bs.collapse hide.bs.collapse', function (event) {
+                that.$element.on('show.bs.collapse hide.bs.collapse show.bs.tab hide.bs.tab', function (event) {
                     var ee = event.target;
                     if (!ee || !ee.hasAttribute('data-layout'))
                         return;
                     var id = ee.getAttribute('data-layout');
                     var l = that.getLayoutById(id);
                     if (l) {
-                        var nv = event.type == "show";
-                        if (l.opened == nv)
+                        var nv = event.type === "show";
+                        if (l.opened === nv)
                             return;
                         if (nv) {
                             var parentLayout = that.getLayoutById(l.$parentId);
@@ -6762,6 +6837,7 @@ var Phoenix;
                         child.disabled = true;
                     });
                 }
+                that._refreshCurrentResizeList();
             };
             BaseLayout.prototype._removeAccordionEvents = function () {
                 var that = this;
@@ -6878,6 +6954,8 @@ var Phoenix;
                 that._renderChildren($p);
                 var vc = that._getVisibleChildren(layout);
                 that._refreshDataSets(vc);
+                //XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+                //call that.afterAddedInDom(list of childs);
             };
             BaseLayout.prototype._isVisible = function (id) {
                 var that = this;
@@ -6919,7 +6997,7 @@ var Phoenix;
                             _constructor = _constructor ? _constructor(fd, schema, lookup) : null;
                         }
                         if (_constructor) {
-                            var p, opt = { context: that.options.context, design: that.options.design, replaceParent: true, readOnly: fd.$readOnly };
+                            var p = void 0, opt = { context: that.options.context, design: that.options.design, replaceParent: true, readOnly: fd.$readOnly };
                             if (isField) {
                                 p = new _constructor(fd, opt, that);
                             }
@@ -6951,7 +7029,22 @@ var Phoenix;
                         }
                     });
                 }
+                that._refreshCurrentResizeList();
                 return res;
+            };
+            BaseLayout.prototype._refreshCurrentResizeList = function () {
+                var that = this;
+                if (!that.resizeList)
+                    that.currentResizeList = null;
+                else if (!that.currentResizeList)
+                    that.currentResizeList = that.resizeList.map(function (item) { return item; });
+                else {
+                    that.currentResizeList = [];
+                    that.resizeList.forEach(function (item) {
+                        if (that._isVisible(item.config.$parentId))
+                            that.currentResizeList.push(item);
+                    });
+                }
             };
             BaseLayout.prototype._clearChildren = function () {
                 var that = this;
@@ -6959,6 +7052,7 @@ var Phoenix;
                 that.children = {};
                 that.controls = {};
                 that.resizeList = null;
+                that.currentResizeList = null;
                 Object.keys(children).forEach(function (v) {
                     var c = children[v];
                     c.destroy();
@@ -7403,6 +7497,11 @@ var Phoenix;
                     }
                     delete data.$ref;
                     delete data.$refProperty;
+                    if ((dst.$widget || '') !== (data.$widget || '')) {
+                        dst.$widget = data.$widget;
+                        structChanged = true;
+                    }
+                    delete data.$widget;
                     Object.keys(data).forEach(function (pn) {
                         if (data[pn] !== dst[pn]) {
                             dst[pn] = data[pn];
@@ -11258,16 +11357,16 @@ var Phoenix;
                     return true;
                 });
                 $(window).on('global-phoenix-resize', function (event) {
-                    if (that.resizeList)
-                        that.resizeList.forEach(function (c) { c.resize(); });
+                    if (that.currentResizeList)
+                        that.currentResizeList.forEach(function (c) { c.resize(); });
                     return true;
                 });
                 _super.prototype._addBaseEvents.call(this);
             };
             Form.prototype.afterAddedInDom = function () {
                 var that = this;
-                if (that.resizeList)
-                    that.resizeList.forEach(function (c) { c.resize(); });
+                if (that.currentResizeList)
+                    that.currentResizeList.forEach(function (c) { c.resize(); });
                 _super.prototype.afterAddedInDom.call(this);
             };
             return Form;
@@ -18312,7 +18411,7 @@ var Phoenix;
             Select.prototype._setFilter = function (inRender) {
                 var that = this;
                 var cf = that.state.filter;
-                if (inRender)
+                if (inRender && !cf)
                     return;
                 var enums = cf ? that.$schema.filters[cf] || [] : that.$schema.enum;
                 that.fillSelect(enums);
@@ -18346,7 +18445,11 @@ var Phoenix;
                     opts.title = _ulocale.tt(that.$schema.title, that.form.$locale);
                     if (that.$schema.description)
                         opts.description = _ulocale.tt(that.$schema.description, that.form.$locale);
-                    that.$element = $(_createSelectInput(that.id, opts, that.options.design, opts.title, that.$schema.enum, enumNames));
+                    var cf = that.state.filter;
+                    var enums = cf ? that.$schema.filters[cf] || [] : that.$schema.enum;
+                    if (cf) {
+                    }
+                    that.$element = $(_createSelectInput(that.id, opts, that.options.design, opts.title, enums, enumNames));
                     that._state2UI();
                     that.setEvents(opts);
                 }

@@ -10,6 +10,7 @@ $(function () {
 					{
 						"$bind": "Pokemon",
 						"$widget": "basicgrid",
+						"$name": "gfsfxxxmd3",
 						"options": {
 							"height": "250px",
 							"scrolling": {

@@ -20,7 +20,7 @@ var Phoenix;
                     if (id)
                         break;
                 }
-                t = (t == root) ? null : t.parentNode;
+                t = (t === root) ? null : t.parentNode;
             }
             return id;
         }, _cleanIds = function (item) {
@@ -35,14 +35,21 @@ var Phoenix;
                 return;
             }
             parent.$items.splice(index, 1);
-            if (parent.$type === "row") {
+            if (parent.$type === _layoutUtils.LAYOUT_ROW) {
                 if (!parent.$items.length) {
-                    parent.$type = "block";
-                    parent.$origin = "row";
+                    parent.$type = _layoutUtils.LAYOUT_BLOCK;
+                    parent.$origin = _layoutUtils.LAYOUT_ROW;
                     _cleanIds(parent);
                 }
                 else {
                     delete parent.$items[0].$colSize;
+                }
+            }
+            else if (parent.$type === _layoutUtils.LAYOUT_ACCORDION) {
+                if (!parent.$items.length) {
+                    parent.$type = _layoutUtils.LAYOUT_BLOCK;
+                    delete parent.$origin;
+                    _cleanIds(parent);
                 }
             }
         }, _addChildToParent = function (layout, parent, child, index, sameParent, isLayout) {
@@ -51,26 +58,29 @@ var Phoenix;
                 parent.$items.splice(index, 0, child);
                 return;
             }
-            if (parent.$origin === "row" && parent.$type !== "row") {
+            if (parent.$origin === _layoutUtils.LAYOUT_ROW && parent.$type !== _layoutUtils.LAYOUT_ROW) {
                 delete parent.$origin;
-                parent.$type = "row";
+                parent.$type = _layoutUtils.LAYOUT_ROW;
                 _cleanIds(parent);
             }
             child.$parentId = parent.$id;
-            if (parent.$type == "row") {
-                if (child.$type === "block" && child.$origin === "row") {
-                    child.$type = "row";
+            if (parent.$type === _layoutUtils.LAYOUT_ROW) {
+                if (child.$type === _layoutUtils.LAYOUT_BLOCK && child.$origin === _layoutUtils.LAYOUT_ROW) {
+                    child.$type = _layoutUtils.LAYOUT_ROW;
                     delete child.$origin;
                 }
                 switch (child.$type) {
-                    case "block":
+                    case _layoutUtils.LAYOUT_BLOCK:
+                    case _layoutUtils.LAYOUT_ACCORDION_GROUP:
                         delete child.$origin;
                         delete child.$type;
                         _cleanIds(child);
                         break;
-                    case "column":
-                        if (!sameParent)
+                    case _layoutUtils.LAYOUT_COLUMN:
+                        if (!sameParent) {
                             delete child.$colSize;
+                            delete child.$customColSize;
+                        }
                         break;
                     default:
                         var nc = { $items: [], $auto: true };
@@ -79,14 +89,40 @@ var Phoenix;
                         break;
                 }
             }
+            else if (parent.$type === _layoutUtils.LAYOUT_ACCORDION) {
+                switch (child.$type) {
+                    case _layoutUtils.LAYOUT_ACCORDION_GROUP:
+                        break;
+                    case _layoutUtils.LAYOUT_BLOCK:
+                        child.$type = _layoutUtils.LAYOUT_ACCORDION_GROUP;
+                        _cleanIds(child);
+                        break;
+                    case _layoutUtils.LAYOUT_COLUMN:
+                        delete child.$colSize;
+                        delete child.$customColSize;
+                        child.$type = _layoutUtils.LAYOUT_ACCORDION_GROUP;
+                        ;
+                        _cleanIds(child);
+                        break;
+                    default:
+                        var nc = { $type: _layoutUtils.LAYOUT_ACCORDION_GROUP, $items: [], $auto: true };
+                        nc.$items.push(child);
+                        child = nc;
+                        break;
+                }
+            }
             else {
-                if (child.$type == "column") {
-                    delete child.$colSize;
-                    child.$type = "block";
-                    _cleanIds(child);
-                    if (child.$auto) {
-                        child = child.$items[0];
-                    }
+                switch (child.$type) {
+                    case _layoutUtils.LAYOUT_COLUMN:
+                    case _layoutUtils.LAYOUT_ACCORDION_GROUP:
+                        delete child.$colSize;
+                        delete child.$customColSize;
+                        child.$type = _layoutUtils.LAYOUT_BLOCK;
+                        _cleanIds(child);
+                        if (child.$auto) {
+                            child = child.$items[0];
+                        }
+                        break;
                 }
             }
             parent.$items.splice(index, 0, child);
@@ -156,8 +192,8 @@ var Phoenix;
                 var o = _dom.offset(c);
                 var di = {
                     position: horizontal ? (o.left + (o.width >> 1)) : (o.top + (o.height >> 1)),
-                    ignore: (c == exclude && !horizontal) || c.nodeType == 3 || c.hasAttribute('data-remove') || c.hasAttribute('data-ignore'),
-                    placeHolder: (c == placeHolder)
+                    ignore: (c === exclude && !horizontal) || c.nodeType === 3 || c.hasAttribute('data-remove') || c.hasAttribute('data-ignore'),
+                    placeHolder: (c === placeHolder)
                 };
                 res.push(di);
             }
@@ -179,11 +215,11 @@ var Phoenix;
             var j = 0;
             for (var i = 0, len = parent.childNodes.length; i < len; i++) {
                 var c = parent.childNodes[i];
-                if (c.nodeType == 3)
+                if (c.nodeType === 3)
                     continue;
-                if (c == placeHolder)
+                if (c === placeHolder)
                     return j;
-                if (c == dragging)
+                if (c === dragging)
                     continue;
                 if (isLayout && !c.hasAttribute('data-layout'))
                     continue;
@@ -218,7 +254,7 @@ var Phoenix;
                 if (placeHolder.parentNode)
                     _removePlaceHolder(placeHolder);
                 if (parentLayout.$type && !sameParent) {
-                    if (parentLayout.$type == 'column' && level == 1) {
+                    if (parentLayout.$type === 'column' && level === 1) {
                         _dom.addClass(placeHolder, 'col');
                     }
                     else {
@@ -238,14 +274,14 @@ var Phoenix;
                     var e = list[i];
                     if (e.placeHolder) {
                         phIndex = i;
-                        if ((i == index) || (i == (index - 1))) {
+                        if ((i === index) || (i === (index - 1))) {
                             return false;
                         }
                     }
                     else if (e.ignore) {
-                        if ((i == index) && (i + 1 < len) && list[i + 1].placeHolder)
+                        if ((i === index) && (i + 1 < len) && list[i + 1].placeHolder)
                             return false;
-                        if ((i == (index - 1)) && (i > 0) && list[i - 1].placeHolder)
+                        if ((i === (index - 1)) && (i > 0) && list[i - 1].placeHolder)
                             return false;
                     }
                 }
@@ -283,7 +319,7 @@ var Phoenix;
             }
         }, _createPlaceHolderOnStart = function (proto, placeHolder, isLayout, isField, isWidget, layout, data) {
             if (isLayout) {
-                var isHorizontal = data.$type == "column";
+                var isHorizontal = data.$type === _layoutUtils.LAYOUT_COLUMN;
                 if (placeHolder) {
                     _removePlaceHolder(placeHolder);
                 }
@@ -332,7 +368,7 @@ var Phoenix;
         }, _onSelectedChanged = function (element, data, notify, layout) {
             if (data) {
                 var p = _dom.find(element, data.$idSelect || data.$idDrag);
-                if (element != p) {
+                if (element !== p && p) {
                     if (data.selected) {
                         var old = p.querySelector('div[data-remove="true"]');
                         if (!old) {
@@ -419,7 +455,7 @@ var Phoenix;
                             oi = op.$items.indexOf(moved);
                             ni = td.indexInParent;
                             sameParent = true;
-                            if (ni == oi)
+                            if (ni === oi)
                                 return;
                         }
                         else {
@@ -434,7 +470,7 @@ var Phoenix;
                         if (!td.isNew && !td.isLayout) {
                             if (oi >= 0)
                                 _dom.detach(e);
-                            if (ni == (np.$items.length - 1))
+                            if (ni === (np.$items.length - 1))
                                 _dom.append(p, e);
                             else {
                                 c = _dom.find(root, np.$items[ni + 1].$id);
@@ -525,7 +561,7 @@ var Phoenix;
                         dt.effectAllowed = 'none';
                         return true;
                     }
-                    if (event.type == 'drop') {
+                    if (event.type === 'drop') {
                         event.preventDefault();
                         var dst = layout.getLayoutById(t.getAttribute('data-layout'));
                         var dstLevel = t.getAttribute('data-level');
@@ -573,9 +609,9 @@ var Phoenix;
                         event.preventDefault();
                         return false;
                     }
-                    if (event.type == 'dragenter')
+                    if (event.type === 'dragenter')
                         posList = null;
-                    if (dragging == t) {
+                    if (dragging === t) {
                         dt.effectAllowed = 'none';
                         return true;
                     }
@@ -602,7 +638,7 @@ var Phoenix;
                     }
                 }, this);
                 _ipc.listen('onUpdateSelected', function (data) {
-                    if (data.type == "layout") {
+                    if (data.type === "layout") {
                         this.updateLayout(data.id, data.data);
                     }
                     else
@@ -674,12 +710,10 @@ var Phoenix;
             _removeEvents: function () {
                 var that = this;
                 that._removeAccordionEvents();
-                _removeEvents(that.$element, that, true);
                 that._removeBaseEvents();
             },
             _addEvents: function () {
                 var that = this;
-                that._setAccordionEvents();
                 _setEvents(that.$element, that, that.options.design);
                 that._addBaseEvents();
             },
@@ -698,11 +732,11 @@ var Phoenix;
                     parentLevel = parseInt(parentLevel || '1', 10);
                     if (!parent || !child)
                         return null;
-                    if (parent == child)
+                    if (parent === child)
                         return null;
                     if (that.isChildOf(child, parent))
                         return null;
-                    if (parent.$type == 'row')
+                    if (parent.$type === 'row')
                         return { horizontal: true };
                     else
                         return { horizontal: false };
@@ -807,6 +841,8 @@ var Phoenix;
                         tv = "accordion-group";
                     }
                 }
+                var isAccordion = tv === 'accordion';
+                var isAccordionGroup = tv === 'ccordion-group';
                 var ot = layout.$origin || layout.$type;
                 if (tv !== ot) {
                     o.$type = tv;
@@ -851,8 +887,10 @@ var Phoenix;
                             changed = true;
                             o.$title = {};
                             o.$title.value = model.title;
-                            o.$title.size = model.titleSize;
-                            o.$title.style = model.titleStyle;
+                            if (!isAccordionGroup) {
+                                o.$title.size = model.titleSize;
+                                o.$title.style = model.titleStyle;
+                            }
                         }
                         else {
                             if (!layout.$title.value !== model.title) {
@@ -860,15 +898,17 @@ var Phoenix;
                                 o.$title = o.$title || {};
                                 o.$title.value = model.title;
                             }
-                            if (!layout.$title.size !== model.titleSize) {
-                                changed = true;
-                                o.$title = o.$title || {};
-                                o.$title.size = model.titleSize;
-                            }
-                            if (!layout.$title.style !== model.titleStyle) {
-                                changed = true;
-                                o.$title = o.$title || {};
-                                o.$title.style = model.titleStyle;
+                            if (!isAccordionGroup) {
+                                if (!layout.$title.size !== model.titleSize) {
+                                    changed = true;
+                                    o.$title = o.$title || {};
+                                    o.$title.size = model.titleSize;
+                                }
+                                if (!layout.$title.style !== model.titleStyle) {
+                                    changed = true;
+                                    o.$title = o.$title || {};
+                                    o.$title.style = model.titleStyle;
+                                }
                             }
                         }
                     }
@@ -880,6 +920,14 @@ var Phoenix;
                 }
                 else if (layout.$title) {
                     changed = true;
+                }
+                if (isAccordion) {
+                    var ov = layout.$widget;
+                    var nv = model.format === 'accordion' ? undefined : model.format;
+                    if (ov !== nv) {
+                        changed = true;
+                    }
+                    o.$widget = nv;
                 }
                 if (!model.$states.formType.isHidden) {
                     var mt = model.formType;
@@ -1004,12 +1052,19 @@ var Phoenix;
                         childrenFlow: {
                             type: "string",
                             title: "Children disposition",
-                            enum: ["block", "row"],
-                            enumNames: ["Vertical Flow", "Table cell"],
+                            enum: ['block', 'row', 'accordion'],
+                            enumNames: ["Vertical Flow", "Table cell", "Accordion Group"],
                             filters: {
-                                "blockrow": ["block", "row"],
-                                "onlyblock": ["block"]
+                                blockrow: ["block", "row"],
+                                onlyblock: ["block"],
+                                accordion: ['accordion']
                             }
+                        },
+                        format: {
+                            type: "string",
+                            title: "Appearance",
+                            enum: ['accordion', 'tabs'],
+                            enumNames: ["Accordion", "Tabs"]
                         },
                         subLayoutName: {
                             type: "string",
@@ -1052,14 +1107,25 @@ var Phoenix;
                 var cv = layout.$origin || layout.$type;
                 var cf = 'block', cff = 'onlyblock';
                 var colLayout = layout;
-                var titleVisible = that.options.form && (cv === "accordion-group" || cv === "block" || cv === "column");
-                var refVisible = (cv === "accordion-group" || cv === "block" || cv === "column");
-                var showTitle = titleVisible && !!layout.$title;
+                var isAccordionGroup = (cv === 'accordion-group');
+                var isAccordion = (cv === 'accordion');
+                var format = isAccordion ? (layout.$widget || 'accordion') : 'accordion';
+                var titleVisible = (that.options.form && (cv === "block" || cv === "column")) || isAccordionGroup;
+                var refVisible = (isAccordionGroup || cv === "block" || cv === "column");
+                var showTitle = (titleVisible && !!layout.$title) || isAccordionGroup;
+                if (isAccordionGroup) {
+                    if (layout.$title && layout.$title.size)
+                        layout.$title.size = 4;
+                }
                 if (["column", "block", "row"].indexOf(cv) >= 0) {
                     if (cv === 'row')
                         cf = 'row';
                     if (layout.parent)
                         cff = 'blockrow';
+                }
+                else if (cv === 'accordion') {
+                    cff = 'accordion';
+                    cf = 'accordion';
                 }
                 var colInfoVisible = false;
                 if (cv === "column" || (layout.parent && layout.parent.$auto && layout.parent.$type === "column")) {
@@ -1069,6 +1135,7 @@ var Phoenix;
                 var onlyFields = that.options.form && layout.onlyFields && !layout.$ref;
                 var ft = layout.$inline ? 'inline' : ((layout.$fieldsOptions && layout.$fieldsOptions.columns ? 'horizontal' : 'block'));
                 return {
+                    typeLayout: cv,
                     showTitle: showTitle,
                     title: layout.$title && layout.$title.value ? layout.$title.value : '',
                     titleSize: layout.$title && layout.$title.size ? layout.$title.size : 4,
@@ -1077,22 +1144,24 @@ var Phoenix;
                     colSize: layout.$colSize || 0,
                     customSize: layout.$customColSize,
                     formType: ft,
+                    format: format,
                     subLayoutName: layout.$ref,
                     subPathSchema: layout.$refProperty,
                     labelCol: (layout.$fieldsOptions && layout.$fieldsOptions.labelCol ? layout.$fieldsOptions.labelCol : 3),
                     titleIsHidden: (layout.$fieldsOptions && layout.$fieldsOptions.titleIsHidden ? true : false),
                     $states: {
                         showTitle: {
-                            isHidden: !titleVisible
+                            isHidden: !titleVisible,
+                            isDisabled: isAccordionGroup
                         },
                         title: {
                             isHidden: !titleVisible || !showTitle
                         },
                         titleSize: {
-                            isHidden: !titleVisible || !showTitle
+                            isHidden: (!titleVisible || !showTitle) || isAccordionGroup
                         },
                         titleStyle: {
-                            isHidden: !titleVisible || !showTitle
+                            isHidden: (!titleVisible || !showTitle) || isAccordionGroup
                         },
                         colSize: {
                             isHidden: !colInfoVisible
@@ -1102,6 +1171,9 @@ var Phoenix;
                         },
                         childrenFlow: {
                             filter: cff,
+                        },
+                        format: {
+                            isHidden: !isAccordion
                         },
                         formType: {
                             isHidden: !onlyFields
@@ -1150,6 +1222,7 @@ var Phoenix;
                             $title: { value: "Properties" },
                             $items: [
                                 { $bind: "childrenFlow" },
+                                { $bind: "format" },
                                 { $bind: "subLayoutName" },
                                 { $bind: "subPathSchema" },
                                 { $bind: "colSize" },
@@ -1194,12 +1267,15 @@ var Phoenix;
                     ui.OpenForm(that.$element, that._layoutEdit(), that._schemaLayout(), that._layout2FormData(value), {}, function (action, model, form) {
                         var activateApply = false;
                         if (action.operation === 'propchange') {
+                            var isAccordionGroup = (model.typeLayout === "accordion-group");
                             switch (action.property) {
                                 case "showTitle":
-                                    model.$states.title.isHidden = !model.showTitle;
-                                    model.$states.titleSize.isHidden = !model.showTitle;
-                                    model.$states.titleStyle.isHidden = !model.showTitle;
-                                    activateApply = true;
+                                    if (!isAccordionGroup) {
+                                        model.$states.title.isHidden = !model.showTitle;
+                                        model.$states.titleSize.isHidden = !model.showTitle;
+                                        model.$states.titleStyle.isHidden = !model.showTitle;
+                                        activateApply = true;
+                                    }
                                     break;
                                 case "formType":
                                     model.$states.labelCol.isHidden = model.$states.showTitle.isHidden || model.formType !== 'horizontal';

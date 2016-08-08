@@ -10,6 +10,7 @@ $(function () {
 
 					{
 						"$bind": "documents",
+						"$name": "gfsfdd3",
 						"$widget": "basicgrid",
 						"options": {
 							"align": "middle",

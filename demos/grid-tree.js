@@ -48,6 +48,7 @@ $(function () {
 					{
 						"$bind": "documents",
 						"$widget": "basicgrid",
+						"$name": "ktxxxdd3",
 						"options": {
 							"height": 300,
 							"scrolling": {

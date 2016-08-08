@@ -28,6 +28,21 @@ $(function () {
 				{
 					"$items": [
 						{
+							"$type": "accordion",
+							"$widget": "tabs",
+							"$items": [
+								{
+									"opened": true,
+									"$type": "accordion-group",
+									"$items": [{ "$type": "block", "$items": [{ "$bind": "PV" }] }]
+								},
+								{
+									"$type": "accordion-group",
+									"$items": [{ "$type": "block", "$items": [{ "$bind": "Price" }] }]
+								}
+							]
+						},
+						{
 							"$type": "block",
 							"$items": [{ "$bind": "Name" }]
 						},
@@ -74,7 +89,8 @@ $(function () {
 			{
 				"$type": "group", "$typeItems": "layouts", "$items": [
 					{ "$type": "item", "$title": "Block", "data": { "$type": "layout", "data": { "$type": "block" } } },
-					{ "$type": "item", "$title": "Row", "data": { "$type": "layout", "data": { "$type": "row", "$items": [{}, {}] } } }
+					{ "$type": "item", "$title": "Row", "data": { "$type": "layout", "data": { "$type": "row", "$items": [{}, {}] } } },
+					{ "$type": "item", "$title": "Accordion", "data": { "$type": "layout", "data": { "$type": "accordion", "$widget": "tabs", "$items": [{ "opened": true }, {}] } } }
 				]
 			},
 			{ "$type": "group", "$typeItems": "fields", "$items": [] }

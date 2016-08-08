@@ -694,6 +694,12 @@ declare namespace Phoenix {
 }
 declare namespace Phoenix {
     module LayoutUtils {
+        const LAYOUT_BLOCK: string;
+        const LAYOUT_ROW: string;
+        const LAYOUT_COLUMN: string;
+        const LAYOUT_HTML: string;
+        const LAYOUT_ACCORDION: string;
+        const LAYOUT_ACCORDION_GROUP: string;
         var check: (layout: any, parentLayout: any, map: any, mapFields: any, namedMap: any, namedFieldMap: any) => void;
         var layoutVisible: (layout: any) => any;
         var clearMeta: (layout: any, clearIds: any) => void;
@@ -716,6 +722,7 @@ declare namespace Phoenix {
             $element: JQuery;
             protected $content: JQuery;
             protected resizeList: any[];
+            protected currentResizeList: any[];
             options: any;
             data: any;
             children: any;
@@ -753,6 +760,7 @@ declare namespace Phoenix {
             _renderLayoutContent(layout: any): void;
             _isVisible(id: any): boolean;
             _renderChildren($e: any): any[];
+            _refreshCurrentResizeList(): void;
             _clearChildren(): void;
             _refreshSelected(): void;
             registerDataListener(value: any): void;
