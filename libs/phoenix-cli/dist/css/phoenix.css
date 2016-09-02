@@ -178,7 +178,12 @@
   font-size: 700;
 }
 .bs-basictable-sort {
+  height: 1em;
   margin-left: 0.5em;
+  margin-top: -0.5em;
+  position: absolute;
+  right: 3px;
+  top: 50%;
 }
 .bs-image-center {
   margin-top: -8px;
@@ -187,6 +192,12 @@
 .bs-image-center.small-table {
   margin-top: -4px;
   margin-bottom: -4px;
+}
+.bs-expand-parent {
+  display: table;
+}
+.bs-expand-child {
+  display: table-cell;
 }
 .bs-expand-space {
   padding-right: 4px;
@@ -445,8 +456,31 @@ tr.bs-table-row.even {
   color: #d33737;
 }
 
-.bs-img-icon {
-  width: 50px;
+.bs-hidden-file {
+  position: absolute;
+  visibility: hidden;
+  opacity: 0.1;
+  top: 0px;
+  left: 0px;
+  width: 0px;
+  height: 0px;
+  z-index: 2;
+}
+.bs-no-image {
+  position: relative;
+  background-image: url('../img/no-image.png');
+  background-repeat: no-repeat;
+  background-position: center;
+  width: 120px;
+  height: 100px;
+}
+.bs-rt-button.bs-image-remove {
+  top: 5px;
+  right: 5px;
+}
+
+label.bs-label {
+  font-weight: normal;
 }
 
 .tgl {
@@ -1200,6 +1234,18 @@ td.nowrap {
 }
 .table > tbody > tr > td.no-padding > div.bs-td-padding {
   padding: 8px;
+}
+.bs-header-rows {
+  display: table-cell;
+  line-height: 1.5em;
+  height: 3em;
+  white-space: normal;
+  vertical-align: middle;
+}
+.bs-header-rows-parent {
+  position: relative;
+  height: 3em;
+  overflow: hidden;
 }
 .bs-column-header {
   padding: 8px;

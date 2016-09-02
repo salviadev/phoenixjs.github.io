@@ -606,11 +606,12 @@ var Phoenix;
         var startSpace = 12;
         var Header = (function () {
             function Header(data, options) {
-                this.init(data, options);
+                this._init(data, options);
             }
-            Header.prototype.init = function (data, options) {
+            Header.prototype._init = function (data, options) {
                 var that = this;
                 that.title = "";
+                that._ctx = _link.context();
                 that._ignoreClick = false;
                 that.leftButtonsSpace = 0;
                 that.rightButtonsSpace = 0;
@@ -735,6 +736,12 @@ var Phoenix;
                 }
                 that.page.addChild('header', that);
                 that.setData(data);
+            };
+            Header.prototype._show = function () {
+                var that = this;
+                if (that._ctx.$url.$inline)
+                    return false;
+                return true;
             };
             Header.prototype.setData = function (data) {
                 data = data || {};
@@ -1008,7 +1015,7 @@ var Phoenix;
             };
             Header.prototype.render = function ($parent) {
                 var that = this;
-                if ($parent && !this.$element) {
+                if (that._show() && $parent && !this.$element) {
                     this.$element = _defaultHeader();
                     var config = _application.configuration;
                     var headerCfg = config && config.header ? config.header : {};
