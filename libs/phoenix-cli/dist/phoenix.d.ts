@@ -1230,6 +1230,7 @@ declare namespace Phoenix {
             $schema: any;
             $rootSchema: any;
             $data: any;
+            formData: any;
             $model: Observable.Data;
             module: any;
             onaction: Function;

@@ -11244,6 +11244,9 @@ var Phoenix;
                     that.module = options.module;
                     delete options.module;
                 }
+                if (layoutData.data) {
+                    that.formData = $.extend(true, {}, layoutData.data);
+                }
                 that.formManager = _ui.formManager();
                 that.formManager.add(that);
                 that.$schema = schema || {};
