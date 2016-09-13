@@ -1505,7 +1505,7 @@ var Phoenix;
 (function (Phoenix) {
     var ui;
     (function (ui) {
-        var _ui = ui, _bootstrap4 = Phoenix.bootstrap4, google = window["google"];
+        var _ui = ui, google = window["google"];
         var GoogleMaps = (function (_super) {
             __extends(GoogleMaps, _super);
             function GoogleMaps(options, callback) {
@@ -1619,7 +1619,7 @@ var Phoenix;
 (function (Phoenix) {
     var ui;
     (function (ui) {
-        var _ui = ui, _bootstrap4 = Phoenix.bootstrap4, google = window["google"], L = window["L"];
+        var _ui = ui, google = window["google"], L = window["L"];
         var OpenStreetMap = (function (_super) {
             __extends(OpenStreetMap, _super);
             function OpenStreetMap(options, callback) {

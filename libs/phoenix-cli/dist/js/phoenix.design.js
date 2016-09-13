@@ -1388,43 +1388,62 @@ var Phoenix;
     (function (ui) {
         var _utils = Phoenix.utils, _ipc = Phoenix.ipc, _drag = Phoenix.drag, _dom = Phoenix.dom, _ui = ui, _locale = Phoenix.locale, _ulocale = Phoenix.ulocale;
         var _html = function (id, options) {
-            var html = [
-                '<nav class="navbar navbar-default" id="' + id + '">',
-                '  <div class="container-fluid">',
-                '    <div class="navbar-header">',
-                '      <a class="navbar-brand" href="#">',
-                _locale.layouts.design.AuthoringMode,
-                '      </a>',
-                '    </div>',
-                '    <div class="collapse navbar-collapse">',
-                '     <form class="navbar-form navbar-left" role="search">',
-                '       <button type="button" class="btn btn-default' + (options.form ? ' bs-none' : '') + '" id="' + id + '_new">',
-                '         <span class="' + _dom.iconClass('plus') + '" aria-hidden="false"></span> ',
-                _locale.layouts.design.New,
-                '       </button>',
-                '       <button type="button" class="btn btn-default' + (options.form ? ' bs-none' : '') + '" id="' + id + '_open">',
-                '         <span class="' + _dom.iconClass('file-o') + '" aria-hidden="false"></span> ',
-                _locale.layouts.design.Open.title,
-                '       </button>',
-                '       <button type="button" class="btn btn-default' + (options.form ? ' bs-none' : '') + '" id="' + id + '_remove">',
-                '         <span class="' + _dom.iconClass('times') + '" aria-hidden="false"></span> ',
-                _locale.layouts.design.Delete,
-                '       </button>',
-                '       <button type="button" class="btn btn-default" id="' + id + '_save">',
-                '         <span class="' + _dom.iconClass('floppy') + '" aria-hidden="false"></span> ',
-                _locale.layouts.design.Save,
-                '       </button>',
-                '       <div class="checkbox">',
-                '         <label>',
-                '           <input type="checkbox" id="' + id + '_preview"' + (options.design ? '' : ' checked="true"') + '> ',
-                _locale.layouts.design.Preview,
-                '          </label>',
-                '       </div>',
-                '       </form>',
-                '    </div>',
-                '  </div>',
-                '</nav>'
-            ];
+            var _bootstrap4 = Phoenix.bootstrap4;
+            var html = [];
+            if (_bootstrap4) {
+                html.push('<nav class="navbar navbar-dark bg-inverse" id="' + id + '">');
+                html.push('<a class="navbar-brand" href="#">');
+                html.push(_locale.layouts.design.AuthoringMode);
+                html.push('</a>');
+                html.push('<form class="form-inline">');
+            }
+            else {
+                html.push('<nav class="navbar navbar-default" id="' + id + '">');
+                html.push('<div class="container-fluid">');
+                html.push('<div class="navbar-header">');
+                html.push('<a class="navbar-brand" href="#">');
+                html.push(_locale.layouts.design.AuthoringMode);
+                html.push('</a>');
+                html.push('</div>');
+                html.push('<div class="collapse navbar-collapse">');
+                html.push('<form class="navbar-form navbar-left" role="search">');
+            }
+            html.push('<button type="button" class="btn btn-' + _dom.bootstrapStyles.secondary + (options.form ? ' bs-none' : '') + '" id="' + id + '_new">');
+            html.push('<span class="' + _dom.iconClass('plus') + '" aria-hidden="false"></span> ');
+            html.push(_locale.layouts.design.New);
+            html.push('</button>');
+            html.push('<button type="button" class="btn btn-' + _dom.bootstrapStyles.secondary + (options.form ? ' bs-none' : '') + '" id="' + id + '_open">');
+            html.push('<span class="' + _dom.iconClass('file-o') + '" aria-hidden="false"></span> ');
+            html.push(_locale.layouts.design.Open.title);
+            html.push('</button>');
+            html.push('<button type="button" class="btn btn-' + _dom.bootstrapStyles.secondary + (options.form ? ' bs-none' : '') + '" id="' + id + '_remove">');
+            html.push('<span class="' + _dom.iconClass('times') + '" aria-hidden="false"></span> ');
+            html.push(_locale.layouts.design.Delete);
+            html.push('</button>');
+            html.push('<button type="button" class="btn btn-' + _dom.bootstrapStyles.secondary + '" id="' + id + '_save">');
+            html.push('<span class="' + _dom.iconClass('floppy') + '" aria-hidden="false"></span> ');
+            html.push(_locale.layouts.design.Save);
+            html.push('</button>');
+            html.push('&nbsp;&nbsp;');
+            if (_bootstrap4) {
+                html.push('<label class="form-check-inline">');
+                html.push('<input class="form-check-input" type="checkbox" id="' + id + '_preview"' + (options.design ? '' : ' checked="true"') + '>&nbsp;&nbsp;');
+                html.push(_locale.layouts.design.Preview);
+                html.push('</label>');
+            }
+            else {
+                html.push('<div class="checkbox">');
+                html.push('<label>');
+                html.push('<input type="checkbox" id="' + id + '_preview"' + (options.design ? '' : ' checked="true"') + '> ');
+                html.push(_locale.layouts.design.Preview);
+                html.push('</label>');
+                html.push('</div>');
+            }
+            html.push('</form>');
+            if (!_bootstrap4) {
+                html.push('</div>');
+            }
+            html.push('</nav>');
             return html.join('');
         };
         var AuthoringToolBar = (function () {
@@ -1600,6 +1619,7 @@ var Phoenix;
         }, _afterGroups = function (html, item) {
             html.push('</div>');
         }, _beforeGroup = function (html, item, parent, first) {
+            var _bootstrap4 = Phoenix.bootstrap4;
             item.$typeItems = item.$typeItems || 'layouts';
             var icon, title;
             switch (item.$typeItems) {
@@ -1620,15 +1640,19 @@ var Phoenix;
                     icon = 'bars';
                     break;
             }
-            html.push('<div class="panel panel-default" id="' + item.$id + '">');
-            html.push('<div class="panel-heading"  role="tab" id="' + item.$id + '_tab">');
-            html.push('<h3 class="panel-title">');
-            html.push('<a data-toggle="collapse" aria-expanded="' + (first ? 'true' : 'false') + '" draggable="false" data-parent="#accordion_expo" aria-controls="' + item.$id + '_content" href="#' +
+            html.push('<div class="' + (_bootstrap4 ? 'card' : 'panel panel-default') + '" id="' + item.$id + '">');
+            html.push('<div class="' + (_bootstrap4 ? 'card-header' : 'panel-heading') + '"  role="tab" id="' + item.$id + '_tab">');
+            if (!_bootstrap4)
+                html.push('<h3 class="panel-title">');
+            html.push('<a data-toggle="collapse" aria-expanded="' + (first ? 'true' : 'false') + '" draggable="false" data-parent="#accordion_expo" aria-controls="' + item.$id + '_tab" href="#' +
                 item.$id + '_content"><span class="' + _dom.iconClass('bars') + ' bs-icon-space">');
             html.push('</span>');
             html.push(title);
-            html.push('</a></h3></div>');
-            html.push('<div id="' + item.$id + '_content" class="panel-collapse collapse' + (first ? ' in' : '') + '" role="tabpanel" aria-labelledby="' + item.$id + '_tab>');
+            html.push('</a>');
+            if (!_bootstrap4)
+                html.push('</h3>');
+            html.push('</div>');
+            html.push('<div id="' + item.$id + '_content" class="panel-collapse collapse' + (first ? ' in' : '') + '" role="tabpanel" aria-labelledby="' + item.$id + '_tab">');
             html.push(' <ul class="list-group">');
         }, _afterGroup = function (html, item) {
             html.push('</ul></div></div>');

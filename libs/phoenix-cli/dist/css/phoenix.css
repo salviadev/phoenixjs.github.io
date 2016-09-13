@@ -201,10 +201,11 @@
 }
 .bs-expand-space {
   padding-right: 4px;
+  font-size: 120%;
 }
 .bs-image-center,
 .bs-image-cell > span.bs-image-size {
-  font-size: 120%;
+  font-size: 140%;
 }
 .bs-image-cell {
   height: 20px;
@@ -348,6 +349,10 @@ tr.bs-table-row.even {
   top: 0px;
   cursor: col-resize;
   border-left: 2px dotted #31708f;
+}
+
+.btn-group {
+  margin-left: -4px;
 }
 
 .bs-edit-number {
