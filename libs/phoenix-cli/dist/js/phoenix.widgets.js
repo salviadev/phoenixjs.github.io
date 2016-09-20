@@ -739,8 +739,12 @@ var Phoenix;
             };
             Header.prototype._show = function () {
                 var that = this;
-                if (that._ctx.$url.$inline)
+                var prefInline = Phoenix.sessionPreferences('headerisHidden');
+                if (that._ctx.$url.$inline || prefInline) {
+                    if (!prefInline)
+                        Phoenix.sessionPreferences('headerisHidden', true);
                     return false;
+                }
                 return true;
             };
             Header.prototype.setData = function (data) {

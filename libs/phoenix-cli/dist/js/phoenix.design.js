@@ -186,9 +186,9 @@ var Phoenix;
             return o;
         }, _createPositionList = function (p, exclude, placeHolder, horizontal) {
             var res = [];
-            var childs = p.childNodes;
-            for (var i = 0, len = childs.length; i < len; i++) {
-                var c = childs[i];
+            var children = p.childNodes;
+            for (var i = 0, len = children.length; i < len; i++) {
+                var c = children[i];
                 var o = _dom.offset(c);
                 var di = {
                     position: horizontal ? (o.left + (o.width >> 1)) : (o.top + (o.height >> 1)),
@@ -1645,20 +1645,20 @@ var Phoenix;
             if (!_bootstrap4)
                 html.push('<h3 class="panel-title">');
             html.push('<a data-toggle="collapse" aria-expanded="' + (first ? 'true' : 'false') + '" draggable="false" data-parent="#accordion_expo" aria-controls="' + item.$id + '_tab" href="#' +
-                item.$id + '_content"><span class="' + _dom.iconClass('bars') + ' bs-icon-space">');
-            html.push('</span>');
+                item.$id + '_content"><span class="' + _dom.iconClass('bars') + '">');
+            html.push('</span>&nbsp;');
             html.push(title);
             html.push('</a>');
             if (!_bootstrap4)
                 html.push('</h3>');
             html.push('</div>');
             html.push('<div id="' + item.$id + '_content" class="panel-collapse collapse' + (first ? ' in' : '') + '" role="tabpanel" aria-labelledby="' + item.$id + '_tab">');
-            html.push(' <ul class="list-group">');
+            html.push('<ul class="list-group">');
         }, _afterGroup = function (html, item) {
             html.push('</ul></div></div>');
         }, _beforeItem = function (html, item, parent, first) {
             html.push('<li draggable="true" class="list-group-item bs-cursor-p" data-toolbox="' + item.$id + '" id="' + item.$id + '">');
-            html.push('<span class="' + _dom.iconClass('file-o') + ' bs-icon-space"></span>');
+            html.push('<span class="' + _dom.iconClass('file-o') + '"></span>&nbsp;');
             html.push(item.$title);
             html.push('</li>');
         }, _afterItem = function (html, item) { }, _enumItems = function (item, parent, onItem) {

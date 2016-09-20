@@ -50,8 +50,8 @@ $(function () {
 				"$inline": true,
 				"$items": [
 					{ $bind: "$links.setData", options: { right: true } },
-					{ $bind: "$links.addLine", options: { right: true } }
-
+					{ $bind: "$links.addLine", options: { right: true } },
+					{ $bind: "$links.select1stLine", options: { right: true } }
 				]
 			}
 		]
@@ -103,7 +103,8 @@ $(function () {
 		},
 		"links": {
 			"setData": { title: "Reload" },
-			"addLine": { title: "Add" }
+			"addLine": { title: "Add" },
+			"select1stLine": { title: "Select 1st line" }
 		}
 
 
@@ -134,6 +135,9 @@ $(function () {
 					case "$links.addLine":
 						data.Offres.clearSelection();
 						data.Offres.push({$select: true, caracTA:{}});
+						break;
+					case "$links.select1stLine":
+						data.Offres[0].$select = true;
 						break;
 				}
 			});

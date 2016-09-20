@@ -201,18 +201,15 @@
 }
 .bs-expand-space {
   padding-right: 4px;
-  font-size: 120%;
 }
 .bs-image-center,
 .bs-image-cell > span.bs-image-size {
-  font-size: 140%;
+  position: relative;
+  overflow: hidden;
 }
 .bs-image-cell {
-  height: 20px;
-}
-.bs-image-center.small-table,
-.bs-image-cell.small-table > span.bs-image-size {
-  font-size: 110%;
+  xheight: 20px;
+  overflow: hidden;
 }
 .bs-bool-edit {
   color: #337ab7;
@@ -349,10 +346,6 @@ tr.bs-table-row.even {
   top: 0px;
   cursor: col-resize;
   border-left: 2px dotted #31708f;
-}
-
-.btn-group {
-  margin-left: -4px;
 }
 
 .bs-edit-number {
@@ -1384,9 +1377,6 @@ body {
 }
 .bs-block {
   display: block !important;
-}
-.bs-icon-space {
-  margin-right: 5px;
 }
 .bs-cursor-p {
   cursor: pointer;

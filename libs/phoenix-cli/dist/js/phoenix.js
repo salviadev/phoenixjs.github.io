@@ -307,9 +307,12 @@ var Phoenix;
         utils.dataAsPromise = _getDataAsPromise;
         utils.extractAngularVars = _extractAngularValues;
         utils.execAngularExpression = _execAngularExpression;
-        utils.confirm = function (title, message, success) {
+        utils.confirm = function (title, message, success, cancel) {
             if (window.confirm(message))
                 success();
+            else if (cancel) {
+                cancel();
+            }
         };
         utils.alert = function (title, message, success) {
             window.alert(message);
@@ -1016,6 +1019,10 @@ var Phoenix;
                         detail: detail
                     };
                     errorThrown.status = jqXHR.status;
+                    errorThrown._ajax = true;
+                    if (errorThrown.message === 'error' && errorThrown.detail && errorThrown.detail.responseText) {
+                        errorThrown.message = errorThrown.detail.responseText;
+                    }
                     reject(errorThrown);
                 });
             });
@@ -1823,7 +1830,7 @@ var Phoenix;
                 var elementRect = element.getBoundingClientRect();
                 return _addScrolls({ left: elementRect.left, top: elementRect.top });
             }
-        }, _childsPos = function (parent, list, vertical, zone, options) {
+        }, _childrenPos = function (parent, list, vertical, zone, options) {
             var let = 0, element = parent;
             var res = new Array(list.length + 1);
             var firstDelta = options.firstDelta || 0;
@@ -2195,7 +2202,7 @@ var Phoenix;
         dom.documentClientDim = _documentClientDim;
         dom.touch = _touch();
         dom.position = _position;
-        dom.childrenPositions = _childsPos;
+        dom.childrenPositions = _childrenPos;
         dom.findNearest = _findNearest;
         dom.showMove = _showMove;
         dom.bootstrapStyles = _bootstrapBtns;
@@ -2884,6 +2891,7 @@ var Phoenix;
                 if (params.$propertyName) {
                     entity = entity + '/' + params.$propertyName;
                     delete params.$propertyName;
+                    hasEntityId = true;
                 }
                 var lurl = entity;
                 delete params.$entity;
@@ -3040,14 +3048,19 @@ var Phoenix;
                 return null;
         }, _getValue = function (value, context, addQuote, output) {
             var cv = value;
-            var ctx = ['$url', '$context', '$data', '$item', "$mem", "$local"];
+            var ctx = ['$url', '$context', '$data', '$item', '$mem', '$local'];
             var vt = typeof cv, ct;
             if (vt === 'object' && cv) {
                 ct = value.type;
                 cv = value.value;
                 vt = typeof cv;
             }
-            if (vt === 'string' && cv && cv.charAt(0) == '$') {
+            var isArray = false;
+            if (vt === 'string' && cv && cv.charAt(0) === '[' && cv.charAt(cv.length - 1) === ']') {
+                isArray = true;
+                cv = cv.substr(1, cv.length - 2);
+            }
+            if (vt === 'string' && cv && cv.charAt(0) === '$') {
                 var segments = cv.split('.');
                 var i = 0, sv = null;
                 while (i < segments.length) {
@@ -3083,7 +3096,10 @@ var Phoenix;
                     }
                     i++;
                 }
-                return _checkValue(sv, ct, addQuote, output);
+                if (isArray)
+                    return [_checkValue(sv, ct, addQuote, output)];
+                else
+                    return _checkValue(sv, ct, addQuote, output);
             }
             return _checkValue(cv, ct, addQuote, output);
         }, _equals = function (o1, o2, props) {
@@ -3416,7 +3432,7 @@ var Phoenix;
                 if (hnd)
                     context = hnd(context, callerObject);
             }
-            if (config.$output) {
+            if (!config.$main && config.$output) {
                 ldata = _defaultData(config.$data, lurl, context, local);
                 cd = _outputData(config.$output, {
                     $url: lurl,
@@ -3503,7 +3519,7 @@ var Phoenix;
                     }
                 }
                 var cd = ldata;
-                if (config.$output)
+                if (!config.$main && config.$output)
                     cd = _outputData(config.$output, {
                         $url: lurl,
                         $context: context,
@@ -3519,7 +3535,7 @@ var Phoenix;
             var params = _parseRestParams(config.$params, lurl, context, local);
             return data.local.getRessources(params, function (ldata) {
                 var cd = ldata;
-                if (config.$output)
+                if (!config.$main && config.$output)
                     cd = _outputData(config.$output, {
                         $url: lurl,
                         $context: context,
@@ -3728,6 +3744,14 @@ var Phoenix;
         data.compileFilterTree = _memoryTree;
         data.acceptFilter = _acceptFilter;
         data.extractValue = _extractValue;
+        data.execOutputData = function (dataSource, result) {
+            if (dataSource.$output) {
+                var ctx = Phoenix.link.context();
+                ctx.$data = result[dataSource.name];
+                ctx.$context = result;
+                result[dataSource.name] = _outputData(dataSource.$output, ctx);
+            }
+        };
         data.test = { output: _outputData, parseTree: _parseTree };
     })(data = Phoenix.data || (Phoenix.data = {}));
 })(Phoenix || (Phoenix = {}));
@@ -4008,7 +4032,7 @@ var Phoenix;
         var PageControl = (function () {
             function PageControl() {
                 var that = this;
-                that.childs = [];
+                that.children = [];
                 that.data = {
                     $title: '',
                     $menuleft: false,
@@ -4078,7 +4102,7 @@ var Phoenix;
             };
             PageControl.prototype._notifyChildren = function (propName, value) {
                 var that = this;
-                that.childs.forEach(function (cd) {
+                that.children.forEach(function (cd) {
                     var c = cd.child;
                     if (c && c.onPageChange)
                         c.onPageChange(propName, value);
@@ -4144,8 +4168,8 @@ var Phoenix;
             };
             PageControl.prototype.childByType = function (ct) {
                 var that = this;
-                for (var i = 0, len = that.childs.length; i < len; i++) {
-                    var c = that.childs[i];
+                for (var i = 0, len = that.children.length; i < len; i++) {
+                    var c = that.children[i];
                     if (c.type == ct)
                         return c.child;
                 }
@@ -4153,7 +4177,7 @@ var Phoenix;
             };
             PageControl.prototype.addChild = function (type, child) {
                 var that = this;
-                that.childs.push({
+                that.children.push({
                     child: child,
                     type: type
                 });
@@ -4161,11 +4185,11 @@ var Phoenix;
             };
             PageControl.prototype.removeChild = function (child) {
                 var that = this;
-                var i = that.childs.length;
+                var i = that.children.length;
                 while (i--) {
-                    var ci = that.childs[i];
+                    var ci = that.children[i];
                     if (ci.child == child) {
-                        that.childs.splice(i, 1);
+                        that.children.splice(i, 1);
                         break;
                     }
                 }
@@ -4175,13 +4199,13 @@ var Phoenix;
                 _external.historyChangedHandler = null;
                 that._hideErrors(true);
                 that._hideLoading();
-                if (that.childs) {
-                    var i = that.childs.length;
+                if (that.children) {
+                    var i = that.children.length;
                     while (i--) {
-                        var ci = that.childs[i];
+                        var ci = that.children[i];
                         that.removeDataListener(ci.child);
                     }
-                    that.childs = null;
+                    that.children = null;
                 }
                 that.dataListeners = null;
                 that._removeEvents();
@@ -6097,7 +6121,7 @@ var Phoenix;
                 map[field.$id] = field;
             if (namedMap && field.$name)
                 namedMap[field.$name] = field;
-        }, _checkRowChilds = function (layout) {
+        }, _checkRowChildren = function (layout) {
             _markEmptyRowAsBlock(layout);
             var setCol = false;
             layout.$items.forEach(function (item) {
@@ -6117,7 +6141,7 @@ var Phoenix;
                     all += value;
                 });
             }
-        }, _checkAccordionChilds = function (layout) {
+        }, _checkAccordionChildren = function (layout) {
             if (!layout.$items.length) {
                 layout.$items.push({
                     $type: LayoutUtils.LAYOUT_ACCORDION_GROUP
@@ -6451,7 +6475,7 @@ var Phoenix;
             html.push(layout.$title.value);
             html.push('</a></li>');
         }, _accordionBefore = function (html, layout, parent, model, llocale, design, isForm, refBlock) {
-            _checkAccordionChilds(layout);
+            _checkAccordionChildren(layout);
             if (design || !layout.$widget) {
                 html.push('<div role="tablist" aria-multiselectable="true"');
                 if (design)
@@ -6578,7 +6602,7 @@ var Phoenix;
             _addLayoutId(html, 2, layout, design);
             _addDataStep(html, 2, design);
             html.push('>');
-            _checkRowChilds(layout);
+            _checkRowChildren(layout);
         }, _rowAfter = function (html, layout, parent, model, llocale, design) {
             html.push('</div></div>');
         }, _columnBefore = function (html, layout, parent, model, llocale, design, isForm, refBlock) {
@@ -6801,13 +6825,13 @@ var Phoenix;
                     item.$type = LayoutUtils.LAYOUT_COLUMN;
                     delete item.$colSize;
                 });
-                _checkRowChilds(layout);
+                _checkRowChildren(layout);
                 layout.$items.forEach(function (item) {
                     _check(item, layout, map, mapFields, namedMap, namedMapFields);
                 });
             }
             else if (layout.$type === LayoutUtils.LAYOUT_ACCORDION) {
-                _checkAccordionChilds(layout);
+                _checkAccordionChildren(layout);
                 layout.$items.forEach(function (item) {
                     _check(item, layout, map, mapFields, namedMap, namedMapFields);
                 });
@@ -7187,6 +7211,10 @@ var Phoenix;
                     });
                     toRender.forEach(function (item) {
                         item.control.render($(item.parent));
+                        if (item.control.afterAddedInDom) {
+                            that.afterRenderList = that.afterRenderList || [];
+                            that.afterRenderList.push(item.control);
+                        }
                     });
                 }
                 that._refreshCurrentResizeList();
@@ -7213,6 +7241,7 @@ var Phoenix;
                 that.controls = {};
                 that.resizeList = null;
                 that.currentResizeList = null;
+                that.afterRenderList = null;
                 Object.keys(children).forEach(function (v) {
                     var c = children[v];
                     c.destroy();
@@ -8530,10 +8559,7 @@ var Phoenix;
                         }
                     }
                     if (_sutils.isCompositionRef(cs, rootSchema)) {
-                        // recursive	
-                        if (ns.isMandatory) {
-                            a[pn] = _sutils.init(cs, rootSchema, context, a[pn] || {});
-                        }
+                        a[pn] = _sutils.init(cs, rootSchema, context, a[pn] || {});
                     }
                     else if (_sutils.isCompositionList(cs, rootSchema, false) || _sutils.isSimpleList(cs, rootSchema)) {
                         a[pn] = a[pn] || [];
@@ -8708,6 +8734,8 @@ var Phoenix;
             },
             validateSchema: function (value, schema, state, locale, errors) {
                 var res = true;
+                if (!schema)
+                    return;
                 if (state) {
                     if (state.isHidden || state.isDisabled)
                         return res;
@@ -8741,37 +8769,42 @@ var Phoenix;
             },
             loadSchemaRefs: function (schema, ldata, layout, after) {
                 if (!schema)
-                    return after();
-                _sutils.expandSchema$Ref(schema);
-                var enums = _sutils.loadEnums(schema);
-                var promises = enums ? enums : [];
-                var enumsCount = enums ? enums.length : 0;
-                var mainData = _dutils.loadMainData(layout);
-                if (mainData)
-                    promises.push(mainData);
-                var dataCount = mainData ? enumsCount + 1 : 0;
-                if (!promises.length)
-                    return after(ldata);
-                _dom.processing(true);
-                _utils.Promise.all(promises).then(function (values) {
-                    _dom.processing(false);
-                    var allEnums = {};
-                    values.forEach(function (ev, index) {
-                        if (index < enumsCount) {
-                            allEnums[ev.type] = ev.enums;
+                    return after(null, null);
+                try {
+                    _sutils.expandSchema$Ref(schema);
+                    var enums = _sutils.loadEnums(schema);
+                    var promises = enums ? enums : [];
+                    var enumsCount_1 = enums ? enums.length : 0;
+                    var mainData = _dutils.loadMainData(layout);
+                    if (mainData)
+                        promises.push(mainData);
+                    var dataCount_1 = mainData ? enumsCount_1 + 1 : 0;
+                    if (!promises.length)
+                        return after(null, ldata);
+                    _dom.processing(true);
+                    _utils.Promise.all(promises).then(function (values) {
+                        _dom.processing(false);
+                        var allEnums = {};
+                        values.forEach(function (ev, index) {
+                            if (index < enumsCount_1) {
+                                allEnums[ev.type] = ev.enums;
+                            }
+                            else if (index < dataCount_1) {
+                                $.extend(true, ldata, ev);
+                            }
+                        });
+                        if (enumsCount_1) {
+                            _sutils._fillEnums(schema, allEnums);
                         }
-                        else if (index < dataCount) {
-                            $.extend(true, ldata, ev);
-                        }
+                        after(null, ldata);
+                    }).catch(function (ex) {
+                        _dom.processing(false);
+                        after(ex, null);
                     });
-                    if (enumsCount) {
-                        _sutils._fillEnums(schema, allEnums);
-                    }
-                    after(ldata);
-                }).catch(function (ex) {
-                    _dom.processing(false);
-                    throw ex;
-                });
+                }
+                catch (ex) {
+                    after(ex, null);
+                }
             },
             stateProps: function (schema) {
                 if (schema.enum && schema.filters) {
@@ -8872,11 +8905,15 @@ var Phoenix;
                     var datasets = Object.keys(config.datasets);
                     if (datasets.length) {
                         datasets.forEach(function (dsName) {
-                            if (config.datasets[dsName].$main)
+                            if (config.datasets[dsName].$main) {
                                 main = $.extend({}, config.datasets[dsName], true);
+                                main.name = dsName;
+                            }
                         });
-                        if (!main)
+                        if (!main) {
                             main = $.extend({}, config.datasets[datasets[0]], true);
+                            main.name = datasets[0];
+                        }
                     }
                 }
                 return main;
@@ -8891,8 +8928,10 @@ var Phoenix;
                         if (ce.$main)
                             main = ce;
                     });
-                    if (!main)
+                    if (!main) {
                         main = ds[0];
+                        main.$main = true;
+                    }
                     if (main.children) {
                         Object.keys(main.children).forEach(function (name) {
                             main.children[name].name = name;
@@ -8905,28 +8944,32 @@ var Phoenix;
                     _dsPlugin.executeDatasets(ds, {}, result, {}, function (sended, ex) {
                         _dom.processing(false);
                         if (!ex) {
-                            var mainData_1 = result[main.name];
+                            var mainData = result[main.name];
                             if (children && children.length) {
                                 _dom.processing(true);
                                 var cresult_1 = {};
-                                return _dsPlugin.executeDatasets(children, mainData_1, cresult_1, {}, function (sended, ex) {
+                                return _dsPlugin.executeDatasets(children, mainData, cresult_1, {}, function (sended, ex) {
                                     _dom.processing(false);
                                     Object.keys(cresult_1).forEach(function (name) {
                                         result[name] = cresult_1[name];
                                     });
-                                    var hnd = _customData.get('datasets.transform.' + transform);
-                                    if (hnd)
-                                        hnd(result);
-                                    resolve(mainData_1);
+                                    _data.execOutputData(main, result);
+                                    if (transform) {
+                                        var hnd = _customData.get('datasets.transform.' + transform);
+                                        if (hnd)
+                                            hnd(result);
+                                    }
+                                    resolve(result[main.name]);
                                 }, false);
                             }
                             else {
+                                _data.execOutputData(main, result);
                                 if (transform) {
                                     var hnd = _customData.get('datasets.transform.' + transform);
                                     if (hnd)
                                         hnd(result);
                                 }
-                                resolve(mainData_1);
+                                resolve(result[main.name]);
                             }
                         }
                         else {
@@ -8965,10 +9008,13 @@ var Phoenix;
                         var ds = datasets[keys[0]];
                         ;
                         ds.$main = true;
+                        ds.name = keys[0];
                         return ds;
                     }
                     if (typeof dsName === 'string') {
-                        return datasets[dsName];
+                        var res = datasets[dsName];
+                        res.name = dsName;
+                        return res;
                     }
                 }
                 return null;
@@ -9568,7 +9614,7 @@ var Phoenix;
                         if (p && p.$index !== undefined) {
                             if (isSet)
                                 value[p.$index] = val;
-                            return value[p.$index];
+                            return value.get(p.$index);
                         }
                     }
                 }
@@ -9767,10 +9813,11 @@ var Phoenix;
                 var that = this;
                 that.$selected = null;
             };
-            DataListCore.prototype.updateParams = function (item, prop, value) {
+            DataListCore.prototype.updateParams = function (item, prop, value, arrayPropName) {
                 var that = this;
+                arrayPropName = arrayPropName || '$item';
                 var ii = that._items.indexOf(item);
-                prop = (prop ? ('$item.' + prop) : '$item');
+                prop = (prop ? (arrayPropName + '.' + prop) : arrayPropName);
                 var path = [];
                 item._getFullPath(path);
                 value[path.join('.')] = { $index: ii, $value: item };
@@ -9851,15 +9898,22 @@ var Phoenix;
                 }
                 that._model.forEach(function (item, index) {
                     var citem = new Data(that._schemaItems, that._parent, that._path, item, that, false, that._locale, null);
+                    var addItem = false;
                     that._items.push(citem);
                     that._map[citem.$id] = citem;
                     if (keys) {
                         var pkId = _su.pk2Id(_su.extractPkValue(item, keys), keys);
                         if (that._selectedPks.lastIndexOf(pkId) >= 0) {
                             citem.internalSetSelected(true, false);
-                            that.pushSelected(citem, false);
+                            addItem = true;
                         }
+                        else if (citem.$select)
+                            addItem = true;
                     }
+                    else if (citem.$select)
+                        addItem = true;
+                    if (addItem)
+                        that.pushSelected(citem, false);
                 });
             };
             DataListBase.prototype._updateSelecting = function (multiSelect, expandingProperty, list) {
@@ -9892,10 +9946,10 @@ var Phoenix;
                     }, null);
                 }
             };
-            DataListBase.prototype.clearSelection = function () {
+            DataListBase.prototype.clearSelection = function (expandingProperty) {
                 var that = this;
-                that.enumSelectedItems('', function (item) {
-                    that.selectItem(false, item, false, '');
+                that.enumSelectedItems(expandingProperty, function (item) {
+                    that.selectItem(false, item, false, expandingProperty, false);
                 });
             };
             DataListBase.prototype.updateSelecting = function (multiSelect, expandingProperty) {
@@ -9906,6 +9960,17 @@ var Phoenix;
                 that._enumSelected(expandingProperty, function (parent, ii) {
                     if (ii)
                         cb(ii);
+                });
+            };
+            DataListBase.prototype._enumChildren = function (expandingProperty, cb) {
+                var that = this;
+                if (!expandingProperty)
+                    return;
+                that._items.forEach(function (item) {
+                    cb(item);
+                    var list = item[expandingProperty];
+                    if (list)
+                        list._enumChildren(expandingProperty, cb);
                 });
             };
             DataListBase.prototype._enumSelected = function (expandingProperty, cb) {
@@ -9930,7 +9995,7 @@ var Phoenix;
                     });
                 }
             };
-            DataListBase.prototype.selectItem = function (value, item, multiSelect, expandingProperty) {
+            DataListBase.prototype.selectItem = function (value, item, multiSelect, expandingProperty, selectChildren) {
                 var that = this;
                 if (!item)
                     return;
@@ -9938,6 +10003,11 @@ var Phoenix;
                     if (!item.$select) {
                         if (multiSelect) {
                             item.$select = true;
+                            if (expandingProperty && selectChildren) {
+                                var list = item[expandingProperty];
+                                if (list)
+                                    list._enumChildren(expandingProperty, function (ii) { ii.$select = true; });
+                            }
                         }
                         else {
                             that._enumSelected(expandingProperty, function (parent, ii) {
@@ -9959,6 +10029,11 @@ var Phoenix;
                     if (item.$select) {
                         if (multiSelect) {
                             item.$select = false;
+                            if (expandingProperty && selectChildren) {
+                                var list = item[expandingProperty];
+                                if (list)
+                                    list._enumChildren(expandingProperty, function (ii) { ii.$select = false; });
+                            }
                         }
                         else {
                             item.internalSetSelected(false, true);
@@ -10433,6 +10508,7 @@ var Phoenix;
                 var rs = that._rootParent._schema;
                 props.forEach(function (name) {
                     var ss = that._schema.properties[name];
+                    var execPropValidate = false;
                     if (!_su.inModel(ss, rs))
                         return;
                     var state = that.$states[ss.$stateProperty || name];
@@ -10451,7 +10527,19 @@ var Phoenix;
                             }
                         }
                     }
-                    else {
+                    else if (_su.isCompositionList(ss, rs, false)) {
+                        var list = that[name];
+                        if (list) {
+                            list.forEach(function (item) {
+                                if (!item._validate(validators))
+                                    error = true;
+                            });
+                            execPropValidate = true;
+                        }
+                    }
+                    else
+                        execPropValidate = true;
+                    if (execPropValidate) {
                         if (!that._execValidators(validators, name, "validate", {}, { base: that, state: state, schema: ss, value: that[name] })) {
                             error = true;
                         }
@@ -10488,19 +10576,19 @@ var Phoenix;
                 enumerable: true,
                 configurable: true
             });
-            Data.prototype.select = function (value, multiSelect, parentArray, expandingProperty) {
+            Data.prototype.select = function (value, multiSelect, parentArray, expandingProperty, selectChildren) {
                 var that = this;
                 if (multiSelect) {
                     if (that._arrayParent)
-                        that._arrayParent.selectItem(value, that, multiSelect, null);
+                        that._arrayParent.selectItem(value, that, multiSelect, expandingProperty, selectChildren);
                     return;
                 }
                 if (expandingProperty) {
-                    parentArray.selectItem(value, that, false, expandingProperty);
+                    parentArray.selectItem(value, that, false, expandingProperty, selectChildren);
                 }
                 else {
                     if (that._arrayParent) {
-                        that._arrayParent.selectItem(value, that, false, null);
+                        that._arrayParent.selectItem(value, that, false, null, false);
                     }
                 }
             };
@@ -10516,13 +10604,13 @@ var Phoenix;
                 }
                 return res;
             };
-            Data.prototype.enumVisibleChilds = function (expandingProperty, level, root, cb) {
+            Data.prototype.enumVisibleChildren = function (expandingProperty, level, root, cb) {
                 var that = this;
                 var list = that[expandingProperty];
                 if (list && (list.$expand || root)) {
                     list._items.forEach(function (child) {
                         cb(child, level + 1);
-                        child.enumVisibleChilds(expandingProperty, level + 1, false, cb);
+                        child.enumVisibleChildren(expandingProperty, level + 1, false, cb);
                     });
                 }
             };
@@ -10660,17 +10748,17 @@ var Phoenix;
             Data.prototype.getRelativeState = function (path) {
                 return this.getState(path, {});
             };
-            Data.prototype.getValue = function (path, params) {
+            Data.prototype.getValueInfo = function (path, params) {
                 var that = this;
                 if (!path)
-                    return that;
+                    return { value: that, parentIsNull: false };
                 var v = that, segments = path.split('.'), propertyName = segments.pop(), cpath = [];
                 for (var i = 0, len = segments.length; i < len; i++) {
                     if (!v)
                         break;
                     var s = segments[i];
                     cpath.push(s);
-                    if (s.charAt(0) == "$")
+                    if (s.charAt(0) === "$")
                         v = _dutils._resolveSegment(s, cpath.join('.'), v, params);
                     else
                         v = v[s];
@@ -10678,11 +10766,14 @@ var Phoenix;
                 if (v) {
                     if (propertyName && propertyName.charAt(0) == "$" && !_su.isMetaProp(propertyName)) {
                         cpath.push(propertyName);
-                        return _dutils._resolveSegment(propertyName, cpath.join('.'), v, params);
+                        return { value: _dutils._resolveSegment(propertyName, cpath.join('.'), v, params), parentIsNull: false };
                     }
-                    return propertyName ? v[propertyName] : v;
+                    return { value: propertyName ? v[propertyName] : v, parentIsNull: false };
                 }
-                return undefined;
+                return { value: undefined, parentIsNull: false };
+            };
+            Data.prototype.getValue = function (path, params) {
+                return this.getValueInfo(path, params).value;
             };
             Data.prototype._getFullPath = function (path, root) {
                 var that = this;
@@ -10721,6 +10812,14 @@ var Phoenix;
                         //TODO : params for $item
                         if (s === '$selected') {
                             cs = cs[s];
+                            ignoreState = true;
+                        }
+                        else if (s === '$new') {
+                            cs = cs[s];
+                            ignoreState = true;
+                        }
+                        else if (s === '$item') {
+                            cs = _dutils._resolveSegment(s, cpath.join('.'), cs, params);
                             ignoreState = true;
                         }
                         else
@@ -10998,8 +11097,18 @@ var Phoenix;
                 var that = this;
                 if (that.frozen || (that._arrayParent && that._arrayParent.frozen))
                     return;
-                if (that._arrayParent)
-                    stateName = that._arrayParent.updateParams(that, stateName, params);
+                if (that._arrayParent) {
+                    var oState = stateName;
+                    stateName = that._arrayParent.updateParams(that, oState, params, '$item');
+                    var item = that._arrayParent.findById(that.$id);
+                    if (item === that) {
+                        if (that._arrayParent.$selected === that) {
+                            stateName = that._arrayParent.updateParams(that, oState, params, '$selected');
+                            if (that._parent)
+                                that._parent.notifyStateChanged(stateName ? (that._path + '.' + stateName) : that._path, params);
+                        }
+                    }
+                }
                 if (that._parent)
                     that._parent.notifyStateChanged(stateName ? (that._path + '.' + stateName) : that._path, params);
                 else {
@@ -11022,8 +11131,8 @@ var Phoenix;
                 var error = false;
                 if (propertyName) {
                     if (!ldata) {
-                        var value = that.getValue(propertyName, params);
-                        if (value === undefined)
+                        var info = that.getValueInfo(propertyName, params);
+                        if (info.value === undefined && info.parentIsNull)
                             return !error;
                     }
                 }
@@ -11060,6 +11169,8 @@ var Phoenix;
                             else
                                 params.$oid = item.$id;
                             that._parent._notifyChanged(that._path, oldValue, value, 'upd', { $id: item.$id, property: propertyName, $oid: oid }, validate);
+                            if (that._arrayParent.$selected === that)
+                                that._parent._notifyChanged(that._path + '.$selected', oldValue, value, 'upd', { $id: item.$id, property: propertyName, $oid: oid }, validate);
                         }
                     }
                     propertyName = that._arrayParent.updateParams(that, propertyName, params);
@@ -11149,7 +11260,8 @@ var Phoenix;
                 if (event === "validate" && data) {
                     add = data.add;
                 }
-                base.$errors[pn].addErrors(errors, add);
+                if (base.$errors[pn])
+                    base.$errors[pn].addErrors(errors, add);
             }
             return res;
         };
@@ -11178,7 +11290,8 @@ var Phoenix;
                 _utils.nextTick(function () {
                     Object.keys(that._forms).forEach(function (formName) {
                         var form = that._forms[formName];
-                        form.execAction(eventName, params);
+                        if (form)
+                            form.execAction(eventName, params);
                     });
                 });
             };
@@ -11863,6 +11976,10 @@ var Phoenix;
                 var that = this;
                 if (that.currentResizeList)
                     that.currentResizeList.forEach(function (c) { c.resize(); });
+                if (that.afterRenderList) {
+                    that.afterRenderList.forEach(function (c) { c.afterAddedInDom(); });
+                    that.afterRenderList = [];
+                }
                 _super.prototype.afterAddedInDom.call(this);
             };
             return Form;
@@ -11896,7 +12013,7 @@ var Phoenix;
 (function (Phoenix) {
     var ui;
     (function (ui) {
-        var _ajax = Phoenix.ajax, _utils = Phoenix.utils, _application = Phoenix.application, _su = Phoenix.Observable.SchemaUtils, _external = Phoenix.external;
+        var _ajax = Phoenix.ajax, _utils = Phoenix.utils, _application = Phoenix.application, _su = Phoenix.Observable.SchemaUtils, _external = Phoenix.external, _customData = Phoenix.customData;
         var ModalForm = (function (_super) {
             __extends(ModalForm, _super);
             function ModalForm(formOptions, layout, schema, data, locale, preferences) {
@@ -11915,7 +12032,17 @@ var Phoenix;
                 var newHnd = function (action, data, form) {
                     return hnd(that, action, data, form);
                 };
-                this._clickHnd = function (name) {
+                that._clickHnd = function (name) {
+                    that.render.afterchanged(name, "modal-action", {});
+                };
+                that.render.on(newHnd);
+            };
+            ModalForm.prototype.onNatural = function (hnd) {
+                var that = this;
+                var newHnd = function (action, data, form) {
+                    return hnd(action, data, form, that);
+                };
+                that._clickHnd = function (name) {
                     that.render.afterchanged(name, "modal-action", {});
                 };
                 that.render.on(newHnd);
@@ -11924,11 +12051,20 @@ var Phoenix;
         }(ui.Modal));
         ui.ModalForm = ModalForm;
         var _openForm = function (formOptions, params, handler) {
-            _su.loadSchemaRefs(params.schema, params.data, params.layout, function (ldata) {
+            _su.loadSchemaRefs(params.schema, params.data, params.layout, function (ex, ldata) {
+                if (ex) {
+                    console.log(ex);
+                    ex = ex._ajax ? _ajax.extractAjaxErrors(ex) : ex;
+                    if (formOptions && formOptions.module && formOptions.module.error)
+                        return formOptions.module.error(ex);
+                    _utils.alert('', ex.message, function () { });
+                    return;
+                }
                 var f = new ModalForm(formOptions, params.layout, params.schema, ldata, params.locale, params.preferences);
                 f.open();
-                if (handler)
-                    f.on(handler);
+                if (handler) {
+                    formOptions.natural ? f.onNatural(handler) : f.on(handler);
+                }
             });
         };
         var _preferenceName = function (name, config) {
@@ -11987,21 +12123,49 @@ var Phoenix;
                     if (preferencesIndex >= 0) {
                         params.preferences = values[preferencesIndex];
                     }
-                    after(opts, params);
+                    after(null, opts, params);
                 }).catch(function (ex) {
-                    console.log("TODO : show errors ");
-                    console.log(ex);
+                    after(ex, null, null);
                 });
             }
             else
-                after(opts, params);
+                after(null, opts, params);
         };
         var _OpenModalForm = function (formOptions, layout, schema, fdata, locale, handler) {
-            _prepareForm(layout, schema, fdata, locale, null, function (opts, params) {
+            _prepareForm(layout, schema, fdata, locale, null, function (ex, opts, params) {
+                if (ex) {
+                    console.log(ex);
+                    ex = ex._ajax ? _ajax.extractAjaxErrors(ex) : ex;
+                    if (formOptions && formOptions.module && formOptions.module.error)
+                        return formOptions.module.error(ex);
+                    _utils.alert('', ex.message, function () { });
+                    return;
+                }
                 formOptions = formOptions || {};
                 formOptions.opts = opts;
                 _openForm(formOptions, params, handler);
             });
+        };
+        var _showModalForm = function (opts, data) {
+            if (!opts.controller)
+                throw 'Controller name is empty.';
+            var config = _customData.get(opts.controller);
+            if (!config)
+                throw _utils.format('Controller not found "{0}". Use customData.register(controllerName, ctrlConfig).', opts.controller);
+            var options = {};
+            options.beforeSetModel = config.initObjectState ? config.initObjectState.bind(config) : null;
+            options.beforeModelCreated = config.initModel ? config.initModel.bind(config) : null;
+            options.onSettings = config.onSettings ? config.onSettings.bind(config) : null;
+            options.storageName = config.storageName;
+            options.validators = config.validators;
+            var fo = opts.options;
+            fo.opts = options;
+            fo.natural = true;
+            var hnd = null;
+            if (config.onModelChanged) {
+                hnd = config.onModelChanged.bind(config);
+            }
+            _OpenModalForm(fo, opts.name, opts.meta, data, null, hnd);
         };
         var _openInlineForm = function ($parent, params, handler, opts) {
             var render = new ui.Form(params.layout, opts || { design: false }, params.data, params.schema, params.locale, params.preferences);
@@ -12015,7 +12179,15 @@ var Phoenix;
             params.layout;
         };
         var _afterLoadSchema = function ($parent, params, handler, formOpts, after) {
-            _su.loadSchemaRefs(params.schema, params.data, params.layout, function (ldata) {
+            _su.loadSchemaRefs(params.schema, params.data, params.layout, function (ex, ldata) {
+                if (ex) {
+                    console.log(ex);
+                    ex = ex._ajax ? _ajax.extractAjaxErrors(ex) : ex;
+                    if (formOpts && formOpts.module && formOpts.module.error)
+                        return formOpts.module.error(ex);
+                    _utils.alert('', ex.message, function () { });
+                    return;
+                }
                 params.data = ldata;
                 var form = _openInlineForm($parent, params, handler, formOpts);
                 if (after)
@@ -12023,36 +12195,52 @@ var Phoenix;
             });
         };
         var _OpenFormExp = function ($parent, layout, schema, fdata, locale, handler, formOpts, after) {
-            _prepareForm(layout, schema, fdata, locale, formOpts, function (opts, params) {
+            _prepareForm(layout, schema, fdata, locale, formOpts, function (ex, opts, params) {
+                if (ex) {
+                    console.log(ex);
+                    ex = ex._ajax ? _ajax.extractAjaxErrors(ex) : ex;
+                    if (formOpts && formOpts.module && formOpts.module.error)
+                        return formOpts.module.error(ex);
+                    _utils.alert('', ex.message, function () { });
+                    return;
+                }
                 _afterLoadSchema($parent, params, handler, opts, after);
             });
         };
         function _camelize(propName) {
-            return 'on' + propName.charAt(0).toUpperCase() + propName.slice(1);
+            return propName.split('.').map(function (segment) {
+                return segment.charAt(0).toUpperCase() + segment.slice(1);
+            }).join('').split('-').map(function (segment) {
+                return segment.charAt(0).toUpperCase() + segment.slice(1);
+            }).join('');
         }
         var FormController = (function () {
             function FormController() {
             }
             FormController.prototype.data = function () { return null; };
             FormController.prototype.initObjectState = function (model) { };
-            FormController.prototype.onModelChanged = function (action, model, form) {
+            FormController.prototype.onModelChanged = function (action, model, form, modal) {
                 var that = this;
                 var pn = action.property;
+                var ca = action;
                 if (pn) {
-                    var ii = pn.indexOf('$links.');
-                    if (ii >= 0) {
-                        pn = pn.replace(/\$links\./, '');
+                    if (that.bindProperty && pn.indexOf(that.bindProperty) === 0) {
+                        pn = pn.substr(that.bindProperty.length);
+                        ca.property = pn;
                     }
-                    var c = _camelize(pn);
+                    var ii = pn.indexOf('$links.');
+                    if (ii >= 0)
+                        pn = pn.replace(/\$links\./g, '');
+                    var c = 'on' + _camelize(pn);
                     if (that[c])
-                        return that[c](action, model, form);
-                    ;
+                        return that[c](ca, model, form, modal);
                 }
             };
             return FormController;
         }());
         ui.FormController = FormController;
         ui.OpenModalForm = _OpenModalForm;
+        ui.showModalForm = _showModalForm;
         ui.OpenForm = _OpenFormExp;
     })(ui = Phoenix.ui || (Phoenix.ui = {}));
 })(Phoenix || (Phoenix = {}));
@@ -12396,7 +12584,7 @@ var Phoenix;
                                     var css = [ces, curs, 'bs-image-size'];
                                     if (iconName)
                                         css.push(_dom.iconClass(iconName));
-                                    html.push('<center class="bs-image-cell' + cc + '"><span data-clickable="true" class="' + css.join(' ') + '"> </span></center>');
+                                    html.push('<center class="bs-image-cell' + cc + '"><span data-clickable="true" class="' + css.join(' ') + '"></span>&nbsp;</center>');
                                     res = { value: html.join(''), html: true };
                                 }
                                 else {
@@ -14010,6 +14198,8 @@ var Phoenix;
                                 no.width = co.width;
                             if (co.frozen)
                                 no.frozen = co.frozen;
+                            if (co.display)
+                                no.display = co.display;
                             col.options = no;
                         }
                     });
@@ -14052,10 +14242,16 @@ var Phoenix;
                     allCols.forEach(function (col) {
                         var cc = { $bind: col.$bind, options: null };
                         var opts = {};
-                        if (col.options.frozen)
+                        if (col.canStartDragHandler)
                             opts.frozen = true;
                         if (col.options.width)
                             opts.width = col.options.width;
+                        if (col.options.display)
+                            opts.display = col.options.display;
+                        if (col.options.frozen)
+                            opts.frozen = col.options.frozen;
+                        if (col.options._expandItem)
+                            cc.$bind = _observable.EXPANDED_FIELD_NAME;
                         cc.options = opts;
                         that._settings.columns.push(cc);
                     });
@@ -14157,6 +14353,7 @@ var Phoenix;
                     td.tabIndex = 0;
                     td.focus();
                 }
+                that._onFrozenFocusScroll(td, cell.col);
             };
             BasicGrid.prototype._inplaceEditRemove = function (isFocusOut, isDestroy) {
                 var that = this;
@@ -14197,14 +14394,28 @@ var Phoenix;
                 if (that._scrollableMaster) {
                     $(that._scrollableMaster).off('scroll');
                 }
-                if (that._scrollableFrozenContent && that.fieldOptions.editing)
-                    $(that._scrollableFrozenContent).off('scroll');
+                //if (that._scrollableFrozenContent  && (that.fieldOptions.editing || (that.fieldOptions.selecting && that.fieldOptions.selecting.cell)))
+                //    $(that._scrollableFrozenContent).off('scroll');
                 that._scrollableMaster = null;
                 that._scrollableHeaderOfMaster = null;
                 that._scrollableFooterOfMaster = null;
                 if (that._drag) {
                     _drag.dragManager.rmvDrag(that._drag);
                     that._drag = null;
+                }
+            };
+            BasicGrid.prototype._onFrozenFocusScroll = function (td, col) {
+                var that = this;
+                if (col && col.options && col.options.frozen) {
+                    var opts = that.renderOptions;
+                    var hasFrozenColumns = _gu.hasFrozenColumns(opts, that.frozenColumns);
+                    if (hasFrozenColumns && opts.scrolling && opts.scrolling.vertical) {
+                        if (that._rsFrozenTimer) {
+                            that._rsFrozenTimer.clearTimeout();
+                            that._rsFrozenTimer = null;
+                        }
+                        that.syncMasterScroll(null);
+                    }
                 }
             };
             BasicGrid.prototype.setEvents = function (opts) {
@@ -14221,8 +14432,6 @@ var Phoenix;
                     that._deltaHScrollContent = hasFrozenColumns ? _dom.find(e, that.id + '_frozen_scroll_delta') : null;
                     if (that._scrollableMaster && that._scrollableHeaderOfMaster)
                         $(that._scrollableMaster).on('scroll', that.syncHeaderAndFrozenScroll.bind(that));
-                    if (that._scrollableFrozenContent && that.fieldOptions.editing)
-                        $(that._scrollableFrozenContent).on('scroll', that.syncMasterScroll.bind(that));
                 }
                 if ((opts.allowColumnResize || opts.allowColumnMove) && !opts.headerIsHidden) {
                     var drag = _drag.dragManager.addDrag([that.$element.get(0)]);
@@ -14492,6 +14701,7 @@ var Phoenix;
                 that._settings = null;
                 that._scroller = null;
                 that._rsTimer = null;
+                that._rsFrozenTimer = null;
                 that._scrollableMaster = null;
                 that._scrollableHeaderOfMaster = null;
                 that._scrollableFooterOfMaster = null;
@@ -15138,7 +15348,7 @@ var Phoenix;
                                             try {
                                                 var childrens_1 = [];
                                                 var ii = that._viewMap[item.$id];
-                                                item.enumVisibleChilds(opts.expandingProperty, ii.level, true, function (item, level) {
+                                                item.enumVisibleChildren(opts.expandingProperty, ii.level, true, function (item, level) {
                                                     var ii = { level: level, value: item };
                                                     childrens_1.push(ii);
                                                 });
@@ -15174,7 +15384,7 @@ var Phoenix;
                                         if (!state.isDisabled && !state.isReadOnly && !state.isHidden) {
                                             var ov = item.getValue(c.$bind);
                                             if (_sutils.isSelectField(c.$bind))
-                                                item.select(!!!ov, opts.selecting && opts.selecting.row && opts.selecting.multiselect, that.state.value, opts.expandingProperty);
+                                                item.select(!!!ov, opts.selecting && opts.selecting.row && opts.selecting.multiselect, that.state.value, opts.expandingProperty, opts.expanding && opts.expanding.selectChildren);
                                             else
                                                 item.setValue(c.$bind, !!!ov);
                                         }
@@ -15224,6 +15434,7 @@ var Phoenix;
                             coord.td.tabIndex = 0;
                             coord.td.focus();
                         }
+                        that._onFrozenFocusScroll(coord.td, that._colByField(cell.col));
                     }
                     else {
                         _dom.removeClass(coord.td, "bs-cell-selected");
@@ -15527,7 +15738,7 @@ var Phoenix;
                 }
                 return false;
             };
-            BasicGrid.prototype._state2UI = function () {
+            BasicGrid.prototype._state2UI = function (inRender) {
                 var that = this;
                 var grid = that._rootElement();
                 var element = that.$element ? that.$element.get(0) : null;
@@ -15535,7 +15746,8 @@ var Phoenix;
                     that._setDisabled(grid, element);
                     that.setHidden(element);
                     that._setErrors(grid, element);
-                    that._selectFirstCell();
+                    if (!inRender)
+                        that._selectFirstCell();
                     if (that._toolBar) {
                         var $tt = $(_dom.find(element, that.id + '_header'));
                         that._toolBar.render($tt);
@@ -15545,6 +15757,9 @@ var Phoenix;
                         that._pager.render($pp);
                     }
                 }
+            };
+            BasicGrid.prototype.afterAddedInDom = function () {
+                this._selectFirstCell();
             };
             BasicGrid.prototype.stateChanged = function (propName, params) {
                 var that = this;
@@ -16064,7 +16279,7 @@ var Phoenix;
                     that._renderColumns(opts);
                     that._renderRows(true, '', null);
                     that._renderTotalRows();
-                    that._state2UI();
+                    that._state2UI(true);
                     that.setEvents(opts);
                 }
                 that.appendElement($parent, opts);
@@ -19707,7 +19922,7 @@ var Phoenix;
             $type: "block",
             $items: [{ $bind: "message", $readOnly: true, options: { $expression: "{{message}}" } }]
         };
-        var _confirm = function (title, message, onsuccess) {
+        var _confirm = function (title, message, onsuccess, oncancel) {
             title = title || _locale.ui.Warning;
             var opt = {
                 title: title,
@@ -19735,14 +19950,16 @@ var Phoenix;
                             break;
                         case "no":
                             modal.close();
+                            if (oncancel)
+                                oncancel();
                             break;
                     }
                 }
             });
         };
         ui.confirmDlg = _confirm;
-        _utils.confirm = function (title, message, success) {
-            _confirm(title, message, success);
+        _utils.confirm = function (title, message, success, cancel) {
+            _confirm(title, message, success, cancel);
         };
     })(ui = Phoenix.ui || (Phoenix.ui = {}));
 })(Phoenix || (Phoenix = {}));
@@ -19935,23 +20152,44 @@ var Phoenix;
 (function (Phoenix) {
     var ui;
     (function (ui) {
-        var _ulocale = Phoenix.ulocale, _utils = Phoenix.utils, _ajax = Phoenix.ajax, _dom = Phoenix.dom, _link = Phoenix.link, _render = Phoenix.render, _html = '<div id="{0}" class="" style="width:{1};height:{2}"></div>';
+        var _ulocale = Phoenix.ulocale, _utils = Phoenix.utils, _ajax = Phoenix.ajax, _dom = Phoenix.dom, _link = Phoenix.link;
         var FilterExpress = (function () {
             /*******************************
             ************ METHODS
             *******************************/
-            function FilterExpress(fieldList, cb) {
-                this._oldFilter = null;
-                this._id = _utils.allocID();
-                this._fieldList = this._completeFieldList($.extend(true, [], fieldList));
-                this._cb = cb;
+            function FilterExpress(fieldList, cb, options) {
+                var that = this;
+                that._id = _utils.allocID();
+                that._fieldList = that._completeFieldList($.extend(true, [], fieldList));
+                that._cb = cb;
+                var defaultOptions = {
+                    multiple: false
+                };
+                that._options = $.extend(true, defaultOptions, options);
+                that._selectedField = [];
+                that._oldFilter = [];
             }
+            Object.defineProperty(FilterExpress.prototype, "selectedField", {
+                get: function () {
+                    return this._selectedField;
+                },
+                set: function (values) {
+                    var that = this;
+                    that._selectedField = [];
+                    if (Array.isArray(values)) {
+                        values.forEach(function (item) {
+                            that._selectedField.push(that._getFieldByCode(item.code));
+                        });
+                    }
+                },
+                enumerable: true,
+                configurable: true
+            });
             FilterExpress.prototype.destroy = function () {
                 // Events
-                this._nodeSelect.off("click");
                 this._nodeValidate.off("click");
                 this._nodeMain.off("blur");
-                this._removeEditEvents();
+                //supprimer les events du render focus, keyup, change
                 // Nodes
                 _dom.find(this._nodeParent[0], this._id).remove();
                 // Variables
@@ -19960,27 +20198,68 @@ var Phoenix;
                 this._cb = null;
                 this._selectedField = null;
                 this._nodeMain = null;
-                this._nodeSelect = null;
-                this._nodeSelectButtonTxt = null;
-                this._nodeEdit = null;
                 this._nodeValidate = null;
-                this._nodeSelectedLi = null;
+                this._options = null;
             };
             // Called at instanciation of component
             FilterExpress.prototype.render = function ($parent) {
                 var that = this;
                 that._nodeParent = $parent;
                 $parent.append(that._internalRender());
+            };
+            FilterExpress.prototype._internalRender = function () {
+                var that = this;
+                that._nodeMain = $("<form class='form-inline bs-filterexpress' id='" + that._id + "'></form>");
+                if (that._options.multiple)
+                    that._internalRenderMultiple();
+                else
+                    that._internalRenderOne();
+                return that._nodeMain;
+            };
+            FilterExpress.prototype._internalRenderOne = function () {
+                var that = this;
+                // Create nodes
+                var nodeGroup = $("<div class='input-group'></div>");
+                var nodeGroupBtn = $("<div class='input-group-btn'></div>");
+                var txtNodeButton = "<button type='button' ";
+                txtNodeButton += "class='btn btn-default dropdown-toggle' data-toggle='dropdown' ";
+                txtNodeButton += "aria-haspopup='true' aria-expanded='false'></button>";
+                var nodeSelectButton = $(txtNodeButton);
+                var nodeSelectButtonTxt = $("<span>" + FilterExpress.FIELD_SELECT_TEXT_DEFAULT + " </span>");
+                var nodeSelectButtonGlyph = $("<span class='caret'></span>");
+                // Fill fields in selectNode
+                var nodeSelect = $("<ul class='dropdown-menu'></ul>");
+                that._fieldList.forEach(function (field) {
+                    var nodeOption = $("<li class='bs-cursor-p'><a code='" + field.code + "'>" + field.lib + "</a></li>");
+                    nodeSelect.append(nodeOption);
+                });
+                // Add editNode
+                var nodeEdit = $("<input type='text' class='form-control' aria-label='...'>");
+                // Add validateNode
+                var nodeGroupBtnValidate = $("<div class='input-group-btn'></div>");
+                that._nodeValidate = $("<button class='btn btn-default' type='button'><span class='" + _dom.iconClass(FilterExpress.VALIDATE_ICON_DEFAULT) + "'></span> " + FilterExpress.VALIDATE_TEXT_DEFAULT + "</button>");
+                // Append nodes to mainNode
+                that._nodeMain.append(nodeGroup);
+                nodeGroup.append(nodeGroupBtn);
+                nodeGroup.append(nodeEdit);
+                nodeGroup.append(nodeGroupBtnValidate);
+                nodeGroupBtn.append(nodeSelectButton);
+                nodeGroupBtn.append(nodeSelect);
+                nodeSelectButton.append(nodeSelectButtonTxt);
+                nodeSelectButton.append(nodeSelectButtonGlyph);
+                nodeGroupBtnValidate.append(that._nodeValidate);
+                if (that._fieldList && that._fieldList[0])
+                    _changeField(that._fieldList[0]);
                 // Change field event
-                that._nodeSelect.click(function (e) {
+                nodeSelect.click(function (e) {
                     var code = e.target.attributes["code"].value;
                     var field = that._getFieldByCode(code);
                     if (field)
-                        that._changeField(field);
+                        _changeField(field);
                 });
                 // Validate filter event
                 that._nodeValidate.click(function () {
-                    that._applyFilter();
+                    applyFilter();
                 });
                 // focusOut event
                 that._nodeMain.get(0).addEventListener("blur", function (e) {
@@ -19995,48 +20274,271 @@ var Phoenix;
                             node = node.parentNode;
                         } while (node && !parent);
                     }
-                    if (!parent && e.target == that._nodeEdit.get(0) && that._oldFilter && that._oldFilter.code) {
-                        if (that._selectedField.code !== that._oldFilter.code)
-                            that._changeField(that._getFieldByCode(that._oldFilter.code));
-                        that._nodeEdit.val(that._oldFilter.value);
+                    if (!parent && e.target == nodeEdit.get(0) && that._oldFilter && that._oldFilter.length && that._oldFilter[0]["code"]) {
+                        if ((that._selectedField && that._selectedField.length) && that._selectedField[0]["code"] !== that._oldFilter[0]["code"])
+                            _changeField(that._getFieldByCode(that._oldFilter[0]["code"]));
+                        nodeEdit.val(that._oldFilter[0]["value"]);
                     }
                 }, true);
+                var nodeSelectedLi = null;
+                function _changeField(field) {
+                    if (field) {
+                        nodeSelectButtonTxt.text(field.lib + " ");
+                        changeEditField(field);
+                        that._selectedField.splice(0, that._selectedField.length, field);
+                    }
+                    // Style changed
+                    if (nodeSelectedLi)
+                        nodeSelectedLi.removeClass("bs-row-selected");
+                    if (field) {
+                        var liNode = _dom.query(nodeSelect.get(0), "a[code='" + field.code + "']");
+                        if (liNode) {
+                            nodeSelectedLi = $(liNode.parentNode);
+                            nodeSelectedLi.addClass("bs-row-selected");
+                        }
+                    }
+                }
+                function removeEvents() {
+                    nodeEdit.off("focus");
+                    nodeEdit.off("keyup");
+                    nodeEdit.off("change");
+                }
+                function changeEditField(field) {
+                    removeEvents();
+                    var oldHTMLNodeEdit;
+                    var newHTMLNodeEdit;
+                    newHTMLNodeEdit = that._getEditField(field).get(0);
+                    oldHTMLNodeEdit = nodeEdit.get(0);
+                    var parent = oldHTMLNodeEdit.parentNode;
+                    parent.replaceChild(newHTMLNodeEdit, oldHTMLNodeEdit);
+                    nodeEdit = $(newHTMLNodeEdit);
+                    newHTMLNodeEdit.focus();
+                    // events 
+                    if (field.enum) {
+                        _dom.addClass(that._nodeValidate.get(0), "bs-none");
+                        nodeEdit.change(function (e) {
+                            if (e.target === nodeEdit.get(0))
+                                applyFilter();
+                        });
+                        nodeEdit.get(0).style.borderTopRightRadius = "4px";
+                        nodeEdit.get(0).style.borderBottomRightRadius = "4px";
+                    }
+                    else {
+                        _dom.removeClass(that._nodeValidate.get(0), "bs-none");
+                        // touch enter event
+                        nodeEdit.keyup(function (e) {
+                            if (e.keyCode == 13)
+                                applyFilter();
+                        });
+                        // input focus event
+                        nodeEdit.focus(function (e) {
+                            nodeEdit.get(0).select();
+                        });
+                    }
+                }
+                function applyFilter() {
+                    if (that._selectedField && that._selectedField.length) {
+                        var val = nodeEdit.val();
+                        var filter_1 = val === "" ? null : { code: that._selectedField[0]["code"], op: that._getOpField(that._selectedField[0]), values: [nodeEdit.val()] };
+                        if (that._cb && that._checkFilter(filter_1)) {
+                            that._oldFilter.splice(0);
+                            that._oldFilter.push({ code: that._selectedField[0]["code"], value: val });
+                            that._cb(filter_1);
+                        }
+                    }
+                }
+                return that._nodeMain;
             };
-            FilterExpress.prototype._internalRender = function () {
+            FilterExpress.prototype._internalRenderMultiple = function () {
                 var that = this;
                 // Create nodes
-                that._nodeMain = $("<div class='bs-filterexpress' id='" + that._id + "'></div>");
-                var nodeGroup = $("<div class='input-group'></div>");
-                var nodeGroupBtn = $("<div class='input-group-btn'></div>");
-                var txtNodeButton = "<button type='button' ";
-                txtNodeButton += "class='btn btn-default dropdown-toggle' data-toggle='dropdown' ";
-                txtNodeButton += "aria-haspopup='true' aria-expanded='false'></button>";
-                var nodeSelectButton = $(txtNodeButton);
-                that._nodeSelectButtonTxt = $("<span>" + FilterExpress.FIELD_SELECT_TEXT_DEFAULT + " </span>");
-                var nodeSelectButtonGlyph = $("<span class='caret'></span>");
-                // Fill fields in selectNode
-                that._nodeSelect = $("<ul class='dropdown-menu'></ul>");
-                that._fieldList.forEach(function (field) {
-                    var nodeOption = $("<li class='bs-cursor-p'><a code='" + field.code + "'>" + field.lib + "</a></li>");
-                    that._nodeSelect.append(nodeOption);
+                var container = $('<form class="input-group"></form>');
+                var containerTools = $('<div class="input-group-btn"></div>');
+                that._nodeValidate = $("<button class='btn btn-default' type='button'><span class='" + _dom.iconClass(FilterExpress.VALIDATE_ICON_DEFAULT) + "'></span> " + FilterExpress.VALIDATE_TEXT_DEFAULT + "</button>");
+                var nodeSelectBtn = $('<button type="button" class="btn btn-default dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">&nbsp;<span class="caret"></span><span class="sr-only">Toggle Dropdown</span></button>');
+                var nodeSelectList = $('<ul class="dropdown-menu dropdown-menu-right">');
+                containerTools.append(that._nodeValidate);
+                containerTools.append(nodeSelectBtn);
+                containerTools.append(nodeSelectList);
+                that._nodeMain.append(container);
+                renderSelectList();
+                renderSelectedFields();
+                function renderSelectedFields() {
+                    _dom.empty(container.get(0));
+                    that._fieldList.forEach(function (field) {
+                        if (field.selected)
+                            addField(field);
+                    });
+                    container.append(containerTools);
+                }
+                function addField(field) {
+                    field.composant = {
+                        label: $('<span class="input-group-addon" id="sizing-addon2">' + (field.lib || field.libelle || field.code) + '</span>'),
+                        value: that._getEditField(field)
+                    };
+                    container.append(field.composant.label);
+                    container.append(field.composant.value);
+                    field.selected = true;
+                }
+                function renderSelectList() {
+                    _dom.empty(nodeSelectList.get(0));
+                    that._fieldList.forEach(function (field) {
+                        nodeSelectList.append('<li class="bs-cursor-p"><a href="#" data-value="' + field.code + '" tabIndex="-1"><input type="checkbox" ' + (field.selected ? "checked" : "") + ' />&nbsp;' + (field.lib || field.libelle || field.code) + '</a></li>');
+                    });
+                }
+                nodeSelectList.find('a').on('click', function (event) {
+                    var target = $(event.currentTarget);
+                    var code = target.attr('data-value');
+                    var checkboxView = target.find('input');
+                    var field = that._getFieldByCode(target.attr('data-value'));
+                    if (field) {
+                        if (field.selected) {
+                            setTimeout(function () { checkboxView.prop('checked', false); }, 0);
+                            field.selected = false;
+                        }
+                        else {
+                            setTimeout(function () { checkboxView.prop('checked', true); }, 0);
+                            field.selected = true;
+                        }
+                        renderSelectedFields();
+                    }
+                    $(event.target).blur();
+                    return false;
                 });
-                // Add editNode
-                that._nodeEdit = $("<input type='text' class='form-control' aria-label='...'>");
-                // Add validateNode
-                var nodeGroupBtnValidate = $("<div class='input-group-btn'></div>");
-                that._nodeValidate = $("<button class='btn btn-default' type='submit'><span class='" + _dom.iconClass(FilterExpress.VALIDATE_ICON_DEFAULT) + "'></span> " + FilterExpress.VALIDATE_TEXT_DEFAULT + "</button>");
-                // Append nodes to mainNode
-                that._nodeMain.append(nodeGroup);
-                nodeGroup.append(nodeGroupBtn);
-                nodeGroup.append(that._nodeEdit);
-                nodeGroup.append(nodeGroupBtnValidate);
-                nodeGroupBtn.append(nodeSelectButton);
-                nodeGroupBtn.append(that._nodeSelect);
-                nodeSelectButton.append(that._nodeSelectButtonTxt);
-                nodeSelectButton.append(nodeSelectButtonGlyph);
-                nodeGroupBtnValidate.append(that._nodeValidate);
-                if (that._fieldList && that._fieldList[0])
-                    that._changeField(that._fieldList[0]);
+                that._nodeValidate.click(function () {
+                    applyFilter();
+                });
+                function applyFilter() {
+                    var filters = [];
+                    that._fieldList.forEach(function (field) {
+                        var value = field.composant.value.val();
+                        if (field.selected && value) {
+                            var filter_2 = { code: field.code, op: that._getOpField(field), values: [value] };
+                            if (that._checkFilter(filter_2))
+                                filters.push(filter_2);
+                        }
+                    });
+                    if (that._cb && filters.length) {
+                        that._oldFilter.splice(0);
+                        that._oldFilter = filters;
+                        that._cb(filters);
+                    }
+                }
+                // let groupChoix: JQuery = $("<div class='form-group'></div>");
+                // let groupSelection: JQuery = $("<div class='form-group'></div>");
+                // let nodeSelectContainer = $('<div class="input-group"></div>');
+                // let nodeSelectParent = $('<div class="dropdown"></div>');
+                // let txtNodeButton: string = "<button type='button' ";
+                // txtNodeButton += "class='btn btn-default dropdown-toggle' data-toggle='dropdown' ";
+                // txtNodeButton += "aria-haspopup='true' aria-expanded='false'></button>";
+                // let nodeSelectButton: JQuery = $(txtNodeButton);
+                // let nodeSelectButtonTxt = $("<span>" + FilterExpress.FIELD_SELECT_TEXT_DEFAULT + " </span>");
+                // let nodeSelectButtonGlyph = $("<span class='caret'></span>");
+                // // Fill fields in selectNode
+                // let nodeSelect = $("<ul class='dropdown-menu'></ul>");
+                // updateItemField();
+                // // Add validateNode
+                // let nodeValidateBtn = $('<div class="form-group"></div>');
+                // that._nodeValidate = $("<button class='btn btn-default' type='button'><span class='" + _dom.iconClass(FilterExpress.VALIDATE_ICON_DEFAULT) + "'></span> " + FilterExpress.VALIDATE_TEXT_DEFAULT + "</button>");
+                // // Append nodes to mainNode
+                // nodeValidateBtn.append(that._nodeValidate);
+                // nodeSelectButton.append(nodeSelectButtonTxt);
+                // nodeSelectButton.append(nodeSelectButtonGlyph);
+                // nodeSelectContainer.append(nodeSelectParent);
+                // nodeSelectParent.append(nodeSelectButton);
+                // nodeSelectParent.append(nodeSelect);
+                // nodeSelectContainer.append(nodeSelectParent);
+                // groupChoix.append(nodeSelectContainer);
+                // groupChoix.append(nodeValidateBtn);
+                // container.append(groupSelection);
+                // container.append(groupChoix);
+                // container.append(nodeValidateBtn);
+                // that._nodeMain.append(container);
+                // // Select field event
+                // nodeSelect.click(function (e) {
+                //     let code = e.target.attributes["code"].value;
+                //     let field = that._getFieldByCode(code);
+                //     if (field) {
+                //         addFilter(field);
+                //         updateItemField();
+                //     }
+                // });
+                // // Remove field event
+                // groupSelection.click(function (e) {
+                //     let target = <HTMLElement>e.target;
+                //     if (!_dom.attr(target, "data-event")) return;
+                //     let itemView = _dom.findByAttribute(target, groupSelection.get(0), "data-id");
+                //     let code = itemView ? _dom.attr(itemView, "data-id") : null;
+                //     if (code) {
+                //         removeFilter(code);
+                //         updateItemField();
+                //     }
+                // });
+                // // Validate filter event
+                // that._nodeValidate.click(function () {
+                //     applyFilter();
+                // });
+                // function updateItemField() {
+                //     _dom.empty(nodeSelect.get(0));
+                //     that._fieldList.forEach((field: any) => {
+                //         let trouve = false;
+                //         that._selectedField.every(function (e) {
+                //             if (field.code == e.code) {
+                //                 trouve = true;
+                //                 return false;
+                //             }
+                //             return true;
+                //         });
+                //         if (!trouve) {
+                //             let nodeOption = $("<li class='bs-cursor-p'><a code='" + field.code + "'>" + field.lib + "</a></li>");
+                //             nodeSelect.append(nodeOption);
+                //         }
+                //     });
+                //     let parent = <HTMLElement>nodeSelect[0].parentNode;
+                //     if (nodeSelect[0].childNodes.length)
+                //         _dom.removeClass(parent, "bs-none");
+                //     else
+                //         _dom.addClass(parent, "bs-none");
+                // }
+                // function addFilter(field) {
+                //     if (field) {
+                //         let composant: JQuery = $('<div class="input-group" data-id="' + field.code + '"></div>');
+                //         composant.append($('<span class="input-group-addon">' + (field.lib || field.libelle || field.code) + '</span>'));
+                //         composant.append(that._getEditField(field));
+                //         composant.append($('<div class="input-group-btn"><button type="button" class="btn btn-default" data-event="click"><i class="' + _dom.iconClass("remove") + '" data-event="click"></i></button></div>'));
+                //         groupSelection.append(composant);
+                //         that._selectedField.push(field);
+                //     }
+                // }
+                // function removeFilter(code) {
+                //     if (code) {
+                //         let fieldView = _dom.query(groupSelection.get(0), 'div[data-id="' + code + '"]');
+                //         if (fieldView) {
+                //             _dom.remove(fieldView);
+                //             let selectedItem = that._getFieldSelectedByCode(code);
+                //             if (selectedItem) that._selectedField.splice(selectedItem.id, 1);
+                //         }
+                //     }
+                // }
+                // function applyFilter() {
+                //     if (that._selectedField && that._selectedField.length) {
+                //         let filters = that._selectedField.map(function (field) {
+                //             let filter: any = { code: field.code, op: that._getOpField(field), values: [] };
+                //             let fieldView = _dom.query(groupSelection.get(0), 'div[data-id="' + field.code + '"]');
+                //             if (fieldView) {
+                //                 let value = $(_dom.query(fieldView, "input")).val();
+                //                 filter.values.push(value);
+                //             }
+                //             if (that._checkFilter(filter))
+                //                 return filter;
+                //         });
+                //         if (that._cb && filters.length) {
+                //             that._oldFilter.splice(0);
+                //             that._oldFilter = filters;
+                //             that._cb(filters);
+                //         }
+                //     }
+                // }
                 return that._nodeMain;
             };
             FilterExpress.prototype._getFieldByCode = function (code) {
@@ -20047,40 +20549,6 @@ var Phoenix;
                         result = field;
                 });
                 return result;
-            };
-            FilterExpress.prototype._changeEditField = function (field) {
-                var that = this;
-                that._removeEditEvents();
-                var oldHTMLNodeEdit;
-                var newHTMLNodeEdit;
-                newHTMLNodeEdit = that._getEditField(field).get(0);
-                oldHTMLNodeEdit = that._nodeEdit.get(0);
-                var parent = oldHTMLNodeEdit.parentNode;
-                parent.replaceChild(newHTMLNodeEdit, oldHTMLNodeEdit);
-                that._nodeEdit = $(newHTMLNodeEdit);
-                newHTMLNodeEdit.focus();
-                // events 
-                if (field.enum) {
-                    _dom.addClass(that._nodeValidate.get(0), "bs-none");
-                    that._nodeEdit.change(function (e) {
-                        if (e.target === that._nodeEdit.get(0))
-                            that._applyFilter();
-                    });
-                    that._nodeEdit.get(0).style.borderTopRightRadius = "4px";
-                    that._nodeEdit.get(0).style.borderBottomRightRadius = "4px";
-                }
-                else {
-                    _dom.removeClass(that._nodeValidate.get(0), "bs-none");
-                    // touch enter event
-                    that._nodeEdit.keyup(function (e) {
-                        if (e.keyCode == 13)
-                            that._applyFilter();
-                    });
-                    // input focus event
-                    that._nodeEdit.focus(function (e) {
-                        that._nodeEdit.get(0).select();
-                    });
-                }
             };
             FilterExpress.prototype._getEditField = function (field) {
                 var textNode;
@@ -20103,11 +20571,6 @@ var Phoenix;
                         break;
                 }
                 return $(textNode);
-            };
-            FilterExpress.prototype._removeEditEvents = function () {
-                this._nodeEdit.off("focus");
-                this._nodeEdit.off("keyup");
-                this._nodeEdit.off("change");
             };
             FilterExpress.prototype._getOpField = function (field) {
                 var op;
@@ -20148,35 +20611,6 @@ var Phoenix;
                         field.format = field.type === "number" ? "integer" : field.type;
                 });
                 return fields;
-            };
-            FilterExpress.prototype._changeField = function (field) {
-                var that = this;
-                if (field) {
-                    that._nodeSelectButtonTxt.text(field.lib + " ");
-                    that._changeEditField(field);
-                    that._selectedField = field;
-                }
-                // Style changed
-                if (that._nodeSelectedLi)
-                    that._nodeSelectedLi.removeClass("bs-row-selected");
-                if (field) {
-                    var liNode = _dom.query(that._nodeSelect.get(0), "a[code='" + field.code + "']");
-                    if (liNode) {
-                        that._nodeSelectedLi = $(liNode.parentNode);
-                        that._nodeSelectedLi.addClass("bs-row-selected");
-                    }
-                }
-            };
-            FilterExpress.prototype._applyFilter = function () {
-                var that = this;
-                if (that._selectedField) {
-                    var val = that._nodeEdit.val();
-                    var filter_1 = val === "" ? null : { "code": that._selectedField.code, "op": that._getOpField(that._selectedField), "values": [that._nodeEdit.val()] };
-                    if (that._cb && that._checkFilter(filter_1)) {
-                        that._oldFilter = { code: that._selectedField.code, value: val };
-                        that._cb(filter_1);
-                    }
-                }
             };
             // Constants
             FilterExpress.FIELD_SELECT_TEXT_DEFAULT = "Choix du champ";
@@ -20227,7 +20661,7 @@ var Phoenix;
                     "$params": {
                         "$entity": _ds.$params.$entity,
                         "$module": _ds.$params.$module,
-                        "$aggregation": "$count"
+                        "$top": 1
                     }
                 };
                 _dom.processing(true);
@@ -20235,7 +20669,8 @@ var Phoenix;
                     _dom.processing(false);
                     if (!ex) {
                         that._init = true;
-                        that._count = res.dataset;
+                        var data_3 = res.dataset;
+                        that._count = data_3.count;
                         that._notify(null, { inited: true, updated: true });
                     }
                 }, false);
@@ -20284,17 +20719,17 @@ var Phoenix;
                 dsPlugin.executeDatasets([ds], context, res, null, function (sended, ex) {
                     _dom.processing(false);
                     if (!ex) {
-                        var data_3 = res.dataset;
-                        if (data_3 && that._count != data_3.count) {
-                            that._count = data_3.count;
+                        var data_4 = res.dataset;
+                        if (data_4 && that._count != data_4.count) {
+                            that._count = data_4.count;
                             that._page = 0;
                             that._notify(null, { updated: true });
                         }
-                        if (data_3.documents) {
-                            data_3.documents = data_3.documents.map(function (item) {
+                        if (data_4.documents) {
+                            data_4.documents = data_4.documents.map(function (item) {
                                 return { code: item[that._ds.mapping.code], libelle: item[that._ds.mapping.libelle] };
                             });
-                            that.items = data_3.documents;
+                            that.items = data_4.documents;
                         }
                     }
                 }, false);
@@ -21417,9 +21852,9 @@ var Phoenix;
             RenderModel1.prototype.showFilterList = function (that, filter) {
                 var editView = new FilterListView(that.listeChamps, that.listeFilters, that.listeOperateurs, function (action, data) {
                     if (action == "EDIT") {
-                        var filter_2 = that.listeFilters.get(data.id);
-                        if (filter_2)
-                            that.selecteChamp(that, filter_2.code);
+                        var filter_3 = that.listeFilters.get(data.id);
+                        if (filter_3)
+                            that.selecteChamp(that, filter_3.code);
                     }
                     else if (action == "REMOVE")
                         that.removeFilter(that, data.id);
@@ -23951,7 +24386,7 @@ var Phoenix;
                             ltitle = that._format(config.fields, filter.code, filter.values[0]);
                         that.options.callback({ id: config.id, name: config.name, type: config.type, value: { title: ltitle, value: lfilter }, toolData: config });
                     }
-                });
+                }, config.options);
             }
             ToolElementFilterExpress.prototype.createElement = function (index, config, data) {
                 var css = [];
@@ -24162,6 +24597,40 @@ var Phoenix;
             return ToolBar;
         }());
         ui.ToolBar = ToolBar;
+        var ToolbarForm = (function (_super) {
+            __extends(ToolbarForm, _super);
+            function ToolbarForm(fp, options, form) {
+                _super.call(this, fp, options, form);
+            }
+            ToolbarForm.prototype.destroy = function () {
+                var that = this;
+                _super.prototype.destroy.call(this);
+            };
+            ToolbarForm.prototype.click = function (event) { };
+            ToolbarForm.prototype._createContainer = function (id) {
+                return _utils.format('<div id="{0}" data-render="{0}" class="bs-tile"></div>', id);
+            };
+            ToolbarForm.prototype._onSelectToolElement = function (toolElement) {
+                var that = this;
+                var toolName = toolElement.name || toolElement.id;
+                that.form.execAction(that.$bind + ".$toolbar." + toolName, { toolElement: toolElement, control: that });
+            };
+            ToolbarForm.prototype.render = function ($parent) {
+                var that = this;
+                var opts = that._initOptions(_ui.Utils.defaultOptions);
+                if (!that.$element) {
+                    that.$element = $(that._createContainer(that.id));
+                    var toptions = { selectToolElement: that._onSelectToolElement.bind(that) };
+                    var tb = new _ui.ToolBar(that.state.value.model(), toptions);
+                    tb.render(that.$element);
+                }
+                that.appendElement($parent, opts);
+                return that.$element;
+            };
+            return ToolbarForm;
+        }(ui.AbsField));
+        ui.ToolbarForm = ToolbarForm;
+        _ui.registerControl(ToolbarForm, "array", false, "toolbar");
     })(ui = Phoenix.ui || (Phoenix.ui = {}));
 })(Phoenix || (Phoenix = {}));
 //# sourceMappingURL=core.js.map
