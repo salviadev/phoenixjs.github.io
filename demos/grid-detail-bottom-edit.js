@@ -114,7 +114,7 @@ $(function () {
 		Name: "EEEE",
 		Offres: [
 			{ Libelle: "Offre BP", Type: "oat", Date: "2001-05-11", VAT: 400.253, caracTA: { Price: 300.77, $states: { Price: { decimals: 0 } } } },
-			{ Libelle: "Offre CL", Type: "swap", Date: "2001-05-11", VAT: 33, Selected: true, caracTA: { Price: 102.5, $states: { Price: { isHidden: true, decimals: 2 } } } },
+			{ $select: true, Libelle: "Offre CL", Type: "swap", Date: "2001-05-11", VAT: 33, Selected: true, caracTA: { Price: 102.5, $states: { Price: { isHidden: true, decimals: 2 } } } },
 			{ Libelle: "Offre CE", Type: "oat", Date: "2016-05-11", VAT: 45.22, $states: {Type: {isDisabled: true}}, caracTA: { Price: 525.55, $states: { Price: { isReadOnly: true, decimals: 3 } } } }
 		]
 	};
@@ -135,9 +135,6 @@ $(function () {
 					case "$links.addLine":
 						data.Offres.clearSelection();
 						data.Offres.push({$select: true, caracTA:{}});
-						break;
-					case "$links.select1stLine":
-						data.Offres[0].$select = true;
 						break;
 				}
 			});
