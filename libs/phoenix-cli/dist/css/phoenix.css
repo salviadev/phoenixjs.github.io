@@ -208,7 +208,6 @@
   overflow: hidden;
 }
 .bs-image-cell {
-  xheight: 20px;
   overflow: hidden;
 }
 .bs-bool-edit {
@@ -235,11 +234,7 @@ tr.bs-table-row.even {
   border: 0px;
   margin: 0px;
   position: relative;
-  height: 36px;
   line-height: 100%;
-}
-.bs-edit-border > div > .bs-inplace-edit-size {
-  height: 34px;
 }
 .bs-inplace-parent {
   position: relative;

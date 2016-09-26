@@ -232,14 +232,13 @@ var Phoenix;
                 var config = _customData.get(controllerName);
                 if (!config)
                     throw _utils.format('Controller not found "{0}". Use customData.register(controllerName, ctrlConfig).', controllerName);
-                options.beforeSetModel = config.initObjectState ? config.initObjectState.bind(config) : null;
-                options.beforeModelCreated = config.initModel ? config.initModel.bind(config) : null;
-                options.onSettings = config.onSettings ? config.onSettings.bind(config) : null;
-                options.storageName = config.storageName;
-                options.validators = config.validators;
+                ui.formController2Options(options, config);
                 var d = (config.data ? config.data() : null);
                 _super.call(this, options, formName, metaName, d, module);
-                if (config.onModelChanged)
+                if (config.isFormController) {
+                    this.action = config.modelChanged.bind(config);
+                }
+                else if (config.onModelChanged)
                     this.action = config.onModelChanged.bind(config);
             }
             return FormContainerController;

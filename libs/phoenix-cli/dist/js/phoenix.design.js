@@ -857,6 +857,10 @@ var Phoenix;
                     o.$refProperty = model.subPathSchema;
                     changed = true;
                 }
+                if ((layout.$refController || '') !== (model.subController || '')) {
+                    o.$refController = model.subController;
+                    changed = true;
+                }
                 if (!model.$states.colSize.isHidden) {
                     if (tv === "column") {
                         if (model.colSize !== layout.$colSize) {
@@ -1074,6 +1078,10 @@ var Phoenix;
                             type: "string",
                             title: "Bind for nested layout",
                         },
+                        subController: {
+                            type: "string",
+                            title: "Controller for nested form",
+                        },
                         colSize: {
                             type: "number",
                             title: "Size",
@@ -1147,6 +1155,7 @@ var Phoenix;
                     format: format,
                     subLayoutName: layout.$ref,
                     subPathSchema: layout.$refProperty,
+                    subController: layout.$refController,
                     labelCol: (layout.$fieldsOptions && layout.$fieldsOptions.labelCol ? layout.$fieldsOptions.labelCol : 3),
                     titleIsHidden: (layout.$fieldsOptions && layout.$fieldsOptions.titleIsHidden ? true : false),
                     $states: {
@@ -1189,6 +1198,9 @@ var Phoenix;
                         },
                         subPathSchema: {
                             isHidden: !refVisible || !that.options.form
+                        },
+                        subController: {
+                            isHidden: !refVisible || !that.options.form
                         }
                     },
                     $links: {
@@ -1225,6 +1237,7 @@ var Phoenix;
                                 { $bind: "format" },
                                 { $bind: "subLayoutName" },
                                 { $bind: "subPathSchema" },
+                                { $bind: "subController" },
                                 { $bind: "colSize" },
                                 { $bind: "customSize" }
                             ]
@@ -1408,23 +1421,22 @@ var Phoenix;
                 html.push('<div class="collapse navbar-collapse">');
                 html.push('<form class="navbar-form navbar-left" role="search">');
             }
-            html.push('<button type="button" class="btn btn-' + _dom.bootstrapStyles.secondary + (options.form ? ' bs-none' : '') + '" id="' + id + '_new">');
+            html.push('<button type="button" class="btn btn-' + _dom.bootstrapStyles().secondary + (options.form ? ' bs-none' : '') + '" id="' + id + '_new">');
             html.push('<span class="' + _dom.iconClass('plus') + '" aria-hidden="false"></span> ');
             html.push(_locale.layouts.design.New);
-            html.push('</button>');
-            html.push('<button type="button" class="btn btn-' + _dom.bootstrapStyles.secondary + (options.form ? ' bs-none' : '') + '" id="' + id + '_open">');
+            html.push('</button>&nbsp;');
+            html.push('<button type="button" class="btn btn-' + _dom.bootstrapStyles().secondary + (options.form ? ' bs-none' : '') + '" id="' + id + '_open">');
             html.push('<span class="' + _dom.iconClass('file-o') + '" aria-hidden="false"></span> ');
             html.push(_locale.layouts.design.Open.title);
-            html.push('</button>');
-            html.push('<button type="button" class="btn btn-' + _dom.bootstrapStyles.secondary + (options.form ? ' bs-none' : '') + '" id="' + id + '_remove">');
+            html.push('</button>&nbsp;');
+            html.push('<button type="button" class="btn btn-' + _dom.bootstrapStyles().secondary + (options.form ? ' bs-none' : '') + '" id="' + id + '_remove">');
             html.push('<span class="' + _dom.iconClass('times') + '" aria-hidden="false"></span> ');
             html.push(_locale.layouts.design.Delete);
-            html.push('</button>');
-            html.push('<button type="button" class="btn btn-' + _dom.bootstrapStyles.secondary + '" id="' + id + '_save">');
+            html.push('</button>&nbsp;');
+            html.push('<button type="button" class="btn btn-' + _dom.bootstrapStyles().secondary + '" id="' + id + '_save">');
             html.push('<span class="' + _dom.iconClass('floppy') + '" aria-hidden="false"></span> ');
             html.push(_locale.layouts.design.Save);
-            html.push('</button>');
-            html.push('&nbsp;&nbsp;');
+            html.push('</button>&nbsp;');
             if (_bootstrap4) {
                 html.push('<label class="form-check-inline">');
                 html.push('<input class="form-check-input" type="checkbox" id="' + id + '_preview"' + (options.design ? '' : ' checked="true"') + '>&nbsp;&nbsp;');

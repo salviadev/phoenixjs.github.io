@@ -1706,18 +1706,24 @@ var Phoenix;
             'question-circle': 'question-sign',
             'info-circle': 'info-sign'
         };
-        var _bootstrapBtns = {
-            primary: 'primary',
-            secondary: Phoenix.bootstrap4 ? 'secondary' : 'default',
-            default: Phoenix.bootstrap4 ? 'secondary' : 'default',
-            important: 'important',
-            success: 'success',
-            info: 'info',
-            danger: 'danger',
-            warning: 'warning',
-            link: 'link'
-        };
-        var _parseStyle = function (style, css) {
+        var _bootstrapBtnCache = null;
+        var _bootstrapBtns = function () {
+            if (_bootstrapBtnCache)
+                return _bootstrapBtnCache;
+            var _bootstrap4 = Phoenix.bootstrap4;
+            _bootstrapBtnCache = {
+                primary: 'primary',
+                secondary: _bootstrap4 ? 'secondary' : 'default',
+                default: _bootstrap4 ? 'secondary' : 'default',
+                important: 'important',
+                success: 'success',
+                info: 'info',
+                danger: 'danger',
+                warning: 'warning',
+                link: 'link'
+            };
+            return _bootstrapBtnCache;
+        }, _parseStyle = function (style, css) {
             if (style) {
                 var a = style.split(' ');
                 a.forEach(function (e, index) {
@@ -3426,14 +3432,14 @@ var Phoenix;
             return _getValue(value, ctx, false, false);
         }, _execBasic = function (config, lurl, context, callerObject) {
             var local = callerObject && callerObject.getLocalContext ? callerObject.getLocalContext() : null;
-            var cd, ldata = _defaultData(config.$data, lurl, context, local);
+            var cd, ldata = config.$data;
             if (config.$params && config.$params.dataProvider) {
                 var hnd = Phoenix.customData.get(config.$params.dataProvider);
                 if (hnd)
                     context = hnd(context, callerObject);
             }
             if (!config.$main && config.$output) {
-                ldata = _defaultData(config.$data, lurl, context, local);
+                ldata = config.$data;
                 cd = _outputData(config.$output, {
                     $url: lurl,
                     $context: context,
@@ -3443,7 +3449,7 @@ var Phoenix;
                 });
             }
             else
-                cd = context;
+                cd = ldata;
             cd = _execTransform(config, cd);
             return new Phoenix.utils.Promise(function (resolve, reject) {
                 resolve(cd);
@@ -6169,10 +6175,10 @@ var Phoenix;
         _needParentPadding = function (layout, parent) {
             return (layout.$type === LayoutUtils.LAYOUT_ACCORDION && !layout.$widget);
         }, _noPadding = function (layout, parent) {
-            var res = true;
+            var res = true, _bootstrap4 = Phoenix.bootstrap4;
             if (!layout.$items.length)
                 return res;
-            if (layout.$type === LayoutUtils.LAYOUT_ACCORDION_GROUP && !layout.$widget)
+            if (layout.$type === LayoutUtils.LAYOUT_ACCORDION_GROUP && (!layout.$widget && !_bootstrap4))
                 return false;
             layout.$items.forEach(function (item) {
                 if (res)
@@ -6198,7 +6204,7 @@ var Phoenix;
         }, _onlyFields = function (layout) {
             return !layout.$items || !layout.$items.length || layout.$items[0].$bind;
         }, _css = function (layout, parent, options) {
-            var css = [], canAddLayouts, addpaddingclass;
+            var css = [], _bootstrap4 = Phoenix.bootstrap4, canAddLayouts, addpaddingclass;
             switch (layout.$type) {
                 case LayoutUtils.LAYOUT_BLOCK:
                     addpaddingclass = true;
@@ -6295,7 +6301,8 @@ var Phoenix;
                             css.push('in');
                     }
                     else if (options.step === 3) {
-                        css.push('panel-body');
+                        if (_bootstrap4)
+                            css.push('panel-body');
                         canAddLayouts = _canAddLayouts(layout);
                         if (canAddLayouts) {
                             if (options.design || _noPadding(layout, parent)) {
@@ -6423,7 +6430,7 @@ var Phoenix;
                 return;
             }
             if (isForm && layout.$title) {
-                var size = layout.$title.size || 4;
+                var size = layout.$title.size || (Phoenix.bootstrap4 ? 5 : 4);
                 html.push('<h' + size);
                 var css = ['bs-block-title'];
                 if (layout.$title.$style)
@@ -6467,13 +6474,25 @@ var Phoenix;
         }, _htmlAfter = function (html, layout, model, llocale, design) {
             html.push('</div>');
         }, _tabBuilder = function (html, layout, parent, model, llocale, design, isForm, refBlock) {
-            html.push('<li role="presentation"');
-            if (layout.opened)
-                html.push(' class="active"');
-            html.push('>');
-            html.push(_utils.format('<a href="#{0}" aria-controls="{0}"  data-layout="{0}" role="tab" data-toggle="tab">', layout.$id));
-            html.push(layout.$title.value);
-            html.push('</a></li>');
+            var _bootstrap4 = Phoenix.bootstrap4;
+            if (_bootstrap4) {
+                html.push('<li class="nav-item">');
+                var css = ['nav-link'];
+                if (layout.opened)
+                    css.push('active');
+                html.push(_utils.format('<a class="' + css.join(' ') + '" href="#{0}" data-layout="{0}" aria-expanded="' + (layout.opened ? 'true' : 'false') + '" role="tab" data-toggle="tab">', layout.$id));
+                html.push(layout.$title.value);
+                html.push('</a></li>');
+            }
+            else {
+                html.push('<li role="presentation"');
+                if (layout.opened)
+                    html.push(' class="active"');
+                html.push('>');
+                html.push(_utils.format('<a href="#{0}" aria-controls="{0}"  data-layout="{0}" role="tab" data-toggle="tab">', layout.$id));
+                html.push(layout.$title.value);
+                html.push('</a></li>');
+            }
         }, _accordionBefore = function (html, layout, parent, model, llocale, design, isForm, refBlock) {
             _checkAccordionChildren(layout);
             if (design || !layout.$widget) {
@@ -6487,6 +6506,7 @@ var Phoenix;
                 _addLayoutId(html, 1, layout, design);
                 _addId(html, layout);
                 _addDataStep(html, 1, design);
+                html.push(' id="' + layout.$id + '_parent"');
                 html.push('>');
             }
             else if (layout.$widget === 'tabs') {
@@ -6502,7 +6522,7 @@ var Phoenix;
                 _addId(html, layout);
                 _addDataStep(html, 1, design);
                 html.push('>');
-                html.push('<ul class="nav nav-tabs" role="tablist">');
+                html.push('<ul class="nav nav-tabs bs-tabs" role="tablist">');
                 layout.$items.forEach(function (item) { return _tabBuilder(html, item, layout, model, llocale, design, isForm, refBlock); });
                 html.push('</ul>');
                 html.push('<div class="tab-content">');
@@ -6519,6 +6539,7 @@ var Phoenix;
             }
         }, _accordionGroupBefore = function (html, layout, parent, model, llocale, design, isForm, refBlock) {
             if (design || !parent.$widget) {
+                var _bootstrap4 = Phoenix.bootstrap4;
                 html.push('<div');
                 _addLayoutCss(html, layout, parent, {
                     design: design,
@@ -6537,15 +6558,34 @@ var Phoenix;
                 html.push('<div class="panel-heading" role="tab"');
                 _addId(html, layout, "heading");
                 html.push('>');
-                html.push('<h4 class="panel-title bs-pointer collapsed" data-toggle="collapse" data-parent="#' + parent.$id + '"');
-                if (layout.opened)
-                    html.push(' aria-expanded="true"');
-                else
-                    html.push(' aria-expanded="false"');
-                html.push(' data-target="#' + layout.$idStep2 + '" aria-controls="' + layout.$idStep2 + '"');
-                html.push(' id="' + layout.$id + '_title">');
+                if (_bootstrap4)
+                    html.push('<h5 class="panel-title">');
+                else {
+                    html.push('<h4 class="panel-title bs-pointer collapsed" data-toggle="collapse" data-parent="#' + parent.$id + '"');
+                    if (layout.opened)
+                        html.push(' aria-expanded="true"');
+                    else
+                        html.push(' aria-expanded="false"');
+                    html.push(' data-target="#' + layout.$idStep2 + '" aria-controls="' + layout.$idStep2 + '"');
+                    html.push(' id="' + layout.$id + '_title">');
+                }
+                if (_bootstrap4) {
+                    html.push('<a');
+                    html.push(' data-toggle="collapse"');
+                    html.push(' data-parent="#' + parent.$id + '"');
+                    html.push(' href="#' + layout.$idStep2 + '"');
+                    html.push(' aria-controls="' + layout.$idStep2 + '"');
+                    if (layout.opened)
+                        html.push(' aria-expanded="true"');
+                    else
+                        html.push(' aria-expanded="false"');
+                    html.push('>');
+                }
                 html.push(_utils.escapeHtml(layout.$title ? layout.$title.value : ''));
-                html.push('</h4>');
+                if (_bootstrap4)
+                    html.push('</a></h4>');
+                else
+                    html.push('</h5>');
                 html.push('</div>');
                 html.push('<div role="tabpanel" aria-labelledby="heading_' + layout.$id + '"');
                 _addLayoutCss(html, layout, parent, {
@@ -7668,6 +7708,10 @@ var Phoenix;
                         dst.$refProperty = data.$refProperty;
                         structChanged = true;
                     }
+                    if ((dst.$refController || '') !== (data.$refController || '')) {
+                        dst.$refController = data.$refController;
+                        structChanged = true;
+                    }
                     if ((dst.$ref || '') !== (data.$ref || '')) {
                         dst.$ref = data.$ref;
                         if (dst.$ref) {
@@ -7686,6 +7730,7 @@ var Phoenix;
                     }
                     delete data.$ref;
                     delete data.$refProperty;
+                    delete data.$refController;
                     if ((dst.$widget || '') !== (data.$widget || '')) {
                         dst.$widget = data.$widget;
                         structChanged = true;
@@ -11533,7 +11578,9 @@ var Phoenix;
                 var style = (error.severity == 'success' ? 'success' : ((error.severity == 'warning') ? 'warning' : 'danger'));
                 var c = show ? '' : 'bs-none ';
                 var html = ['<div data-error="true" class="' + c + ' alert alert-' + style + ' alert-dismissible fade in">'];
-                html.push('<button type="button" data-error-close="true" class="close" aria-label="Close"><span data-error-close="true" aria-hidden="true">&times;</span></button>');
+                html.push('<button type="button" data-error-close="true" class="close" aria-label="Close">');
+                html.push('<span data-error-close="true" aria-hidden="true">&times;</span>');
+                html.push('</button>');
                 html.push(_utils.escapeHtml(error.message));
                 if (error.details && error.details.length) {
                     error.details.forEach(function (err) {
@@ -12146,6 +12193,13 @@ var Phoenix;
                 _openForm(formOptions, params, handler);
             });
         };
+        var _initController = function (options, config) {
+            options.beforeSetModel = config.initObjectState ? config.initObjectState.bind(config) : null;
+            options.beforeModelCreated = config.initModel ? config.initModel.bind(config) : null;
+            options.onSettings = config.onSettings ? config.onSettings.bind(config) : null;
+            options.storageName = config.storageName;
+            options.validators = config.validators;
+        };
         var _showModalForm = function (opts, data) {
             if (!opts.controller)
                 throw 'Controller name is empty.';
@@ -12153,16 +12207,15 @@ var Phoenix;
             if (!config)
                 throw _utils.format('Controller not found "{0}". Use customData.register(controllerName, ctrlConfig).', opts.controller);
             var options = {};
-            options.beforeSetModel = config.initObjectState ? config.initObjectState.bind(config) : null;
-            options.beforeModelCreated = config.initModel ? config.initModel.bind(config) : null;
-            options.onSettings = config.onSettings ? config.onSettings.bind(config) : null;
-            options.storageName = config.storageName;
-            options.validators = config.validators;
+            _initController(options, config);
             var fo = opts.options;
             fo.opts = options;
             fo.natural = true;
             var hnd = null;
-            if (config.onModelChanged) {
+            if (config.isFormController) {
+                hnd = config.modelChanged.bind(config);
+            }
+            else if (config.onModelChanged) {
                 hnd = config.onModelChanged.bind(config);
             }
             _OpenModalForm(fo, opts.name, opts.meta, data, null, hnd);
@@ -12219,6 +12272,9 @@ var Phoenix;
             }
             FormController.prototype.data = function () { return null; };
             FormController.prototype.initObjectState = function (model) { };
+            FormController.prototype.modelChanged = function (action, model, form, modal) {
+                this.onModelChanged(action, model, form, modal);
+            };
             FormController.prototype.onModelChanged = function (action, model, form, modal) {
                 var that = this;
                 var pn = action.property;
@@ -12236,9 +12292,11 @@ var Phoenix;
                         return that[c](ca, model, form, modal);
                 }
             };
+            FormController.isFormController = true;
             return FormController;
         }());
         ui.FormController = FormController;
+        ui.formController2Options = _initController;
         ui.OpenModalForm = _OpenModalForm;
         ui.showModalForm = _showModalForm;
         ui.OpenForm = _OpenFormExp;
@@ -13541,7 +13599,7 @@ var Phoenix;
             if (level)
                 rcss.push('bs-row-level-' + level);
             tr.className = rcss.join(' ');
-            if (!options._useStripedCss) {
+            if (!options._useStripedCss && options.striped) {
                 var isOdd_1 = index % 2 === 1;
                 if (!isOdd_1)
                     _dom.addClass(tr, 'even');
@@ -13703,7 +13761,7 @@ var Phoenix;
             if (isHeader || isFooter) {
                 css.push('table-header');
             }
-            if (!isHeader && !isFooter && options._useStripedCss) {
+            if (!isHeader && !isFooter && (options._useStripedCss && options.striped)) {
                 css.push('table-striped');
             }
             if (options._useColGrp) {
@@ -13834,7 +13892,7 @@ var Phoenix;
         }, _createGridContainer = function (id, options, authoring, title, locale, columns, frozenColumns) {
             title = title || '';
             options._useColGrp = _canUseColGroups(options, columns);
-            options._useStripedCss = !!!(options.rows && options.rows.detail);
+            options._useStripedCss = !!!(options.rows && options.rows.detail) && options.striped;
             options = $.extend({ right: false, icon: null, type: 'default', width: 'auto', height: 'auto', size: null, scrolling: { horizontal: false } }, options);
             //create div container 
             if (options.title !== undefined)
@@ -13968,6 +14026,9 @@ var Phoenix;
             res.style.left = point.left + 'px';
             _dom.append(parent, res);
             return res;
+        }, _setRowSize = function (element, parent, hasBorder) {
+            var height = parent.offsetHeight - (hasBorder ? 3 : 1);
+            element.style.height = Math.floor(height) + 'px';
         }, _updateInplaceSelect = function (inplace, svalue, value, state, parent, cell, col, opts) {
             var enums = state.filter ? col.schema.filters[state.filter] || [] : col.schema.enum;
             var ii = enums.indexOf(value);
@@ -14002,6 +14063,7 @@ var Phoenix;
             var enums = state.filter ? col.schema.filters[state.filter] || [] : col.schema.enum;
             var ii = enums.indexOf(value);
             _ui.Utils.fillSelect(enums, input, col.schema);
+            _setRowSize(input, parent, false);
             _dom.empty(parent);
             _dom.addClass(parent, 'focused');
             _dom.append(parent, input);
@@ -14041,6 +14103,7 @@ var Phoenix;
                 _dom.append(addon, icon);
                 _dom.append(cp, addon);
             }
+            _setRowSize(input, parent, true);
             _dom.empty(parent);
             _dom.addClass(parent, 'focused');
             _dom.append(parent, pp);
@@ -14086,6 +14149,7 @@ var Phoenix;
                 input.maxLength = col.schema.maxLength;
             }
             input.className = css.join(' ');
+            _setRowSize(input, parent, false);
             _dom.empty(parent);
             _dom.addClass(parent, 'focused');
             _dom.append(parent, input);
@@ -14176,6 +14240,9 @@ var Phoenix;
                     that.resize();
                 };
                 var that = this;
+                if (that.fieldOptions.striped === undefined) {
+                    that.fieldOptions.striped = Phoenix.bootstrap4 ? false : true;
+                }
                 that._view = [];
                 that._viewMap = {};
                 that._ignoreNotifications = false;
@@ -15046,7 +15113,7 @@ var Phoenix;
                 if (doResize)
                     that.resize();
                 if (doSelectFirstCell)
-                    that._selectFirstCell();
+                    that._selectFirstCell('model');
             };
             BasicGrid.prototype._modifyTD = function (item, field, td) {
                 var that = this;
@@ -15177,7 +15244,7 @@ var Phoenix;
                         var c = that._cell(that.selectedCell, true);
                         if (!c) {
                             that.selectedCell = null;
-                            that._selectFirstCell();
+                            that._selectFirstCell('focusin');
                             if (that.selectedCell)
                                 c = that._cell(that.selectedCell, true);
                         }
@@ -15321,7 +15388,6 @@ var Phoenix;
                 if (td) {
                     var cell = that._td2cell(td);
                     if (cell) {
-                        //that._selectCell(cell, event, false);
                         var item = that._findById(cell.row);
                         var c = that._colByField(cell.col);
                         if (item) {
@@ -15431,8 +15497,10 @@ var Phoenix;
                             that._inpaceEditShow(coord.td, false);
                         }
                         else {
-                            coord.td.tabIndex = 0;
-                            coord.td.focus();
+                            if (that.focused || mousedown) {
+                                coord.td.tabIndex = 0;
+                                coord.td.focus();
+                            }
                         }
                         that._onFrozenFocusScroll(coord.td, that._colByField(cell.col));
                     }
@@ -15470,15 +15538,6 @@ var Phoenix;
                 var st = item.getState(c.$bind);
                 return !st.isReadOnly && !st.isDisabled && !st.isHidden;
             };
-            BasicGrid.prototype.clearSelected = function () {
-                var that = this;
-                var old = that.selectedCell;
-                that.selectedCell = null;
-                if (old) {
-                    that._showSelected(old, false, true, false);
-                }
-                that._gridParentFocus().tabIndex = 0;
-            };
             BasicGrid.prototype._selectRow = function (id) {
                 var that = this, opts = that.renderOptions;
                 var multiselect = opts.selecting && opts.selecting.row && opts.selecting.multiselect;
@@ -15506,7 +15565,7 @@ var Phoenix;
                 }
                 return true;
             };
-            BasicGrid.prototype._selectFirstCell = function () {
+            BasicGrid.prototype._selectFirstCell = function (source) {
                 var that = this;
                 var opts = that.fieldOptions;
                 if (!opts.selecting || !opts.selecting.cell)
@@ -15550,12 +15609,12 @@ var Phoenix;
             BasicGrid.prototype._moveUpSelectedCell = function (count) {
                 var that = this;
                 if (!that.selectedCell)
-                    return that._selectFirstCell();
+                    return that._selectFirstCell('keydown');
                 var col = that._colByField(that.selectedCell.col);
                 var pos = that._cell(that.selectedCell, true);
                 if (!pos) {
                     that.selectedCell = null;
-                    return that._selectFirstCell();
+                    return that._selectFirstCell('keydown');
                 }
                 var nri = Math.max(pos.rIndex - count, 0);
                 if (nri != pos.rIndex) {
@@ -15661,11 +15720,11 @@ var Phoenix;
             BasicGrid.prototype._moveDownSelectedCell = function (count) {
                 var that = this;
                 if (!that.selectedCell)
-                    return that._selectFirstCell();
+                    return that._selectFirstCell('keydown');
                 var pos = that._cell(that.selectedCell, true);
                 if (!pos) {
                     that.selectedCell = null;
-                    return that._selectFirstCell();
+                    return that._selectFirstCell('keydown');
                 }
                 var col = that._colByField(that.selectedCell.col);
                 var pr = that._findtBody(col);
@@ -15681,7 +15740,7 @@ var Phoenix;
                 if (!that.fieldOptions.selecting || !that.fieldOptions.selecting.cell)
                     return false;
                 if (!that.selectedCell)
-                    return that._selectFirstCell();
+                    return that._selectFirstCell('keydown');
                 var allCols = that.frozenColumns.concat(that.columns).map(function (col) { return col.$bind; });
                 ;
                 var si = allCols.indexOf(that.selectedCell.col);
@@ -15712,7 +15771,7 @@ var Phoenix;
                 if (!that.fieldOptions.selecting || !that.fieldOptions.selecting.cell)
                     return false;
                 if (!that.selectedCell)
-                    return that._selectFirstCell();
+                    return that._selectFirstCell('keydown');
                 var allCols = that.frozenColumns.concat(that.columns).map(function (col) { return col.$bind; });
                 ;
                 var si = allCols.indexOf(that.selectedCell.col);
@@ -15747,7 +15806,7 @@ var Phoenix;
                     that.setHidden(element);
                     that._setErrors(grid, element);
                     if (!inRender)
-                        that._selectFirstCell();
+                        that._selectFirstCell('model');
                     if (that._toolBar) {
                         var $tt = $(_dom.find(element, that.id + '_header'));
                         that._toolBar.render($tt);
@@ -15759,7 +15818,7 @@ var Phoenix;
                 }
             };
             BasicGrid.prototype.afterAddedInDom = function () {
-                this._selectFirstCell();
+                this._selectFirstCell('model');
             };
             BasicGrid.prototype.stateChanged = function (propName, params) {
                 var that = this;
@@ -16063,7 +16122,7 @@ var Phoenix;
             };
             BasicGrid.prototype._updOddEven = function () {
                 var that = this;
-                if (!that.renderOptions._useStripedCss) {
+                if (!that.renderOptions._useStripedCss && that.renderOptions.options.striped) {
                     if (that.$element) {
                         var pr = _dom.find(that.$element.get(0), that.id + '_rows');
                         _gu.updateEvenOdd(pr);
@@ -16307,7 +16366,7 @@ var Phoenix;
             var html = [];
             _ui.Utils.fieldWrapper(html, options, authoring, function () {
                 if (options.columns) {
-                    html.push('<div class="no-x-padding col-sm-offset-' + options.labelCol + ' col-sm-' + (12 - options.labelCol) + '">');
+                    html.push('<div class="no-x-padding ' + (_bootstrap4 ? 'offset-sm-' : 'col-sm-offset-') + options.labelCol + ' col-sm-' + (12 - options.labelCol) + '">');
                     html.push('<div class="checkbox">');
                 }
                 var block = false;
@@ -16315,9 +16374,13 @@ var Phoenix;
                     block = true;
                     html.push('<div class="checkbox">');
                 }
-                html.push('<label id="{0}_check" class="' + (options.inline ? 'checkbox-inline' : (block ? (_bootstrap4 ? 'form-control-label' : 'control-label') : 'checkbox')) + '">');
+                html.push('<label id="{0}_check" class="' + (options.inline ? (_bootstrap4 ? 'form-check-inline no-x-padding' : 'checkbox-inline') : (block ? (_bootstrap4 ? 'form-control-label' : 'control-label') : 'checkbox')) + '">');
                 html.push('<input type="checkbox" id="{0}_input">');
-                if (!options.inline)
+                if (options.inline) {
+                    if (_bootstrap4)
+                        html.push('&nbsp;');
+                }
+                else
                     html.push('&nbsp;');
                 html.push(_utils.escapeHtml(title || ''));
                 html.push('</label>');
@@ -16834,8 +16897,8 @@ var Phoenix;
                 that.keys = _sutils.pkFields(that.options.primaryKey);
             }
             DropItems.prototype.click = function (event) {
-                var that = this;
-                var li = _dom.parentByTag(that.$element.get(0), event.target, 'li');
+                var that = this, _bootstrap4 = Phoenix.bootstrap4;
+                var li = _dom.parentByTag(that.$element.get(0), event.target, _bootstrap4 ? 'a' : 'li');
                 if (li) {
                     var pk = li['pk'];
                     if (pk) {
@@ -16856,7 +16919,12 @@ var Phoenix;
             DropItems._itemHeight = function () {
                 var that = this;
                 if (!that.itemHeight) {
-                    var p = $('<ul class="dropdown-menu bs-block" tabindex="0" style="visibility:hidden;"><li tabindex="-1"><a tabindex="-1" href="#">A</a></li></ul>').get(0);
+                    var _bootstrap4 = Phoenix.bootstrap4;
+                    var p = void 0;
+                    if (_bootstrap4)
+                        p = $('<div class="dropdown-menu bs-block" tabindex="0" style="visibility:hidden;"><a tabindex="-1" class="dropdown-item" href="#">A</a></div>').get(0);
+                    else
+                        p = $('<ul class="dropdown-menu bs-block" tabindex="0" style="visibility:hidden;"><li tabindex="-1"><a tabindex="-1" href="#">A</a></li></ul>').get(0);
                     document.body.appendChild(p);
                     var li = p.firstChild;
                     ;
@@ -16876,14 +16944,14 @@ var Phoenix;
                 options.maxItems = options.maxItems || 8;
             };
             DropItems.prototype._renderContent = function () {
-                var that = this;
+                var that = this, _bootstrap4 = Phoenix.bootstrap4;
                 if (!that.$element) {
-                    that.$element = $('<ul class="dropdown-menu"></ul>');
+                    that.$element = _bootstrap4 ? $('<div class="dropdown-menu"></div>') : $('<ul class="dropdown-menu"></ul>');
                     that.$parent.get(0).appendChild(that.$element.get(0));
                 }
             };
             DropItems.prototype._renderElements = function () {
-                var that = this;
+                var that = this, _bootstrap4 = Phoenix.bootstrap4;
                 if (!that.$element)
                     that._renderContent();
                 if (that.currentList) {
@@ -16891,7 +16959,11 @@ var Phoenix;
                     var e = that.$element.get(0);
                     that.currentList.forEach(function (item) {
                         var dId = _sutils.pk2Id(_sutils.extractPkValue(item, that.keys), that.keys);
-                        var li = $('<li tabindex="-1"><a tabindex="-1" href="#">' + _utils.escapeHtml(item[that.options.display]) + '</a></li>').get(0);
+                        var li;
+                        if (_bootstrap4)
+                            li = $('<a tabindex="-1" class="dropdown-item" href="#">' + _utils.escapeHtml(item[that.options.display]) + '</a>').get(0);
+                        else
+                            li = $('<li class="dropdown-item" tabindex="-1"><a tabindex="-1" href="#">' + _utils.escapeHtml(item[that.options.display]) + '</a></li>').get(0);
                         li['pk'] = dId;
                         _dom.append(frag_1, li);
                     });
@@ -17269,7 +17341,10 @@ var Phoenix;
                         css.push('bs-lib-col col-sm-' + options.labelCol);
                     }
                     if (options.inline) {
-                        css.push('checkbox-inline bs-cursor-d no-x-padding');
+                        if (_bootstrap4)
+                            css.push('form-check-inline bs-cursor-d no-x-padding');
+                        else
+                            css.push('checkbox-inline bs-cursor-d no-x-padding');
                     }
                     if (css.length)
                         html.push(' class="' + css.join(' ') + '"');
@@ -17714,8 +17789,13 @@ var Phoenix;
                             css.push('checkbox-inline bs-cursor-d');
                         css.push('bs-lib-col col-sm-' + options.labelCol);
                     }
-                    if (options.inline)
-                        css.push('no-x-padding checkbox-inline bs-cursor-d');
+                    if (options.inline) {
+                        if (_bootstrap4)
+                            css.push('form-check-inline');
+                        else
+                            css.push('checkbox-inline');
+                        css.push('no-x-padding bs-cursor-d');
+                    }
                     if (css.length)
                         html.push(' class="' + css.join(' ') + '"');
                     html.push('>');
@@ -18113,7 +18193,11 @@ var Phoenix;
                         cssLabel.push('bs-lib-col col-sm-' + options.labelCol);
                     }
                     else if (options.inline) {
-                        cssLabel.push('checkbox-inline bs-cursor-d no-x-padding');
+                        if (_bootstrap4)
+                            cssLabel.push('form-check-inline');
+                        else
+                            cssLabel.push('checkbox-inline');
+                        cssLabel.push('bs-cursor-d no-x-padding');
                     }
                     if (cssLabel.length)
                         html.push(' class="' + cssLabel.join(' ') + '"');
@@ -18128,7 +18212,7 @@ var Phoenix;
                 var css = ['btn-group'];
                 html.push('<div class="' + css.join(' ') + '">');
                 enums.forEach(function (enumName, index) {
-                    html.push('<button tabindex="-1" type="button" id="{0}_item_' + index + '" class="btn btn-' + _dom.bootstrapStyles.secondary + '"');
+                    html.push('<button tabindex="-1" type="button" id="{0}_item_' + index + '" class="btn btn-' + _dom.bootstrapStyles().secondary + '"');
                     if (options.width) {
                         html.push(' style="width:' + options.width + '"');
                     }
@@ -18153,7 +18237,7 @@ var Phoenix;
             BtnGroup.prototype._state2UI = function () {
                 _super.prototype._state2UI.call(this, function (item) {
                     _dom.addClass(item, 'btn-primary');
-                    _dom.removeClass(item, 'btn-' + _dom.bootstrapStyles.secondary);
+                    _dom.removeClass(item, 'btn-' + _dom.bootstrapStyles().secondary);
                     item.tabIndex = 0;
                 });
             };
@@ -18168,12 +18252,12 @@ var Phoenix;
                             btn.tabIndex = 0;
                             if (that.focused)
                                 btn.focus();
-                            _dom.addClass(btn, 'btn-' + _dom.bootstrapStyles.primary);
-                            _dom.removeClass(btn, 'btn-' + _dom.bootstrapStyles.secondary);
+                            _dom.addClass(btn, 'btn-' + _dom.bootstrapStyles().primary);
+                            _dom.removeClass(btn, 'btn-' + _dom.bootstrapStyles().secondary);
                         }
                         else {
-                            _dom.addClass(btn, 'btn-' + _dom.bootstrapStyles.secondary);
-                            _dom.removeClass(btn, 'btn-' + _dom.bootstrapStyles.primary);
+                            _dom.addClass(btn, 'btn-' + _dom.bootstrapStyles().secondary);
+                            _dom.removeClass(btn, 'btn-' + _dom.bootstrapStyles().primary);
                             btn.tabIndex = -1;
                         }
                     });
@@ -18259,7 +18343,11 @@ var Phoenix;
                     css.push('col-sm-12 bs-lib-col');
                 }
                 if (options.inline) {
-                    css.push('checkbox-inline bs-cursor-d no-x-padding');
+                    if (_bootstrap4)
+                        css.push('form-check-inline');
+                    else
+                        css.push('checkbox-inline');
+                    css.push('bs-cursor-d no-x-padding');
                 }
                 if (css.length)
                     html.push(' class="' + css.join(' ') + '"');
@@ -18386,12 +18474,15 @@ var Phoenix;
                 title = options.title;
             var html = [];
             if (!options.inline) {
-                html.push('<div class="bs-field-group"');
+                var css = ['bs-island', 'bs-field-group'];
+                if (authoring)
+                    css.push('design');
+                html.push('<div class="' + css.join(' ') + '"');
                 _ui.Utils.addContainerId(html, authoring);
                 html.push('>');
             }
             html.push('<button type="button"');
-            html.push(' class="bs-button btn btn-' + _dom.bootstrapStyles[options.type]);
+            html.push(' class="bs-button btn btn-' + _dom.bootstrapStyles()[options.type]);
             if (options.size)
                 html.push(' btn-' + options.size);
             if (!options.inline) {
@@ -18399,12 +18490,12 @@ var Phoenix;
             }
             else {
                 html.push(' bs-btn-inline');
+                html.push(' bs-island');
                 if (options.right)
                     html.push(' pull-right');
+                if (authoring)
+                    html.push(' design');
             }
-            html.push(' bs-island');
-            if (authoring)
-                html.push(' design');
             if (options.style)
                 html.push(' ' + options.style);
             html.push('"');
@@ -18900,7 +18991,11 @@ var Phoenix;
                         css.push('bs-lib-col col-sm-' + options.labelCol);
                     }
                     if (options.inline) {
-                        css.push('checkbox-inline bs-cursor-d no-x-padding');
+                        if (_bootstrap4)
+                            css.push('form-check-inline');
+                        else
+                            css.push('checkbox-inline');
+                        css.push('bs-cursor-d no-x-padding');
                     }
                     if (css.length)
                         html.push(' class="' + css.join(' ') + '"');
@@ -19235,7 +19330,11 @@ var Phoenix;
                         css.push('bs-lib-col col-sm-' + options.labelCol);
                     }
                     if (options.inline) {
-                        css.push('checkbox-inline bs-cursor-d no-x-padding');
+                        if (_bootstrap4)
+                            css.push('form-check-inline');
+                        else
+                            css.push('checkbox-inline');
+                        css.push('bs-cursor-d no-x-padding');
                     }
                     if (css.length)
                         html.push(' class="' + css.join(' ') + '"');
@@ -19249,7 +19348,7 @@ var Phoenix;
                 }
                 if (options.columns)
                     html.push('<div class="no-x-padding  col-sm-' + (12 - options.labelCol) + '">');
-                var lc = options.inline || options.horizontal ? ["radio-inline"] : [];
+                var lc = options.inline || options.horizontal ? [_bootstrap4 ? 'form-check-inline no-x-padding' : 'radio-inline'] : [];
                 enums.forEach(function (enumName, index) {
                     if (!options.inline && !options.horizontal)
                         html.push('<div id="{0}_radio" class="radio">');
@@ -19473,7 +19572,11 @@ var Phoenix;
                         css.push('bs-lib-col col-sm-' + options.labelCol);
                     }
                     if (options.inline) {
-                        css.push('no-x-padding checkbox-inline bs-cursor-d');
+                        if (_bootstrap4)
+                            css.push('form-check-inline');
+                        else
+                            css.push('checkbox-inline');
+                        css.push('bs-cursor-d no-x-padding');
                     }
                     if (css.length)
                         html.push(' class="' + css.join(' ') + '"');
@@ -19629,7 +19732,11 @@ var Phoenix;
                         css.push('bs-lib-col col-sm-' + options.labelCol);
                     }
                     if (options.inline) {
-                        css.push('checkbox-inline no-x-padding');
+                        if (_bootstrap4)
+                            css.push('form-check-inline');
+                        else
+                            css.push('checkbox-inline');
+                        css.push('bs-cursor-d no-x-padding');
                     }
                     if (css.length)
                         html.push(' class="' + css.join(' ') + '"');
@@ -20209,7 +20316,7 @@ var Phoenix;
             };
             FilterExpress.prototype._internalRender = function () {
                 var that = this;
-                that._nodeMain = $("<form class='form-inline bs-filterexpress' id='" + that._id + "'></form>");
+                that._nodeMain = $("<div class='form-inline bs-filterexpress' id='" + that._id + "'></div>");
                 if (that._options.multiple)
                     that._internalRenderMultiple();
                 else
@@ -20262,11 +20369,39 @@ var Phoenix;
                     applyFilter();
                 });
                 // focusOut event
-                that._nodeMain.get(0).addEventListener("blur", function (e) {
+                var blurevent = false;
+                that._nodeMain.get(0).addEventListener("focusout", function (e) {
+                    blurevent = true;
                     var parent = false;
-                    if (e.relatedTarget) {
-                        var node = e.relatedTarget;
+                    var src = e["relatedTarget"];
+                    if (src) {
+                        var node = src;
                         do {
+                            if (!node)
+                                break;
+                            if (_dom.hasClass(node, "bs-filterexpress")) {
+                                parent = true;
+                                break;
+                            }
+                            node = node.parentNode;
+                        } while (node && !parent);
+                    }
+                    if (!parent && e.target == nodeEdit.get(0) && that._oldFilter && that._oldFilter.length && that._oldFilter[0]["code"]) {
+                        if ((that._selectedField && that._selectedField.length) && that._selectedField[0]["code"] !== that._oldFilter[0]["code"])
+                            _changeField(that._getFieldByCode(that._oldFilter[0]["code"]));
+                        nodeEdit.val(that._oldFilter[0]["value"]);
+                    }
+                }, true);
+                that._nodeMain.get(0).addEventListener("blur", function (e) {
+                    if (blurevent)
+                        return;
+                    var parent = false;
+                    var src = e["relatedTarget"] || e["explicitOriginalTarget"];
+                    if (src) {
+                        var node = src;
+                        do {
+                            if (!node)
+                                break;
                             if (_dom.hasClass(node, "bs-filterexpress")) {
                                 parent = true;
                                 break;
@@ -20352,7 +20487,7 @@ var Phoenix;
             FilterExpress.prototype._internalRenderMultiple = function () {
                 var that = this;
                 // Create nodes
-                var container = $('<form class="input-group"></form>');
+                var container = $('<div class="input-group"></div>');
                 var containerTools = $('<div class="input-group-btn"></div>');
                 that._nodeValidate = $("<button class='btn btn-default' type='button'><span class='" + _dom.iconClass(FilterExpress.VALIDATE_ICON_DEFAULT) + "'></span> " + FilterExpress.VALIDATE_TEXT_DEFAULT + "</button>");
                 var nodeSelectBtn = $('<button type="button" class="btn btn-default dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">&nbsp;<span class="caret"></span><span class="sr-only">Toggle Dropdown</span></button>');
@@ -24458,11 +24593,12 @@ var Phoenix;
                 var tt = _dom.query(that.$element.get(0), ".bs-toolbar-item-filter");
                 _dom.empty(tt);
                 _dom.append(tt, tooltip.get(0));
-                tooltip["tooltip"]({
-                    html: true,
-                    container: 'body',
-                    template: '<div class="tooltip bs-tooltip-help" role="tooltip"><div class="tooltip-arrow"></div><div class="tooltip-inner" style="text-align:left"></div></div>'
-                });
+                if (tooltip["tooltip"])
+                    tooltip["tooltip"]({
+                        html: true,
+                        container: 'body',
+                        template: '<div class="tooltip bs-tooltip-help" role="tooltip"><div class="tooltip-arrow"></div><div class="tooltip-inner" style="text-align:left"></div></div>'
+                    });
             };
             ToolElementFilter.prototype.update = function () {
                 var that = this;
@@ -24601,6 +24737,7 @@ var Phoenix;
             __extends(ToolbarForm, _super);
             function ToolbarForm(fp, options, form) {
                 _super.call(this, fp, options, form);
+                this._state();
             }
             ToolbarForm.prototype.destroy = function () {
                 var that = this;
@@ -24620,8 +24757,13 @@ var Phoenix;
                 var opts = that._initOptions(_ui.Utils.defaultOptions);
                 if (!that.$element) {
                     that.$element = $(that._createContainer(that.id));
+                    var toolElements = that.state.value._model.map(function (item) {
+                        var e = { type: item.type, name: item.name, title: item.title };
+                        e = $.extend(true, e, item.data);
+                        return e;
+                    });
                     var toptions = { selectToolElement: that._onSelectToolElement.bind(that) };
-                    var tb = new _ui.ToolBar(that.state.value.model(), toptions);
+                    var tb = new _ui.ToolBar(toolElements, toptions);
                     tb.render(that.$element);
                 }
                 that.appendElement($parent, opts);

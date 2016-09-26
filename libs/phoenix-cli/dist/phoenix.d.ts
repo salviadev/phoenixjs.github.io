@@ -261,17 +261,7 @@ declare namespace Phoenix {
             width: number;
             height: number;
         }, cssClass: string) => HTMLElement;
-        var bootstrapStyles: {
-            primary: string;
-            secondary: string;
-            default: string;
-            important: string;
-            success: string;
-            info: string;
-            danger: string;
-            warning: string;
-            link: string;
-        };
+        var bootstrapStyles: () => any;
     }
 }
 declare namespace Phoenix {
@@ -1320,12 +1310,15 @@ declare namespace Phoenix {
             onNatural(hnd: any): void;
         }
         class FormController {
+            static isFormController: boolean;
             storageName: string;
             bindProperty: string;
             data(): any;
             initObjectState(model: any): void;
+            modelChanged(action: any, model: any, form: any, modal?: any): void;
             onModelChanged(action: any, model: any, form: any, modal?: any): any;
         }
+        var formController2Options: (options: any, config: any) => void;
         var OpenModalForm: (formOptions: any, layout: any, schema: any, fdata: any, locale: any, handler: any) => void;
         var showModalForm: (opts: ModalFormOptions, data?: any) => void;
     }
@@ -1636,10 +1629,9 @@ declare namespace Phoenix {
             private _showSelected(cell, value, editable, mousedown);
             private canSelect(cell);
             private canEdit(cell);
-            private clearSelected();
             private _selectRow(id);
             private _selectCell(cell, target, mousedown);
-            private _selectFirstCell();
+            private _selectFirstCell(source);
             _cell(cell: any, addIndex: boolean): any;
             private _moveUpSelectedCell(count);
             protected resize(): void;
