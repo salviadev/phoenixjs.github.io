@@ -81,6 +81,17 @@ $(function() {
 		var selectionEnd = event.target.selectionEnd;
 		var selection = selectionEnd - selectionStart > 0;
 		
+		// Manage arrow keys
+		if (event.key == 'ArrowLeft') {
+			$(this).selectRange(selectionStart-1);
+			event.preventDefault();
+			return;
+		} else if (event.key == 'ArrowRight') {
+			$(this).selectRange(selectionStart+1);
+			event.preventDefault();
+			return;
+		}
+		
 		// Get context
 		var oldVal = selection ? getValWithoutSelection($(this).val(), selectionStart, selectionEnd): $(this).val();
 		// Manage negative numbers
