@@ -16,17 +16,157 @@
 	<script type="text/javascript" src="../libs/bootstrap-datepicker/dist/js/bootstrap-datepicker.js"></script>
     <script type="text/javascript" src="../libs/phoenix-cli/dist/js/phoenix.js"></script>
 	<script type="text/javascript" src="../libs/phoenix-cli/dist/js/phoenix.widgets.js"></script>
+	<script type="text/javascript" src="field_validator-montant.js"></script>
+	<script type="text/javascript" src="field_validator-date.js"></script>
 	<style>
 		input {
 			text-align: right;
 		}
+		.form-group {
+			margin-top: 2em;
+		}
+		h3 {
+			border-bottom: 1px solid black;
+		}
+		h2 {
+			color: red;
+			border-bottom: 2px solid red;
+		}
+		form {
+			margin-bottom: 20px;
+		}
 	</style>
 </head>
 <body>
-    <div class="container-fluid" id="form"> </div>
-    <script src="field_validator.js"></script>
-	<label for="montant">Montant</label>
-    <input type="text" class="form-control" id="montant">
+	<div class="col-md-10 col-md-offset-1">
+		<h2>Champ montant formatté</h2>
+	</div>
+	<div class="col-md-8 col-md-offset-2">
+		<h3>Affichage Montant</h3>
+		<form class="form-horizontal">
+			<div class="form-group">
+				<label class="col-sm-3" for="montant">Montant</label>
+				<div class="col-sm-9">
+					<input type="text" class="form-control" id="montant">
+				</div>
+			</div>
+			<div class="form-group">
+				<label class="col-sm-3" for="montant">Libellé montant</label>
+				<div class="col-sm-9">
+					<span id="libelle_montant_ent">erreur</span><br/>
+					<span id="libelle_montant_dec">erreur</span>
+				</div>
+			</div>
+		</form>
+		<h3>Réglages</h3>
+		<form class="form-horizontal">
+			<div class="col-sm-6">
+				<div class="form-group">
+					<label class="col-sm-3" for="montant">Langue traduction</label>
+					<div class="col-sm-9">
+						<select class="form-control" id="select_language_trad">
+							<option value="en">Anglais</option>
+							<option value="es">Espagnol</option>
+							<option value="fr">Français</option>
+							<option value="pt">Portugais</option>
+						</select>
+					</div>
+				</div>
+			</div>
+			<div class="col-sm-6">
+				<div class="form-group">
+					<label class="col-sm-3" for="montant">Langue affichage monétaire</label>
+					<div class="col-sm-9">
+						<select class="form-control" id="select_language_money">
+							<option value="al">Allemand</option>
+							<option value="en">Anglais</option>
+							<option value="ca">Canadien</option>
+							<option value="da">Danois</option>
+							<option value="es">Espagnol</option>
+							<option value="fi">Finlandais</option>
+							<option value="fr">Français</option>
+							<option value="it">Italien</option>
+							<option value="no">Norvégien</option>
+							<option value="su">Suédois</option>
+							<option value="th">Thai</option>
+						</select>
+					</div>
+				</div>
+			</div>
+			<div class="col-sm-12">
+				<div class="form-group">
+					<label class="col-sm-3" for="nb-decimals">Nombre décimales</label>
+					<div class="col-sm-9">
+						<input type="number" id="nb-decimals" class="form-control">
+					</div>
+				</div>
+			</div>
+			<div class="col-sm-6">
+				<div class="form-group">
+					<label class="col-sm-3" for="min-value">Valeur min</label>
+					<div class="col-sm-9">
+						<input type="number" id="min-value" class="form-control">
+					</div>
+				</div>
+			</div>
+			<div class="col-sm-6">
+				<div class="form-group">
+					<label class="col-sm-3" for="max-value">Valeur max</label>
+					<div class="col-sm-9">
+						<input type="number" id="max-value" class="form-control">
+					</div>
+				</div>
+			</div>
+			<div class="col-sm-6">
+				<div class="form-group">
+					<label class="col-sm-6" for="sepa-mille">Séparateur milliers<br/>(0 ou 1 caractère attendu)</label>
+					<div class="col-sm-6">
+						<input type="text" id="sepa-mille" class="form-control">
+					</div>
+				</div>
+			</div>
+			<div class="col-sm-6">
+				<div class="form-group">
+					<label class="col-sm-6 for="sepa-decimal">Séparateur décimales<br/>(1 caractère attendu)</label>
+					<div class="col-sm-6">
+						<input type="text" id="sepa-decimal" class="form-control">
+					</div>
+				</div>
+			</div>
+		</form>
+	</div>
+	<div class="col-md-10 col-md-offset-1">
+		<h2>Champ date formatté</h2>
+	</div>
+	<div class="col-md-8 col-md-offset-2">
+		<h3>Affichage date</h3>
+		<form class="form-horizontal">
+			<div class="form-group">
+				<label class="col-sm-3" for="date">Date</label>
+				<div class="col-sm-9">
+					<div class="input-group">
+						<input type="text" class="form-control" id="date">
+						<span class="date input-group-addon" data-date-format="mm/dd/yyyy" data-provide="datepicker">
+							<span class="glyphicon glyphicon-calendar"></span>
+						</span>
+					</div>
+				</div>
+			</div>
+		</form>
+		<h3>Réglages</h3>
+		<form class="form-horizontal">
+			<div class="form-group">
+				<label class="col-sm-3" for="montant">Format</label>
+				<div class="col-sm-9">
+					<select class="form-control" id="select_language" disabled>
+						<option value="ymd">YMD</option>
+						<option value="dmy">DMY</option>
+						<option value="mdy">MDY</option>
+					</select>
+				</div>
+			</div>
+		</form>
+	</div>
 </body>
 
 </html>
