@@ -1,6 +1,5 @@
 // Constants
-var separateur1 = "/";
-var separateur2 = " ";
+var separators = [' ', '/', '-'];
 
 $(function() {
 	$("#date").val(defaultValue());
@@ -18,9 +17,14 @@ $(function() {
 	
 	$("#date").change(function() {
 		var value = $(this).val();
-		var sep = "/";
-		if (value.indexOf(separateur1) == -1 && value.indexOf(separateur2) == -1) { $(this).val(defaultValue()); return; }
-		if (value.indexOf(separateur1) == -1) sep = separateur2;
+		
+		// Get separator
+		for (var i=0; i<separators.length; i++) {
+			var sep = separators[i];
+			if (value.indexOf(sep) != -1) break;
+		}
+		
+		// Get vals
 		var vals = value.split(sep);
 		if (vals.length != 3) { $(this).val(defaultValue()); return; }
 		for (var i=0; i<3; i++) vals[i] = parseInt(vals[i], 10);
