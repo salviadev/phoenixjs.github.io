@@ -1,18 +1,62 @@
 // Constants
 var separators = [' ', '/', '-'];
+var format = 'dd/mm/yyyy';
+var formatFunction = formatDDMMYYYY;
+var language = 'fr';
+var splitDay = 0;
+var splitMonth = 1;
+var splitYear = 2;
+var currentDate = new Date();
 
 $(function() {
 	$("#date").val(defaultValue());
 	
+	$("#date").click(function() {
+		$(this).select();
+	});
+	
 	$(".date").datepicker({
-		language: 'fr',
-		format: 'dd/mm/yyyy',
-		startDate: new Date().formatDDMMYYYY(),
+		language: language,
+		format: format,
+		startDate: formatFunction(new Date()),
 		autoclose: true
 	});
 	
+	$("#select-date-format").change(function() {
+		var value = $(this).val();
+		switch (value) {
+			case "dmy":
+				format = 'dd/mm/yyyy';
+				language = 'fr';
+				formatFunction = formatDDMMYYYY;
+				splitDay = 0; splitMonth = 1; splitYear = 2;
+			break;
+			case "mdy":
+				format = 'mm/dd/yyyy';
+				language = 'en';
+				formatFunction = formatMMDDYYYY;
+				splitDay = 1; splitMonth = 0; splitYear = 2;
+			break;
+			case "ymd":
+				format = 'yyyy/mm/dd';
+				language = 'en';
+				formatFunction = formatYYYYMMDD;
+				splitDay = 2; splitMonth = 1; splitYear = 0;
+			break;
+		}
+		$(".date").datepicker({
+			language: language,
+			format: format,
+			startDate: formatFunction(new Date()),
+			autoclose: true
+		});
+		
+		$("#date").val(formatFunction(currentDate));
+	});
+	
 	$(".date").datepicker().on('changeDate', function (ev) {
-		$("#date").val(new Date(ev.date).formatDDMMYYYY());
+		currentDate = new Date(ev.date);
+		$("#date").val(formatFunction(currentDate));
 	});
 	
 	$("#date").change(function() {
@@ -28,25 +72,27 @@ $(function() {
 		var vals = value.split(sep);
 		if (vals.length != 3) { $(this).val(defaultValue()); return; }
 		for (var i=0; i<3; i++) vals[i] = parseInt(vals[i], 10);
-		if (vals[2] < 100) vals[2] += 2000;
+		
+		// Format year
+		if (vals[splitYear] < 100) vals[splitYear] += 2000;
 		if (!validDate(vals)) { $(this).val(defaultValue()); return; }
-		var date = new Date(vals[2], vals[1] - 1, vals[0]);
-		$(this).val(date.formatDDMMYYYY());
-	});
-	
-	$("#date").click(function() {
-		$(this).select();
+		currentDate = new Date(vals[splitYear], vals[splitMonth] - 1, vals[splitDay]);
+		$(this).val(formatFunction(currentDate));
 	});
 });
 
 function defaultValue() {
-	return "01/01/1900";
+	var d = '1';
+	var m = '0';
+	var y = '1900';
+	currentDate = new Date(y, m, d);
+	return formatFunction(currentDate);
 }
 
 function validDate(bits) {
-	var d = bits[0];
-	var m = bits[1];
-	var y = bits[2];
+	var d = bits[splitDay];
+	var m = bits[splitMonth];
+	var y = bits[splitYear];
 	var date = new Date(y, m - 1, d);
 	return (date.getFullYear() == y && date.getMonth() + 1 == m && date.getDate() == d);
 }
@@ -55,8 +101,16 @@ Date.prototype.isValid = function () {
 	return this.getTime() === this.getTime();
 }
 
-Date.prototype.formatDDMMYYYY = function () {
-	return [pad(this.getDate()), pad(this.getMonth()+1), this.getFullYear()].join('/');
+function formatDDMMYYYY (date) {
+	return [pad(date.getDate()), pad(date.getMonth()+1), date.getFullYear()].join('/');
+}
+
+function formatMMDDYYYY (date) {
+	return [pad(date.getMonth()+1), pad(date.getDate()), date.getFullYear()].join('/');
+}
+
+function formatYYYYMMDD (date) {
+	return [date.getFullYear(), pad(date.getMonth()+1), pad(date.getDate())].join('/');
 }
 
 function pad(s) { return (s < 10) ? '0' + s : s; }
