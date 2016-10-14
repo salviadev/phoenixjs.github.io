@@ -142,7 +142,8 @@ $(function() {
 		var newVal = unformatMontant(start + event.key + end);
 		var newValIntervalle = limit(charNegative + newVal, minValue, maxValue);
 		$(this).val(newValIntervalle);
-		setCaretPos($(this), unformatMontant(start).length+1);
+		var correctionCaret = start == '0' ? 0 : 1;
+		setCaretPos($(this), unformatMontant(start).length + correctionCaret);
 		updateLibelleMontant();
 		event.preventDefault();
 	});
