@@ -1,3 +1,4 @@
+
 /* global Phoenix */
 $(function () {
 	var schema = {
@@ -20,68 +21,66 @@ $(function () {
 
 
 	};
-	var layout =
-
-		{
-			"$type": "block",
-			"$items": [
-				{
-					"$items": [
-						{
-							"$type": "accordion",
-							"$widget": "tabs",
-							"$items": [
-								{
-									"opened": true,
-									"$type": "accordion-group",
-									"$items": [{ "$type": "block", "$items": [{ "$bind": "PV" }] }]
-								},
-								{
-									"$type": "accordion-group",
-									"$items": [{ "$type": "block", "$items": [{ "$bind": "Price" }] }]
-								}
-							]
-						},
-						{
-							"$type": "block",
-							"$items": [{ "$bind": "Name" }]
-						},
-						{
-							"$type": "row",
-							"$items": [
-								{
-									"$items": [{ "$bind": "Type" }, { "$bind": "DateOfBirth" }],
-									"$colSize": 6
-								},
-								{
-									"$items": [{ "$bind": "PV" }, { "$bind": "Price" }],
-									"$colSize": 6
-								}
-							]
-						}
-					],
-					"$type": "block"
-				},
-				{
-					"$type": "row",
-					"$items": [
-						{
-							"$items": [],
-							"$colSize": 6
-						},
-						{
-							"$items": [{ "$bind": "$links.save", "options": { "right": true, "type": "success"} }],
-							"$colSize": 6,
-							"$inline": true,
-							"$fieldsOptions": {
-								"columns": false
+	var layout = {
+		"$type": "block",
+		"$items": [
+			{
+				"$type": "accordion",
+				"$widget": "tabs",
+				"$items": [
+					{
+						"opened": true,
+						"$type": "accordion-group",
+						"$items": [{"$type": "block", "$items": [{ "$bind": "PV" }] }]
+					},
+					{
+						"$type": "accordion-group",
+						"$items": [{"$type": "block", "$items": [{ "$bind": "Price" }] }]
+					}
+				]
+			},
+			{
+				"$items": [
+					{
+						"$type": "block",
+						"$items": [{ "$bind": "Name" }]
+					},
+					{
+						"$type": "row",
+						"$items": [
+							{
+								"$items": [{ "$bind": "Type" }, { "$bind": "DateOfBirth" }],
+								"$colSize": 6
+							},
+							{
+								"$items": [{ "$bind": "PV" }, { "$bind": "Price" }],
+								"$colSize": 6
 							}
+						]
+					}
+				],
+				"$type": "block"
+			},
+			{
+				"$type": "row",
+				"$items": [
+					{
+						"$items": [],
+						"$colSize": 6
+					},
+					{
+						"$items": [{ "$bind": "$links.save", "options": { "right": true, "type": "success" } }],
+						"$colSize": 6,
+						"$inline": true,
+						"$fieldsOptions": {
+							"columns": false
 						}
-					]
-				}
-			],
-			"form": true
-		};
+					}
+				]
+			}
+		],
+		"form": true
+	};
 
 	var tbData = {
 		"$type": "groups",
@@ -98,21 +97,15 @@ $(function () {
 		]
 	};
 
-	var pe = new Phoenix.ui.PropertyEditor({ design: true, form: true });
-	pe.render($('#editor'));
+	var pe = new Phoenix.authoring.AuthoringEditor({ design: true, form: true }, tbData);
+	pe.render($('#auth'));
 
 	Phoenix.ui.OpenForm($('#content'), layout, schema, { Name: 'Taupiqueur', Type: 'ground', DateOfBirth: '2001-01-12', PV: 120, Price: 15000 }, {}, function () { }, { design: true }, function (form) {
 		form.saveHandler = function (cd) {
 			console.log(JSON.stringify(cd, null, 2));
 		};
 
-	});
-	var tb = new Phoenix.ui.ToolBox(tbData, { design: true, form: true });
-	tb.render($('#toolbox'));
-
-	tb = new Phoenix.ui.AuthoringToolBar({ design: true, form: true });
-	tb.render($('#nav'));
-
+	});	
 
 });
 

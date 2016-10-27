@@ -22,9 +22,19 @@
 			"$moduleTitle": "Tabs",
 			"$titleIsHidden": true,
 			"data": {
-				"tabs" : []
+				"tabs": []
+			}
+		},
+		"image-menu-item": {
+			"$moduleTitle": "Menu as Image",
+			"$titleIsHidden": true,
+			"data": {
+				"menu": {
+					"link": "Enter link name",
+					"imageSrc": "Enter image path",
+					"title": "Enter link title"
+				}
 			}
 		}
-		
 	}
 }

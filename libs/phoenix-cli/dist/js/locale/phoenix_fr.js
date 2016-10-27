@@ -42,6 +42,7 @@ var Phoenix;
             "Disconnect": "Déconnexion",
             "Confirm": "Confirmation",
             "Validate": "Valider",
+            "Create": "Créer",
             "password": {
                 "oldPassword": "Ancien mot de passe",
                 "newPassword": "Nouveau mot de passe",

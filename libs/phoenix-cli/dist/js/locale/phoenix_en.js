@@ -42,6 +42,7 @@ var Phoenix;
             "Disconnect": "Disconnect",
             "Confirm": "Confirm",
             "Validate": "Validate",
+            "Create": "create",
             "password": {
                 "oldPassword": "Old Password",
                 "newPassword": "New Password",

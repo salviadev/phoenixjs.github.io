@@ -525,6 +525,39 @@ var Phoenix;
 var Phoenix;
 (function (Phoenix) {
     if (angular) {
+        var _utils = Phoenix.utils, _ui = Phoenix.ui;
+        var app = angular.module("phoenix.ui");
+        app.directive('widgetImageMenuItem', [function () {
+                return {
+                    scope: {
+                        module: '='
+                    },
+                    restrict: 'E',
+                    replace: true,
+                    compile: function (tElem, tAttrs) {
+                        return {
+                            pre: function (scope, element, attrs) {
+                                scope.component = new _ui.ImageMenuItem({}, $.extend(true, {}, scope.module.props.data.menu));
+                                scope.component.module = scope.module;
+                                scope.component.render(element);
+                                scope.$on("$destroy", function () {
+                                    _utils.log('destroy image menu item', 'scope');
+                                    if (scope.component)
+                                        scope.component.destroy();
+                                });
+                            },
+                            post: function (scope, element, attrs) {
+                            }
+                        };
+                    }
+                };
+            }]);
+    }
+})(Phoenix || (Phoenix = {}));
+//# sourceMappingURL=angular.image.menu.item.js.map
+var Phoenix;
+(function (Phoenix) {
+    if (angular) {
         var _utils = Phoenix.utils, app = angular.module("phoenix.ui");
         app.directive('widgetJson', [function () {
                 return {
@@ -775,7 +808,7 @@ var Phoenix;
 var Phoenix;
 (function (Phoenix) {
     if (angular) {
-        var _utils = Phoenix.utils, _ui = Phoenix.ui;
+        var _utils = Phoenix.utils, _tabs = Phoenix.tabs;
         var app = angular.module("phoenix.ui");
         app.directive('tabs', [function () {
                 return {
@@ -787,7 +820,7 @@ var Phoenix;
                     compile: function (tElem, tAttrs) {
                         return {
                             pre: function (scope, element, attrs) {
-                                scope.component = new _ui.Tabs({ replaceParent: true }, scope.tabs);
+                                scope.component = new _tabs.Tabs({ replaceParent: true }, scope.tabs);
                                 scope.component.render(element);
                                 scope.$on("$destroy", function () {
                                     _utils.log('destroy tabs', 'scope');
@@ -809,7 +842,7 @@ var Phoenix;
                     compile: function (tElem, tAttrs) {
                         return {
                             pre: function (scope, element, attrs) {
-                                scope.component = new _ui.Tabs({ replaceParent: true }, scope.module.props.data.tabs);
+                                scope.component = new _tabs.Tabs({ replaceParent: true }, scope.module.props.data.tabs);
                                 scope.component.render(element);
                                 scope.$on("$destroy", function () {
                                     _utils.log('destroy tabs', 'scope');

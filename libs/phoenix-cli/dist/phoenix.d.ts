@@ -1,4 +1,6 @@
-/// <reference path="../typings/index.d.ts" />
+/// <reference types="es6-promise" />
+/// <reference types="angular" />
+/// <reference types="jquery" />
 declare namespace Phoenix {
     module utils {
         var Promise: any;
@@ -32,6 +34,7 @@ declare namespace Phoenix {
         var alert: (title: any, message: any, success: any) => void;
         var prompt: (title: string, defaultValue: string, success: (res: string) => void) => void;
         var cleanUpObject: (src: any) => void;
+        var getValue: (value: any, path: string) => any;
     }
 }
 declare namespace Phoenix {
@@ -42,6 +45,7 @@ declare namespace Phoenix {
         var changePasswordHandler: Function;
         var checkLoggedInHandler: Function;
         var historyChangedHandler: Function;
+        var formOpenHandler: Function;
         var preferenceLoadHandler: (name: string) => Promise<any>;
         var preferenceSaveHandler: (name: string, data: any) => Promise<void>;
     }
@@ -63,7 +67,7 @@ declare namespace Phoenix {
     }
 }
 declare namespace Phoenix {
-    module utils {
+    module serial {
         class Serial {
             private _eventList;
             private _inExec;
@@ -109,6 +113,7 @@ declare namespace Phoenix {
     var build: {
         version: string;
         release: boolean;
+        authMode: string;
     };
 }
 declare namespace Phoenix {
@@ -134,6 +139,7 @@ declare namespace Phoenix {
         function init(appName: string, appTitle: string, config?: any): void;
         function portailName(): string;
         function isPortail(): boolean;
+        function isCustomizable(typeRes: string, resName: string): boolean;
     }
 }
 declare namespace Phoenix {
@@ -174,6 +180,7 @@ declare namespace Phoenix {
         var localeDate2ISO: (value: any) => string;
         var date2ISO: (value: any) => string;
         var string2Float: (value: any) => number;
+        var tryParseDate: (value: any) => string;
         var localeTitle: (title: any) => any;
         function loadLocale(newLang: any): void;
     }
@@ -187,6 +194,7 @@ declare namespace Phoenix {
     var bootstrap4: boolean;
     module dom {
         var readyHandlers: (() => void)[];
+        var finalizeHandlers: any[];
         const keys: {
             VK_TAB: number;
             VK_UP: number;
@@ -237,6 +245,7 @@ declare namespace Phoenix {
         var isChildOf: (parent: Node, child: Node) => boolean;
         var parseStyle: (style: any, css: any) => void;
         var ignoreKeys: number[];
+        var arrowKeys: number[];
         var processing: (value: any) => void;
         var inProcessing: () => boolean;
         var scrollbar: () => number;
@@ -261,7 +270,12 @@ declare namespace Phoenix {
             width: number;
             height: number;
         }, cssClass: string) => HTMLElement;
+        var featureTest: (property: string, value: string, noPrefixes: boolean) => boolean;
+        var getPx: (unit: string) => number;
+        var removeStype: (d: any, name: any) => void;
+        var rem2px: (value: number) => number;
         var bootstrapStyles: () => any;
+        var selectRange: (input: HTMLInputElement, start: number, end?: number) => void;
     }
 }
 declare namespace Phoenix {
@@ -299,6 +313,125 @@ declare namespace Phoenix {
     }
 }
 declare namespace Phoenix {
+}
+declare namespace Phoenix {
+    module ui {
+    }
+}
+declare namespace Phoenix {
+    module events {
+        class EventManager {
+            private _isDisabled;
+            constructor();
+            disable(): void;
+            enable(): void;
+        }
+        var mouseEvents: (eventType: string) => string;
+        function isLeftButton(eventObject: JQueryMouseEventObject): boolean;
+        function stopEvent(eventObject: any): void;
+        function point(event: any): {
+            x: number;
+            y: number;
+        };
+        var eventManager: EventManager;
+    }
+}
+declare namespace Phoenix {
+    module drag {
+        class DragAndDropManager {
+            private _listeners;
+            private _current;
+            private _coverId;
+            private _md;
+            private _mu;
+            private _mm;
+            constructor();
+            initialize(): void;
+            finalize(): void;
+            startMouseMove(): void;
+            stopMouseMove(): void;
+            private _canExecuteEvent(event);
+            private mouseUp(eventObject);
+            private mouseDownEmpty(eventObject);
+            private mouseMove(eventObject);
+            addDrag(listeners: HTMLElement[]): DragElement;
+            rmvDrag(drag: DragElement): void;
+            setCurrent(dragObject: DragElement): boolean;
+            cancelDrag(): void;
+            cover(value: boolean, cursor?: string, zindex?: number): void;
+        }
+        class DragElement {
+            minLeft: number;
+            maxLeft: number;
+            minTop: number;
+            maxTop: number;
+            currentLeft: number;
+            currentTop: number;
+            moveX: boolean;
+            moveY: boolean;
+            stopEvent: boolean;
+            floatElement: HTMLElement;
+            floatParent: HTMLElement;
+            startOffset: any;
+            startPoint: any;
+            currentPoint: any;
+            data: any;
+            private mouseMoveCount;
+            private _elements;
+            private _mdEvent;
+            inDragging: boolean;
+            coverDocument: boolean;
+            cursor: string;
+            onDragEnd: any;
+            onDragStart: any;
+            onDrag: any;
+            canStartDragHandler: any;
+            constructor(elements: HTMLElement[]);
+            clear(): void;
+            private _removeEvents();
+            private _setEvents();
+            private mousedown(eventObject);
+            finalize(): void;
+            ready(eventObject: JQueryMouseEventObject): boolean;
+            notifyDrag(eventObject: JQueryMouseEventObject): void;
+            private notifyDragStart(eventObject);
+            private canStartDrag(event);
+            private canDrop(value);
+            notifyDragEnd(doCancel: any, event: JQueryMouseEventObject): void;
+        }
+        var dragManager: DragAndDropManager;
+        var setData: (data: any) => void;
+        var getData: () => any;
+    }
+}
+declare namespace Phoenix {
+    module sticky {
+        var topOffset: number;
+        var bottomOffset: number;
+        class StickyManager {
+            private _map;
+            private _list;
+            private _scroll;
+            private _resize;
+            private _refreshTimer;
+            private _scrollTimer;
+            add(element: {
+                id: string;
+                element: HTMLElement;
+                position: string;
+            }): void;
+            remove(id: string): void;
+            initialize(): void;
+            private _updateElements(onlyActive);
+            private _onscroll();
+            private _onresize();
+            private _refresh(scroll);
+            refresh(scroll: boolean): void;
+            finalize(): void;
+        }
+        var stickyManager: StickyManager;
+        var native: boolean;
+    }
 }
 declare namespace Phoenix {
     module data {
@@ -414,7 +547,7 @@ declare namespace Phoenix {
     }
 }
 declare namespace Phoenix {
-    module ui {
+    module pagecontrol {
         class PageControl {
             private data;
             private lastError;
@@ -431,7 +564,7 @@ declare namespace Phoenix {
             emittersFor(events: any): any[];
             _historyChanged(): void;
             _notifyChange(propertyName: any): void;
-            _notifyChildOnAdd(child: any): void;
+            private _notifyChildOnAdd(child, type);
             _notifyChildren(propName: any, value: any): void;
             registerDataListener(value: any, parent: any): void;
             removeDataListener(listener: any): void;
@@ -455,7 +588,7 @@ declare namespace Phoenix {
     }
 }
 declare namespace Phoenix {
-    module ui {
+    module modal {
         class Modal {
             private $element;
             private _inProcessing;
@@ -591,9 +724,10 @@ declare namespace Phoenix {
     }
 }
 declare namespace Phoenix {
-    module ui {
+    module menubase {
         class MenuBase {
             _lastEvent: any;
+            protected _map: any;
             props: any;
             datasets: any;
             loadingHandler: Function;
@@ -603,7 +737,7 @@ declare namespace Phoenix {
             getLocalContextHandler: Function;
             dataChangedHandler: Function;
             updateMenuHandler: Function;
-            page: PageControl;
+            page: pagecontrol.PageControl;
             data: any;
             protected $items: any;
             protected items: any;
@@ -629,11 +763,12 @@ declare namespace Phoenix {
             emitDataEvent(event: any, value: any, filter: any): void;
             onPageChange(propName: any, value: any): void;
             setMenu(data: any): void;
-            _onPageChanged(): void;
+            protected _onPageChanged(): void;
             _doCloseClick(): void;
             _menuShowed(): void;
             _executeLink(item: any, link: any): void;
             _setEvents(): void;
+            protected updateItemsAfterCollapse(): void;
             renderItems($content: JQuery): JQuery;
             _removeEvents(): void;
             _loadData(after: any): any;
@@ -645,7 +780,10 @@ declare namespace Phoenix {
             };
             _expandDatasetItems(dataset: any, itemtitle: any, link: any): any[];
             copyMenuItemData(dst: any, src: any): void;
-            _prepareItems(): void;
+            protected isVisible(item: any): boolean;
+            protected colapseAll(value: boolean): void;
+            protected colapse(item: any, value: boolean, recursive: boolean): void;
+            private _prepareItems();
             _removeContent(): void;
             renderContent(): JQuery;
             show($parent: any): void;
@@ -660,8 +798,8 @@ declare namespace Phoenix {
     }
 }
 declare namespace Phoenix {
-    module ui {
-        class Menu extends MenuBase {
+    module menu {
+        class Menu extends menubase.MenuBase {
             constructor(ldata: any, options: any);
             _initOptions(options: any): void;
             _hideContent(autoCloseChanged: any): void;
@@ -669,13 +807,15 @@ declare namespace Phoenix {
             _switchAutoClose(): boolean;
             _doCloseClick(): void;
             copyMenuItemData(dst: any, src: any): void;
-            _updateCloseButton($content: any): boolean;
+            private _updateCloseButton($content);
             renderContent(): JQuery;
-            _changeSelected(item: any): void;
-            _selectDatasetItem(dataset: any, item: any): void;
-            _canClick(item: any): any;
+            private _changeSelected(item);
+            private _selectDatasetItem(dataset, item);
+            private _expandSelected(item);
+            private _canClick(item);
             render($parent?: JQuery): void;
             renderItems(): JQuery;
+            protected updateItemsAfterCollapse(): void;
             _executeLink(item: any, link: any): any;
             _onPageChanged(): void;
         }
@@ -685,6 +825,50 @@ declare namespace Phoenix {
 }
 declare namespace Phoenix {
     module ui {
+        class Header {
+            private $element;
+            private $parent;
+            private $location;
+            private _location;
+            private _locationTimeOut;
+            private _ignoreClick;
+            private _ctx;
+            private $buttons;
+            private _ob;
+            page: any;
+            title: string;
+            private leftButtonsSpace;
+            private rightButtonsSpace;
+            private _doResize;
+            options: any;
+            constructor(data: any, options: any);
+            setLocation(value: string, add: boolean): void;
+            private _init(data, options);
+            private _show();
+            setData(data: any): void;
+            buttonByType(value: any): any;
+            _createButtons(): void;
+            _updateButtons(): void;
+            private _updateTitleSpaceMargins();
+            inPopup(target: any): boolean;
+            hide(target: any): void;
+            private _openPopup(button);
+            private _executeLink(button, si);
+            private _onresize();
+            private _setEvents();
+            setPage(pageName: string, value: any): void;
+            onPageChange(propName: any, value: any): void;
+            private _removeEvents();
+            renderButtons(): void;
+            private _renderTitle();
+            private _auth(inRender);
+            render($parent: any): void;
+            destroy(): void;
+        }
+    }
+}
+declare namespace Phoenix {
+    module tabs {
         class Tabs {
             private _options;
             private _page;
@@ -714,13 +898,14 @@ declare namespace Phoenix {
         var afterRemoveChild: (layout: any, map: any, mapFields: any, namedMap: any, namedMapFields: any) => void;
         var canSelect: (layout: any, level: any) => boolean;
         var updateCssClass: (e: any, layout: any, parent: any, options: any) => void;
-        var toHtml: (layout: any, model: any, llocale: any, options: any) => string;
+        var toHtml: (layout: any, model: any, llocale: any, options: any, cb: any) => string;
     }
 }
 declare namespace Phoenix {
     module ui {
         class BaseLayout {
             map: any;
+            autoClose: boolean;
             expressionTitle: boolean;
             mapFields: any;
             namedMap: any;
@@ -729,13 +914,16 @@ declare namespace Phoenix {
             $element: JQuery;
             protected $content: JQuery;
             protected resizeList: any[];
+            protected stickies: any;
+            protected activeStickies: any;
+            any: any;
             protected currentResizeList: any[];
             protected afterRenderList: any[];
             options: any;
             data: any;
             children: any;
             controls: any;
-            page: PageControl;
+            page: pagecontrol.PageControl;
             private _disableRules;
             constructor(ldata: any, options: any, fdata: any, schema: any, locale: any, preferences: any);
             _afterCreate(): void;
@@ -769,8 +957,11 @@ declare namespace Phoenix {
             _renderLayoutContent(layout: any): void;
             _isVisible(id: any): boolean;
             _renderChildren($e: any): any[];
-            _refreshCurrentResizeList(): void;
-            _clearChildren(): void;
+            private _afterVisibilityChanged(options);
+            private _refreshStickies(refresh);
+            private _refreshCurrentResizeList();
+            private _clearSticks();
+            private _clearChildren();
             _refreshSelected(): void;
             registerDataListener(value: any): void;
             removeDataListener(listener: any): void;
@@ -829,6 +1020,25 @@ declare namespace Phoenix {
             constructor(ldata: any, options: any, fdata: any, schema: any, locale: any, preferences: any);
         }
         var LayoutClass: typeof Layout;
+    }
+}
+declare namespace Phoenix {
+    module autoclose {
+        const SCREEN_CENTER: string;
+        const SCREEN_TOP_CENTER: string;
+        const BOTTOM_LEFT: string;
+        const BOTTOM_RIGHT: string;
+        function open(align: string, options: {
+            width?: string;
+            height?: string;
+            minWidth?: string;
+            minHeight?: string;
+            style?: string;
+            parent: HTMLElement;
+            alignElement: HTMLElement;
+            contentRender: any;
+            beforeClose: any;
+        }): void;
     }
 }
 declare namespace Phoenix {
@@ -1034,6 +1244,9 @@ declare namespace Phoenix {
             constructor(schema: any, parent: any, path: any, value: any, arrayParent: any, locale: any);
             $selected: any;
             pushSelected(item: Data, persistent: boolean): void;
+            model(original?: boolean): any[];
+            private _getModel(original);
+            protected _initModelInParent(): void;
             removeSelected(item: Data, persistent: boolean): void;
             protected notifyChangedProperty(propName: string): void;
             addAjaxException(ex: any): any;
@@ -1119,6 +1332,7 @@ declare namespace Phoenix {
         }
         class Data {
             private _schema;
+            private _initialized;
             private _selected;
             private _model;
             private _origModel;
@@ -1222,7 +1436,7 @@ declare namespace Phoenix {
 }
 declare namespace Phoenix {
     module ui {
-        class Form extends BaseLayout {
+        class Form extends ui.BaseLayout {
             private $bind;
             $schema: any;
             $rootSchema: any;
@@ -1232,6 +1446,7 @@ declare namespace Phoenix {
             module: any;
             onaction: Function;
             inAction: boolean;
+            private _nestedControllers;
             private _localSettings;
             private _settingsName;
             private _settings;
@@ -1261,6 +1476,10 @@ declare namespace Phoenix {
             protected clearErrors(): void;
             protected showErrorItem(error: any, clear: any): void;
             protected afterRenderChildren($e: any): void;
+            private _loadNestedControllers();
+            hasNestedControllers(): boolean;
+            modelCreated(data: any): void;
+            modelChanged(action: any, model: any, form: any, modal: any): void;
             protected afterRender($e: JQuery): void;
             stateChanged(propName: any, params: any): void;
             getSchema(path: string): any;
@@ -1298,29 +1517,70 @@ declare namespace Phoenix {
 declare namespace Phoenix {
     module ui {
         interface ModalFormOptions {
-            name: string;
-            meta: string;
+            name: any;
+            meta: any;
             controller: string;
+            autoClose?: any;
             options: any;
             locale?: any;
         }
-        class ModalForm extends Modal {
+        class ModalForm extends modal.Modal {
             constructor(formOptions: any, layout: any, schema: any, data: any, locale: any, preferences: any);
             on(hnd: any): void;
             onNatural(hnd: any): void;
         }
         class FormController {
-            static isFormController: boolean;
+            isFormController(): boolean;
             storageName: string;
             bindProperty: string;
             data(): any;
-            initObjectState(model: any): void;
+            beforeSetModel(model: any, form: any): void;
+            initObjectState(model: any, form?: any): void;
             modelChanged(action: any, model: any, form: any, modal?: any): void;
             onModelChanged(action: any, model: any, form: any, modal?: any): any;
         }
         var formController2Options: (options: any, config: any) => void;
         var OpenModalForm: (formOptions: any, layout: any, schema: any, fdata: any, locale: any, handler: any) => void;
         var showModalForm: (opts: ModalFormOptions, data?: any) => void;
+        var showAutoCloseForm: (opts: ModalFormOptions, data?: any) => void;
+    }
+}
+declare namespace Phoenix {
+    module uiutils {
+        var utils: {
+            useDatePicker: () => boolean;
+            nativeDate: () => boolean;
+            nativeNumber: () => boolean;
+            addErrorDiv: (html: any) => void;
+            keyPressPassword: (event: JQueryEventObject, input: HTMLInputElement, options: any) => boolean;
+            keyPressDate: (event: JQueryEventObject, input: HTMLInputElement, options: any) => boolean;
+            keyPressCode: (event: JQueryEventObject, input: HTMLInputElement, options: any) => boolean;
+            keyPressNumber: (event: JQueryEventObject, input: HTMLInputElement, options: any) => boolean;
+            doPasteDate: (event: JQueryEventObject, input: HTMLInputElement, options: any) => boolean;
+            doPasteCode: (event: JQueryEventObject, input: HTMLInputElement, options: any) => boolean;
+            doPasteNumber: (event: JQueryEventObject, input: HTMLInputElement, options: any) => boolean;
+            doPastePassword: (event: JQueryEventObject, input: HTMLInputElement, options: any) => boolean;
+            keyDownDate: (event: JQueryEventObject, input: HTMLInputElement, options: any) => boolean;
+            keyDownCode: (event: JQueryEventObject, input: HTMLInputElement, options: any) => boolean;
+            keyDownNumber: (event: JQueryEventObject, input: HTMLInputElement, options: any) => boolean;
+            keyDownPassword: (event: JQueryEventObject, input: HTMLInputElement, options: any) => boolean;
+            addContainerId: (html: string[], authoring: boolean) => void;
+            containerBaseClass: (groupClass: string, authoring: boolean, options: any) => string;
+            align2Css: (align: string) => string;
+            fieldWrapper: (html: string[], options: any, authoring: boolean, after: Function, customizer?: any) => void;
+            fillSelect(enums: any[], input: any, schema: any): void;
+            datePickerSetValue: ($element: JQuery, value: string) => void;
+            datePickerInitialize: ($element: JQuery, opts: any, onHide: any) => void;
+            datePickerDestroy: ($element: JQuery) => void;
+            text2value(textValue: string, schema: any, state: any): any;
+            defaultOptions: {
+                titleIsHidden: boolean;
+                placeHolder: boolean;
+                labelCol: number;
+            };
+            displayValue: (value: any, schema: any, locale: any, options: any, item: any, fieldName?: string) => any;
+            addTooltip: (html: any, description: any, options?: any) => void;
+        };
     }
 }
 declare namespace Phoenix {
@@ -1365,33 +1625,8 @@ declare namespace Phoenix {
             destroy(): void;
             protected showErrors(element: any, errors: any): void;
         }
-        var Utils: {
-            useDatePicker: () => boolean;
-            nativeDate: () => boolean;
-            nativeNumber: () => boolean;
-            addErrorDiv: (html: any) => void;
-            keyPressPassword: (event: JQueryEventObject) => boolean;
-            keyPressCode: (event: JQueryEventObject) => boolean;
-            keyPressNumber: (event: JQueryEventObject) => boolean;
-            getRegisteredControl: (type: string, isEnum: boolean, widget: string, format: string, options: any) => any;
-            addContainerId: (html: string[], authoring: boolean) => void;
-            containerBaseClass: (groupClass: string, authoring: boolean, options: any) => string;
-            align2Css: (align: string) => string;
-            fieldWrapper: (html: string[], options: any, authoring: boolean, after: Function, customizer?: any) => void;
-            fillSelect(enums: any[], input: any, schema: any): void;
-            datePickerSetValue: ($element: JQuery, value: string) => void;
-            datePickerInitialize: ($element: JQuery, opts: any, onHide: any) => void;
-            datePickerDestroy: ($element: JQuery) => void;
-            text2value(textValue: string, schema: any, state: any): any;
-            defaultOptions: {
-                titleIsHidden: boolean;
-                placeHolder: boolean;
-                labelCol: number;
-            };
-            displayValue: (value: any, schema: any, locale: any, options: any, item: any, fieldName?: string) => any;
-            addTooltip: (html: any, description: any, options?: any) => void;
-        };
         var registerControl: (factory: any, type: string, isEnum: boolean, widget: string, options?: any) => void;
+        var getRegisteredControl: (type: string, isEnum: boolean, widget: string, format: string, options: any) => any;
     }
 }
 declare namespace Phoenix {
@@ -1410,89 +1645,33 @@ declare namespace Phoenix {
     }
 }
 declare namespace Phoenix {
-    module events {
-        class EventManager {
-            private _isDisabled;
-            constructor();
-            disable(): void;
-            enable(): void;
+    module formcomplex {
+        class ComplexBase extends ui.AbsField {
+            constructor(fp: any, options: any, form: any);
+            click(event: any): void;
+            private _setDisabled(element);
+            private _setReadOnly(element);
+            private _setMandatory(element);
+            private _state2UI();
+            protected renderContent(parent: any): void;
+            changed(propName: any, ov: any, nv: any, op: any): void;
+            stateChanged(propName: any, params: any): void;
+            render($parent: any): JQuery;
         }
-        var mouseEvents: (eventType: string) => string;
-        function isLeftButton(eventObject: JQueryMouseEventObject): boolean;
-        function stopEvent(eventObject: any): void;
-        function point(event: any): {
-            x: number;
-            y: number;
-        };
-        var eventManager: EventManager;
     }
 }
 declare namespace Phoenix {
-    module drag {
-        class DragAndDropManager {
-            private _listeners;
-            private _current;
-            private _coverId;
-            private _md;
-            private _mu;
-            private _mm;
-            constructor();
-            initialize(): void;
-            finalize(): void;
-            startMouseMove(): void;
-            stopMouseMove(): void;
-            private _canExecuteEvent(event);
-            private mouseUp(eventObject);
-            private mouseDownEmpty(eventObject);
-            private mouseMove(eventObject);
-            addDrag(listeners: HTMLElement[]): DragElement;
-            rmvDrag(drag: DragElement): void;
-            setCurrent(dragObject: DragElement): boolean;
-            cancelDrag(): void;
-            cover(value: boolean, cursor?: string, zindex?: number): void;
+    module formarray {
+        class ArrayControl extends formcomplex.ComplexBase {
+            private _map;
+            private _render;
+            customOptions(options: any): void;
+            protected renderContent(parent: any): void;
+            destroy(): void;
+            setEvents(opts: any): void;
+            removeEvents(): void;
+            click(event: any): void;
         }
-        class DragElement {
-            minLeft: number;
-            maxLeft: number;
-            minTop: number;
-            maxTop: number;
-            currentLeft: number;
-            currentTop: number;
-            moveX: boolean;
-            moveY: boolean;
-            stopEvent: boolean;
-            floatElement: HTMLElement;
-            floatParent: HTMLElement;
-            startOffset: any;
-            startPoint: any;
-            currentPoint: any;
-            data: any;
-            private mouseMoveCount;
-            private _elements;
-            private _mdEvent;
-            inDragging: boolean;
-            coverDocument: boolean;
-            cursor: string;
-            onDragEnd: any;
-            onDragStart: any;
-            onDrag: any;
-            canStartDragHandler: any;
-            constructor(elements: HTMLElement[]);
-            clear(): void;
-            private _removeEvents();
-            private _setEvents();
-            private mousedown(eventObject);
-            finalize(): void;
-            ready(eventObject: JQueryMouseEventObject): boolean;
-            notifyDrag(eventObject: JQueryMouseEventObject): void;
-            private notifyDragStart(eventObject);
-            private canStartDrag(event);
-            private canDrop(value);
-            notifyDragEnd(doCancel: any, event: JQueryMouseEventObject): void;
-        }
-        var dragManager: DragAndDropManager;
-        var setData: (data: any) => void;
-        var getData: () => any;
     }
 }
 declare namespace Phoenix {
@@ -1514,6 +1693,7 @@ declare namespace Phoenix {
                 isInputElement: boolean;
                 canSelect: boolean;
                 schema: any;
+                decimals?: number;
             };
             updateInplaceEdit: (inplace: any, svalue: string, value: any, state: any, parent: HTMLElement, cell: any, col: any, opts: any) => void;
             createDetail: (id: string, childBefore: HTMLElement) => HTMLElement;
@@ -1678,8 +1858,8 @@ declare namespace Phoenix {
     }
 }
 declare namespace Phoenix {
-    module ui {
-        class Check extends AbsField {
+    module formcheck {
+        class Check extends ui.AbsField {
             constructor(fp: any, options: any, form: any);
             _input(): HTMLInputElement;
             _check(): HTMLElement;
@@ -1733,7 +1913,7 @@ declare namespace Phoenix {
     }
 }
 declare namespace Phoenix {
-    module ui {
+    module formdropitems {
         class DropItems {
             opened: boolean;
             private static itemHeight;
@@ -1772,8 +1952,8 @@ declare namespace Phoenix {
     }
 }
 declare namespace Phoenix {
-    module ui {
-        class BaseEdit extends AbsField {
+    module formedit {
+        class BaseEdit extends ui.AbsField {
             protected _doSelect: boolean;
             protected _hasSymbol: boolean;
             constructor(fp: any, options: any, form: any);
@@ -1816,7 +1996,10 @@ declare namespace Phoenix {
             setEvents(opts: any): void;
             removeEvents(): void;
             checkValue(value: any, after: any): void;
+            paste(event: JQueryEventObject): boolean;
+            private _ignoreKeys(event, keyPress);
             keypress(event: JQueryEventObject): boolean;
+            keydown(event: JQueryEventObject): boolean;
             equals(nv: any): boolean;
             focusOut(event: JQueryEventObject): void;
             destroy(): void;
@@ -1824,38 +2007,17 @@ declare namespace Phoenix {
     }
 }
 declare namespace Phoenix {
-    module ui {
-        class EnumList extends AbsField {
-            constructor(fp: any, options: any, form: any);
-            protected _setDisabled(input: any, element: any): void;
-            protected _setReadOnly(input: any, element: any): void;
-            protected _setErrors(input: any, element: any): void;
-            protected _setMandatory(input: any, element: any): void;
-            protected _input(): HTMLElement;
-            protected _state2UI(isCreate: boolean): void;
-            mousedown(event: any): boolean;
-            private _getEnumsNames();
-            private _getEnums();
-            private _toggleEnumByIndex(index);
-            keypress(event: JQueryEventObject): void;
-            click(event: JQueryEventObject): void;
-            changed(propName: any, ov: any, nv: any, op: any, params: any): void;
-            private _setFilter();
-            stateChanged(propName: any, params: any): void;
-            render($parent: any): JQuery;
-            private _setItemValue(item, value);
-            destroy(): void;
-        }
-    }
+}
+declare namespace Phoenix {
 }
 declare namespace Phoenix {
     module ui {
         class Group extends AbsField {
             constructor(fp: any, options: any, form: any);
-            _item(ii: Number): HTMLElement;
+            protected _item(ii: Number): HTMLElement;
             click(event: any): void;
             _setDisabled(element: any): void;
-            _enumItems(cb: Function): void;
+            protected _enumItems(cb: Function): void;
             _setMandatory(element: any): void;
             _state2UI(cb: Function): void;
             _getDefaultItem(): HTMLElement;
@@ -1875,8 +2037,8 @@ declare namespace Phoenix {
     }
 }
 declare namespace Phoenix {
-    module ui {
-        class Label extends AbsField {
+    module formlabel {
+        class Label extends ui.AbsField {
             private _parentId;
             constructor(fp: any, options: any, form: any);
             protected isMeta(): boolean;
@@ -1894,8 +2056,8 @@ declare namespace Phoenix {
     }
 }
 declare namespace Phoenix {
-    module ui {
-        class Link extends AbsField {
+    module formlink {
+        class Link extends ui.AbsField {
             constructor(fp: any, options: any, form: any);
             _button(): Node;
             click(event: any): void;
@@ -1907,8 +2069,8 @@ declare namespace Phoenix {
     }
 }
 declare namespace Phoenix {
-    module ui {
-        class Lookup extends Edit {
+    module formlookup {
+        class Lookup extends formedit.Edit {
             private lookupOptions;
             private menu;
             private hasCachedData;
@@ -1936,7 +2098,7 @@ declare namespace Phoenix {
             removeEvents(): void;
             inputChanged(): void;
             checkValue(nv: any, after: any): void;
-            keydown($event: any): void;
+            keydown($event: JQueryEventObject): boolean;
             focusOut(event: any): void;
             focusIn(event: any): void;
             trigger(event: string, $event?: any): void;
@@ -1945,38 +2107,7 @@ declare namespace Phoenix {
     }
 }
 declare namespace Phoenix {
-    module ui {
-        class BasePicture extends AbsField {
-            protected editable: boolean;
-            constructor(fp: any, options: any, form: any);
-            protected _setDisabled(element: any): void;
-            private _setReadOnly(element);
-            private _setMandatory(element);
-            private _state2UI();
-            protected _showValue(value: any): void;
-            changed(propName: any, ov: any, nv: any, op: any): void;
-            stateChanged(propName: any, params: any): void;
-            protected _img(): HTMLImageElement;
-            protected _altimg(): HTMLElement;
-            render($parent: any): JQuery;
-        }
-        class Picture extends BasePicture {
-            constructor(fp: any, options: any, form: any);
-            private _createImage(event);
-            private _removeImage();
-            click(event: any): void;
-            private _upload();
-            setEvents(opts: any): void;
-            removeEvents(): void;
-            protected _setDisabled(element: any): void;
-            private _showRemoveImage(value);
-            private _rmv();
-            protected _showValue(value: any): void;
-        }
-        class ImageUrl extends BasePicture {
-            constructor(fp: any, options: any, form: any);
-            protected _showValue(value: any): void;
-        }
+    module formpicture {
     }
 }
 declare namespace Phoenix {
@@ -2009,7 +2140,7 @@ declare namespace Phoenix {
 }
 declare namespace Phoenix {
     module ui {
-        class Select extends BaseEdit {
+        class Select extends formedit.BaseEdit {
             constructor(fp: any, options: any, form: any);
             private fillSelect(enums);
             protected _state2UI(): void;
@@ -2039,20 +2170,33 @@ declare namespace Phoenix {
     }
 }
 declare namespace Phoenix {
-    module ui {
-    }
+}
+declare namespace Phoenix {
+}
+declare namespace Phoenix {
+}
+declare namespace Phoenix {
+    var confirmDlg: (title: string, message: string, onsuccess: Function, oncancel?: Function) => void;
 }
 declare namespace Phoenix {
     module ui {
-    }
-}
-declare namespace Phoenix {
-    module ui {
-    }
-}
-declare namespace Phoenix {
-    module ui {
-        var confirmDlg: (title: string, message: string, onsuccess: Function, oncancel?: Function) => void;
+        class ImageMenuItem {
+            private $id;
+            private _options;
+            private $element;
+            module: any;
+            constructor(data: any, options: {
+                imageSrc: string;
+                title: string;
+                link?: any;
+                maxWidth?: number;
+                replaceParent?: boolean;
+            });
+            private _setEvents();
+            private _removeEvents();
+            render($parent: any): void;
+            destroy(): void;
+        }
     }
 }
 declare namespace Phoenix {
@@ -2072,8 +2216,6 @@ declare namespace Phoenix {
     }
 }
 declare namespace Phoenix {
-    module ui {
-    }
 }
 declare namespace Phoenix {
     module Data {
@@ -2085,15 +2227,10 @@ declare namespace Phoenix {
             /*********************************
             ********** VARIABLES
             ********************************/
-            private _id;
-            private _fieldList;
             private _cb;
-            private _selectedField;
-            private _oldFilter;
             private _options;
             private _nodeParent;
-            private _nodeMain;
-            private _nodeValidate;
+            private _render;
             static FIELD_SELECT_TEXT_DEFAULT: string;
             static VALIDATE_TEXT_DEFAULT: string;
             static VALIDATE_ICON_DEFAULT: string;
@@ -2107,16 +2244,9 @@ declare namespace Phoenix {
             ************ METHODS
             *******************************/
             constructor(fieldList: any[], cb: Function, options?: any);
-            selectedField: any[];
+            fields: any[];
             destroy(): void;
             render($parent: any): void;
-            _internalRender(): JQuery;
-            _internalRenderOne(): JQuery;
-            _internalRenderMultiple(): JQuery;
-            _getFieldByCode(code: string): any;
-            _getEditField(field: any): JQuery;
-            _getOpField(field: any): string;
-            _checkFilter(filter: any): boolean;
             _completeFieldList(fields: any): any;
         }
     }
@@ -2225,7 +2355,7 @@ declare namespace Phoenix {
         }
         class ComposantFilter extends AbsField {
             state: any;
-            options: Object;
+            _options: Object;
             listeChampsArbre: any;
             listeChamps: ListeChamps;
             listeFilters: ListeFilters;
@@ -2233,14 +2363,9 @@ declare namespace Phoenix {
             listeOperateurs: ListeOperateurs;
             constructor(fp: any, options: any, form: any);
             initData(): void;
+            _updateData(): void;
+            refresh(): void;
             _state(): void;
-            click(event: any): void;
-            _setDisabled(input: any, element: any): void;
-            _setReadOnly(input: any, element: any): void;
-            _setMandatory(input: any, element: any): void;
-            _state2UI(): void;
-            changed(propName: any, ov: any, nv: any, op: any): void;
-            stateChanged(propName: any, params: any): void;
             renderInternal: (context: Object, options: Object) => void;
             createContainer: (id: string) => any;
             render($parent: any): JQuery;
@@ -2260,9 +2385,11 @@ declare namespace Phoenix {
         var filter: {
             format: {
                 toPhenix: (champs: any, filters: any) => any;
+                toTitle: (filters: any, champs: any) => string;
             };
             addField: (fieldList: any, code: any, libelle: any, type: any, decimals?: any, enums?: any, enumName?: any) => void;
             addField2: (fieldList: any, code: any, libelle: any, type: any, options?: any) => void;
+            transformPropsToFilterFormat: (champs: any, columns: any) => void;
         };
         class FilterManager {
             filterComplex: any;
@@ -2293,6 +2420,7 @@ declare namespace Phoenix {
             private _name;
             private _title;
             constructor(data: any, options: any, callback?: any);
+            items: any;
             selectedItems: any;
             private _init();
             private _getGroupNode(groups, name);
@@ -2301,7 +2429,7 @@ declare namespace Phoenix {
             private _getSelectedItemIndex(name);
             private _itemsIsSelected(items);
             private _itemsIsUnselected(items);
-            private _contructeNodes(items, options);
+            private _constructeNodes(items, options);
             private _addTags(nodes);
             private _template();
             private _createIcon(elt, icon?, autre?);
@@ -2336,6 +2464,7 @@ declare namespace Phoenix {
             private _menu;
             private _drag;
             constructor(data: any, options: any, callback: any);
+            items: any;
             selectedItems: any;
             private _init();
             private _constructeNodes(items, options);
@@ -2370,6 +2499,8 @@ declare namespace Phoenix {
             private _name;
             private _title;
             private _options;
+            private _entree;
+            private _sortie;
             constructor(fp: any, options: any, form: any);
             private _extractItems(liste, groupIsItem);
             _state(): void;
@@ -2395,7 +2526,10 @@ declare namespace Phoenix {
             protected createElement(index: any, config: any, data: any): string;
             protected _setEvents(): void;
             protected update(): void;
+            protected updateOptions(): void;
+            protected updateRender(): void;
             getValue(): void;
+            getOptions(): void;
             after(): void;
             render($parent: any): any;
             destroy(): void;
@@ -2433,9 +2567,12 @@ declare namespace Phoenix {
         class ToolElementFilterExpress extends ToolElement {
             filterExpress: FilterExpress;
             constructor(config: any, options?: any);
+            private _init();
             protected createElement(index: any, config: any, data: any): string;
             render($parent: any): any;
-            private _format(fields, code, value);
+            protected updateRender(): void;
+            private _format(fields, filters);
+            protected update(): void;
         }
         class ToolElementFilter extends ToolElement {
             constructor(config: any, options?: any);
@@ -2452,7 +2589,9 @@ declare namespace Phoenix {
             constructor(toolElements: any, options?: any);
             getToolElement(indexOrName: any): any;
             setValue(name: any, value: any): void;
-            getValue(name: any, value: any): any;
+            getValue(name: any): any;
+            setOptions(name: any, value: any): void;
+            getOptions(name: any): any;
             private _setEvents();
             private _removeEvents();
             private _renderToolElements(toolElements);
@@ -2460,7 +2599,12 @@ declare namespace Phoenix {
             destroy(): void;
         }
         class ToolbarForm extends AbsField {
+            private _toolbar;
             constructor(fp: any, options: any, form: any);
+            getValue(name: any): any;
+            setValue(name: any, value: any): void;
+            getOptions(name: any): any;
+            setOptions(name: any, value: any): void;
             destroy(): void;
             click(event: any): void;
             private _createContainer(id);

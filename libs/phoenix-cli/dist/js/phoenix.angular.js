@@ -4,7 +4,7 @@ if (angular)
 var Phoenix;
 (function (Phoenix) {
     if (angular) {
-        var _utils = Phoenix.utils, _application = Phoenix.application, _ui = Phoenix.ui, _ajax = Phoenix.ajax, _link = Phoenix.link, _locale = Phoenix.locale;
+        var _utils = Phoenix.utils, _application = Phoenix.application, _ui = Phoenix.ui, _ajax = Phoenix.ajax, _link = Phoenix.link, _locale = Phoenix.locale, _serial = Phoenix.serial;
         var app = angular.module("phoenix.ui");
         function extractMessage(reason) {
             if (typeof reason === 'string')
@@ -17,8 +17,8 @@ var Phoenix;
         function setComponentHandlers(scope) {
             scope.component.saveHandler = function (cd) {
                 var cfg = _application.config(_application.name);
-                if (cfg && cfg.pages && cfg.forms) {
-                    _ajax.put((scope.isform ? cfg.forms : cfg.pages) + '/' + cd.name, cd).then(function (ldata) {
+                if (cfg && cfg.current && cfg.current.pages && cfg.current.forms) {
+                    _ajax.put((scope.isform ? cfg.current.forms : cfg.current.pages) + '/' + cd.name, cd).then(function (ldata) {
                     }, function (reason) {
                         alert(extractMessage(reason));
                     });
@@ -26,8 +26,8 @@ var Phoenix;
             };
             scope.component.loadNestedHandler = function (data, after) {
                 var cfg = _application.config(_application.name);
-                if (cfg && cfg.pages && cfg.forms) {
-                    _ajax.post((scope.isform ? cfg.forms : cfg.pages) + '/load/nested', data).then(function (ldata) {
+                if (cfg && cfg.current && cfg.current.pages && cfg.current.forms) {
+                    _ajax.post((scope.isform ? cfg.current.forms : cfg.current.pages) + '/load/nested', data).then(function (ldata) {
                         if (after)
                             after(ldata);
                     }, function (reason) {
@@ -37,7 +37,7 @@ var Phoenix;
             };
             scope.component.createHandler = function (name, cd) {
                 var cfg = _application.config(_application.name);
-                if (cfg && cfg.pages && cfg.forms) {
+                if (cfg && cfg.current && cfg.current.pages && cfg.current.forms) {
                     cd.name = name;
                     var callBackSuccess = function (data) {
                         var ctx = _link.context();
@@ -56,13 +56,13 @@ var Phoenix;
                                     return;
                                 }
                                 cd.name = decision;
-                                _ajax.post((scope.isform ? cfg.forms : cfg.pages) + '/' + cd.name, cd).then(callBackSuccess, callBackError);
+                                _ajax.post((scope.isform ? cfg.current.forms : cfg.current.pages) + '/' + cd.name, cd).then(callBackSuccess, callBackError);
                             });
                         }
                         else
                             alert(extractMessage(reason));
                     };
-                    _ajax.post((scope.isform ? cfg.forms : cfg.pages) + '/' + cd.name, cd).then(callBackSuccess, callBackError);
+                    _ajax.post((scope.isform ? cfg.current.forms : cfg.current.pages) + '/' + cd.name, cd).then(callBackSuccess, callBackError);
                 }
             };
             scope.component.openHandler = function (name) {
@@ -71,8 +71,8 @@ var Phoenix;
             };
             scope.component.removeHandler = function (name) {
                 var cfg = _application.config(_application.name);
-                if (cfg && cfg.pages && cfg.forms) {
-                    _ajax.remove((scope.isform ? cfg.forms : cfg.pages) + '/' + name).then(function (ldata) {
+                if (cfg && cfg.current && cfg.current.pages && cfg.current.forms) {
+                    _ajax.remove((scope.isform ? cfg.current.forms : cfg.current.pages) + '/' + name).then(function (ldata) {
                         var ctx = _link.context();
                         var ll = { $page: "home" };
                         _link.execLink(ll, ctx, null);
@@ -83,8 +83,8 @@ var Phoenix;
             };
             scope.component.listHandler = function (after) {
                 var cfg = _application.config(_application.name);
-                if (cfg && cfg.pages && cfg.forms) {
-                    _ajax.get((scope.isform ? cfg.forms : cfg.pages)).then(function (ldata) {
+                if (cfg && cfg.current && cfg.current.pages && cfg.current.forms) {
+                    _ajax.get((scope.isform ? cfg.current.forms : cfg.current.pages)).then(function (ldata) {
                         after(ldata);
                     }, function (reason) {
                         alert(extractMessage(reason));
@@ -126,7 +126,7 @@ var Phoenix;
                                 _utils.log('compile layout', 'scope');
                                 $compile(el)(newScope);
                                 if (refresh) {
-                                    _utils.GlbSerial.execute(function () {
+                                    _serial.GlbSerial.execute(function () {
                                         scope.$digest();
                                     });
                                 }
@@ -159,7 +159,7 @@ var Phoenix;
 var Phoenix;
 (function (Phoenix) {
     if (angular) {
-        var _utils = Phoenix.utils, _render = Phoenix.render, _device = Phoenix.device, _ui = Phoenix.ui;
+        var _utils = Phoenix.utils, _render = Phoenix.render, _device = Phoenix.device, _serial = Phoenix.serial, _ui = Phoenix.ui;
         var app = angular.module("phoenix.ui");
         app.controller('uiWidgetController', ["$scope", function ($scope) {
             }]);
@@ -187,13 +187,13 @@ var Phoenix;
                                         _utils.log('compile module', 'scope');
                                         $compile(el)(scope);
                                         if (refresh) {
-                                            _utils.GlbSerial.execute(function () {
+                                            _serial.GlbSerial.execute(function () {
                                                 scope.$digest();
                                             });
                                         }
                                     },
                                     onDataChanged: function () {
-                                        _utils.GlbSerial.execute(function () {
+                                        _serial.GlbSerial.execute(function () {
                                             scope.$digest();
                                         });
                                     }
@@ -229,75 +229,10 @@ var Phoenix;
 var Phoenix;
 (function (Phoenix) {
     if (angular) {
-        var _ui_1 = Phoenix.ui;
+        var _p_1 = Phoenix;
         var app = angular.module("phoenix.ui");
-        app.directive('propertyEditor', [function () {
-                return {
-                    scope: {
-                        isform: '='
-                    },
-                    restrict: 'E',
-                    replace: true,
-                    link: function (scope, element, attrs) {
-                        if (!_ui_1.PropertyEditor)
-                            return;
-                        scope.component = new _ui_1.PropertyEditor({
-                            design: true,
-                            form: !!scope.isform,
-                            replaceParent: true,
-                            context: "angular"
-                        });
-                        scope.component.render(element);
-                        scope.$on("$destroy", function () {
-                            if (scope.component)
-                                scope.component.destroy();
-                        });
-                    }
-                };
-            }]);
-    }
-})(Phoenix || (Phoenix = {}));
-//# sourceMappingURL=angular.authoring-editor.js.map
-var Phoenix;
-(function (Phoenix) {
-    if (angular) {
-        var _ui_1 = Phoenix.ui;
-        var app = angular.module("phoenix.ui");
-        app.directive('authoringToolbar', [function () {
-                return {
-                    scope: {
-                        isform: '='
-                    },
-                    restrict: 'E',
-                    replace: true,
-                    link: function (scope, element, attrs) {
-                        if (!_ui_1.AuthoringToolBar)
-                            return;
-                        scope.component = new _ui_1.AuthoringToolBar({
-                            design: true,
-                            form: !!scope.isform,
-                            replaceParent: true,
-                            context: "angular"
-                        });
-                        scope.component.render(element);
-                        scope.$on("$destroy", function () {
-                            if (scope.component)
-                                scope.component.destroy();
-                        });
-                    }
-                };
-            }]);
-    }
-})(Phoenix || (Phoenix = {}));
-//# sourceMappingURL=angular.authoring-toolbar.js.map
-var Phoenix;
-(function (Phoenix) {
-    if (angular) {
-        var _ui_1 = Phoenix.ui;
-        var app = angular.module("phoenix.ui");
-        app.controller('uiToolboxController', ["$scope", function ($scope) {
-            }]);
-        app.directive('authoringToolbox', [function () {
+        app.controller('uiAuthoringController', ["$scope", function ($scope) { }]);
+        app.directive('authoring', [function () {
                 return {
                     scope: {
                         config: '=',
@@ -306,17 +241,18 @@ var Phoenix;
                     bindToController: true,
                     restrict: 'E',
                     replace: true,
-                    controller: 'uiToolboxController',
+                    controller: 'uiAuthoringController',
                     controllerAs: 'item',
                     link: function (scope, element, attrs) {
-                        if (!_ui_1.ToolBox)
+                        var _authoring = _p_1.authoring;
+                        if (!_authoring)
                             return;
-                        scope.component = new _ui_1.ToolBox(scope.item.config, {
+                        scope.component = new _authoring.AuthoringEditor({
                             form: !!scope.isform,
                             design: true,
                             replaceParent: true,
                             context: "angular"
-                        });
+                        }, scope.item.config);
                         scope.component.render(element);
                         scope.$on("$destroy", function () {
                             if (scope.component)
@@ -327,4 +263,4 @@ var Phoenix;
             }]);
     }
 })(Phoenix || (Phoenix = {}));
-//# sourceMappingURL=angular.authoring-toolbox.js.map
+//# sourceMappingURL=angular.authoring.js.map

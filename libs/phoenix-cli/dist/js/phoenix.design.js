@@ -766,9 +766,9 @@ var Phoenix;
 //# sourceMappingURL=layout.control.design.js.map
 var Phoenix;
 (function (Phoenix) {
-    var ui;
-    (function (ui) {
-        var _utils = Phoenix.utils, _ipc = Phoenix.ipc, _ui = ui, _dom = Phoenix.dom;
+    var authpropedit;
+    (function (authpropedit) {
+        var _p = Phoenix, _utils = _p.utils, _ipc = _p.ipc, _ui = _p.ui, _lu = _p.LayoutUtils, _dom = _p.dom;
         var PropertyEditor = (function () {
             function PropertyEditor(options) {
                 this.$element = null;
@@ -833,34 +833,39 @@ var Phoenix;
                 var layout = that.selected.data;
                 var o = {};
                 var tv = model.childrenFlow;
-                if (tv === "block") {
+                if (tv === _lu.LAYOUT_BLOCK) {
                     if (layout.$type === "column") {
                         tv = "column";
                     }
-                    else if (layout.$type === "accordion-group") {
-                        tv = "accordion-group";
+                    else if (layout.$type === _lu.LAYOUT_ACCORDION_GROUP) {
+                        tv = _lu.LAYOUT_ACCORDION_GROUP;
                     }
                 }
-                var isAccordion = tv === 'accordion';
-                var isAccordionGroup = tv === 'ccordion-group';
+                var isAccordion = tv === _lu.LAYOUT_ACCORDION;
+                var isAccordionGroup = tv === _lu.LAYOUT_ACCORDION_GROUP;
                 var ot = layout.$origin || layout.$type;
                 if (tv !== ot) {
                     o.$type = tv;
                     changed = true;
                 }
                 var ot = layout.$ref || layout.$type;
-                if ((layout.$ref || '') !== (model.subLayoutName || '')) {
-                    o.$ref = model.subLayoutName;
+                o.$ref = model.subLayoutName;
+                if (!changed && (layout.$ref || '') !== (model.subLayoutName || ''))
                     changed = true;
-                }
-                if ((layout.$refProperty || '') !== (model.subPathSchema || '')) {
-                    o.$refProperty = model.subPathSchema;
+                o.$refProperty = model.subPathSchema;
+                if (!changed && (layout.$refProperty || '') !== (model.subPathSchema || ''))
                     changed = true;
+                if (tv === _lu.LAYOUT_BLOCK) {
+                    o.$sticky = model.sticky;
+                    if (!changed && (layout.$sticky || '') !== (model.sticky || ''))
+                        changed = true;
                 }
-                if ((layout.$refController || '') !== (model.subController || '')) {
-                    o.$refController = model.subController;
+                o.$refController = model.subController;
+                if (!changed && (layout.$refController || '') !== (model.subController || ''))
                     changed = true;
-                }
+                o.$style = model.style;
+                if (!changed && (layout.$style || '') !== (model.style || ''))
+                    changed = true;
                 if (!model.$states.colSize.isHidden) {
                     if (tv === "column") {
                         if (model.colSize !== layout.$colSize) {
@@ -927,7 +932,7 @@ var Phoenix;
                 }
                 if (isAccordion) {
                     var ov = layout.$widget;
-                    var nv = model.format === 'accordion' ? undefined : model.format;
+                    var nv = model.format === _lu.LAYOUT_ACCORDION ? undefined : model.format;
                     if (ov !== nv) {
                         changed = true;
                     }
@@ -940,7 +945,7 @@ var Phoenix;
                     if (mt !== ot) {
                         changed = true;
                         switch (mt) {
-                            case 'block':
+                            case _lu.LAYOUT_BLOCK:
                                 o.$inline = false;
                                 o.$fieldsOptions.columns = false;
                                 break;
@@ -993,11 +998,11 @@ var Phoenix;
             };
             PropertyEditor.prototype._layoutFields = function () {
                 return {
-                    name: Phoenix.utils.allocID(),
-                    $type: "block",
+                    name: _utils.allocID(),
+                    $type: _lu.LAYOUT_BLOCK,
                     $items: [
                         {
-                            $type: "block",
+                            $type: _lu.LAYOUT_BLOCK,
                             $title: { value: "Properties" },
                             $items: [
                                 { $bind: "options", options: { rows: 5 } }
@@ -1056,18 +1061,18 @@ var Phoenix;
                         childrenFlow: {
                             type: "string",
                             title: "Children disposition",
-                            enum: ['block', 'row', 'accordion'],
+                            enum: [_lu.LAYOUT_BLOCK, _lu.LAYOUT_ROW, _lu.LAYOUT_ACCORDION],
                             enumNames: ["Vertical Flow", "Table cell", "Accordion Group"],
                             filters: {
-                                blockrow: ["block", "row"],
-                                onlyblock: ["block"],
-                                accordion: ['accordion']
+                                blockrow: [_lu.LAYOUT_BLOCK, "row"],
+                                onlyblock: [_lu.LAYOUT_BLOCK],
+                                accordion: [_lu.LAYOUT_ACCORDION]
                             }
                         },
                         format: {
                             type: "string",
                             title: "Appearance",
-                            enum: ['accordion', 'tabs'],
+                            enum: [_lu.LAYOUT_ACCORDION, 'tabs'],
                             enumNames: ["Accordion", "Tabs"]
                         },
                         subLayoutName: {
@@ -1077,6 +1082,10 @@ var Phoenix;
                         subPathSchema: {
                             type: "string",
                             title: "Bind for nested layout",
+                        },
+                        style: {
+                            type: "string",
+                            title: "Custom style",
                         },
                         subController: {
                             type: "string",
@@ -1094,7 +1103,7 @@ var Phoenix;
                         },
                         formType: {
                             title: "Form Type",
-                            enum: ["block", "horizontal", "inline"],
+                            enum: [_lu.LAYOUT_BLOCK, "horizontal", "inline"],
                             enumNames: ["Vertical Form", "Horizontal Form", "Inline form"],
                             type: "string"
                         },
@@ -1102,6 +1111,12 @@ var Phoenix;
                             title: "Label width (Bootstrap cols)",
                             enum: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
                             type: "number"
+                        },
+                        sticky: {
+                            title: "Position",
+                            type: "string",
+                            enum: ['', 'top', 'bottom'],
+                            enumNames: ["Static", "Sticky Top", "Sticky Bottom"],
                         },
                         titleIsHidden: {
                             title: "No titles",
@@ -1113,27 +1128,27 @@ var Phoenix;
             PropertyEditor.prototype._layout2FormData = function (layout) {
                 var that = this;
                 var cv = layout.$origin || layout.$type;
-                var cf = 'block', cff = 'onlyblock';
+                var cf = _lu.LAYOUT_BLOCK, cff = 'onlyblock';
                 var colLayout = layout;
-                var isAccordionGroup = (cv === 'accordion-group');
-                var isAccordion = (cv === 'accordion');
-                var format = isAccordion ? (layout.$widget || 'accordion') : 'accordion';
-                var titleVisible = (that.options.form && (cv === "block" || cv === "column")) || isAccordionGroup;
-                var refVisible = (isAccordionGroup || cv === "block" || cv === "column");
+                var isAccordionGroup = (cv === _lu.LAYOUT_ACCORDION_GROUP);
+                var isAccordion = (cv === _lu.LAYOUT_ACCORDION);
+                var format = isAccordion ? (layout.$widget || _lu.LAYOUT_ACCORDION) : _lu.LAYOUT_ACCORDION;
+                var titleVisible = (that.options.form && (cv === _lu.LAYOUT_BLOCK || cv === "column")) || isAccordionGroup;
+                var refVisible = (isAccordionGroup || cv === _lu.LAYOUT_BLOCK || cv === "column");
                 var showTitle = (titleVisible && !!layout.$title) || isAccordionGroup;
                 if (isAccordionGroup) {
                     if (layout.$title && layout.$title.size)
                         layout.$title.size = 4;
                 }
-                if (["column", "block", "row"].indexOf(cv) >= 0) {
+                if (["column", _lu.LAYOUT_BLOCK, "row"].indexOf(cv) >= 0) {
                     if (cv === 'row')
                         cf = 'row';
                     if (layout.parent)
                         cff = 'blockrow';
                 }
-                else if (cv === 'accordion') {
-                    cff = 'accordion';
-                    cf = 'accordion';
+                else if (cv === _lu.LAYOUT_ACCORDION) {
+                    cff = _lu.LAYOUT_ACCORDION;
+                    cf = _lu.LAYOUT_ACCORDION;
                 }
                 var colInfoVisible = false;
                 if (cv === "column" || (layout.parent && layout.parent.$auto && layout.parent.$type === "column")) {
@@ -1141,7 +1156,7 @@ var Phoenix;
                     colLayout = cv === "column" ? layout : layout.parent;
                 }
                 var onlyFields = that.options.form && layout.onlyFields && !layout.$ref;
-                var ft = layout.$inline ? 'inline' : ((layout.$fieldsOptions && layout.$fieldsOptions.columns ? 'horizontal' : 'block'));
+                var ft = layout.$inline ? 'inline' : ((layout.$fieldsOptions && layout.$fieldsOptions.columns ? 'horizontal' : _lu.LAYOUT_BLOCK));
                 return {
                     typeLayout: cv,
                     showTitle: showTitle,
@@ -1156,8 +1171,10 @@ var Phoenix;
                     subLayoutName: layout.$ref,
                     subPathSchema: layout.$refProperty,
                     subController: layout.$refController,
+                    style: layout.$style,
                     labelCol: (layout.$fieldsOptions && layout.$fieldsOptions.labelCol ? layout.$fieldsOptions.labelCol : 3),
                     titleIsHidden: (layout.$fieldsOptions && layout.$fieldsOptions.titleIsHidden ? true : false),
+                    sticky: (cv === _lu.LAYOUT_BLOCK ? (layout.$sticky || '') : ''),
                     $states: {
                         showTitle: {
                             isHidden: !titleVisible,
@@ -1201,6 +1218,9 @@ var Phoenix;
                         },
                         subController: {
                             isHidden: !refVisible || !that.options.form
+                        },
+                        sticky: {
+                            isHidden: cv !== _lu.LAYOUT_BLOCK
                         }
                     },
                     $links: {
@@ -1218,32 +1238,34 @@ var Phoenix;
             };
             PropertyEditor.prototype._layoutEdit = function () {
                 return {
-                    name: Phoenix.utils.allocID(),
-                    $type: "block",
+                    name: _utils.allocID(),
+                    $type: _lu.LAYOUT_BLOCK,
                     $items: [
                         {
                             $title: { value: "Title" },
                             $bindState: "showTitle",
-                            $type: "block",
+                            $type: _lu.LAYOUT_BLOCK,
                             $items: [
                                 { $bind: "showTitle" }, { $bind: "title" }, { $bind: "titleSize" }, { $bind: "titleStyle" }
                             ]
                         },
                         {
-                            $type: "block",
+                            $type: _lu.LAYOUT_BLOCK,
                             $title: { value: "Properties" },
                             $items: [
                                 { $bind: "childrenFlow" },
                                 { $bind: "format" },
+                                { $bind: "sticky" },
                                 { $bind: "subLayoutName" },
                                 { $bind: "subPathSchema" },
                                 { $bind: "subController" },
+                                { $bind: "style" },
                                 { $bind: "colSize" },
                                 { $bind: "customSize" }
                             ]
                         },
                         {
-                            $type: "block",
+                            $type: _lu.LAYOUT_BLOCK,
                             $bindState: "formType",
                             $title: { value: "Children (Fields)" },
                             $items: [
@@ -1277,10 +1299,10 @@ var Phoenix;
                 var that = this;
                 that._emptyContent();
                 if (isLayout) {
-                    ui.OpenForm(that.$element, that._layoutEdit(), that._schemaLayout(), that._layout2FormData(value), {}, function (action, model, form) {
+                    _ui.OpenForm(that.$element, that._layoutEdit(), that._schemaLayout(), that._layout2FormData(value), {}, function (action, model, form) {
                         var activateApply = false;
                         if (action.operation === 'propchange') {
-                            var isAccordionGroup = (model.typeLayout === "accordion-group");
+                            var isAccordionGroup = (model.typeLayout === _lu.LAYOUT_ACCORDION_GROUP);
                             switch (action.property) {
                                 case "showTitle":
                                     if (!isAccordionGroup) {
@@ -1331,7 +1353,7 @@ var Phoenix;
                     });
                 }
                 else {
-                    ui.OpenForm(that.$element, that._layoutFields(), that._schemaFields(), that._field2FormData(value), {}, function (action, model, form) {
+                    _ui.OpenForm(that.$element, that._layoutFields(), that._schemaFields(), that._field2FormData(value), {}, function (action, model, form) {
                         var activateApply = false;
                         if (action.operation === 'propchange') {
                             switch (action.property) {
@@ -1390,18 +1412,18 @@ var Phoenix;
             };
             return PropertyEditor;
         }());
-        ui.PropertyEditor = PropertyEditor;
+        authpropedit.PropertyEditor = PropertyEditor;
         ;
-    })(ui = Phoenix.ui || (Phoenix.ui = {}));
+    })(authpropedit = Phoenix.authpropedit || (Phoenix.authpropedit = {}));
 })(Phoenix || (Phoenix = {}));
 //# sourceMappingURL=propeditor.control.js.map
 var Phoenix;
 (function (Phoenix) {
-    var ui;
-    (function (ui) {
-        var _utils = Phoenix.utils, _ipc = Phoenix.ipc, _drag = Phoenix.drag, _dom = Phoenix.dom, _ui = ui, _locale = Phoenix.locale, _ulocale = Phoenix.ulocale;
+    var _p = Phoenix, _utils = _p.utils, _ipc = _p.ipc, _drag = _p.drag, _dom = _p.dom, _ui = _p.ui, _locale = _p.locale, _pagecontrol = _p.pagecontrol, _ulocale = _p.ulocale;
+    var authtoolbar;
+    (function (authtoolbar) {
         var _html = function (id, options) {
-            var _bootstrap4 = Phoenix.bootstrap4;
+            var _bootstrap4 = _p.bootstrap4;
             var html = [];
             if (_bootstrap4) {
                 html.push('<nav class="navbar navbar-dark bg-inverse" id="' + id + '">');
@@ -1524,7 +1546,7 @@ var Phoenix;
                         var files = [];
                         for (var i = 0; i < data.files.length; i++) {
                             var fileName = data.files[i];
-                            if (fileName == _ui.Page().currentPage())
+                            if (fileName == _pagecontrol.Page().currentPage())
                                 continue;
                             files.push(fileName);
                         }
@@ -1609,15 +1631,15 @@ var Phoenix;
             };
             return AuthoringToolBar;
         }());
-        ui.AuthoringToolBar = AuthoringToolBar;
-    })(ui = Phoenix.ui || (Phoenix.ui = {}));
+        authtoolbar.AuthoringToolBar = AuthoringToolBar;
+    })(authtoolbar = Phoenix.authtoolbar || (Phoenix.authtoolbar = {}));
 })(Phoenix || (Phoenix = {}));
 //# sourceMappingURL=toolbar.authoring.control.js.map
 var Phoenix;
 (function (Phoenix) {
-    var ToolBoxUtils;
-    (function (ToolBoxUtils) {
-        var _utils = Phoenix.utils, _dom = Phoenix.dom, _locale = Phoenix.locale;
+    var authtoolboxutils;
+    (function (authtoolboxutils) {
+        var _p = Phoenix, _utils = _p.utils, _dom = _p.dom, _build = _p.build, _locale = _p.locale;
         var _checkItem = function (item, parent, map) {
             item.$id = item.$id || _utils.allocID();
             if (parent)
@@ -1669,7 +1691,22 @@ var Phoenix;
         }, _afterGroup = function (html, item) {
             html.push('</ul></div></div>');
         }, _beforeItem = function (html, item, parent, first) {
-            html.push('<li draggable="true" class="list-group-item bs-cursor-p" data-toolbox="' + item.$id + '" id="' + item.$id + '">');
+            var css = ['list-group-item bs-cursor-p'];
+            if (item.data && item.data.$type === 'widget') {
+                if (_build.authMode !== 'dev') {
+                    var isHidden = true;
+                    if (_build.authMode === 'admin') {
+                        isHidden = ['admin', 'user'].indexOf(item.mode) < 0;
+                    }
+                    else if (_build.authMode === 'user') {
+                        isHidden = item.mode !== 'user';
+                    }
+                    if (isHidden) {
+                        css.push('bs-none');
+                    }
+                }
+            }
+            html.push('<li draggable="true" class="' + css.join(' ') + '" data-toolbox="' + item.$id + '" id="' + item.$id + '">');
             html.push('<span class="' + _dom.iconClass('file-o') + '"></span>&nbsp;');
             html.push(item.$title);
             html.push('</li>');
@@ -1723,21 +1760,21 @@ var Phoenix;
                 }
             });
         }
-        ToolBoxUtils.check = check;
+        authtoolboxutils.check = check;
         function toHtml(data, parent) {
             var html = [];
             _renderToolBox(data, parent, html);
             return html.join('');
         }
-        ToolBoxUtils.toHtml = toHtml;
-    })(ToolBoxUtils = Phoenix.ToolBoxUtils || (Phoenix.ToolBoxUtils = {}));
+        authtoolboxutils.toHtml = toHtml;
+    })(authtoolboxutils = Phoenix.authtoolboxutils || (Phoenix.authtoolboxutils = {}));
 })(Phoenix || (Phoenix = {}));
 //# sourceMappingURL=toolbox.js.map
 var Phoenix;
 (function (Phoenix) {
-    var ui;
-    (function (ui) {
-        var _utils = Phoenix.utils, _ipc = Phoenix.ipc, _drag = Phoenix.drag, _dom = Phoenix.dom, _ulocale = Phoenix.ulocale, _sutils = Phoenix.Observable.SchemaUtils, _tbUtils = Phoenix.ToolBoxUtils;
+    var authtoolbox;
+    (function (authtoolbox) {
+        var _p = Phoenix, _utils = _p.utils, _dom = _p.dom, _ipc = _p.ipc, _drag = _p.drag, _ulocale = _p.ulocale, _sutils = _p.Observable.SchemaUtils, _tbUtils = _p.authtoolboxutils;
         var _setEvents = function ($element, toolBox) {
             $element.find('li[draggable="true"]').on('dragstart', function (event) {
                 event.stopPropagation();
@@ -1782,14 +1819,15 @@ var Phoenix;
         };
         var ToolBox = (function () {
             function ToolBox(data, options) {
-                this.$element = null;
-                this.map = {};
-                this.options = options || {};
+                var that = this;
+                that.$element = null;
+                that.map = {};
+                that.options = options || {};
                 data = data || {};
                 data.$type = data.$type || "groups";
-                _tbUtils.check(data, this.map);
-                this.data = data;
-                this._setListeners();
+                _tbUtils.check(data, that.map);
+                that.data = data;
+                that._setListeners();
             }
             ToolBox.prototype.updateFieldItems = function (fields) {
                 var that = this;
@@ -1819,20 +1857,21 @@ var Phoenix;
                 that.map = {};
                 _tbUtils.check(that.data, that.map);
                 if (that.$element) {
+                    var e = that.$element.get(0);
                     _rmvEvents(that.$element, that);
-                    var old = _dom.find(that.$element.get(0), item.$id);
+                    var old = _dom.find(e, item.$id);
                     if (old)
                         _dom.remove(old);
-                    old = _dom.find(that.$element.get(0), itemActions.$id);
+                    old = _dom.find(e, itemActions.$id);
                     if (old)
                         _dom.remove(old);
                     if (item.$items.length) {
                         var p = $(_tbUtils.toHtml(item, that.data)).get(0);
-                        _dom.append(that.$element.get(0), p);
+                        _dom.append(e, p);
                     }
                     if (itemActions.$items.length) {
                         var pa = $(_tbUtils.toHtml(itemActions, that.data)).get(0);
-                        _dom.append(that.$element.get(0), pa);
+                        _dom.append(e, pa);
                     }
                     _setEvents(that.$element, that);
                 }
@@ -1844,7 +1883,6 @@ var Phoenix;
                 var that = this;
                 if (!that.$element) {
                     that.$element = that.renderToolBox(that.data, null);
-                    that.setDesignMode(that.options.design);
                     _setEvents(that.$element, that);
                 }
                 if ($parent) {
@@ -1881,9 +1919,6 @@ var Phoenix;
             };
             ToolBox.prototype._setListeners = function () {
                 var that = this;
-                _ipc.listen('onAuthoringModeChanged', function (value) {
-                    that.setDesignMode(value);
-                }, this);
                 _ipc.listen('onFormData', function (value) {
                     if (value.schema) {
                         var fields = _sutils.schema2Authoring(value.schema, value.schema, value.locale);
@@ -1891,20 +1926,100 @@ var Phoenix;
                     }
                 }, this);
             };
-            ToolBox.prototype.setDesignMode = function (value) {
+            return ToolBox;
+        }());
+        authtoolbox.ToolBox = ToolBox;
+        ;
+    })(authtoolbox = Phoenix.authtoolbox || (Phoenix.authtoolbox = {}));
+})(Phoenix || (Phoenix = {}));
+//# sourceMappingURL=toolbox.control.js.map
+var Phoenix;
+(function (Phoenix) {
+    var _p = Phoenix, _utils = _p.utils, _ipc = _p.ipc, _dom = _p.dom, _authtoolbar = _p.authtoolbar, _authtoolbox = _p.authtoolbox, _authpropedit = _p.authpropedit;
+    function _html(id, options) {
+        var html = ['<div class="container-fluid">'];
+        html.push('<div id="nav_{0}"></div>');
+        html.push('<div class="row design-table">');
+        html.push('<div style="width:100%">');
+        html.push('<div id="content"></div>');
+        html.push('</div>');
+        html.push('<div id="toolbox_parent_{0}" style="width:300px">');
+        html.push('<div id="toolbox_{0}"></div>');
+        html.push('</div>');
+        html.push('</div>');
+        html.push('<div id="editor_{0}"></div>');
+        html.push('</div>');
+        return _utils.format(html.join(''), id);
+    }
+    var authoring;
+    (function (authoring) {
+        var AuthoringEditor = (function () {
+            function AuthoringEditor(options, toolBoxData) {
+                var that = this;
+                that.options = options;
+                that.id = _utils.allocID();
+                that._pe = new Phoenix.authpropedit.PropertyEditor(options);
+                that._toolBar = new Phoenix.authtoolbar.AuthoringToolBar(options);
+                that._toolBox = new Phoenix.authtoolbox.ToolBox(toolBoxData, options);
+                that._setListeners();
+            }
+            AuthoringEditor.prototype.render = function ($parent) {
+                var that = this;
+                if (!that.$element) {
+                    that.$element = $(_html(that.id, that.options));
+                    var e = that.$element.get(0);
+                    if (that.options.beforeAdd)
+                        that.options.beforeAdd(that.$element);
+                    that._pe.render($(_dom.find(e, 'editor_' + that.id)));
+                    that._toolBar.render($(_dom.find(e, 'nav_' + that.id)));
+                    that._toolBox.render($(_dom.find(e, 'toolbox_' + that.id)));
+                    that.setDesignMode(that.options.design);
+                }
+                if ($parent) {
+                    if (that.options.replaceParent)
+                        $parent.replaceWith(that.$element);
+                    else
+                        $parent.append(that.$element);
+                }
+                return that.$element;
+            };
+            AuthoringEditor.prototype._setListeners = function () {
+                var that = this;
+                _ipc.listen('onAuthoringModeChanged', function (value) {
+                    that.setDesignMode(value);
+                }, this);
+            };
+            AuthoringEditor.prototype.setDesignMode = function (value) {
                 var that = this;
                 that.options.design = value;
                 if (that.$element) {
-                    if (that.options.design)
-                        _dom.removeClass(that.$element.get(0), 'bs-none');
-                    else
-                        _dom.addClass(that.$element.get(0), 'bs-none');
+                    var e = _dom.find(that.$element.get(0), 'toolbox_parent_' + that.id);
+                    if (e) {
+                        if (that.options.design)
+                            _dom.removeClass(e, 'bs-none');
+                        else
+                            _dom.addClass(e, 'bs-none');
+                    }
                 }
             };
-            return ToolBox;
+            AuthoringEditor.prototype.destroy = function () {
+                var that = this;
+                if (that.$element) {
+                    that.$element = null;
+                }
+                if (that._pe) {
+                    that._pe.destroy();
+                    that._pe = null;
+                }
+                if (that._pe) {
+                    that._pe.destroy();
+                    that._pe = null;
+                }
+                _ipc.unlisten(that);
+            };
+            return AuthoringEditor;
         }());
-        ui.ToolBox = ToolBox;
-        ;
-    })(ui = Phoenix.ui || (Phoenix.ui = {}));
+        authoring.AuthoringEditor = AuthoringEditor;
+    })(authoring = Phoenix.authoring || (Phoenix.authoring = {}));
 })(Phoenix || (Phoenix = {}));
-//# sourceMappingURL=toolbox.control.js.map
+//# sourceMappingURL=authoring.control.js.map

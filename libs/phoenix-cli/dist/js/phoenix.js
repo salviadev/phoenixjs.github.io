@@ -3,7 +3,6 @@ var __extends = (this && this.__extends) || function (d, b) {
     function __() { this.constructor = d; }
     d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
 };
-/// <reference path="../../../../typings/index.d.ts" />
 var Phoenix;
 (function (Phoenix) {
     var utils;
@@ -55,6 +54,16 @@ var Phoenix;
             Object.keys(src).forEach(function (p) {
                 src[p] = null;
             });
+        }, _getValue = function (value, path) {
+            var a = path.split('.');
+            var cp = value, cd = null;
+            for (var i = 0, len = a.length; i < len; i++) {
+                cd = cp[a[i]];
+                if (!cd)
+                    return cd;
+                cp = cd;
+            }
+            return cd;
         }, _logModules = {
             scope: false,
             destroy: false,
@@ -322,6 +331,7 @@ var Phoenix;
             success(value);
         };
         utils.cleanUpObject = _cleanUpObject;
+        utils.getValue = _getValue;
     })(utils = Phoenix.utils || (Phoenix.utils = {}));
     (function _polyfill() {
         var arrayProto = Array.prototype;
@@ -369,11 +379,10 @@ var Phoenix;
         }
     })();
 })(Phoenix || (Phoenix = {}));
-/// <reference path="../../../typings/index.d.ts" />
 /// <reference path="./modules/utils.ts" />
 var Phoenix;
 (function (Phoenix) {
-    var _utils = Phoenix.utils;
+    var _p = Phoenix, _utils = _p.utils;
     var external;
     (function (external) {
         var _defPrefsLoader = function (name) {
@@ -411,6 +420,7 @@ var Phoenix;
         external.changePasswordHandler = null;
         external.checkLoggedInHandler = null;
         external.historyChangedHandler = null;
+        external.formOpenHandler = null;
         external.preferenceLoadHandler = _defPrefsLoader;
         external.preferenceSaveHandler = _defPrefsSaver;
     })(external = Phoenix.external || (Phoenix.external = {}));
@@ -526,11 +536,10 @@ var Phoenix;
         ipc.unlisten = _unregListener;
     })(ipc = Phoenix.ipc || (Phoenix.ipc = {}));
 })(Phoenix || (Phoenix = {}));
-/// <reference path="../../../typings/index.d.ts" />
 var Phoenix;
 (function (Phoenix) {
-    var utils;
-    (function (utils) {
+    var serial;
+    (function (serial) {
         var Serial = (function () {
             function Serial() {
                 this._eventList = [];
@@ -562,7 +571,7 @@ var Phoenix;
             };
             return Serial;
         }());
-        utils.Serial = Serial;
+        serial.Serial = Serial;
         var BusEvent = (function () {
             function BusEvent(delay, promise, resolve, errorhandler, ondispose) {
                 var that = this;
@@ -655,15 +664,14 @@ var Phoenix;
             };
             return SingleEventBus;
         }());
-        utils.SingleEventBus = SingleEventBus;
-        utils.GlbSerial = new Serial();
-    })(utils = Phoenix.utils || (Phoenix.utils = {}));
+        serial.SingleEventBus = SingleEventBus;
+        serial.GlbSerial = new Serial();
+    })(serial = Phoenix.serial || (Phoenix.serial = {}));
 })(Phoenix || (Phoenix = {}));
 var Phoenix;
 (function (Phoenix) {
     Phoenix.locale = {};
 })(Phoenix || (Phoenix = {}));
-/// <reference path="../../../../typings/index.d.ts" />
 var Phoenix;
 (function (Phoenix) {
     var customData;
@@ -692,7 +700,6 @@ var Phoenix;
         customData.get = _getRegisteredData;
     })(customData = Phoenix.customData || (Phoenix.customData = {}));
 })(Phoenix || (Phoenix = {}));
-/// <reference path="../../../../typings/index.d.ts" />
 var Phoenix;
 (function (Phoenix) {
     Phoenix.device = {
@@ -764,15 +771,14 @@ var Phoenix;
         }
     }
     Phoenix.preferences = preferences;
-    Phoenix.build = { version: '0.1.0.0', release: false };
+    Phoenix.build = { version: '0.1.0.0', release: false, authMode: 'dev' };
 })(Phoenix || (Phoenix = {}));
-/// <reference path="../../../../typings/index.d.ts" />
 /// <reference path="./globals.ts" />
 var Phoenix;
 (function (Phoenix) {
+    var _build = Phoenix.build;
     var authentication;
     (function (authentication) {
-        var _build = Phoenix.build;
         var _memdbStorage = {}, _memorydb = {
             setItem: function (name, value) {
                 _memdbStorage[name] = value;
@@ -818,7 +824,6 @@ var Phoenix;
         authentication.registerAfterLogout = _registerAfterLogout;
     })(authentication = Phoenix.authentication || (Phoenix.authentication = {}));
 })(Phoenix || (Phoenix = {}));
-/// <reference path="../../../../typings/index.d.ts" />
 var Phoenix;
 (function (Phoenix) {
     var application;
@@ -868,9 +873,18 @@ var Phoenix;
             return application.name === portailName();
         }
         application.isPortail = isPortail;
+        function isCustomizable(typeRes, resName) {
+            var cfg = config(application.name);
+            if (cfg && cfg.customizable) {
+                if (resName.indexOf('.json') < 0)
+                    resName = resName + '.json';
+                return cfg.customizable.indexOf([typeRes, application.name, resName].join('/')) >= 0;
+            }
+            return false;
+        }
+        application.isCustomizable = isCustomizable;
     })(application = Phoenix.application || (Phoenix.application = {}));
 })(Phoenix || (Phoenix = {}));
-/// <reference path="../../../../typings/index.d.ts" />
 /// <reference path="./utils.ts" />
 /// <reference path="./locale.ts" />
 /// <reference path="./customdata.ts" />
@@ -980,7 +994,7 @@ var Phoenix;
                 });
                 opts = options;
             }
-            var _promise = Phoenix.utils.Promise;
+            var _promise = _utils.Promise;
             return new _promise(function (resolve, reject) {
                 $.ajax(opts).done(function (data, textStatus, jqXHR) {
                     if (ondata)
@@ -1027,7 +1041,7 @@ var Phoenix;
                 });
             });
         }, _sendVerb = function (method, lurl, data, options) {
-            var _promise = Phoenix.utils.Promise;
+            var _promise = _utils.Promise;
             var opts = {
                 type: method,
                 contentType: 'application/json',
@@ -1078,7 +1092,7 @@ var Phoenix;
         }, _delete = function (lurl, options) {
             return _sendVerb('DELETE', lurl, null, options);
         }, _dynscripts = {}, _getOptions = function () {
-            var cfg = Phoenix.application.config(_application.name);
+            var cfg = _application.config(_application.name);
             var opts = { headers: null };
             if (cfg && cfg.odata && cfg.odata.headers)
                 opts.headers = cfg.odata.headers;
@@ -1144,7 +1158,7 @@ var Phoenix;
                 }
             }
         }, _getScript = function (lurl) {
-            var _promise = Phoenix.utils.Promise;
+            var _promise = _utils.Promise;
             return new _promise(function (resolve, reject) {
                 $.ajax({
                     url: lurl,
@@ -1159,7 +1173,7 @@ var Phoenix;
                 });
             });
         }, _postAndDownload = function (lurl, postData) {
-            var _promise = Phoenix.utils.Promise;
+            var _promise = _utils.Promise;
             var opts = _getOptions();
             var config = _application.config(_application.name) || {};
             var base = config.rest ? config.rest.base || '' : '';
@@ -1265,9 +1279,10 @@ var Phoenix;
 /// <reference path="./locale.ts" />
 var Phoenix;
 (function (Phoenix) {
+    var _p = Phoenix, _locale = _p.locale, _utils = _p.utils, _ajax = _p.ajax;
     var ulocale;
     (function (ulocale) {
-        var _locale = Phoenix.locale, _ajax = Phoenix.ajax, _afterTranslate = [], _register = function (hnd) { _afterTranslate.push(hnd); }, _translate = function (ll, lang) {
+        var _afterTranslate = [], _register = function (hnd) { _afterTranslate.push(hnd); }, _translate = function (ll, lang) {
             $.extend(true, _locale, ll);
             _afterTranslate.forEach(function (hnd) { hnd(lang); });
         }, _tt = function (v, context) {
@@ -1356,7 +1371,7 @@ var Phoenix;
             return _pad(yy, 4) + '-' + _pad(mm, 2) + '-' + _pad(dd, 2);
         }, _shortDate2ISO = function (value) {
             var f = _locale.date.dateShort.split('/');
-            if (f.length != 3)
+            if (f.length !== 3)
                 return '';
             var v = value.split(_locale.date.daySep);
             var d = [0, 0, 0];
@@ -1467,13 +1482,64 @@ var Phoenix;
                 s = s.substr(0, ii);
             return s;
         }, _string2Float = function (value) {
-            var val = value.replace(new RegExp(Phoenix.locale.number.thousand, 'g'), '');
-            if (Phoenix.locale.number.decimal != '.')
-                val = val.replace(new RegExp(Phoenix.locale.number.decimal, 'g'), '.');
+            var val = value.replace(new RegExp(_locale.number.thousand, 'g'), '');
+            if (_locale.number.decimal != '.')
+                val = val.replace(new RegExp(_locale.number.decimal, 'g'), '.');
             var res = parseFloat(val);
             if (isNaN(res))
                 res = 0.0;
             return res;
+        }, _tryParseDate = function (value) {
+            var separators = [' ', '/', '-'];
+            var result = '';
+            // Get separator
+            var currentSep;
+            for (var i = 0; i < separators.length; i++) {
+                currentSep = separators[i];
+                if (value.indexOf(currentSep) != -1)
+                    break;
+            }
+            // Get vals
+            var v = value.split(currentSep);
+            if (v.length != 3) {
+                return '';
+            }
+            for (var i = 0; i < 3; i++)
+                v[i] = parseInt(v[i], 10);
+            // Format and return date
+            var splitD = 0, splitM = 0, splitY = 0;
+            switch (_locale.date.dateShort) {
+                case 'dd/mm/yyyy':
+                    splitD = 0;
+                    splitM = 1;
+                    splitY = 2;
+                    break;
+                case 'mm/dd/yyyy':
+                    splitD = 1;
+                    splitM = 0;
+                    splitY = 2;
+                    break;
+                case 'yyyy/mm/dd':
+                    splitD = 2;
+                    splitM = 1;
+                    splitY = 0;
+                    break;
+            }
+            if (v[splitY] < 100)
+                v[splitY] += 2000;
+            if (!_validDate(v, splitD, splitM, splitY)) {
+                return '';
+            }
+            v[splitD] = _pad(v[splitD], 2);
+            v[splitM] = _pad(v[splitM], 2);
+            v[splitY] = _pad(v[splitY], 4);
+            return v.join(_locale.date.daySep);
+        }, _validDate = function (bits, splitD, splitM, splitY) {
+            var d = bits[splitD];
+            var m = bits[splitM];
+            var y = bits[splitY];
+            var date = new Date(y, m - 1, d);
+            return (date.getFullYear() == y && date.getMonth() + 1 == m && date.getDate() == d);
         };
         ulocale.register = _register;
         ulocale.translate = _translate;
@@ -1495,13 +1561,14 @@ var Phoenix;
         ulocale.localeDate2ISO = _shortDate2ISO;
         ulocale.date2ISO = _date2ISO;
         ulocale.string2Float = _string2Float;
+        ulocale.tryParseDate = _tryParseDate;
         ulocale.localeTitle = function (title) {
             if (typeof title === 'object')
                 return title[ulocale.currentLang];
             return title;
         };
         function loadLocale(newLang) {
-            var pp = Phoenix.utils.phoenixPath();
+            var pp = _utils.phoenixPath();
             if (newLang != ulocale.currentLang) {
                 _ajax.getScript(pp + '/locale/phoenix_' + ulocale.lang + '.min.js').then(function () {
                     ulocale.currentLang = newLang;
@@ -1596,6 +1663,7 @@ var Phoenix;
             "Disconnect": "Disconnect",
             "Confirm": "Confirm",
             "Validate": "Validate",
+            "Create": "create",
             "password": {
                 "oldPassword": "Old Password",
                 "newPassword": "New Password",
@@ -1663,7 +1731,6 @@ var Phoenix;
     };
     Phoenix.ulocale.translate(en, "en");
 })(Phoenix || (Phoenix = {}));
-/// <reference path="../../../../typings/index.d.ts" />
 var Phoenix;
 (function (Phoenix) {
     Phoenix.bootstrap4 = false;
@@ -1704,7 +1771,9 @@ var Phoenix;
             'cog': 'cog',
             'lock': 'lock',
             'question-circle': 'question-sign',
-            'info-circle': 'info-sign'
+            'info-circle': 'info-sign',
+            'th': 'list',
+            'building': 'new-window'
         };
         var _bootstrapBtnCache = null;
         var _bootstrapBtns = function () {
@@ -1749,6 +1818,12 @@ var Phoenix;
                     c.splice(i, 1);
             }
             return c.join(' ');
+        }, _rootFontSize = 0, _geHtmlFontSize = function () {
+            if (!_rootFontSize)
+                _rootFontSize = parseFloat(getComputedStyle(document.documentElement).fontSize);
+            return _rootFontSize;
+        }, _rem2px = function (value) {
+            return Math.round(value * _geHtmlFontSize());
         }, _iconClass = function (iconName, noPrefix) {
             if (noPrefix === void 0) { noPrefix = false; }
             var icon = Phoenix.bootstrap4 ? iconName : (_mapIcon[iconName] ? _mapIcon[iconName] : iconName);
@@ -1818,6 +1893,16 @@ var Phoenix;
                 width: (document.documentElement.clientWidth || document.body.clientWidth),
                 height: (document.documentElement.clientHeight || document.body.clientHeight)
             };
+        }, _removeStype = function (d, name) {
+            if (d.style.removeProperty) {
+                d.style.removeProperty(name);
+            }
+            else {
+                if (name === 'border')
+                    d.style[name] = 'none';
+                else
+                    d.style[name] = '';
+            }
         }, _addScrolls = function (d) {
             var clientTop = document.documentElement.clientTop || document.body.clientTop || 0, clientLeft = document.documentElement.clientLeft || document.body.clientLeft || 0, scrollTop = window.pageYOffset || document.documentElement.scrollTop || document.body.scrollTop, scrollLeft = window.pageXOffset || document.documentElement.scrollLeft || document.body.scrollLeft;
             d.top = Math.round(d.top + scrollTop - clientTop);
@@ -2047,6 +2132,12 @@ var Phoenix;
                 p.insertBefore(element, child);
             else
                 p.appendChild(element);
+        }, _selectRange = function (input, start, end) {
+            if (end === undefined)
+                end = start;
+            input.setSelectionRange(start, end);
+            //input.selectionStart = start;
+            //input.selectionEnd = end;
         }, _getWindow = function (elem) {
             return (elem != null && elem === elem.window) ? elem : elem.nodeType === 9 && elem.defaultView;
         }, _offset = function (element) {
@@ -2157,6 +2248,15 @@ var Phoenix;
                 calculated = true;
                 return touch;
             };
+        }, _featureTest = function (property, value, noPrefixes) {
+            var prop = property + ':', el = document.createElement('test'), mStyle = el.style;
+            if (!noPrefixes)
+                mStyle.cssText = prop + ['-webkit-', '-moz-', '-ms-', '-o-', ''].join(value + ';' + prop) + value + ';';
+            else
+                mStyle.cssText = prop + value;
+            return mStyle[property].indexOf(value) !== -1;
+        }, _getPx = function (unit) {
+            return parseInt(unit, 10) || 0;
         }, _emitResize = function () {
             $(window).trigger('global-phoenix-resize');
         }, _resizeTimeOut = null, _setResizeHnd = function () {
@@ -2167,6 +2267,7 @@ var Phoenix;
             });
         };
         dom.readyHandlers = [_setResizeHnd];
+        dom.finalizeHandlers = [];
         dom.keys = {
             VK_TAB: 9, VK_UP: 38, VK_DOWN: 40, VK_INSERT: 45, VK_DELETE: 46, VK_LEFT: 37, VK_RIGHT: 39,
             VK_ENTER: 13, VK_ESCAPE: 27, VK_F1: 112, VK_HOME: 36, VK_END: 35, VK_PGUP: 33, VK_PGDOWN: 34,
@@ -2201,6 +2302,7 @@ var Phoenix;
         dom.parseStyle = _parseStyle;
         dom.ignoreKeys = [0, dom.keys.VK_UP, dom.keys.VK_DOWN, dom.keys.VK_HOME, dom.keys.VK_END, dom.keys.VK_PGUP, dom.keys.VK_PGDOWN, dom.keys.VK_ENTER, dom.keys.VK_ESCAPE,
             dom.keys.VK_DELETE, dom.keys.VK_BACKSPACE, dom.keys.VK_INSERT];
+        dom.arrowKeys = [dom.keys.VK_LEFT, dom.keys.VK_RIGHT, dom.keys.VK_UP, dom.keys.VK_DOWN];
         dom.processing = _processing;
         dom.inProcessing = _inProcessing;
         dom.scrollbar = _scrollbarWidth();
@@ -2211,7 +2313,12 @@ var Phoenix;
         dom.childrenPositions = _childrenPos;
         dom.findNearest = _findNearest;
         dom.showMove = _showMove;
+        dom.featureTest = _featureTest;
+        dom.getPx = _getPx;
+        dom.removeStype = _removeStype;
+        dom.rem2px = _rem2px;
         dom.bootstrapStyles = _bootstrapBtns;
+        dom.selectRange = _selectRange;
     })(dom = Phoenix.dom || (Phoenix.dom = {}));
     $(document).ready(function () {
         if (dom.readyHandlers.length) {
@@ -2221,14 +2328,13 @@ var Phoenix;
         }
     });
 })(Phoenix || (Phoenix = {}));
-/// <reference path="../../../../typings/index.d.ts" />
 /// <reference path="./utils.ts" />
 /// <reference path="./dom.ts" />
 /// <reference path="./globals.ts" />
 /// <reference path="./authentication.ts" />
 var Phoenix;
 (function (Phoenix) {
-    var _utils = Phoenix.utils, _dom = Phoenix.dom, _device = Phoenix.device, _authentication = Phoenix.authentication;
+    var _p = Phoenix, _utils = _p.utils, _dom = _p.dom, _customData = _p.customData, _device = _p.device, _application = _p.application, _external = _p.external, _authentication = _p.authentication, _history = _p.history;
     var link;
     (function (link) {
         var _obj2Search = function (value) {
@@ -2282,7 +2388,7 @@ var Phoenix;
                         ch = ch + searchString;
                     }
                     if (replace) {
-                        Phoenix.history.replaceHash(ch);
+                        _history.replaceHash(ch);
                     }
                     else {
                         if (window.location.hash != ch) {
@@ -2314,7 +2420,7 @@ var Phoenix;
             }
             var ctx = {
                 $url: _urlSearch(null, false),
-                $mem: Phoenix.$mem,
+                $mem: _p.$mem,
                 $user: {
                     name: usr ? usr.name || usr.nom || usr.login : '',
                     firstName: usr ? usr.firstName || usr.prenom || usr.login : '',
@@ -2428,17 +2534,21 @@ var Phoenix;
                 newhash = '#' + newhash;
             if (window.location.hash == newhash)
                 return;
-            if (Phoenix.external.hashHandler) {
-                Phoenix.external.hashHandler(newhash, replace);
+            if (_external.hashHandler) {
+                _external.hashHandler(newhash, replace);
             }
             else {
-                Phoenix.history.removeLast();
+                _history.removeLast();
                 if (replace && 'replaceState' in window.history) {
                     window.history.replaceState(undefined, undefined, newhash);
                 }
                 else {
                     location.hash = newhash;
                 }
+            }
+        }, _doOpenForm = function (params) {
+            if (_external.formOpenHandler) {
+                _external.formOpenHandler(params);
             }
         }, _doFormAuthoring = function (params) {
             if (!params.name)
@@ -2475,7 +2585,6 @@ var Phoenix;
                 window.location.hash = '#' + auth + (pageName ? ('/' + pageName) : ch);
             }
         }, _execLink = function (clink, context, params) {
-            var _application = Phoenix.application;
             var modules = _application.configuration && _application.configuration.application ?
                 _application.configuration.application.modules : null;
             if (clink.$page) {
@@ -2483,8 +2592,8 @@ var Phoenix;
                 if (modules && modules[module] && _application.licences) {
                     var mlicence = _application.licences[modules[module]];
                     if (mlicence && !mlicence.hasLicence) {
-                        if (Phoenix.external.forbiddenHandler)
-                            return Phoenix.external.forbiddenHandler();
+                        if (_external.forbiddenHandler)
+                            return _external.forbiddenHandler();
                     }
                 }
                 var hash = _hashLink(clink, context, params);
@@ -2497,8 +2606,16 @@ var Phoenix;
                     _doAuthoring();
             }
             else if (clink.$logout) {
-                if (Phoenix.external.logoutHandler)
-                    Phoenix.external.logoutHandler();
+                if (_external.logoutHandler)
+                    _external.logoutHandler();
+            }
+            else if (clink.$form) {
+                _doOpenForm(clink.$form);
+            }
+            else if (clink.$action && clink.$action.name) {
+                var func = _customData.get(clink.$action.name);
+                if (func)
+                    func(clink.$action.params);
             }
             else if (clink.$formAuthoring) {
                 _doFormAuthoring(clink);
@@ -2541,14 +2658,12 @@ var Phoenix;
 /// <reference path="./modules/globals.ts" />
 var Phoenix;
 (function (Phoenix) {
-    var _link = Phoenix.link;
-    var _mem = Phoenix.$mem;
-    var _utils = Phoenix.utils;
+    var _p = Phoenix, _link = _p.link, _utils = _p.utils;
     _link.registerCustomProtocol("page", function (value, context, config, params) {
         if (!context.$url)
             context.$url = _link.search(null, false);
         if (!context.$mem)
-            context.$mem = _mem;
+            context.$mem = _p.$mem;
         var i = value.indexOf("://");
         if (i <= 0)
             return;
@@ -2594,17 +2709,630 @@ var Phoenix;
     });
     _link.registerCustomProtocol("click", null);
 })(Phoenix || (Phoenix = {}));
-/// <reference path="../core/core.ts" />
-/// <reference path="../core/modules/application.ts" />
-/// <reference path="../core/modules/ajax.ts" />
-/// <reference path="../core/modules/locale.ts" />
-/// <reference path="../core/modules/ulocale.ts" />
+/// <reference path="./utils.ts" />
+/// <reference path="./dom.ts" />
 var Phoenix;
 (function (Phoenix) {
+    var _dom = Phoenix.dom, _utils = Phoenix.utils;
+    var events;
+    (function (events) {
+        var EventManager = (function () {
+            function EventManager() {
+            }
+            EventManager.prototype.disable = function () {
+                this._isDisabled = true;
+            };
+            EventManager.prototype.enable = function () {
+                this._isDisabled = false;
+            };
+            return EventManager;
+        }());
+        events.EventManager = EventManager;
+        events.mouseEvents = function (eventType) {
+            if (_dom.touch()) {
+                switch (eventType) {
+                    case 'mousedown':
+                        return 'touchstart';
+                    case 'mouseup':
+                        return 'touchend';
+                    case 'mousemove':
+                        return 'touchmove';
+                }
+            }
+            return eventType;
+        };
+        function isLeftButton(eventObject) {
+            if (_dom.touch())
+                return true;
+            return eventObject.which < 2;
+        }
+        events.isLeftButton = isLeftButton;
+        function stopEvent(eventObject) {
+            eventObject.stopPropagation();
+            eventObject.preventDefault();
+        }
+        events.stopEvent = stopEvent;
+        function point(event) {
+            var de = document.documentElement;
+            var res;
+            if (_dom.touch()) {
+                var t = event.targetTouches || event.touches;
+                if (t)
+                    res = {
+                        x: t[0].pageX || (t[0].clientX + (de.scrollLeft || document.body.scrollLeft)),
+                        y: t[0].pageY || (t[0].clientY + (de.scrollTop || document.body.scrollTop))
+                    };
+            }
+            if (!res)
+                res = {
+                    x: event.pageX || (event.clientX + (de.scrollLeft || document.body.scrollLeft)),
+                    y: event.pageY || (event.clientY + (de.scrollTop || document.body.scrollTop))
+                };
+            res.x = Math.round(res.x);
+            res.y = Math.round(res.y);
+            return res;
+        }
+        events.point = point;
+        events.eventManager = new EventManager();
+    })(events = Phoenix.events || (Phoenix.events = {}));
+})(Phoenix || (Phoenix = {}));
+/// <reference path="./utils.ts" />
+/// <reference path="./events.ts" />
+/// <reference path="./dom.ts" />
+var Phoenix;
+(function (Phoenix) {
+    var _dom = Phoenix.dom, _utils = Phoenix.utils, _events = Phoenix.events;
+    var drag;
+    (function (drag_1) {
+        var DragAndDropManager = (function () {
+            function DragAndDropManager() {
+                var that = this;
+            }
+            DragAndDropManager.prototype.initialize = function () {
+                var that = this;
+                var $doc = $(document);
+                that._mu = that.mouseUp.bind(that);
+                that._md = that.mouseDownEmpty.bind(that);
+                $doc.on(_events.mouseEvents('mouseup'), that._mu);
+                $doc.on(_events.mouseEvents('mousedown'), that._md);
+            };
+            DragAndDropManager.prototype.finalize = function () {
+                var that = this;
+                var $doc = $(document);
+                if (that._mu) {
+                    $doc.off(_events.mouseEvents('mouseup'), that._mu);
+                    that._mu = null;
+                }
+                if (that._md) {
+                    $doc.off(_events.mouseEvents('mousedown'), that._mu);
+                    that._md = null;
+                }
+                that._listeners = null;
+                that._current = null;
+            };
+            DragAndDropManager.prototype.startMouseMove = function () {
+                var that = this;
+                if (!that._mm) {
+                    that._mm = that.mouseMove.bind(that);
+                    $(document).on(_events.mouseEvents('mousemove'), that._mm);
+                }
+            };
+            DragAndDropManager.prototype.stopMouseMove = function () {
+                var that = this;
+                if (that._mm) {
+                    $(document).off(_events.mouseEvents('mousemove'), that._mm);
+                    that._mm = null;
+                }
+            };
+            DragAndDropManager.prototype._canExecuteEvent = function (event) {
+                return !!this._current;
+            };
+            DragAndDropManager.prototype.mouseUp = function (eventObject) {
+                var that = this;
+                var current = that._current;
+                if (!current)
+                    return true;
+                if (current.inDragging)
+                    current.notifyDragEnd(false, eventObject);
+                that.setCurrent(null);
+                current.clear();
+                return false;
+            };
+            DragAndDropManager.prototype.mouseDownEmpty = function (eventObject) {
+                return true;
+            };
+            DragAndDropManager.prototype.mouseMove = function (eventObject) {
+                var that = this;
+                if (!that._canExecuteEvent(eventObject))
+                    return;
+                var current = that._current;
+                if (!current)
+                    return true;
+                if (!current.ready(eventObject)) {
+                    if (!_events.isLeftButton(eventObject)) {
+                        that.setCurrent(null);
+                        current.clear();
+                    }
+                    return true;
+                }
+                if (!_events.isLeftButton(eventObject)) {
+                    that.cancelDrag();
+                    return true;
+                }
+                try {
+                    current.notifyDrag(eventObject);
+                }
+                catch (e) {
+                    that.cancelDrag();
+                }
+                _events.stopEvent(eventObject);
+                return true;
+            };
+            DragAndDropManager.prototype.addDrag = function (listeners) {
+                var that = this;
+                var cd = new DragElement(listeners);
+                that._listeners = that._listeners || [];
+                that._listeners.push(cd);
+                return cd;
+            };
+            DragAndDropManager.prototype.rmvDrag = function (drag) {
+                var that = this;
+                if (that._listeners) {
+                    var i = that._listeners.indexOf(drag);
+                    if (i >= 0) {
+                        that._listeners.splice(i, 1);
+                        drag.finalize();
+                    }
+                }
+            };
+            DragAndDropManager.prototype.setCurrent = function (dragObject) {
+                var that = this;
+                if (dragObject && that._current)
+                    return false;
+                that._current = dragObject;
+                if (!that._current)
+                    that.stopMouseMove();
+                return true;
+            };
+            DragAndDropManager.prototype.cancelDrag = function () {
+                var that = this;
+                var current = that._current;
+                if (current) {
+                    if (current.inDragging)
+                        current.notifyDragEnd(true, null);
+                    that.setCurrent(null);
+                    current.clear();
+                }
+            };
+            DragAndDropManager.prototype.cover = function (value, cursor, zindex) {
+                var that = this;
+                if (value) {
+                    if (!that._coverId) {
+                        that._coverId = _utils.allocID();
+                        var scroll = _dom.documentScroll();
+                        var client = _dom.documentClientDim();
+                        client.width += scroll.left;
+                        client.height += scroll.top;
+                        client.width = Math.round(Math.max(client.width, document.body.offsetWidth));
+                        client.height = Math.round(Math.max(client.height, Math.round(document.body.offsetHeight)));
+                        var ce = document.createElement('div');
+                        ce.id = that._coverId;
+                        ce.style.position = 'absolute';
+                        ce.style.top = '0px';
+                        ce.style.left = '0px';
+                        ce.style.backgroundColor = 'white';
+                        ce.style.opacity = '0.01';
+                        ce.style.width = client.width + 'px';
+                        ce.style.height = client.height + 'px';
+                        ce.style.zIndex = (zindex || 10000) + '';
+                        ce.style.cursor = cursor;
+                        _dom.append(document.body, ce);
+                    }
+                }
+                else {
+                    if (that._coverId) {
+                        var e = _dom.find(document.body, that._coverId);
+                        that._coverId = null;
+                        if (e)
+                            _dom.remove(e);
+                    }
+                }
+                //
+            };
+            return DragAndDropManager;
+        }());
+        drag_1.DragAndDropManager = DragAndDropManager;
+        var DragElement = (function () {
+            function DragElement(elements) {
+                var that = this;
+                that._elements = elements;
+                that._mdEvent = that.mousedown.bind(that);
+                that.clear();
+                that._setEvents();
+            }
+            DragElement.prototype.clear = function () {
+                var that = this;
+                //save
+                var ose = that.stopEvent;
+                //init
+                that.mouseMoveCount = 0;
+                that.minLeft = null;
+                that.maxLeft = null;
+                that.minTop = null;
+                that.maxTop = null;
+                that.currentLeft = 0;
+                that.currentTop = 0;
+                that.moveX = false;
+                that.moveY = false;
+                that.inDragging = false;
+                that.coverDocument = true;
+                that.cursor = 'default';
+                that.startPoint = null;
+                that.currentPoint = null;
+                that.startOffset = null;
+                that.stopEvent = false;
+                that.data = {};
+                that.floatElement = null;
+                that.floatParent = null;
+                // restore
+                that.stopEvent = ose;
+            };
+            DragElement.prototype._removeEvents = function () {
+                var that = this;
+                if (that._elements) {
+                    that._elements.forEach(function (e) {
+                        $(e).off(_events.mouseEvents('mousedown'), that._mdEvent);
+                    });
+                    that._elements = null;
+                }
+            };
+            DragElement.prototype._setEvents = function () {
+                var that = this;
+                if (that._elements) {
+                    that._elements.forEach(function (e) {
+                        $(e).on(_events.mouseEvents('mousedown'), that._mdEvent);
+                    });
+                }
+            };
+            DragElement.prototype.mousedown = function (eventObject) {
+                var that = this;
+                that.mouseMoveCount = 0;
+                that.inDragging = false;
+                if (!_events.isLeftButton(eventObject))
+                    return true;
+                if (!that.canStartDrag(eventObject))
+                    return true;
+                if (!drag_1.dragManager.setCurrent(that))
+                    return true;
+                that.startPoint = _events.point(eventObject);
+                drag_1.dragManager.startMouseMove();
+                if (that.stopEvent)
+                    _events.stopEvent(eventObject);
+                return false;
+            };
+            DragElement.prototype.finalize = function () {
+                var that = this;
+                that._removeEvents();
+                _utils.cleanUpObject(that);
+            };
+            DragElement.prototype.ready = function (eventObject) {
+                var that = this;
+                that.mouseMoveCount++;
+                if (that.mouseMoveCount == 2)
+                    that.notifyDragStart(eventObject);
+                return that.inDragging;
+            };
+            DragElement.prototype.notifyDrag = function (eventObject) {
+                var that = this;
+                if (!that.inDragging)
+                    return;
+                that.currentPoint = _events.point(eventObject);
+                var e = that.floatElement;
+                if (e && that.moveX) {
+                    var cl = that.startOffset.left + that.currentPoint.x - that.startPoint.x;
+                    if (that.minLeft !== null) {
+                        if (cl < that.minLeft)
+                            cl = that.minLeft;
+                    }
+                    if (that.maxLeft !== null) {
+                        if (cl > that.maxLeft)
+                            cl = that.maxLeft;
+                    }
+                    that.currentLeft = cl;
+                    e.style.left = cl + 'px';
+                }
+                if (e && that.moveY) {
+                    var ct = that.startOffset.top + that.currentPoint.y - that.startPoint.y;
+                    if ((that.minTop !== null) && (ct < that.minTop))
+                        ct = that.minTop;
+                    if ((that.maxTop !== null) && (ct > that.maxTop))
+                        ct = that.maxTop;
+                    that.currentTop = ct;
+                    e.style.top = ct + 'px';
+                }
+                if (that.onDrag)
+                    that.onDrag(eventObject);
+            };
+            DragElement.prototype.notifyDragStart = function (eventObject) {
+                var that = this;
+                that.inDragging = true;
+                _events.eventManager.disable();
+                if (that.coverDocument)
+                    drag_1.dragManager.cover(true, that.cursor);
+                try {
+                    if (that.onDragStart) {
+                        if (!that.onDragStart(eventObject))
+                            that.notifyDragEnd(true, eventObject);
+                        if (that.floatElement)
+                            that.startOffset = _dom.position(that.floatElement, that.floatParent);
+                    }
+                }
+                catch (e) {
+                }
+            };
+            DragElement.prototype.canStartDrag = function (event) {
+                var self = this;
+                if (self.canStartDragHandler)
+                    return self.canStartDragHandler(event);
+                else
+                    return true;
+            };
+            DragElement.prototype.canDrop = function (value) {
+                var that = this;
+                if (that.coverDocument) {
+                    drag_1.dragManager.cover(true, value ? that.cursor : 'no-drop');
+                }
+            };
+            DragElement.prototype.notifyDragEnd = function (doCancel, event) {
+                var that = this;
+                that.inDragging = false;
+                var uc = that.coverDocument;
+                if (that.onDragEnd)
+                    that.onDragEnd(doCancel, event);
+                _utils.nextTick(function () {
+                    _events.eventManager.enable();
+                    if (uc)
+                        drag_1.dragManager.cover(false);
+                });
+            };
+            return DragElement;
+        }());
+        drag_1.DragElement = DragElement;
+        drag_1.dragManager = new DragAndDropManager();
+        _dom.readyHandlers.push(function () {
+            drag_1.dragManager.initialize();
+        });
+        _dom.finalizeHandlers.push(function () {
+            drag_1.dragManager.finalize();
+        });
+        var _dragData, _setDragData = function (data) {
+            _dragData = data;
+        }, _getDragData = function () {
+            return _dragData;
+        };
+        drag_1.setData = _setDragData;
+        drag_1.getData = _getDragData;
+    })(drag = Phoenix.drag || (Phoenix.drag = {}));
+})(Phoenix || (Phoenix = {}));
+/// <reference path="./dom.ts" />
+var Phoenix;
+(function (Phoenix) {
+    var _dom = Phoenix.dom;
+    var sticky;
+    (function (sticky) {
+        sticky.topOffset = 0;
+        sticky.bottomOffset = 0;
+        var _supportSticky = _dom.featureTest('position', 'sticky', false), _supportFixed = _dom.featureTest('position', 'fixed', true);
+        var _classes = {
+            active: 'bs-sticky-on',
+            inactive: 'bs-sticky-off',
+            clone: 'bs-sticky-dummy'
+        };
+        var _toggle = function (element, turnOn, position) {
+            if (turnOn) {
+                _dom.addClass(element, _classes.active);
+                if (position === 'top')
+                    element.style.top = sticky.topOffset + 'px';
+                else if (position === 'bottom')
+                    element.style.bottom = sticky.bottomOffset + 'px';
+                _dom.removeClass(element, _classes.inactive);
+            }
+            else {
+                _dom.addClass(element, _classes.inactive);
+                _dom.removeClass(element, _classes.active);
+                _dom.removeStype(element, 'width');
+                _dom.removeStype(element, 'top');
+                _dom.removeStype(element, 'bottom');
+            }
+        }, _removeItem = function (item, position) {
+            var e = item.element;
+            var $e = $(e);
+            var clone = _dom.find(e.parentNode, item.id + '_sticky_clone');
+            _toggle(e, false, position);
+            if (clone)
+                _dom.remove(clone);
+        }, _updateItem = function (item) {
+            var e = item.element;
+            var $e = $(e), clientrect = _dom.offset(e), height = $e.outerHeight(), initialOffset = 0, scroll = window.pageYOffset || document.documentElement.scrollTop || document.body.scrollTop, isAlreadyOn = _dom.hasClass(e, _classes.active), viewportHeight = $(window).height(), elTop, elBottom, $parent = $e.parent(), parentOffset = $parent.offset().top, parentHeight = $parent.outerHeight(), clone = _dom.find($parent.get(0), item.id + '_sticky_clone');
+            if (!clone) {
+                // append a clone
+                initialOffset = clientrect.top;
+                clone = document.createElement('div');
+                clone.id = item.id + '_sticky_clone';
+                clone.className = _classes.clone;
+                clone.style.height = height + 'px';
+                _dom.after(e, clone);
+            }
+            else {
+                var cloneRect = _dom.offset(clone);
+                clone.style.height = height + 'px';
+                initialOffset = cloneRect.width ? cloneRect.top : clientrect.top;
+            }
+            var position = {
+                top: item.position === 'top',
+                bottom: item.position === 'bottom'
+            };
+            function isFixedToTop() {
+                var offsetTop = scroll + elTop + sticky.topOffset;
+                // Initial Offset Top
+                return initialOffset < offsetTop &&
+                    // Container Bottom
+                    offsetTop + height <= parentOffset + parentHeight;
+            }
+            function isFixedToBottom() {
+                // Initial Offset Top + Height
+                return initialOffset + (height || 0) > scroll + viewportHeight - elBottom &&
+                    // Container Top
+                    scroll + viewportHeight - elBottom >= parentOffset + (height || 0);
+            }
+            elTop = 0;
+            elBottom = 0;
+            if (position.top && isFixedToTop() || position.bottom && isFixedToBottom()) {
+                if (!isAlreadyOn) {
+                    _toggle(e, true, item.position);
+                    e.style.width = clientrect.width + 'px';
+                }
+                else {
+                    var cloneRect = _dom.offset(clone);
+                    e.style.width = cloneRect.width + 'px';
+                }
+            }
+            else {
+                if (isAlreadyOn) {
+                    _toggle(e, false, item.position);
+                }
+            }
+        };
+        var StickyManager = (function () {
+            function StickyManager() {
+                this._map = {};
+                this._list = [];
+                this._scroll = null;
+                this._resize = null;
+                this._refreshTimer = null;
+                this._scrollTimer = null;
+            }
+            StickyManager.prototype.add = function (element) {
+                var that = this;
+                if (_supportSticky || !_supportFixed)
+                    return;
+                that._map[element.id] = element;
+                that._list.push(element);
+            };
+            StickyManager.prototype.remove = function (id) {
+                var that = this;
+                var e = that._map[id];
+                if (e !== undefined) {
+                    if (e.element)
+                        _removeItem(e, e.position);
+                    e.element = null;
+                    delete that._map[id];
+                    var i = that._list.indexOf(e);
+                    if (i >= 0)
+                        that._list.splice(i, 1);
+                }
+            };
+            StickyManager.prototype.initialize = function () {
+                var that = this;
+                if (_supportSticky || !_supportFixed)
+                    return;
+                that._scroll = that._onscroll.bind(that);
+                that._resize = that._onresize.bind(that);
+                $(window).on('scroll.sticky', that._scroll);
+                $(window).on('global-phoenix-resize', that._resize);
+            };
+            StickyManager.prototype._updateElements = function (onlyActive) {
+                var that = this;
+                that._list.forEach(function (item) {
+                    var e = item.element;
+                    if (onlyActive && !_dom.hasClass(e, _classes.active))
+                        return;
+                    if (!e.offsetWidth)
+                        return;
+                    _updateItem(item);
+                });
+            };
+            StickyManager.prototype._onscroll = function () {
+                var that = this;
+                if (that._scrollTimer) {
+                    window.clearTimeout(that._scrollTimer);
+                    that._scrollTimer = null;
+                }
+                that._scrollTimer = window.setTimeout(function () {
+                    that._updateElements(false);
+                }, 20);
+                that._updateElements(false);
+            };
+            StickyManager.prototype._onresize = function () {
+                var that = this;
+                that._updateElements(true);
+            };
+            StickyManager.prototype._refresh = function (scroll) {
+                var that = this;
+                if (scroll) {
+                    that._updateElements(false);
+                }
+            };
+            StickyManager.prototype.refresh = function (scroll) {
+                var that = this;
+                if (that._refreshTimer) {
+                    window.clearTimeout(that._refreshTimer);
+                    that._refreshTimer = null;
+                }
+                that._refreshTimer = window.setTimeout(function () {
+                    that._refresh(scroll);
+                }, 200);
+            };
+            StickyManager.prototype.finalize = function () {
+                if (_supportSticky || !_supportFixed)
+                    return;
+                var that = this;
+                if (that._refreshTimer) {
+                    window.clearTimeout(that._refreshTimer);
+                    that._refreshTimer = null;
+                }
+                if (that._scrollTimer) {
+                    window.clearTimeout(that._scrollTimer);
+                    that._scrollTimer = null;
+                }
+                $(window).off('scroll.sticky', that._scroll);
+                $(window).off('global-phoenix-resize', that._resize);
+                that._scroll = null;
+                that._resize = null;
+            };
+            return StickyManager;
+        }());
+        sticky.StickyManager = StickyManager;
+        _dom.readyHandlers.push(function () {
+            sticky.stickyManager.initialize();
+        });
+        _dom.finalizeHandlers.push(function () {
+            sticky.stickyManager.finalize();
+        });
+        sticky.stickyManager = new sticky.StickyManager();
+        sticky.native = _supportSticky || !_supportFixed;
+    })(sticky = Phoenix.sticky || (Phoenix.sticky = {}));
+})(Phoenix || (Phoenix = {}));
+/// <reference path="./modules/ajax.ts" />
+/// <reference path="./modules/application.ts" />
+/// <reference path="./modules/authentication.ts" />
+/// <reference path="./modules/customdata.ts" />
+/// <reference path="./modules/dom.ts" />
+/// <reference path="./modules/drag.ts" />
+/// <reference path="./modules/events.ts" />
+/// <reference path="./modules/globals.ts" />
+/// <reference path="./modules/links.ts" />
+/// <reference path="./modules/locale.ts" />
+/// <reference path="./modules/sticky.ts" />
+/// <reference path="./modules/ulocale.ts" />
+/// <reference path="./modules/utils.ts" />
+/// <reference path="./core.ts" /> 
+/// <reference path="../core/core-refs.ts" />
+var Phoenix;
+(function (Phoenix) {
+    var _p = Phoenix, _application = _p.application, _ajax = _p.ajax, _ulocale = _p.ulocale;
     var data;
     (function (data) {
-        var _application = Phoenix.application;
-        var _ulocale = Phoenix.ulocale;
         var _menuProvider = {
             get: function (menu, localization, appName) {
                 if (localization && _ulocale.lang) {
@@ -2613,30 +3341,27 @@ var Phoenix;
                 var config = _application.config(appName);
                 if (!config)
                     throw "Application configuration not found.";
-                return Phoenix.ajax.get(config.menus + '/' + menu + '.json', { cache: true }, null);
+                return _ajax.get(config.current.menus + '/' + menu + '.json', { cache: true }, null);
             }
         };
         data.menu = _menuProvider;
     })(data = Phoenix.data || (Phoenix.data = {}));
 })(Phoenix || (Phoenix = {}));
-/// <reference path="../core/core.ts" />
-/// <reference path="../core/modules/application.ts" />
-/// <reference path="../core/modules/ajax.ts" />
+/// <reference path="../core/core-refs.ts" />
 var Phoenix;
 (function (Phoenix) {
+    var _p = Phoenix, _ulocale = _p.ulocale, _utils = _p.utils, _ajax = _p.ajax, _application = _p.application;
     var data;
     (function (data_1) {
-        var _application = Phoenix.application;
-        var _ulocale = Phoenix.ulocale;
         var _widgetSchema = {
             get: function (schema, localization, appName) {
                 if (localization && _ulocale.lang) {
-                    schema = schema + '_' + Phoenix.ulocale.lang;
+                    schema = schema + '_' + _ulocale.lang;
                 }
                 var config = _application.config(appName);
                 if (!config)
                     throw "Application configuration not found.";
-                return Phoenix.ajax.get(config.locales + '/' + schema + '.json', { cache: true }, function (data) {
+                return _ajax.get(config.current.locales + '/' + schema + '.json', { cache: true }, function (data) {
                     if (data)
                         data.$name = schema;
                     if (data.$view)
@@ -2648,13 +3373,13 @@ var Phoenix;
         data_1.schema = _widgetSchema;
     })(data = Phoenix.data || (Phoenix.data = {}));
 })(Phoenix || (Phoenix = {}));
-/// <reference path="../core/modules/application.ts" />
-/// <reference path="../core/modules/ajax.ts" />
+/// <reference path="../core/core-refs.ts" />
 var Phoenix;
 (function (Phoenix) {
+    var _p = Phoenix, _ajax = _p.ajax, _utils = _p.utils, _link = _p.link, _application = _p.application;
     var data;
     (function (data) {
-        var _application = Phoenix.application, _ajax = Phoenix.ajax, _utils = Phoenix.utils, _execPath = function (path, ldata) {
+        var _execPath = function (path, ldata) {
             if (!path)
                 return null;
             if (path === '.')
@@ -2698,7 +3423,7 @@ var Phoenix;
                 var opts = _ajax.getDefaultAjaxOptions();
                 var query = params.$query;
                 var listprop = params.$list;
-                lurl = lurl + Phoenix.link.object2search(query);
+                lurl = lurl + _link.object2search(query);
                 lurl = _addTenantId(lurl);
                 switch (params.$method) {
                     case 'POST':
@@ -2719,15 +3444,13 @@ var Phoenix;
         data.rest = _rest;
     })(data = Phoenix.data || (Phoenix.data = {}));
 })(Phoenix || (Phoenix = {}));
-/// <reference path="../core/core.ts" />
-/// <reference path="../core/modules/ajax.ts" />
-/// <reference path="../core/modules/links.ts" />
-/// <reference path="../core/modules/application.ts" />
+/// <reference path="../core/core-refs.ts" />
 var Phoenix;
 (function (Phoenix) {
+    var _p = Phoenix, _application = _p.application, _ajax = _p.ajax, _link = _p.link;
     var data;
     (function (data) {
-        var _application = Phoenix.application, _link = Phoenix.link, _local = {
+        var _local = {
             getRessources: function (params, ondata) {
                 var _after = function (cd) {
                     if (ondata)
@@ -2740,7 +3463,7 @@ var Phoenix;
                 var lurl = config.localData + '/' + params.$url;
                 var query = params.$query;
                 lurl = lurl + _link.object2search(query);
-                return Phoenix.ajax.get(lurl, {}, function (ldata) {
+                return _ajax.get(lurl, {}, function (ldata) {
                     return _after(ldata);
                 });
             }
@@ -2748,16 +3471,13 @@ var Phoenix;
         data.local = _local;
     })(data = Phoenix.data || (Phoenix.data = {}));
 })(Phoenix || (Phoenix = {}));
-/// <reference path="../core/modules/application.ts" />
-/// <reference path="../core/modules/ajax.ts" />
-/// <reference path="../core/modules/locale.ts" />
-/// <reference path="../core/modules/authentication.ts" />
-/// <reference path="../core/modules/utils.ts" />
+/// <reference path="../core/core-refs.ts" />
 var Phoenix;
 (function (Phoenix) {
+    var _p = Phoenix, _application = _p.application, _link = _p.link, _authentication = _p.authentication, _utils = _p.utils, _ajax = _p.ajax;
     var data;
     (function (data_2) {
-        var _application = Phoenix.application, _authentication = Phoenix.authentication, _utils = Phoenix.utils, _ajax = Phoenix.ajax, _odatacache = {}, _addTenantId = function (lurl) {
+        var _odatacache = {}, _addTenantId = function (lurl) {
             return lurl;
         }, _odata = {
             v4: true,
@@ -2913,7 +3633,7 @@ var Phoenix;
                 }
                 var opts = _ajax.getDefaultAjaxOptions();
                 opts.$errors = errors;
-                lurl = base + '/' + lurl + Phoenix.link.object2search(params);
+                lurl = base + '/' + lurl + _link.object2search(params);
                 if (cache && _odatacache[entity] && _odatacache[entity].uri == lurl) {
                     return new _utils.Promise(function (resolve, reject) {
                         var cd = _after(hasEntityId ? _odatacache[entity].data : $.extend(true, {}, _odatacache[entity].data));
@@ -2955,10 +3675,7 @@ var Phoenix;
         _authentication.registerAfterLogout(_odata.afterLogout);
     })(data = Phoenix.data || (Phoenix.data = {}));
 })(Phoenix || (Phoenix = {}));
-/// <reference path="../core/modules/application.ts" />
-/// <reference path="../core/modules/links.ts" />
-/// <reference path="../core/modules/application.ts" />
-/// <reference path="../core/modules/customdata.ts" />
+/// <reference path="../core/core-refs.ts" />
 /// <reference path="./schema-provider.ts" />
 /// <reference path="./rest-provider.ts" />
 /// <reference path="./local-provider.ts" />
@@ -2966,9 +3683,10 @@ var Phoenix;
 /// <reference path="./odata-provider.ts" />
 var Phoenix;
 (function (Phoenix) {
+    var _p = Phoenix, _link = _p.link, _utils = _p.utils, _data = _p.data, _customData = _p.customData, _application = _p.application;
     var data;
     (function (data) {
-        var _link = Phoenix.link, _utils = Phoenix.utils, _customData = Phoenix.customData, _application = Phoenix.application, _execTransform = function (cfg, ldata) {
+        var _execTransform = function (cfg, ldata) {
             if (cfg.$transform) {
                 var func = _customData.get("datasets.transform." + cfg.$transform);
                 if (func)
@@ -3131,7 +3849,7 @@ var Phoenix;
                 $url: lurl,
                 $context: context,
                 $data: null,
-                $mem: Phoenix.$mem,
+                $mem: _p.$mem,
                 $local: localContext
             });
         }, _internalExecTree = function (tree, lurl, context, localContext, addQuote) {
@@ -3151,7 +3869,7 @@ var Phoenix;
                             $url: lurl,
                             $context: context,
                             $data: null,
-                            $mem: Phoenix.$mem,
+                            $mem: _p.$mem,
                             $local: localContext
                         }, false, false);
                     }
@@ -3165,7 +3883,7 @@ var Phoenix;
                             $url: lurl,
                             $context: context,
                             $data: null,
-                            $mem: Phoenix.$mem,
+                            $mem: _p.$mem,
                             $local: localContext
                         }, addQuote, false);
                     }
@@ -3187,7 +3905,7 @@ var Phoenix;
                             $url: lurl,
                             $context: context,
                             $data: null,
-                            $mem: Phoenix.$mem,
+                            $mem: _p.$mem,
                             $local: localContext
                         }, false, false);
                     }
@@ -3199,7 +3917,7 @@ var Phoenix;
                     $url: lurl,
                     $context: context,
                     $data: null,
-                    $mem: Phoenix.$mem,
+                    $mem: _p.$mem,
                     $local: localContext
                 }, addQuote, false);
             }
@@ -3209,7 +3927,7 @@ var Phoenix;
                     $url: lurl,
                     $context: context,
                     $data: null,
-                    $mem: Phoenix.$mem,
+                    $mem: _p.$mem,
                     $local: localContext
                 }, false, false);
             }
@@ -3279,7 +3997,7 @@ var Phoenix;
                 $url: lurl,
                 $context: context,
                 $data: null,
-                $mem: Phoenix.$mem,
+                $mem: _p.$mem,
                 $local: localContext
             });
             res.$list = params.$list;
@@ -3296,7 +4014,7 @@ var Phoenix;
                             $url: lurl,
                             $context: context,
                             $data: null,
-                            $mem: Phoenix.$mem,
+                            $mem: _p.$mem,
                             $local: localContext
                         }, false, false);
                     }
@@ -3308,7 +4026,7 @@ var Phoenix;
                         $url: lurl,
                         $context: context,
                         $data: null,
-                        $mem: Phoenix.$mem,
+                        $mem: _p.$mem,
                         $local: localContext
                     }, false, false);
                 else
@@ -3350,7 +4068,7 @@ var Phoenix;
                 $url: lurl,
                 $context: context,
                 $data: null,
-                $mem: Phoenix.$mem,
+                $mem: _p.$mem,
                 $local: localContext,
             };
             Object.keys(params).forEach(function (name) {
@@ -3407,13 +4125,13 @@ var Phoenix;
                 var v = _checkValue(context.$searchText, 'string', true, false), filter;
                 var search = Array.isArray(params.$search) ? params.$search : [params.$search];
                 if (search.length === 1) {
-                    filter = Phoenix.utils.format('contains({0},{1})', params.$search.field, v);
+                    filter = _utils.format('contains({0},{1})', params.$search.field, v);
                 }
                 else {
                     var af = ['('];
                     var len = search.length;
                     for (var i = 0; i < len; i++) {
-                        af.push(Phoenix.utils.format('contains({0},{1})', search[i].field, v));
+                        af.push(_utils.format('contains({0},{1})', search[i].field, v));
                         if (i < (len - 1))
                             af.push(' or ');
                     }
@@ -3434,7 +4152,7 @@ var Phoenix;
             var local = callerObject && callerObject.getLocalContext ? callerObject.getLocalContext() : null;
             var cd, ldata = config.$data;
             if (config.$params && config.$params.dataProvider) {
-                var hnd = Phoenix.customData.get(config.$params.dataProvider);
+                var hnd = _customData.get(config.$params.dataProvider);
                 if (hnd)
                     context = hnd(context, callerObject);
             }
@@ -3444,22 +4162,22 @@ var Phoenix;
                     $url: lurl,
                     $context: context,
                     $data: ldata,
-                    $mem: Phoenix.$mem,
+                    $mem: _p.$mem,
                     $local: local
                 });
             }
             else
                 cd = ldata;
             cd = _execTransform(config, cd);
-            return new Phoenix.utils.Promise(function (resolve, reject) {
+            return new _utils.Promise(function (resolve, reject) {
                 resolve(cd);
             });
         }, _execWSchema = function (config, lurl, context, callerObject) {
             var name = config.$params.name;
-            return data.schema.get(name, config.$params.localization, undefined);
+            return _data.schema.get(name, config.$params.localization, undefined);
         }, _execMenu = function (config, lurl, context, callerObject) {
             var name = config.$params.name;
-            return data.menu.get(name, config.$params.localization, undefined);
+            return _data.menu.get(name, config.$params.localization, undefined);
         }, _execOData = function (config, lurl, context, callerObject) {
             var method = config.$method || 'GET';
             var local = callerObject && callerObject.getLocalContext ? callerObject.getLocalContext() : null;
@@ -3480,21 +4198,21 @@ var Phoenix;
             if (method) {
                 switch (method) {
                     case "DELETE":
-                        return data.odata.doDelete(params, context.etag ? context.etag : null);
+                        return _data.odata.doDelete(params, context.etag ? context.etag : null);
                     case "POST":
-                        return data.odata.doPost(params, context);
+                        return _data.odata.doPost(params, context);
                     case "PUT":
                         var etagput = context["@odata.etag"];
                         delete context["@odata.etag"];
                         var irput = context["@odata.return"] != null;
                         delete context["@odata.return"];
-                        return data.odata.doPut(params, context, etagput, irput);
+                        return _data.odata.doPut(params, context, etagput, irput);
                     case "PATCH":
                         var etagpatch = context["@odata.etag"];
                         delete context["@odata.etag"];
                         var irpatch = context["@odata.return"] != null;
                         delete context["@odata.return"];
-                        return data.odata.doPatch(params, context, etagpatch, irpatch);
+                        return _data.odata.doPatch(params, context, etagpatch, irpatch);
                 }
             }
             var defData = _defaultData(config.$data, lurl, context, local);
@@ -3514,7 +4232,7 @@ var Phoenix;
                 if (context.hasOwnProperty('$top') && context.$top)
                     params.$top = context.$top;
             }
-            return data.odata.getRessources(params, function (ldata) {
+            return _data.odata.getRessources(params, function (ldata) {
                 if ((!ldata || !ldata.documents || !ldata.documents.length) && defData) {
                     ldata.documents = ldata.documents || [];
                     ldata.documents.push(defData);
@@ -3530,7 +4248,7 @@ var Phoenix;
                         $url: lurl,
                         $context: context,
                         $data: ldata,
-                        $mem: Phoenix.$mem,
+                        $mem: _p.$mem,
                         $local: local
                     });
                 cd = _execTransform(config, cd);
@@ -3539,14 +4257,14 @@ var Phoenix;
         }, _execLocal = function (config, lurl, context, callerObject) {
             var local = callerObject && callerObject.getLocalContext ? callerObject.getLocalContext() : null;
             var params = _parseRestParams(config.$params, lurl, context, local);
-            return data.local.getRessources(params, function (ldata) {
+            return _data.local.getRessources(params, function (ldata) {
                 var cd = ldata;
                 if (!config.$main && config.$output)
                     cd = _outputData(config.$output, {
                         $url: lurl,
                         $context: context,
                         $data: ldata,
-                        $mem: Phoenix.$mem,
+                        $mem: _p.$mem,
                         $local: local
                     });
                 cd = _execTransform(config, cd);
@@ -3558,14 +4276,14 @@ var Phoenix;
             var params = _parseRestParams(tp, lurl, context, local);
             if (config.$method)
                 params.$method = config.$method;
-            return data.rest.getRessources(params, function (ldata) {
+            return _data.rest.getRessources(params, function (ldata) {
                 var cd = ldata;
                 if (config.$output)
                     cd = _outputData(config.$output, {
                         $url: lurl,
                         $context: context,
                         $data: ldata,
-                        $mem: Phoenix.$mem,
+                        $mem: _p.$mem,
                         $local: local
                     });
                 cd = _execTransform(config, cd);
@@ -3678,7 +4396,7 @@ var Phoenix;
                 return _outputData(def, context);
             };
             DataSet.prototype.destroy = function () {
-                Phoenix.utils.log("Destroy Dataset", "destroy");
+                _utils.log("Destroy Dataset", "destroy");
             };
             DataSet.prototype._findSelectedOData = function (ldata) {
                 var that = this;
@@ -3688,7 +4406,7 @@ var Phoenix;
                     if (that.config.$autoselect && typeof that.config.$autoselect == 'object') {
                         var context = {
                             $url: _link.search(null, false),
-                            $mem: Phoenix.$mem
+                            $mem: _p.$mem
                         };
                         var memData = _outputData(that.config.$autoselect, context);
                         var props = Object.keys(memData);
@@ -3752,7 +4470,7 @@ var Phoenix;
         data.extractValue = _extractValue;
         data.execOutputData = function (dataSource, result) {
             if (dataSource.$output) {
-                var ctx = Phoenix.link.context();
+                var ctx = _link.context();
                 ctx.$data = result[dataSource.name];
                 ctx.$context = result;
                 result[dataSource.name] = _outputData(dataSource.$output, ctx);
@@ -3761,13 +4479,13 @@ var Phoenix;
         data.test = { output: _outputData, parseTree: _parseTree };
     })(data = Phoenix.data || (Phoenix.data = {}));
 })(Phoenix || (Phoenix = {}));
-/// <reference path="../../../typings/index.d.ts" />
-/// <reference path="../core/core.ts" />
+/// <reference path="../core/core-refs.ts" />
 var Phoenix;
 (function (Phoenix) {
     var ui;
     (function (ui) {
-        var _dom = Phoenix.dom, _locale = Phoenix.locale, 
+        var _p = Phoenix, _dom = _p.dom, _utils = _p.utils, _locale = _p.locale;
+        var 
         // Create page object used in template
         _makePage = function (ii, text, icon, isActive, isDisabled) {
             return {
@@ -3861,7 +4579,7 @@ var Phoenix;
                 that._defineProps();
             }
             Pager.prototype._defineProps = function () {
-                var that = this, _dp = Phoenix.utils.defineProperty;
+                var that = this, _dp = _utils.defineProperty;
                 _dp("currentPage", that);
                 _dp("totalPages", that);
             };
@@ -3990,13 +4708,12 @@ var Phoenix;
         ;
     })(ui = Phoenix.ui || (Phoenix.ui = {}));
 })(Phoenix || (Phoenix = {}));
-/// <reference path="../../../typings/index.d.ts" />
-/// <reference path="../core/core.ts" />
-/// <reference path="../core/modules/application.ts" />
+/// <reference path="../core/core-refs.ts" />
 var Phoenix;
 (function (Phoenix) {
-    var ui;
-    (function (ui) {
+    var pagecontrol;
+    (function (pagecontrol) {
+        var _p = Phoenix, _history = _p.history, _utils = _p.utils, _external = _p.external, _dom = _p.dom, _link = _p.link, _locale = _p.locale, _application = _p.application;
         var _error = [
             '<div role="alert" class="bs-error alert alert-danger alert-dismissible fade in">',
             '<button aria-label="{0}" data-dismiss="alert" class="close" type="button"><span aria-hidden="true">×</span></button>',
@@ -4010,7 +4727,7 @@ var Phoenix;
         var _loading = [
             '<div class="bs-loader"></div>'
         ];
-        var _cp = null, _history = Phoenix.history, _utils = Phoenix.utils, _external = Phoenix.external, _dom = Phoenix.dom, _link = Phoenix.link, _locale = Phoenix.locale, _application = Phoenix.application, _datasetsInfo = function (datasets) {
+        var _cp = null, _datasetsInfo = function (datasets) {
             var cfg = {
                 emit: false,
                 listen: true,
@@ -4098,12 +4815,20 @@ var Phoenix;
                 var that = this;
                 that._notifyChildren(propertyName, that.data[propertyName]);
             };
-            PageControl.prototype._notifyChildOnAdd = function (child) {
+            PageControl.prototype._notifyChildOnAdd = function (child, type) {
                 var that = this;
-                if (child && child.onPageChange) {
-                    Object.keys(that.props).forEach(function (pn) {
-                        child.onPageChange(pn, that.props[pn]);
-                    });
+                if (child) {
+                    if (type === 'layout') {
+                        var header = that.childByType('header');
+                        if (header && header.setPage) {
+                            var name_1 = child.data.name || '';
+                            header.setPage(name_1, child);
+                        }
+                    }
+                    if (child.onPageChange)
+                        Object.keys(that.props).forEach(function (pn) {
+                            child.onPageChange(pn, that.props[pn]);
+                        });
                 }
             };
             PageControl.prototype._notifyChildren = function (propName, value) {
@@ -4176,7 +4901,7 @@ var Phoenix;
                 var that = this;
                 for (var i = 0, len = that.children.length; i < len; i++) {
                     var c = that.children[i];
-                    if (c.type == ct)
+                    if (c.type === ct)
                         return c.child;
                 }
                 return null;
@@ -4187,7 +4912,7 @@ var Phoenix;
                     child: child,
                     type: type
                 });
-                that._notifyChildOnAdd(child);
+                that._notifyChildOnAdd(child, type);
             };
             PageControl.prototype.removeChild = function (child) {
                 var that = this;
@@ -4326,30 +5051,33 @@ var Phoenix;
             };
             return PageControl;
         }());
-        ui.PageControl = PageControl;
+        pagecontrol.PageControl = PageControl;
         function Page() {
             if (!_cp)
                 _cp = new PageControl();
             return _cp;
         }
-        ui.Page = Page;
-    })(ui = Phoenix.ui || (Phoenix.ui = {}));
+        pagecontrol.Page = Page;
+    })(pagecontrol = Phoenix.pagecontrol || (Phoenix.pagecontrol = {}));
 })(Phoenix || (Phoenix = {}));
-/// <reference path="../../../typings/index.d.ts" />
 /// <reference path="../core/core.ts" />
 var Phoenix;
 (function (Phoenix) {
-    var ui;
-    (function (ui) {
-        var _utils = Phoenix.utils, _ulocale = Phoenix.ulocale, _locale = Phoenix.locale, _dom = Phoenix.dom;
+    var _p = Phoenix, _utils = _p.utils, _ulocale = _p.ulocale, _locale = _p.locale, _ui = _p.ui, _dom = _p.dom;
+    var modal;
+    (function (modal) {
         var _patternButton = function (options) {
-            if (options.pattern == "close") {
+            if (options.pattern === "close") {
                 var closeOpt = { "close": true, "type": "default", name: "close", "title": _locale.ui.Close };
                 return $.extend({}, closeOpt, options);
             }
-            else if (options.pattern == "validate") {
+            else if (options.pattern === "validate") {
                 var validateOpt = { "close": false, "type": "success", name: "validate", "title": _locale.ui.Validate };
                 return $.extend({}, validateOpt, options);
+            }
+            else if (options.pattern === "create") {
+                var createOpt = { "close": false, "type": "success", name: "create", "title": _locale.ui.Create };
+                return $.extend({}, createOpt, options);
             }
             return options;
         };
@@ -4483,17 +5211,17 @@ var Phoenix;
             };
             return Modal;
         }());
-        ui.Modal = Modal;
-    })(ui = Phoenix.ui || (Phoenix.ui = {}));
+        modal.Modal = Modal;
+    })(modal = Phoenix.modal || (Phoenix.modal = {}));
 })(Phoenix || (Phoenix = {}));
-/// <reference path="../core/core.ts" />
+/// <reference path="../core/core-refs.ts" />
 /// <reference path="../data/datasets.ts" />
-//TODO: config.$resources || config.$schema --> config.$resources
 var Phoenix;
 (function (Phoenix) {
     var DatasetPlugin;
     (function (DatasetPlugin) {
-        var _data = Phoenix.data, _link = Phoenix.link, _mem = Phoenix.$mem, _utils = Phoenix.utils, _updateMem = function (that, ds, value, prop) {
+        var _p = Phoenix, _data = _p.data, _link = _p.link, _mem = _p.$mem, _utils = _p.utils;
+        var _updateMem = function (that, ds, value, prop) {
             if (ds.config.$emit[prop].$updateMem) {
                 var patchMem = ds.data2Output(ds.config.$emit[prop].$updateMem, {
                     $item: value
@@ -4754,16 +5482,15 @@ var Phoenix;
         };
     })(DatasetPlugin = Phoenix.DatasetPlugin || (Phoenix.DatasetPlugin = {}));
 })(Phoenix || (Phoenix = {}));
-/// <reference path="../../../typings/index.d.ts" />
-/// <reference path="../core/core.ts" />
-/// <reference path="../core/modules/locale.ts" />
+// <reference path="../core/core-refs.ts" />
 var Phoenix;
 (function (Phoenix) {
     var WidgetUtils;
     (function (WidgetUtils) {
         //Widget data
         // {$config: {$title, $titleIsHidden, $border, $style, $height, data}}
-        var _dom = Phoenix.dom, _utils = Phoenix.utils, _locale = Phoenix.locale, _ulocale = Phoenix.ulocale, _widgetClass = function (cfg, options, selected) {
+        var _p = Phoenix, _dom = _p.dom, _utils = _p.utils, _locale = _p.locale, _ulocale = _p.ulocale;
+        var _widgetClass = function (cfg, options, selected) {
             var css = ["bs-island bs-widget"];
             _dom.parseStyle(cfg.$style, css);
             if (cfg.$border)
@@ -4853,15 +5580,14 @@ var Phoenix;
         WidgetUtils.noData = _noData;
     })(WidgetUtils = Phoenix.WidgetUtils || (Phoenix.WidgetUtils = {}));
 })(Phoenix || (Phoenix = {}));
-/// <reference path="../../../typings/index.d.ts" />
-/// <reference path="../core/core.ts" />
+/// <reference path="../core/core-refs.ts" />
 /// <reference path="./module.ts" />
 /// <reference path="./datasets-plugin.ts" />
 var Phoenix;
 (function (Phoenix) {
     var ui;
     (function (ui) {
-        var _dom = Phoenix.dom, _utils = Phoenix.utils, _locale = Phoenix.locale, _wutils = Phoenix.WidgetUtils, _link = Phoenix.link, _render = Phoenix.render;
+        var _p = Phoenix, _dom = _p.dom, _utils = _p.utils, _locale = _p.locale, _wutils = _p.WidgetUtils, _dsPlugin = _p.DatasetPlugin, _link = _p.link, _render = _p.render;
         var Widget = (function () {
             function Widget(ldata, options, layout) {
                 var that = this;
@@ -4881,12 +5607,12 @@ var Phoenix;
                 that.layout = layout;
                 that.$local = {};
                 //datasets
-                that.loadingHandler = this.loading.bind(that);
-                that.noDataHandler = this.noData.bind(that);
-                that.errorHandler = this.error.bind(that);
-                that.emitHandler = this.emit.bind(that);
-                that.getLocalContextHandler = this.getLocalContext.bind(that);
-                that.dataChangedHandler = this.dataChanged.bind(that);
+                that.loadingHandler = that.loading.bind(that);
+                that.noDataHandler = that.noData.bind(that);
+                that.errorHandler = that.error.bind(that);
+                that.emitHandler = that.emit.bind(that);
+                that.getLocalContextHandler = that.getLocalContext.bind(that);
+                that.dataChangedHandler = that.dataChanged.bind(that);
                 that.updateMenuHandler = null;
                 that._watchers = {};
                 if (that.props.data.localContext) {
@@ -5255,7 +5981,7 @@ var Phoenix;
                     var wbyds = that._watchers[dsName] = that._watchers[dsName] || [];
                     wbyds.push(cb);
                     if (that.props && that.props.data.ds) {
-                        Phoenix.utils.nextTick(function () {
+                        _utils.nextTick(function () {
                             cb(that.props.data.ds[dsName]);
                         });
                     }
@@ -5275,18 +6001,35 @@ var Phoenix;
             return Widget;
         }());
         ui.Widget = Widget;
-        _utils.applyMixins(Widget, [Phoenix.DatasetPlugin.DatasetMethods]);
+        _utils.applyMixins(Widget, [_dsPlugin.DatasetMethods]);
     })(ui = Phoenix.ui || (Phoenix.ui = {}));
 })(Phoenix || (Phoenix = {}));
-/// <reference path="../../../typings/index.d.ts" />
 /// <reference path="../core/core.ts" />
 /// <reference path="./datasets-plugin.ts" />
 /// <reference path="./page.control.ts" />
 var Phoenix;
 (function (Phoenix) {
-    var ui;
-    (function (ui) {
-        var _utils = Phoenix.utils, _ulocale = Phoenix.ulocale, _link = Phoenix.link, _mem = Phoenix.$mem, _dom = Phoenix.dom;
+    var menubase;
+    (function (menubase) {
+        var _p = Phoenix, _pagecontrol = _p.pagecontrol, _utils = _p.utils, _ulocale = _p.ulocale, _link = _p.link, _mem = _p.$mem, _dsPlugin = _p.DatasetPlugin, _dom = _p.dom;
+        var _expandItems = function (options, items, list, parent, level) {
+            items.forEach(function (item) {
+                if (item.$level === undefined)
+                    item.$level = level;
+                item.$id = _utils.allocID();
+                if (parent)
+                    item.$parentId = parent.$id;
+                list.push(item);
+                if (item.$items && item.$items.length) {
+                    if (item.collapsed === undefined) {
+                        item.collapsed = (options.canExpandItems ? true : false);
+                    }
+                    _expandItems(options, item.$items, list, item, level + 1);
+                }
+                else
+                    item.collapsed = false;
+            });
+        };
         var MenuBase = (function () {
             function MenuBase(data, options) {
                 this._initOptions(options);
@@ -5309,7 +6052,7 @@ var Phoenix;
             };
             /* End datasets methods*/
             MenuBase.prototype.init = function (data, options) {
-                _utils.log("Create Menu", "menu");
+                _utils.log('Create Menu', 'menu');
                 var that = this;
                 //datasets
                 that.loadingHandler = this.loading.bind(that);
@@ -5322,11 +6065,11 @@ var Phoenix;
                 that.$element = null;
                 that.$items = null;
                 that.options = options || {};
-                that.options.typeMenu = that.options.type || "left";
+                that.options.typeMenu = that.options.type || 'left';
                 that.data = {
-                    name: "none"
+                    name: 'none'
                 };
-                that.page = ui.Page();
+                that.page = _pagecontrol.Page();
                 that.page.addChild('menu-' + that.options.typeMenu, that);
                 that.setMenu(data);
             };
@@ -5351,7 +6094,7 @@ var Phoenix;
             };
             MenuBase.prototype.onPageChange = function (propName, value) {
                 var that = this;
-                if (propName == "$user" && that.items) {
+                if (propName === '$user' && that.items) {
                     if (that.options.auth && !that.options.autoClose) {
                         var show = that.page.props.$user && that.page.props.$user.connected;
                         if (show) {
@@ -5368,25 +6111,27 @@ var Phoenix;
                         }
                     }
                 }
+                if (propName === '$title')
+                    that._onPageChanged();
             };
             MenuBase.prototype.setMenu = function (data) {
-                _utils.log("Set Menu", "menu");
+                _utils.log('Set Menu', 'menu');
                 var that = this, hasMenu = data != null;
                 data = data || {
-                    name: "none"
+                    name: 'none'
                 };
                 if (!data.$groups) {
                     data.$groups = [{
                             $items: data.$items
                         }];
-                    delete data.$items;
                 }
                 if (this.data.name !== data.name) {
-                    _utils.log("Menu create && execute datasets", "menu");
+                    _utils.log('Menu create && execute datasets', 'menu');
                     that.data = data;
                     that.items = null;
+                    that._map = {};
                     that._recreateDatasets();
-                    that.ds_exec("$load", null, that.props.data.ds, function () {
+                    that.ds_exec('$load', null, that.props.data.ds, function () {
                         var doShow = !that.options.autoClose && that.options.parentId && hasMenu;
                         if (doShow && that.options.auth) {
                             doShow = that.page.props.$user && that.page.props.$user.connected;
@@ -5416,14 +6161,15 @@ var Phoenix;
                                 }
                             }
                         }
-                        that.page.props["$menu" + that.options.typeMenu] = hasMenu && that.options.autoClose;
+                        that.page.props['$menu' + that.options.typeMenu] = hasMenu && that.options.autoClose;
                     }, null, true);
+                    that._onPageChanged();
                 }
                 else {
-                    _utils.log("Menu reexecute datasets", "menu");
+                    _utils.log('Menu reexecute datasets', 'menu');
                     that.ds_reemit(null, function () {
                         that._onPageChanged();
-                        that.page.props["$menu" + that.options.typeMenu] = hasMenu && that.options.autoClose;
+                        that.page.props['$menu' + that.options.typeMenu] = hasMenu && that.options.autoClose;
                     });
                 }
             };
@@ -5436,11 +6182,21 @@ var Phoenix;
                 var e = that.$content.get(0);
                 that.$content.on('click', function (event) {
                     var c = _link.isCustomLink(e, event);
-                    if (c && c.protocol == "click") {
+                    if (c && c.protocol === 'click') {
                         var cs = c.value.substring(('click://').length);
-                        if (cs == "close") {
+                        if (cs === 'close') {
                             if (that._doCloseClick)
                                 return that._doCloseClick();
+                        }
+                        else if (cs.indexOf('collapse/') === 0) {
+                            cs = cs.substring(('collapse/').length);
+                            var j = cs.split('/');
+                            var item = that.items[parseInt(j[0], 10)];
+                            if (item) {
+                                that.colapse(item, !item.collapsed, false);
+                                that.updateItemsAfterCollapse();
+                            }
+                            return;
                         }
                         else {
                             var ii = cs.split('/');
@@ -5451,6 +6207,8 @@ var Phoenix;
                         that.hide();
                     }
                 });
+            };
+            MenuBase.prototype.updateItemsAfterCollapse = function () {
             };
             MenuBase.prototype.renderItems = function ($content) {
                 return null;
@@ -5464,7 +6222,7 @@ var Phoenix;
                 if (!that.datasets) {
                     return after(false);
                 }
-                that.ds_exec("$load", null, that.props.data.ds, after, null, true);
+                that.ds_exec('$load', null, that.props.data.ds, after, null, true);
             };
             MenuBase.prototype._expandItem = function (item, url, mem, itemtitle, link, index) {
                 var ii = { $title: '', $item: item, $index: index, $link: link };
@@ -5499,47 +6257,93 @@ var Phoenix;
                 return null;
             };
             MenuBase.prototype.copyMenuItemData = function (dst, src) { };
+            MenuBase.prototype.isVisible = function (item) {
+                var that = this;
+                if (item.$parentId && that.options.canExpandItems) {
+                    var visible = true;
+                    var p = item;
+                    while (p) {
+                        if (!p.$parentId)
+                            break;
+                        p = that._map[p.$parentId];
+                        if (p && p.collapsed) {
+                            visible = false;
+                            break;
+                        }
+                    }
+                    return visible;
+                }
+                return true;
+            };
+            MenuBase.prototype.colapseAll = function (value) {
+                var that = this;
+                that.items.forEach(function (item) {
+                    item.collapsed = value;
+                });
+            };
+            MenuBase.prototype.colapse = function (item, value, recursive) {
+                var that = this;
+                item.collapsed = value;
+                if (item.$items)
+                    item.$items.forEach(function (citem) {
+                        citem.collapsed = value;
+                        if (recursive && citem.$items) {
+                            that.colapse(citem, value, true);
+                        }
+                    });
+            };
             MenuBase.prototype._prepareItems = function () {
                 var that = this;
                 that.items = [];
                 if (that.data.$groups) {
-                    var first = true;
-                    that.data.$groups.forEach(function (group) {
+                    var first_1 = true;
+                    that.data.$groups.forEach(function (group, groupIndex) {
                         var items = null;
+                        if (groupIndex === 0) {
+                            group.$title = group.$title || String.fromCharCode(160);
+                        }
                         if (group.$dataset) {
                             if (!group.$link) {
-                                throw "Invalid link definition. (no link)";
+                                throw 'Invalid link definition. (no link)';
                             }
                             if (!group.$itemtitle) {
-                                throw "Invalid link definition. (no itemtitle)";
+                                throw 'Invalid link definition. (no itemtitle)';
                             }
                             items = that._expandDatasetItems(group.$dataset, group.$itemtitle, group.$link);
                         }
                         else
                             items = group.$items;
                         if (items && items.length) {
-                            if (!first || group.$title || group.$dataset) {
+                            var list = [];
+                            _expandItems(that.options, group.$items, list, null, 0);
+                            items = list;
+                            if (!first_1 || (group.$title || (groupIndex === 0)) || group.$dataset) {
                                 var d = {
+                                    $id: _utils.allocID(),
                                     divider: true,
                                     $title: null,
+                                    $firstGroup: (groupIndex === 0),
                                     dataset: '',
-                                    isHidden: false
+                                    isHidden: false,
+                                    collapsed: false
                                 };
-                                if (group.$title)
-                                    d.$title = group.$title;
+                                d.$title = group.$title;
                                 if (group.dataset) {
                                     d.dataset = group.$dataset;
-                                    if (first)
+                                    if (first_1)
                                         d.isHidden = true;
                                 }
+                                that._map[d.$id] = d;
                                 that.items.push(d);
-                                first = false;
+                                first_1 = false;
                             }
                         }
                         if (items) {
-                            var ds = group.$dataset ? that.datasets[group.$dataset] : null;
+                            var ds_1 = group.$dataset ? that.datasets[group.$dataset] : null;
                             items.forEach(function (item, index) {
                                 var mitem = {
+                                    $id: item.$id,
+                                    $parentId: item.$parentId,
                                     $title: item.$title ? _utils.parseExpression(item.$title, _link.context()) : null,
                                     $dataset: null,
                                     dataset: null,
@@ -5547,23 +6351,26 @@ var Phoenix;
                                     $item: null,
                                     $link: null,
                                     $level: item.$level,
-                                    selected: false
+                                    selected: false,
+                                    collapsed: item.collapsed,
+                                    $items: item.$items
                                 };
                                 if (group.dataset) {
                                     mitem.dataset = group.$dataset;
                                 }
                                 if (item.$link)
                                     mitem.$link = item.$link;
-                                if (ds && ds.autoselect)
-                                    mitem.selected = ds.selectedIndex == index;
+                                if (ds_1 && ds_1.autoselect)
+                                    mitem.selected = ds_1.selectedIndex == index;
                                 that.copyMenuItemData(mitem, item);
-                                if (ds) {
+                                if (ds_1) {
                                     mitem.$dataset = group.$dataset;
                                     mitem.$index = item.$index;
                                     mitem.$item = item.$item;
                                 }
+                                that._map[mitem.$id] = mitem;
                                 that.items.push(mitem);
-                                first = false;
+                                first_1 = false;
                             });
                         }
                     });
@@ -5600,12 +6407,12 @@ var Phoenix;
             MenuBase.prototype._hideContent = function (autoCloseChanged) {
                 var that = this;
                 var c = that.$content.get(0);
-                _dom.addClass(c, "bs-none");
+                _dom.addClass(c, 'bs-none');
             };
             MenuBase.prototype._showContent = function () {
                 var that = this;
                 var c = that.$content.get(0);
-                _dom.removeClass(c, "bs-none");
+                _dom.removeClass(c, 'bs-none');
                 that._menuShowed();
             };
             MenuBase.prototype.render = function ($parent) {
@@ -5645,7 +6452,7 @@ var Phoenix;
             };
             MenuBase.prototype.destroy = function () {
                 var that = this;
-                _utils.log("Destroy Menu", "destroy");
+                _utils.log('Destroy Menu', 'destroy');
                 that.ds_destroy();
                 that.removeDataListener(that);
                 if (that.$content) {
@@ -5677,19 +6484,26 @@ var Phoenix;
             };
             return MenuBase;
         }());
-        ui.MenuBase = MenuBase;
-        _utils.applyMixins(MenuBase, [Phoenix.DatasetPlugin.DatasetMethods]);
-    })(ui = Phoenix.ui || (Phoenix.ui = {}));
+        menubase.MenuBase = MenuBase;
+        _utils.applyMixins(MenuBase, [_dsPlugin.DatasetMethods]);
+    })(menubase = Phoenix.menubase || (Phoenix.menubase = {}));
 })(Phoenix || (Phoenix = {}));
-/// <reference path="../../../typings/index.d.ts" />
-/// <reference path="../core/core.ts" />
+/// <reference path="../core/core-refs.ts" />
 /// <reference path="./datasets-plugin.ts" />
 /// <reference path="./menu-base.ts" />
 var Phoenix;
 (function (Phoenix) {
-    var ui;
-    (function (ui) {
-        var _link = Phoenix.link, _preferences = Phoenix.preferences, _application = Phoenix.application, _device = Phoenix.device, _utils = Phoenix.utils, _dom = Phoenix.dom;
+    var _p = Phoenix, _link = _p.link, _menubase = _p.menubase, _preferences = _p.preferences, _application = _p.application, _device = _p.device, _utils = _p.utils, _dom = _p.dom;
+    var menu;
+    (function (menu) {
+        var _classCollapsed = function (item) {
+            var css = ['bs-menu-right-icon'];
+            if (item.collapsed)
+                css.push(_dom.iconClass('plus-circle'));
+            else
+                css.push(_dom.iconClass('minus-circle'));
+            return css.join(' ');
+        };
         var Menu = (function (_super) {
             __extends(Menu, _super);
             function Menu(ldata, options) {
@@ -5698,12 +6512,18 @@ var Phoenix;
             Menu.prototype._initOptions = function (options) {
                 var headerConfig = _application.configuration.header || {};
                 options = options || {};
+                options.typeMenu = options.typeMenu || 'left';
                 options.replaceParent = true;
                 options.canStayInPage = (_device.phone || _device.tablet ? false : true);
                 options.autoClose = options.canStayInPage ? _preferences("menu_" + options.type + "_autoClose") : true;
                 if (options.autoClose === undefined)
                     options.autoClose = true;
                 options.auth = headerConfig.authLeftMenu;
+                if (headerConfig['menu' + options.typeMenu]) {
+                    _utils.merge(headerConfig['menu' + options.typeMenu], options);
+                }
+                options.styles = options.styles || { parent: '$upper', leaf: '$bg-gray-lighter' };
+                options.canExpandItems = true;
             };
             Menu.prototype._hideContent = function (autoCloseChanged) {
                 var that = this;
@@ -5751,6 +6571,12 @@ var Phoenix;
                 var nv = !!!_preferences("menu_" + that.options.type + "_autoClose");
                 _preferences("menu_" + that.options.type + "_autoClose", nv);
                 that.options.autoClose = nv;
+                if (!that.options.autoClose) {
+                    that.page.popup = null;
+                }
+                else {
+                    that.page.setPopup(that);
+                }
                 return that._updateCloseButton(that.$content);
             };
             Menu.prototype._doCloseClick = function () {
@@ -5775,26 +6601,27 @@ var Phoenix;
                 var doclose = false;
                 var c = $content.get(0);
                 var btn = _dom.query(c, '.bs-menu-button');
-                var btnIcon = _dom.query(c, '.bs-icon');
+                if (!btn)
+                    return;
                 if (that.options.canStayInPage) {
-                    _dom.removeClass(btnIcon, _dom.iconClass('times', true));
+                    _dom.removeClass(btn, _dom.iconClass('times', true));
                     if (that.options.autoClose) {
-                        _dom.removeClass(btnIcon, _dom.iconClass('times-circle-o', true));
-                        _dom.addClass(btnIcon, 'small');
-                        _dom.addClass(btnIcon, _dom.iconClass('thumb-tack', true));
+                        _dom.removeClass(btn, _dom.iconClass('times-circle-o', true));
+                        _dom.addClass(btn, 'small');
+                        _dom.addClass(btn, _dom.iconClass('thumb-tack', true));
                         doclose = true;
                     }
                     else {
-                        _dom.removeClass(btnIcon, _dom.iconClass('thumb-tack', true));
-                        _dom.removeClass(btnIcon, 'small');
-                        _dom.addClass(btnIcon, _dom.iconClass('times-circle-o', true));
+                        _dom.removeClass(btn, _dom.iconClass('thumb-tack', true));
+                        _dom.removeClass(btn, 'small');
+                        _dom.addClass(btn, _dom.iconClass('times-circle-o', true));
                     }
                     _dom.removeClass(btn, "bs-none");
                 }
                 else {
-                    _dom.removeClass(btnIcon, _dom.iconClass('thumb-tack', true));
-                    _dom.removeClass(btnIcon, _dom.iconClass('times-circle-o', true));
-                    _dom.addClass(btnIcon, _dom.iconClass('times', true));
+                    _dom.removeClass(btn, _dom.iconClass('thumb-tack', true));
+                    _dom.removeClass(btn, _dom.iconClass('times-circle-o', true));
+                    _dom.addClass(btn, _dom.iconClass('times', true));
                     _dom.removeClass(btn, "bs-none");
                 }
                 return doclose;
@@ -5802,28 +6629,43 @@ var Phoenix;
             Menu.prototype.renderContent = function () {
                 var that = this;
                 var opts = that.options;
-                var $content = $('<div class="bs-menu-wrap bs-menu-animate bs-menu-closed bs-menu-' + opts.typeMenu
-                    + '-wrap"><div class="bs-menu-button bs-none bs-menu-' + opts.typeMenu +
-                    '-close"><a class="bs-xclose" href="#" data-phoenix-href="click://close"><span class="bs-icon ' +
-                    _dom.iconPrefix() + '"></span></a></div></div>');
-                that._updateCloseButton($content);
+                var $content = $('<div class="bs-menu-wrap bs-menu-animate bs-menu-closed bs-menu-' + opts.typeMenu + '-wrap"></div>');
+                var header = that.page.childByType('header');
+                if (header && header.$element) {
+                    var offset = _dom.offset(header.$element.get(0));
+                    if (_device.phone || _device.tablet) {
+                    }
+                    else {
+                        $content.get(0).style.paddingTop = offset.height + 'px';
+                        $content.get(0).style.zIndex = '1000';
+                    }
+                }
                 return $content;
             };
             Menu.prototype._changeSelected = function (item) {
                 var that = this;
                 if (that.$element) {
-                    var e = that.$element.get(0).childNodes[item.$childIndex];
-                    if (item.selected)
-                        _dom.addClass(e, "active");
-                    else
-                        _dom.removeClass(e, "active");
+                    var p = item;
+                    while (p) {
+                        var e = _dom.find(that.$element.get(0), p.$id);
+                        if (e) {
+                            if (item.selected) {
+                                _dom.addClass(e, 'active');
+                            }
+                            else {
+                                _dom.removeClass(e, 'active');
+                            }
+                        }
+                        p = that._map[p.$parentId];
+                    }
                 }
             };
             Menu.prototype._selectDatasetItem = function (dataset, item) {
                 var that = this;
+                var selctedItem = null;
                 that.items.forEach(function (ii) {
                     if (ii.$dataset === dataset) {
-                        if (ii == item) {
+                        if (ii === item) {
                             if (!ii.selected) {
                                 ii.selected = true;
                                 that._changeSelected(ii);
@@ -5832,9 +6674,34 @@ var Phoenix;
                         else if (ii.selected) {
                             ii.selected = false;
                             that._changeSelected(ii);
+                            selctedItem = ii;
                         }
                     }
                 });
+                that._expandSelected(selctedItem);
+            };
+            Menu.prototype._expandSelected = function (item) {
+                var that = this;
+                var active = [];
+                var activeMap = {};
+                var p = item;
+                while (p) {
+                    active.push(p);
+                    activeMap[p.$id] = true;
+                    p.collapsed = false;
+                    p = that._map[p.$parentId];
+                }
+                that.items.forEach(function (ci) {
+                    if (!ci.collapsed && !activeMap[ci.$id])
+                        ci.collapsed = true;
+                });
+                that.updateItemsAfterCollapse();
+                var navTitleList = active.reverse().map(function (ci) { return ci.$title; });
+                if (that.data && that.data.$moduleTitle)
+                    navTitleList.unshift(that.data.$moduleTitle);
+                var header = that.page.childByType('header');
+                if (header)
+                    header.setLocation(navTitleList.join(' - '), false);
             };
             Menu.prototype._canClick = function (item) {
                 return item.$link;
@@ -5849,38 +6716,59 @@ var Phoenix;
                 var e = $element.get(0);
                 var ci = $('<li><a class="link"><span class="title"></span></a></li>').get(0);
                 var cp = $('<li class="parent"><span class="title"></span></li>').get(0);
-                var ch = $('<li class="divider"></li>').get(0);
+                var coll = $('<li class="parent"><span class="title"></span></li>').get(0);
+                var ch = $('<li class="divider"><span class="title"></span></li>').get(0);
                 if (that.items) {
-                    var cn = 0;
-                    var len = that.items.length;
+                    var len_1 = that.items.length;
                     that.items.forEach(function (item, index) {
                         if (item.isHidden)
                             return;
                         var tmp;
                         if (item.divider) {
                             tmp = ch.cloneNode(true);
-                            if (item.$title)
-                                _dom.text(tmp, item.$title);
-                            else
-                                _dom.addClass(tmp, "empty");
+                            _dom.text(tmp.firstChild, item.$title || String.fromCharCode(160));
                         }
                         else {
+                            var isCollapsable = that.options.canExpandItems && item.$items && item.$items.length;
                             var isParent = false;
-                            if (index < len - 1) {
+                            var cl = '';
+                            if (index < len_1 - 1) {
                                 var nc = that.items[index + 1];
-                                isParent = ((nc.$level || 0) > (item.$level || 0));
+                                isParent = ((nc.$level || 0) > (item.$level || 0)) && !nc.$parentId;
                             }
                             var isLink = !!item.$link;
-                            tmp = isLink ? ci.cloneNode(true) : cp.cloneNode(true);
+                            tmp = (isLink || isCollapsable) ? ci.cloneNode(true) : cp.cloneNode(true);
+                            if (item.$items) {
+                                cl = 'parent';
+                                _dom.addClass(tmp, 'bs-menu-item-parent');
+                            }
+                            else {
+                                if (item.$parentId)
+                                    cl = 'leaf';
+                            }
                             if (item.$level) {
-                                _dom.addClass(tmp, "level");
+                                if (!item.$parentId)
+                                    _dom.addClass(tmp, 'level');
                                 _dom.addClass(tmp, "level-" + item.$level);
                             }
                             else if (isParent) {
-                                _dom.addClass(tmp, "level");
+                                _dom.addClass(tmp, 'level');
+                            }
+                            if (cl) {
+                                var style = null;
+                                if (that.options.styles && that.options.styles[cl]) {
+                                    style = that.options.styles[cl];
+                                }
+                                if (style) {
+                                    var css = [];
+                                    _dom.parseStyle(style, css);
+                                    if (css.length) {
+                                        tmp.className = tmp.className + ' ' + css.join(' ');
+                                    }
+                                }
                             }
                             var aa = tmp.firstChild;
-                            var ii = isLink ? aa.firstChild : aa;
+                            var ii = isLink || isCollapsable ? aa.firstChild : aa;
                             if (item.$title) {
                                 var ct = (item.$icon ? ' ' + item.$title : item.$title);
                                 _dom.text(ii, ct);
@@ -5894,17 +6782,69 @@ var Phoenix;
                                     _dom.removeClass(aa, "link");
                                 }
                             }
+                            if (that.options.canExpandItems) {
+                                if (isCollapsable) {
+                                    _dom.attr(tmp, "data-phoenix-href", "click://collapse/" + index);
+                                    var icon_1 = document.createElement('span');
+                                    icon_1.id = item.$id + '_collapse';
+                                    icon_1.className = _classCollapsed(item);
+                                    _dom.append(tmp, icon_1);
+                                }
+                                if (!that.isVisible(item)) {
+                                    _dom.addClass(tmp, 'bs-none');
+                                }
+                            }
                             if (item.$icon) {
                                 var icon = _dom.icon(item.$icon);
+                                _dom.addClass(icon, 'bs-icon-menu');
                                 aa.insertBefore(icon, aa.firstChild);
                             }
                         }
+                        if (item.$firstGroup) {
+                            var icon_2 = document.createElement('span');
+                            icon_2.className = 'bs-menu-button bs-menu-right-icon bs-none ' + _dom.iconPrefix();
+                            _dom.attr(icon_2, 'data-phoenix-href', 'click://close');
+                            _dom.append(tmp, icon_2);
+                        }
+                        tmp.id = item.$id;
                         e.appendChild(tmp);
-                        item.$childIndex = cn;
-                        cn++;
                     });
                 }
+                that._updateCloseButton($element);
                 return $element;
+            };
+            Menu.prototype.updateItemsAfterCollapse = function () {
+                var that = this;
+                if (!that.$element)
+                    return;
+                if (!that.items)
+                    return;
+                if (!that.options.canExpandItems)
+                    return;
+                that.items.forEach(function (item, index) {
+                    if (item.isHidden)
+                        return;
+                    var isCollapsable = item.$items && item.$items.length;
+                    var isVisible = that.isVisible(item);
+                    var e = _dom.find(that.$element.get(0), item.$id);
+                    if (e) {
+                        var eIsVisible = !_dom.hasClass(e, 'bs-none');
+                        if (isVisible !== eIsVisible) {
+                            if (isVisible)
+                                _dom.removeClass(e, 'bs-none');
+                            else
+                                _dom.addClass(e, 'bs-none');
+                        }
+                        if (isCollapsable) {
+                            var ce = _dom.find(that.$element.get(0), item.$id + '_collapse');
+                            if (ce) {
+                                var ncn = _classCollapsed(item);
+                                if (ce.className !== ncn)
+                                    ce.className = ncn;
+                            }
+                        }
+                    }
+                });
             };
             Menu.prototype._executeLink = function (item, link) {
                 var that = this;
@@ -5925,49 +6865,745 @@ var Phoenix;
             };
             Menu.prototype._onPageChanged = function () {
                 var that = this;
-                if (!that.$element)
-                    return;
                 if (that.items) {
                     var cp = that.page.currentPage();
+                    var selctedItem_1 = null;
                     that.items.forEach(function (item, index) {
                         if (item.$link && item.$link.$page) {
                             var page = _link.pageName(item.$link);
                             var selected = page == cp;
                             if (selected && item.$link.$module)
                                 selected = item.$link.$module === _application.name;
-                            if (item.selected != selected) {
+                            if (item.selected !== selected) {
                                 item.selected = selected;
-                                that._changeSelected(item);
+                                if (!item.selected)
+                                    that._changeSelected(item);
+                            }
+                            if (selected) {
+                                selctedItem_1 = item;
                             }
                         }
                     });
+                    if (selctedItem_1) {
+                        that._changeSelected(selctedItem_1);
+                        that._expandSelected(selctedItem_1);
+                    }
                 }
             };
             return Menu;
-        }(ui.MenuBase));
-        ui.Menu = Menu;
+        }(Phoenix.menubase.MenuBase));
+        menu.Menu = Menu;
         ;
-        ui.Menuleft = Menu;
-        ui.Menuright = Menu;
+        menu.Menuleft = Menu;
+        menu.Menuright = Menu;
+    })(menu = Phoenix.menu || (Phoenix.menu = {}));
+})(Phoenix || (Phoenix = {}));
+/// <reference path="../core/core.ts" />
+/// <reference path="../core/modules/application.ts" />
+/// <reference path="../core/modules/sticky.ts" />
+/// <reference path="../core/modules/ajax.ts" />
+/// <reference path="../core/modules/locale.ts" />
+/// <reference path="../ui/page.control.ts" />
+var Phoenix;
+(function (Phoenix) {
+    var _p = Phoenix, _pagecontrol = _p.pagecontrol, _external = _p.external, _ulocale = _p.ulocale, _utils = _p.utils, _locale = _p.locale, _ajax = _p.ajax, _dom = _p.dom, _sticky = _p.sticky, _ui = _p.ui, _build = _p.build, _application = _p.application, _render = _p.render, _link = _p.link;
+    var ui;
+    (function (ui) {
+        var _defaultHeader = function (options) {
+            var html = [];
+            var _bootstrap4 = _p.bootstrap4;
+            var css = ['navbar-fixed-top no-y-margin no-x-margin'];
+            html.push('<div class="' + css.join(' ') + '">');
+            css = ['bs-header-bar navbar  no-y-margin no-x-margin'];
+            if (!_bootstrap4)
+                css.push('navbar-inverse');
+            else
+                css.push('navbar-dark bg-inverse no-x-padding no-y-padding');
+            html.push('<nav class="' + css.join(' ') + '">');
+            html.push('    <div class="container-fluid no-x-padding">');
+            html.push('        <div class="bs-title bs-title-nav-pos header_title"></div>');
+            html.push('        <ul class="nav navbar-nav no-x-margin no-y-margin bs-nav-button bs-left-nav header_left_buttons">');
+            html.push('        </ul>');
+            html.push('        <ul class="nav navbar-nav no-x-margin no-y-margin bs-nav-button bs-right-nav header_right_buttons">');
+            html.push('        </ul>');
+            html.push('    </div>');
+            html.push('</nav>');
+            if (options.showLocation) {
+                html.push('<div class="bs-header-location"><span class="bs-location-buttons"></span><span class="bs-header-location-title">&nbsp;</span></div>');
+            }
+            html.push('</div>');
+            return $(html.join(''));
+        }, _expandPattern = function (item) {
+            if (item.$pattern === 'logout') {
+                item.icon = 'lock';
+                item.title = _locale.ui.Disconnect;
+                item.link = { $logout: true };
+                delete item.$pattern;
+            }
+            return item;
+        }, _addButton = function (item, index) {
+            var html = [];
+            var _bootstrap4 = _p.bootstrap4;
+            var hiddenXs = _bootstrap4 ? 'hidden-xs-down' : 'hidden-xs';
+            item.id = _utils.allocID();
+            var ct = item.title;
+            if (ct && typeof ct === 'object') {
+                ct = ct[_ulocale.currentLang];
+            }
+            if (item.$location) {
+                html.push('<span id="{1}" class="bs-loc-link {2}" href="#" data-phoenix-href="click://{0}" ><span>');
+            }
+            else {
+                html.push('<li id="{1}">');
+                if (item.$type === "logo") {
+                    if (!item.$location)
+                        html.push('<a tabindex="-1" class="' + hiddenXs + ' bs-nav-logo ' + item.$className + '" href="#" data-phoenix-href="click://{0}"></a>');
+                }
+                else {
+                    var css = [];
+                    if (item.iconStyle) {
+                        _dom.parseStyle(item.iconStyle, css);
+                    }
+                    else {
+                        css.push('bs-style-icon-lg');
+                    }
+                    if (item.title || item.expression) {
+                        html.push('<a class="bs-nav-link"');
+                        html.push('  href="#" data-phoenix-href="click://{0}"');
+                        html.push('>');
+                        css.push('{2}');
+                        html.push('<span class="' + css.join(' ') + '"></span>');
+                        css = ['bs-icon-header-title'];
+                        if (_bootstrap4)
+                            css.push('dropdown-toggle');
+                        html.push('<span class="' + css.join(' ') + '"><span class="' + hiddenXs + '">{3}</span>');
+                        if (_bootstrap4)
+                            css.push('dropdown-toggle');
+                        if (item.menu)
+                            html.push(' <span class="caret"></span>');
+                        html.push('</span>');
+                        html.push('</a>');
+                        if (item.menu && item.menu.items) {
+                            if (_bootstrap4) {
+                                html.push('<div class="dropdown-menu bs-right-menu">');
+                                html.push('</div>');
+                            }
+                            else {
+                                html.push('<ul class="dropdown-menu bs-right-menu">');
+                                html.push('</ul>');
+                            }
+                        }
+                    }
+                    else {
+                        html.push('<a class="bs-nav-link" href="#"  data-phoenix-href="click://{0}">');
+                        css.push('{2}');
+                        html.push('<span class="' + css.join(' ') + '"></span>');
+                        html.push('</a>');
+                    }
+                }
+                html.push('</li>');
+            }
+            if (item.link && item.link.$form)
+                item.link.$form.alignElementId = item.id;
+            return $(_utils.format(html.join(''), index, item.id, _dom.customIconClass(item.$icon, item.$iconClass), ct || item.expression || ''));
+        }, _createMenuItems = function (item, ul) {
+            var frag = document.createDocumentFragment();
+            var _bootstrap4 = _p.bootstrap4;
+            var p = $(_bootstrap4 ? '<a class="dropdown-item" href="#"></a>' : '<li><a href="#"></a><li>').get(0);
+            item.menu.items.forEach(function (si, ii) {
+                if (si.$pattern) {
+                    item.menu.items[ii] = _expandPattern(si);
+                    si = item.menu.items[ii];
+                }
+                var li = p.cloneNode(true);
+                var a = (_bootstrap4 ? li : li.firstChild);
+                _dom.attr(a, 'data-phoenix-href', 'click://' + item.$index + '/' + ii);
+                if (si.icon) {
+                    var icon = document.createElement('span');
+                    icon.className = _dom.iconClass(si.icon);
+                    _dom.append(a, icon);
+                }
+                var ct = si.title;
+                if (typeof si.title === 'object') {
+                    ct = si.title[_ulocale.currentLang];
+                }
+                _dom.text(a, ' ' + (ct || 'Error: title not defined'));
+                _dom.append(frag, li);
+            });
+            _dom.append(ul, frag);
+        };
+        var Header = (function () {
+            function Header(data, options) {
+                this._init(data, options);
+            }
+            Header.prototype.setLocation = function (value, add) {
+                var that = this;
+                if (!that.options.showLocation)
+                    return;
+                if (that._locationTimeOut)
+                    window.clearTimeout(that._locationTimeOut);
+                that._locationTimeOut = window.setTimeout(function () {
+                    that._locationTimeOut = 0;
+                    if (that._location !== value) {
+                        that._location = value || '';
+                        if (that.$location) {
+                            _dom.text(that.$location.get(0).lastChild, that._location);
+                        }
+                    }
+                }, 100);
+            };
+            Header.prototype._init = function (data, options) {
+                var that = this;
+                that.title = '';
+                that._ctx = _link.context();
+                that._ignoreClick = false;
+                that.leftButtonsSpace = 0;
+                that.rightButtonsSpace = 0;
+                that.$location = null;
+                that.$element = null;
+                that.$buttons = [];
+                that.options = options || {};
+                that.page = _pagecontrol.Page();
+                that.title = _application.title || '';
+                var config = _application.configuration;
+                var headerCfg = config && config.header ? config.header : {};
+                if (that.options.showOnDisconnected !== undefined)
+                    that.options.showOnDisconnected = that.options.showOnDisconnected;
+                else
+                    that.options.showOnDisconnected = headerCfg.alwaysShow;
+                if (headerCfg.showLocation !== undefined)
+                    that.options.showLocation = headerCfg.showLocation;
+                if (headerCfg.leftMenuButtonInLocation !== undefined)
+                    that.options.leftMenuButtonInLocation = headerCfg.leftMenuButtonInLocation;
+                if (that.options.backButton === undefined)
+                    that.options.backButton = true;
+                if (that.options.leftMenuButton === undefined)
+                    that.options.leftMenuButton = true;
+                if (that.options.topMenuButton === undefined)
+                    that.options.topMenuButton = true;
+                if (that.options.disconnectButton === undefined)
+                    that.options.disconnectButton = true;
+                if (headerCfg.logo) {
+                    var btn = {
+                        $isHidden: false,
+                        $type: 'logo'
+                    };
+                    var logoClassName = '';
+                    if (typeof headerCfg.logo === 'string') {
+                        logoClassName = headerCfg.logo;
+                    }
+                    else {
+                        logoClassName = headerCfg.logo.style;
+                        btn.link = headerCfg.logo.link;
+                    }
+                    btn.$className = logoClassName;
+                    that.$buttons.push(btn);
+                }
+                if (headerCfg.buttons && headerCfg.buttons.before) {
+                    headerCfg.buttons.before.forEach(function (button) {
+                        that.$buttons.push({
+                            $icon: button.icon,
+                            right: button.right,
+                            auth: button.auth,
+                            link: button.link,
+                            title: button.title
+                        });
+                    });
+                }
+                if (that.options.backButton) {
+                    that.$buttons.push({
+                        $icon: 'chevron-left',
+                        $isHidden: !that.page.props.$hasBack && !that.options._alwaysShowBack,
+                        $type: 'back',
+                        link: {
+                            $back: true
+                        }
+                    });
+                }
+                if (that.options.leftMenuButton) {
+                    that.$buttons.push({
+                        auth: headerCfg.authLeftMenu,
+                        $isHidden: true,
+                        $icon: 'bars',
+                        $type: 'menuleft',
+                        $parent: that.options.leftMenuPlace,
+                        $location: that.options.showLocation && that.options.leftMenuButtonInLocation
+                    });
+                }
+                if (that.options.disconnectButton) {
+                    if (headerCfg.userMenu) {
+                        that.$buttons.push({
+                            $icon: 'user',
+                            iconStyle: '$icon-normal',
+                            right: true,
+                            auth: true,
+                            menu: $.extend(true, {}, headerCfg.userMenu),
+                            expression: headerCfg.userMenu.expression || 'John Doe',
+                            $type: 'user'
+                        });
+                    }
+                    else {
+                        that.$buttons.push({
+                            $icon: 'power-off',
+                            right: true,
+                            auth: true,
+                            $type: 'disconnect',
+                            link: {
+                                $logout: true
+                            }
+                        });
+                    }
+                }
+                that.$buttons.push({
+                    $icon: 'pencil',
+                    right: true,
+                    auth: true,
+                    $isHidden: _build.release,
+                    $type: 'authoring',
+                    link: {
+                        $authoring: true
+                    }
+                });
+                if (!_build.release) {
+                    that.$buttons.push({
+                        $icon: 'cog',
+                        title: "Utils",
+                        right: true,
+                        auth: true,
+                        menu: {
+                            items: [
+                                {
+                                    title: 'Create a new form',
+                                    icon: 'building',
+                                    link: {
+                                        $action: {
+                                            name: "phoenix.action.createform"
+                                        }
+                                    }
+                                },
+                                {
+                                    title: 'Modify form schema',
+                                    icon: 'pencil',
+                                    link: {
+                                        $action: {
+                                            name: "phoenix.action.updschema"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    });
+                }
+                if (that.options.rightMenuButton) {
+                    that.$buttons.push({
+                        auth: true,
+                        $isHidden: true,
+                        $icon: 'ellipsis-v',
+                        $type: 'menuright',
+                        $parent: that.options.rightMenuPlace
+                    });
+                }
+                if (that.options.topMenuButton) {
+                    that.$buttons.push({
+                        auth: true,
+                        $isHidden: true,
+                        $icon: 'chevron-down',
+                        $type: 'menutop',
+                        right: true,
+                        $parent: that.options.topMenuPlace
+                    });
+                }
+                if (headerCfg.buttons && headerCfg.buttons.after) {
+                    headerCfg.buttons.after.forEach(function (button) {
+                        that.$buttons.push({
+                            $icon: button.icon,
+                            right: button.right,
+                            auth: button.auth,
+                            link: button.link,
+                            title: button.title
+                        });
+                    });
+                }
+                that.page.addChild('header', that);
+                that.setData(data);
+            };
+            Header.prototype._show = function () {
+                var that = this;
+                var prefInline = _p.sessionPreferences('headerisHidden');
+                if (that._ctx.$url.$inline || prefInline) {
+                    if (!prefInline)
+                        _p.sessionPreferences('headerisHidden', true);
+                    return false;
+                }
+                return true;
+            };
+            Header.prototype.setData = function (data) {
+                //var that = this;
+                data = data || {};
+            };
+            Header.prototype.buttonByType = function (value) {
+                var that = this;
+                for (var i = 0, len = that.$buttons.length; i < len; i++) {
+                    var btn = that.$buttons[i];
+                    if (btn.$type == value)
+                        return btn;
+                }
+                return null;
+            };
+            Header.prototype._createButtons = function () {
+                var that = this;
+                if (!that.$element)
+                    return;
+                var e = that.$element.get(0);
+                var l = _dom.query(e, '.header_left_buttons');
+                var r = _dom.query(e, '.header_right_buttons');
+                var loc = that.$location ? _dom.query(that.$location.get(0), '.bs-location-buttons') : null;
+                that.$buttons.forEach(function (button, index) {
+                    button.$index = index;
+                    var $btn = _addButton(button, index);
+                    var p = button.$location ? loc : (button.right ? r : l);
+                    for (var i = 0, len = $btn.length; i < len; i++)
+                        _dom.append(p, $btn.get(i));
+                });
+            };
+            Header.prototype._updateButtons = function () {
+                var that = this;
+                var _bootstrap4 = _p.bootstrap4;
+                var startSpace = 12; //px
+                if (_bootstrap4)
+                    startSpace = _dom.rem2px(0.8571);
+                if (!that.$element)
+                    return;
+                var isConnected = that.page.props.$user && that.page.props.$user.connected;
+                var lvdim = startSpace, rvdim = startSpace;
+                var e = that.$element.get(0);
+                that.$buttons.forEach(function (button) {
+                    var btn = _dom.find(e, button.id);
+                    if (button.$isHidden || (!isConnected && button.auth))
+                        _dom.addClass(btn, 'bs-none');
+                    else {
+                        if (button.$type === 'user') {
+                            var nt = _utils.execAngularExpression(button.expression, that.page.props.$user.credentials);
+                            if (nt !== button.title) {
+                                button.title = nt;
+                                var p = _dom.query(btn, '.bs-icon-header-title');
+                                if (p)
+                                    _dom.text(p.firstChild, nt);
+                            }
+                        }
+                        _dom.removeClass(btn, 'bs-none');
+                        if (!button.$location) {
+                            if (button.right) {
+                                rvdim += _dom.offset(btn).width;
+                            }
+                            else {
+                                lvdim += _dom.offset(btn).width;
+                            }
+                        }
+                    }
+                });
+                if (that.leftButtonsSpace !== lvdim || that.rightButtonsSpace !== rvdim) {
+                    that.leftButtonsSpace = lvdim;
+                    that.rightButtonsSpace = rvdim;
+                    that._updateTitleSpaceMargins();
+                }
+            };
+            Header.prototype._updateTitleSpaceMargins = function () {
+                var that = this;
+                if (that.$element) {
+                    var e = that.$element.get(0);
+                    var tp = _dom.query(e, '.header_title');
+                    tp.style.marginLeft = that.leftButtonsSpace + 'px';
+                    tp.style.marginRight = that.rightButtonsSpace + 'px';
+                }
+            };
+            Header.prototype.inPopup = function (target) {
+                var that = this;
+                if (that._ob) {
+                    var b = _dom.find(that.$element.get(0), that._ob.id);
+                    return _dom.isChildOf(b, target);
+                }
+                return false;
+            };
+            Header.prototype.hide = function (target) {
+                var that = this;
+                if (that._ob) {
+                    var b = _dom.find(that.$element.get(0), that._ob.id);
+                    _dom.removeClass(b.lastChild, 'bs-block');
+                    that._ob = null;
+                }
+            };
+            Header.prototype._openPopup = function (button) {
+                var that = this;
+                that.page.setPopup(that);
+                that._ob = button;
+                var b = _dom.find(that.$element.get(0), button.id);
+                _dom.addClass(b.lastChild, 'bs-block');
+            };
+            Header.prototype._executeLink = function (button, si) {
+                var that = this;
+                if (button.menu) {
+                    var b = _dom.find(that.$element.get(0), button.id);
+                    if (b && b.lastChild) {
+                        if (!b.lastChild.childNodes.length)
+                            _createMenuItems(button, b.lastChild);
+                    }
+                    if (si >= 0) {
+                        var b_1 = button.menu.items[si];
+                        if (b_1.link) {
+                            _link.execLink(b_1.link, _link.context(), null);
+                        }
+                        that.page.setPopup(null);
+                    }
+                    else {
+                        if (that._ob) {
+                            if (that._ob === button) {
+                                that.page.setPopup(null);
+                                return;
+                            }
+                            that.page.setPopup(null);
+                        }
+                        if (b && b.lastChild) {
+                            var ul = b.lastChild;
+                            ul.style.minWidth = Math.max(_dom.offset(b).width, 160) + 'px';
+                        }
+                        return that._openPopup(button);
+                    }
+                }
+                else if (button.link) {
+                    return _link.execLink(button.link, _link.context(), null);
+                }
+                if (['menuleft', 'menuright', 'menutop', 'menubottom'].indexOf(button.$type) >= 0) {
+                    if (button.$parent && that.page) {
+                        var c = that.page.childByType('menu-' + button.$type.substring(4));
+                        if (c)
+                            c.show($(_dom.find(null, button.$parent)));
+                    }
+                }
+            };
+            Header.prototype._onresize = function () {
+                var that = this;
+                if (that.$element) {
+                    that._updateButtons();
+                }
+            };
+            Header.prototype._setEvents = function () {
+                var that = this;
+                var e = that.$element.get(0);
+                that.$element.on('mousedown', function (event) {
+                    var c = _link.isCustomLink(e, event, true);
+                    if (c && c.protocol === 'click') {
+                        var cs = c.value.substring(('click://').length).split('/');
+                        var di = cs.length > 1 ? parseInt(cs[1], 10) : -1;
+                        var btn = that.$buttons[parseInt(cs[0], 10)];
+                        if (btn) {
+                            if (['menuleft', 'menuright', 'menutop', 'menubottom'].indexOf(btn.$type) >= 0) {
+                                if (btn.$parent && that.page) {
+                                    var child = that.page.childByType('menu-' + btn.$type.substring(4));
+                                    if (that.page.popup === child)
+                                        that._ignoreClick = true;
+                                }
+                            }
+                        }
+                    }
+                });
+                that.$element.on('click', function (event) {
+                    var c = _link.isCustomLink(e, event);
+                    if (that._ignoreClick) {
+                        that._ignoreClick = false;
+                        return;
+                    }
+                    if (c && c.protocol === 'click') {
+                        var cs = c.value.substring(('click://').length).split('/');
+                        var di = cs.length > 1 ? parseInt(cs[1], 10) : -1;
+                        var btn = that.$buttons[parseInt(cs[0], 10)];
+                        that._executeLink(btn, di);
+                        if (btn && btn.$type === 'logo') {
+                            var el = (document.activeElement);
+                            if (el)
+                                el.blur();
+                        }
+                    }
+                });
+                $(window).on('resize.header', function () {
+                    clearTimeout(that._doResize);
+                    that._doResize = setTimeout(that._onresize.bind(that), 100);
+                });
+            };
+            Header.prototype.setPage = function (pageName, value) {
+                var that = this;
+                if (_build.release) {
+                    var canModify = _application.isCustomizable('pages', pageName);
+                    var btn = that.buttonByType('authoring');
+                    if (btn && btn.$isHidden != !canModify) {
+                        btn.$isHidden = !canModify;
+                        that._updateButtons();
+                    }
+                }
+            };
+            Header.prototype.onPageChange = function (propName, value) {
+                var that = this, btn;
+                switch (propName) {
+                    case '$title':
+                        that.title = value || _application.title || '';
+                        that._renderTitle();
+                        break;
+                    case '$hasBack':
+                        if (that.options._alwaysShowBack)
+                            value = true;
+                        if (that.options.backButton) {
+                            btn = that.buttonByType('back');
+                            if (btn) {
+                                if (btn.$isHidden !== !value) {
+                                    btn.$isHidden = !value;
+                                    that._updateButtons();
+                                }
+                            }
+                        }
+                        break;
+                    case '$user':
+                        that._auth(false);
+                        that._updateButtons();
+                        break;
+                    case '$menuleft':
+                        if (that.options.leftMenuButton) {
+                            btn = that.buttonByType('menuleft');
+                            if (btn && btn.$isHidden == value) {
+                                btn.$isHidden = !value;
+                                that._updateButtons();
+                            }
+                        }
+                        break;
+                    case '$menutop':
+                        if (that.options.topMenuButton) {
+                            btn = that.buttonByType('menutop');
+                            if (btn && btn.$isHidden == value) {
+                                btn.$isHidden = !value;
+                                that._updateButtons();
+                            }
+                        }
+                        break;
+                }
+            };
+            Header.prototype._removeEvents = function () {
+                var that = this;
+                that.$element.off('mousedown');
+                that.$element.off('click');
+                $(window).off('resize.header');
+            };
+            Header.prototype.renderButtons = function () {
+                var that = this;
+                that._createButtons();
+                that._updateButtons();
+                _utils.nextTick(function () {
+                });
+            };
+            Header.prototype._renderTitle = function () {
+                var that = this;
+                if (that.$element) {
+                    var e = that.$element.get(0);
+                    var tp = _dom.query(e, '.header_title');
+                    _dom.text(tp, that.title || '');
+                }
+            };
+            Header.prototype._auth = function (inRender) {
+                var that = this;
+                if (that.$parent && that._show()) {
+                    var p = that.$parent.get(0);
+                    var e = that.$element.get(0);
+                    var isConnected = that.page.props.$user && that.page.props.$user.connected;
+                    var show = false;
+                    if (isConnected) {
+                        show = true;
+                        _dom.removeClass(e, 'bs-none');
+                    }
+                    else {
+                        if (that.options.showOnDisconnected) {
+                            show = true;
+                            _dom.removeClass(e, 'bs-none');
+                        }
+                        else {
+                            _dom.addClass(e, 'bs-none');
+                        }
+                    }
+                    if (!inRender) {
+                        var offset = _dom.offset(that.$element.get(0));
+                        _sticky.topOffset = show ? offset.height : 0;
+                        p.style.paddingTop = show ? offset.height + 'px' : '0px';
+                    }
+                }
+            };
+            Header.prototype.render = function ($parent) {
+                var that = this;
+                if (that._show() && $parent && !this.$element) {
+                    that.$element = _defaultHeader(that.options);
+                    var e = that.$element.get(0);
+                    if (that.options.showLocation)
+                        that.$location = $(e.lastChild);
+                    var config = _application.configuration;
+                    var headerCfg = config && config.header ? config.header : {};
+                    var tp = _dom.query(e, '.header_title');
+                    if (headerCfg.uppercase) {
+                        _dom.addClass(tp, 'bs-transform-uppercase');
+                    }
+                    if (headerCfg.align) {
+                        _dom.addClass(tp, 'align-' + headerCfg.align);
+                    }
+                    that._renderTitle();
+                    that.renderButtons();
+                    var p = $parent.get(0);
+                    if (that.options.replaceParent)
+                        p = p.parentNode;
+                    that.$parent = $(p);
+                    that._auth(true);
+                    if (that.options.replaceParent)
+                        $parent.replaceWith(that.$element);
+                    else
+                        $parent.append(that.$element);
+                    that._setEvents();
+                    var offset = _dom.offset(that.$element.get(0));
+                    _sticky.topOffset = offset.height;
+                    p.style.paddingTop = offset.height + 'px';
+                    _utils.nextTick(function () {
+                        that._onresize();
+                    });
+                }
+            };
+            Header.prototype.destroy = function () {
+                var that = this;
+                _utils.log('Header Destroy', 'destroy');
+                this.$parent = null;
+                if (that.$element) {
+                    that._removeEvents();
+                    this.$element = null;
+                }
+                if (that.page) {
+                    that.page.removeChild(that);
+                    that.page = null;
+                }
+            };
+            return Header;
+        }());
+        ui.Header = Header;
+        ;
     })(ui = Phoenix.ui || (Phoenix.ui = {}));
 })(Phoenix || (Phoenix = {}));
-/// <reference path="../../../typings/index.d.ts" />
 /// <reference path="../core/core.ts" />
 /// <reference path="../core/modules/application.ts" />
 /// <reference path="../core/modules/locale.ts" />
 /// <reference path="./page.control.ts" />
 var Phoenix;
 (function (Phoenix) {
-    var ui;
-    (function (ui) {
-        var _dom = Phoenix.dom, _link = Phoenix.link, _utils = Phoenix.utils, _application = Phoenix.application, _ulocale = Phoenix.ulocale, _locale = Phoenix.locale;
+    var tabs;
+    (function (tabs_1) {
+        var _p = Phoenix, _pagecontrol = _p.pagecontrol, _dom = _p.dom, _link = _p.link, _utils = _p.utils, _application = _p.application, _ulocale = _p.ulocale, _locale = _p.locale;
         var Tabs = (function () {
             function Tabs(options, tabs) {
                 var that = this, defOptions = {
                     justified: false,
                     pills: false
                 };
-                that._page = ui.Page();
+                that._page = _pagecontrol.Page();
                 that._options = $.extend(defOptions, options || {});
                 that._tabs = tabs || [];
             }
@@ -6021,7 +7657,7 @@ var Phoenix;
                     var e = that.$element.get(0);
                     that.$element.on('click', function (event) {
                         var c = _link.isCustomLink(e, event);
-                        if (c && c.protocol == "click") {
+                        if (c && c.protocol === "click") {
                             var cs = c.value.substring(('click://').length);
                             var ii = cs.split('/');
                             var ctx = _link.context();
@@ -6061,11 +7697,11 @@ var Phoenix;
             };
             return Tabs;
         }());
-        ui.Tabs = Tabs;
+        tabs_1.Tabs = Tabs;
         ;
-    })(ui = Phoenix.ui || (Phoenix.ui = {}));
+    })(tabs = Phoenix.tabs || (Phoenix.tabs = {}));
 })(Phoenix || (Phoenix = {}));
-/// <reference path="../../../typings/index.d.ts" />
+/// <reference path="../core/modules/sticky.ts" />
 /// <reference path="../core/core.ts" />
 var Phoenix;
 (function (Phoenix) {
@@ -6078,7 +7714,8 @@ var Phoenix;
         LayoutUtils.LAYOUT_ACCORDION = 'accordion';
         LayoutUtils.LAYOUT_ACCORDION_GROUP = 'accordion-group';
         var EMPTY_TITLE = 'No title';
-        var _dom = Phoenix.dom, _utils = Phoenix.utils, _locale = Phoenix.locale.layouts, _ulocale = Phoenix.ulocale, _render = Phoenix.render, _markEmptyRowAsBlock = function (layout) {
+        var _p = Phoenix, _dom = _p.dom, _utils = _p.utils, _locale = _p.locale.layouts, _ulocale = _p.ulocale, _render = _p.render, _sticky = _p.sticky;
+        var _markEmptyRowAsBlock = function (layout) {
             if (!layout.$items.length) {
                 layout.$type = LayoutUtils.LAYOUT_BLOCK;
                 layout.$origin = LayoutUtils.LAYOUT_ROW;
@@ -6175,7 +7812,7 @@ var Phoenix;
         _needParentPadding = function (layout, parent) {
             return (layout.$type === LayoutUtils.LAYOUT_ACCORDION && !layout.$widget);
         }, _noPadding = function (layout, parent) {
-            var res = true, _bootstrap4 = Phoenix.bootstrap4;
+            var res = true, _bootstrap4 = _p.bootstrap4;
             if (!layout.$items.length)
                 return res;
             if (layout.$type === LayoutUtils.LAYOUT_ACCORDION_GROUP && (!layout.$widget && !_bootstrap4))
@@ -6197,14 +7834,17 @@ var Phoenix;
             }
             return true;
         }, _addStdThemes = function (layout, css, options) {
-            _dom.parseStyle(layout.$style, css);
+            var s = layout.$style;
+            if (!s && layout.$sticky)
+                s = '$white';
+            _dom.parseStyle(s, css);
             if (!options.design && layout.$isHidden) {
                 css.push('bs-none');
             }
         }, _onlyFields = function (layout) {
             return !layout.$items || !layout.$items.length || layout.$items[0].$bind;
-        }, _css = function (layout, parent, options) {
-            var css = [], _bootstrap4 = Phoenix.bootstrap4, canAddLayouts, addpaddingclass;
+        }, _css = function (layout, parent, options, css, style) {
+            var _bootstrap4 = _p.bootstrap4, canAddLayouts, addpaddingclass;
             switch (layout.$type) {
                 case LayoutUtils.LAYOUT_BLOCK:
                     addpaddingclass = true;
@@ -6251,6 +7891,13 @@ var Phoenix;
                             css.push('selected');
                     }
                     _addStdThemes(layout, css, options);
+                    if (!options.design && layout.$sticky && _sticky && _sticky.native) {
+                        css.push('bs-sticky');
+                        if (layout.$sticky === 'top')
+                            style.push('top:' + _sticky.topOffset + 'px;');
+                        else if (layout.$sticky === 'bottom')
+                            style.push('bottom:' + _sticky.bottomOffset + 'px;');
+                    }
                     break;
                 case LayoutUtils.LAYOUT_ACCORDION:
                     if (options.step === 1) {
@@ -6380,10 +8027,12 @@ var Phoenix;
                     _addStdThemes(layout, css, options);
                     break;
             }
-            return css;
         }, _setLayoutCss = function (e, layout, parent, options) {
-            var css = _css(layout, parent, options), t;
+            var css = [], style = [], t;
+            _css(layout, parent, options, css, style);
             e.className = css.join(' ');
+            if (style.length)
+                e.style = style.join(' ');
             if (layout.$type === LayoutUtils.LAYOUT_ACCORDION_GROUP && options.step === 1) {
                 t = _dom.find(e, layout.$id + '_title');
                 if (t)
@@ -6393,10 +8042,16 @@ var Phoenix;
                 e.innerHTML = layout.$html || '';
             }
         }, _addLayoutCss = function (html, layout, parent, options) {
-            var css = _css(layout, parent, options);
+            var css = [], style = [];
+            _css(layout, parent, options, css, style);
             if (css.length) {
                 html.push(' class="');
                 html.push(css.join(' '));
+                html.push('"');
+            }
+            if (style.length) {
+                html.push(' style="');
+                html.push(style.join(' '));
                 html.push('"');
             }
         }, _addId = function (html, layout, prefix) {
@@ -6430,7 +8085,7 @@ var Phoenix;
                 return;
             }
             if (isForm && layout.$title) {
-                var size = layout.$title.size || (Phoenix.bootstrap4 ? 5 : 4);
+                var size = layout.$title.size || (_p.bootstrap4 ? 5 : 4);
                 html.push('<h' + size);
                 var css = ['bs-block-title'];
                 if (layout.$title.$style)
@@ -6474,7 +8129,7 @@ var Phoenix;
         }, _htmlAfter = function (html, layout, model, llocale, design) {
             html.push('</div>');
         }, _tabBuilder = function (html, layout, parent, model, llocale, design, isForm, refBlock) {
-            var _bootstrap4 = Phoenix.bootstrap4;
+            var _bootstrap4 = _p.bootstrap4;
             if (_bootstrap4) {
                 html.push('<li class="nav-item">');
                 var css = ['nav-link'];
@@ -6539,7 +8194,7 @@ var Phoenix;
             }
         }, _accordionGroupBefore = function (html, layout, parent, model, llocale, design, isForm, refBlock) {
             if (design || !parent.$widget) {
-                var _bootstrap4 = Phoenix.bootstrap4;
+                var _bootstrap4 = _p.bootstrap4;
                 html.push('<div');
                 _addLayoutCss(html, layout, parent, {
                     design: design,
@@ -6706,7 +8361,7 @@ var Phoenix;
             html.push('></div>');
         }, _nullWidgetRender = function (html, item, layout, model, options) {
             html.push('<div id="' + item.$id + '"></div>');
-        }, _renderLayout = function (layout, model, html, llocale, options) {
+        }, _renderLayout = function (layout, model, html, llocale, options, cb) {
             var wHtmlFieldRender = _render.get(options.context, 'widget') || _nullWidgetRender;
             var fHtmlFieldRender = _render.get(options.context, 'field') || _nullHtmlFieldRender;
             var isForm = layout.form;
@@ -6750,6 +8405,8 @@ var Phoenix;
                             item.oldHtml = param.html;
                             param.html = [];
                         }
+                        if (cb)
+                            cb(item);
                     }
                     else {
                         if (!_layoutIsVisible(item)) {
@@ -6804,11 +8461,14 @@ var Phoenix;
                         delete item.$idStep3;
                         delete item.$content;
                         delete item.selected;
-                        if (item.$type === LayoutUtils.LAYOUT_COLUMN)
-                            delete item.$type;
-                        else if (layout.$type === LayoutUtils.LAYOUT_HTML) {
-                            if (layout.$html === _locale.Html)
-                                delete layout.$html;
+                        if (item.$type !== LayoutUtils.LAYOUT_BLOCK) {
+                            delete item.$sticky;
+                            if (item.$type === LayoutUtils.LAYOUT_COLUMN)
+                                delete item.$type;
+                            else if (layout.$type === LayoutUtils.LAYOUT_HTML) {
+                                if (layout.$html === _locale.Html)
+                                    delete layout.$html;
+                            }
                         }
                         if (item.$inline === false)
                             delete item.$inline;
@@ -6876,9 +8536,9 @@ var Phoenix;
                     _check(item, layout, map, mapFields, namedMap, namedMapFields);
                 });
             }
-        }, _toHtml = function (layout, model, llocale, options) {
+        }, _toHtml = function (layout, model, llocale, options, cb) {
             var html = [];
-            _renderLayout(layout, model, html, llocale, options);
+            _renderLayout(layout, model, html, llocale, options, cb);
             return html.join('');
         };
         LayoutUtils.check = _check;
@@ -6891,8 +8551,8 @@ var Phoenix;
         LayoutUtils.toHtml = _toHtml;
     })(LayoutUtils = Phoenix.LayoutUtils || (Phoenix.LayoutUtils = {}));
 })(Phoenix || (Phoenix = {}));
-/// <reference path="../../../typings/index.d.ts" />
 /// <reference path="../core/core.ts" />
+/// <reference path="../core/modules/sticky.ts" />
 /// <reference path="./module.ts" />
 /// <reference path="./datasets-plugin.ts" />
 /// <reference path="./page.control.ts" />
@@ -6900,9 +8560,10 @@ var Phoenix;
 /// <reference path="./menu.ts" />
 var Phoenix;
 (function (Phoenix) {
+    var _p = Phoenix, _pagecontrol = _p.pagecontrol, _menu = _p.menu, _dom = _p.dom, _utils = _p.utils, _locale = _p.locale, _wutils = _p.WidgetUtils, _link = _p.link, _render = _p.render, _ipc = _p.ipc, _sticky = _p.sticky, _layoutUtils = _p.LayoutUtils;
     var ui;
     (function (ui) {
-        var _dom = Phoenix.dom, _utils = Phoenix.utils, _locale = Phoenix.locale, _wutils = Phoenix.WidgetUtils, _link = Phoenix.link, _render = Phoenix.render, _ipc = Phoenix.ipc, _layoutUtils = Phoenix.LayoutUtils, _findSelected = function (maps) {
+        var _findSelected = function (maps) {
             var j = maps.length;
             while (j--) {
                 var map = maps[j];
@@ -6950,7 +8611,7 @@ var Phoenix;
                 that.expressionTitle = false;
                 var isForm = that.options.form;
                 if (!isForm) {
-                    that.page = ui.Page();
+                    that.page = _pagecontrol.Page();
                     that.page.setPopup(null);
                     that.page.addChild("layout", that);
                     if (!that.options.design) {
@@ -7008,8 +8669,10 @@ var Phoenix;
                                 }
                             }
                             l.opened = nv;
-                            if (l.$content)
+                            if (l.$content) {
                                 that._renderLayoutContent(l);
+                                that._afterVisibilityChanged({ domChanged: false, layoutCreated: true, resize: false });
+                            }
                             else
                                 that._activateLayout(l, true);
                         }
@@ -7036,7 +8699,7 @@ var Phoenix;
                         child.disabled = true;
                     });
                 }
-                that._refreshCurrentResizeList();
+                that._afterVisibilityChanged({ domChanged: true, layoutCreated: false, resize: false });
             };
             BaseLayout.prototype._removeAccordionEvents = function () {
                 var that = this;
@@ -7061,9 +8724,15 @@ var Phoenix;
             };
             BaseLayout.prototype._renderLayout = function (layout) {
                 var that = this;
+                that.stickies = null;
                 var $e = $(_layoutUtils.toHtml(layout, null, that.$locale, {
                     design: that.options.design,
                     context: that.options.context
+                }, function (item) {
+                    if (!that.options.design && !_sticky.native && item.$sticky) {
+                        that.stickies = that.stickies || {};
+                        that.stickies[item.$id] = item;
+                    }
                 }));
                 that.afterRender($e);
                 that._renderChildren($e);
@@ -7257,8 +8926,54 @@ var Phoenix;
                         }
                     });
                 }
-                that._refreshCurrentResizeList();
                 return res;
+            };
+            BaseLayout.prototype._afterVisibilityChanged = function (options) {
+                var that = this;
+                that._refreshCurrentResizeList();
+                that._refreshStickies(options.layoutCreated === true);
+            };
+            BaseLayout.prototype._refreshStickies = function (refresh) {
+                var that = this;
+                if (!that.stickies)
+                    return;
+                if (!that.$element)
+                    return;
+                var ns = {}, hs = false;
+                Object.keys(that.stickies).forEach(function (sId) {
+                    var item = that.stickies[sId];
+                    if (that._isVisible(item.$parentId)) {
+                        ns[item.$id] = item;
+                        hs = true;
+                    }
+                });
+                var toRemove = [];
+                if (that.activeStickies) {
+                    Object.keys(that.activeStickies).forEach(function (sid) {
+                        if (ns[sid])
+                            delete ns[sid];
+                        else
+                            toRemove.push(that.activeStickies[sid]);
+                    });
+                }
+                that.activeStickies = that.activeStickies || {};
+                toRemove.forEach(function (item) {
+                    delete that.activeStickies[item.id];
+                    _sticky.stickyManager.remove(item.id);
+                });
+                Object.keys(ns).forEach(function (sid) {
+                    var item = ns[sid];
+                    if (item.$type === _layoutUtils.LAYOUT_BLOCK) {
+                        var element = _dom.find(that.$element.get(0), item.$id);
+                        if (element) {
+                            that.activeStickies[item.$id] = { id: item.$id, element: element, position: item.$sticky };
+                            _sticky.stickyManager.add(that.activeStickies[item.$id]);
+                        }
+                    }
+                });
+                if (refresh) {
+                    _sticky.stickyManager.refresh(true);
+                }
             };
             BaseLayout.prototype._refreshCurrentResizeList = function () {
                 var that = this;
@@ -7274,11 +8989,20 @@ var Phoenix;
                     });
                 }
             };
+            BaseLayout.prototype._clearSticks = function () {
+                var that = this;
+                that.stickies = null;
+                if (that.activeStickies) {
+                    Object.keys(that.activeStickies).forEach(function (itemId) { _sticky.stickyManager.remove(itemId); });
+                    that.activeStickies = null;
+                }
+            };
             BaseLayout.prototype._clearChildren = function () {
                 var that = this;
                 var children = that.children;
                 that.children = {};
                 that.controls = {};
+                that._clearSticks();
                 that.resizeList = null;
                 that.currentResizeList = null;
                 that.afterRenderList = null;
@@ -7321,6 +9045,7 @@ var Phoenix;
                     if (that.options.beforeAdd)
                         that.options.beforeAdd(that.$element, refresh);
                     that.$content.append(that.$element);
+                    that._afterVisibilityChanged({ domChanged: false, layoutCreated: true, resize: false });
                     that._addEvents();
                     that._refreshSelected();
                     if ($parent) {
@@ -7630,7 +9355,7 @@ var Phoenix;
                             that.check(layout, parent);
                         }
                         break;
-                    case "accordion":
+                    case _layoutUtils.LAYOUT_ACCORDION:
                         break;
                 }
             };
@@ -7712,6 +9437,10 @@ var Phoenix;
                         dst.$refController = data.$refController;
                         structChanged = true;
                     }
+                    if ((dst.$sticky || '') !== (data.$sticky || '')) {
+                        dst.$sticky = data.$sticky;
+                        structChanged = true;
+                    }
                     if ((dst.$ref || '') !== (data.$ref || '')) {
                         dst.$ref = data.$ref;
                         if (dst.$ref) {
@@ -7722,6 +9451,7 @@ var Phoenix;
                         }
                         else {
                             delete dst.$refProperty;
+                            delete dst.$refController;
                             delete dst.name;
                             delete dst.form;
                         }
@@ -7731,6 +9461,7 @@ var Phoenix;
                     delete data.$ref;
                     delete data.$refProperty;
                     delete data.$refController;
+                    delete data.$sticky;
                     if ((dst.$widget || '') !== (data.$widget || '')) {
                         dst.$widget = data.$widget;
                         structChanged = true;
@@ -7862,9 +9593,9 @@ var Phoenix;
                 }
                 var MenuConstructor = null;
                 if (mn == "right")
-                    MenuConstructor = ui.Menuright;
+                    MenuConstructor = _menu.Menuright;
                 else if (mn == "left")
-                    MenuConstructor = ui.Menuleft;
+                    MenuConstructor = _menu.Menuleft;
                 if (MenuConstructor) {
                     var options = {
                         type: mn,
@@ -7895,6 +9626,183 @@ var Phoenix;
         ui.Layout = Layout;
         ui.LayoutClass = Layout;
     })(ui = Phoenix.ui || (Phoenix.ui = {}));
+})(Phoenix || (Phoenix = {}));
+/// <reference path="../core/core-refs.ts" />
+/// <reference path="../ui/page.control.ts" />
+var Phoenix;
+(function (Phoenix) {
+    var _p = Phoenix, _ulocale = _p.ulocale, _utils = _p.utils, _locale = _p.locale, _pagecontrol = _p.pagecontrol, _dom = _p.dom, _ui = _p.ui;
+    var autoclose;
+    (function (autoclose) {
+        autoclose.SCREEN_CENTER = 'screencenter';
+        autoclose.SCREEN_TOP_CENTER = 'screentopcenter';
+        autoclose.BOTTOM_LEFT = 'bottom-left';
+        autoclose.BOTTOM_RIGHT = 'bottom-right';
+        var AutoClose = (function () {
+            function AutoClose(align, options) {
+                var that = this;
+                that._align = align;
+                options = options || options;
+                that._checkOptions(options);
+                that._width = options.width;
+                that._height = options.height;
+                that._minWidth = options.minWidth;
+                that._minHeight = options.minHeight;
+                that._style = options.style;
+                that._beforeClose = options.beforeClose;
+                that._contentRender = options.contentRender;
+                if (options.alignElement)
+                    that.$alignElement = $(options.alignElement);
+                that.$parent = $(options.parent);
+                that._page = _pagecontrol.Page();
+                that._resize = that.resize.bind(that);
+            }
+            AutoClose.prototype.resize = function () {
+                var that = this;
+                that._alignElement();
+            };
+            AutoClose.prototype.destroy = function () {
+                var that = this;
+                $(window).off('global-phoenix-resize');
+                that.$element = null;
+                that.$parent = null;
+                that.$alignElement = null;
+                that._beforeClose = null;
+                that._contentRender = null;
+                that._page = null;
+            };
+            AutoClose.prototype.inPopup = function (element) {
+                var that = this;
+                var e = that.$element.get(0);
+                if (!_dom.isChildOf(e, element)) {
+                    return false;
+                }
+                return true;
+            };
+            AutoClose.prototype._checkOptions = function (options) {
+                var that = this;
+                options.parent = options.parent || document.body;
+                if (!options.alignElement) {
+                    options.parent = document.body;
+                    options.alignElement = null;
+                    if (that._align !== autoclose.SCREEN_TOP_CENTER)
+                        that._align = autoclose.SCREEN_CENTER;
+                }
+                if (that._align !== autoclose.SCREEN_TOP_CENTER && that._align !== autoclose.SCREEN_CENTER) {
+                    if (!options.alignElement)
+                        throw "Align element is null";
+                }
+                if (!options.contentRender)
+                    throw "Invalid content render";
+            };
+            AutoClose.prototype._alignXScreenCenter = function () {
+                var that = this, e = that.$element.get(0);
+                var cr = _dom.offset(e);
+                var pcr = _dom.offset(e.parentNode);
+                e.style.left = Math.floor(Math.max((pcr.width - cr.width) / 2, 0)) + 'px';
+            };
+            AutoClose.prototype._alignYScreenCenter = function () {
+                var that = this, e = that.$element.get(0);
+                var cr = _dom.offset(e);
+                var pcr = _dom.offset(e.parentNode);
+                e.style.top = Math.floor(Math.max((pcr.height - cr.height) / 2, 0)) + 'px';
+            };
+            AutoClose.prototype._alignTopScreen = function () {
+                var that = this, e = that.$element.get(0);
+                e.style.top = '0px';
+            };
+            AutoClose.prototype._alignScreenTopCenter = function () {
+                var that = this;
+                that._alignXScreenCenter();
+                that._alignTopScreen();
+            };
+            AutoClose.prototype._alignScreenCenter = function () {
+                var that = this;
+                that._alignXScreenCenter();
+                that._alignYScreenCenter();
+            };
+            AutoClose.prototype._alignBottomLeft = function () {
+                var that = this, e = that.$element.get(0), ae = that.$alignElement.get(0);
+                var space = _dom.documentClientDim();
+                var cre = _dom.offset(e);
+                var crae = _dom.offset(ae);
+                e.style.top = Math.max(0, Math.round(crae.top + crae.height) - 1) + 'px';
+                var cl = crae.left;
+                if (cl + cre.width > space.width)
+                    cl = Math.max(0, space.width - cre.width);
+                e.style.left = cl + 'px';
+            };
+            AutoClose.prototype._alignBottomRight = function () {
+                var that = this, e = that.$element.get(0), ae = that.$alignElement.get(0);
+                var space = _dom.documentClientDim();
+                var cre = _dom.offset(e);
+                var crae = _dom.offset(ae);
+                e.style.top = Math.max(0, Math.round(crae.top + crae.height) - 1) + 'px';
+                var cr = Math.max(0, Math.round(space.width - crae.left - crae.width));
+                if (cr + cre.width > space.width)
+                    cr = Math.max(0, space.width - cre.width);
+                e.style.right = cr + 'px';
+            };
+            AutoClose.prototype._alignElement = function () {
+                var that = this;
+                if (that._align === autoclose.SCREEN_CENTER)
+                    that._alignScreenCenter();
+                else if (that._align === autoclose.SCREEN_TOP_CENTER)
+                    that._alignScreenTopCenter();
+                else if (that._align === autoclose.BOTTOM_LEFT)
+                    that._alignBottomLeft();
+                else if (that._align === autoclose.BOTTOM_RIGHT)
+                    that._alignBottomRight();
+            };
+            AutoClose.prototype._setHeightAndWidth = function () {
+                var that = this;
+                var e = that.$element.get(0);
+                if (that._width && that._width !== 'auto')
+                    e.style.width = that._width;
+                if (that._height && that._height !== 'auto')
+                    e.style.height = that._height;
+            };
+            AutoClose.prototype.open = function () {
+                var that = this;
+                var css = ['bs-autoclose', 'bs-autoclose-hidden'];
+                that._style = that._style || 'modal-content';
+                if (that._style)
+                    _dom.parseStyle(that._style, css);
+                that.$element = $('<div class="' + css.join(' ') + '"><div></div></div>');
+                var e = that.$element.get(0);
+                var p = that.$parent.get(0);
+                that._setHeightAndWidth();
+                _dom.append(p, e);
+                that._contentRender($(e.firstChild), that, function (err) {
+                    if (err) {
+                        console.log(err);
+                        that.destroy();
+                        return;
+                    }
+                    that._alignElement();
+                    _dom.removeClass(e, 'bs-autoclose-hidden');
+                    that._page.setPopup(that);
+                    $(window).on('global-phoenix-resize', that._resize);
+                });
+            };
+            AutoClose.prototype.hide = function (event) {
+                var that = this;
+                if (that._beforeClose) {
+                    that._beforeClose();
+                }
+                var e = that.$element.get(0);
+                _dom.remove(e);
+                that.$element = null;
+                that.destroy();
+            };
+            return AutoClose;
+        }());
+        function open(align, options) {
+            var a = new AutoClose(align, options);
+            a.open();
+        }
+        autoclose.open = open;
+    })(autoclose = Phoenix.autoclose || (Phoenix.autoclose = {}));
 })(Phoenix || (Phoenix = {}));
 /// <reference path="../../core/modules/locale.ts" />
 /// <reference path="../../core/core.ts" />
@@ -7981,7 +9889,7 @@ var Phoenix;
                 var ps = null;
                 if (schema) {
                     ps = schema.properties[propertyName];
-                    if (ps && (ps.$reference || ps.$ux))
+                    if (ps && (ps.$reference || ps.$ux || ps.ux))
                         return;
                 }
                 if (!ps && propertyName.charAt(0) === '$')
@@ -8479,7 +10387,7 @@ var Phoenix;
                 if (schema.lookups)
                     Object.keys(schema.lookups).forEach(function (pn) {
                         var ll = schema.lookups[pn];
-                        if (ll.data.$type == "enum" && ll.data.$enumref) {
+                        if (ll.data.$type === "enum" && ll.data.$enumref) {
                             _addEnum(ll.data.$enumref);
                         }
                     });
@@ -8607,10 +10515,8 @@ var Phoenix;
                         a[pn] = _sutils.init(cs, rootSchema, context, a[pn] || {});
                     }
                     else if (_sutils.isCompositionList(cs, rootSchema, false) || _sutils.isSimpleList(cs, rootSchema)) {
-                        a[pn] = a[pn] || [];
                     }
                     else if (_sutils.isList(cs, rootSchema)) {
-                        a[pn] = a[pn] || [];
                     }
                     else {
                         if (a[pn] === undefined) {
@@ -8835,7 +10741,7 @@ var Phoenix;
                                 allEnums[ev.type] = ev.enums;
                             }
                             else if (index < dataCount_1) {
-                                $.extend(true, ldata, ev);
+                                $.extend(ldata, ev);
                             }
                         });
                         if (enumsCount_1) {
@@ -9545,10 +11451,8 @@ var Phoenix;
                     var that = this;
                     var c = that._children[propertyName];
                     if (c) {
-                        if (c.isNull)
-                            return null;
-                        if (c.isUndefined)
-                            return undefined;
+                        //if (c.isNull) return null;
+                        //if (c.isUndefined) return undefined;
                         return c;
                     }
                     return that._model[propertyName];
@@ -9556,7 +11460,8 @@ var Phoenix;
                 set: function (value) {
                     var that = this;
                     var oldValue = that._model[propertyName];
-                    if (oldValue !== value) {
+                    if (oldValue !== value || !that._initialized[propertyName]) {
+                        that._initialized[propertyName] = true;
                         if (that._beforeChange(propertyName, oldValue, value)) {
                             that._model[propertyName] = value;
                             var schema = that._schema.properties[propertyName];
@@ -9593,17 +11498,19 @@ var Phoenix;
                     get: function () {
                         var that = this;
                         var list = that[propertyName];
-                        if (!list.length)
+                        if (!list || !list.length)
                             return 0;
                         return list.$expand ? 2 : 1;
                     },
                     set: function (value) {
                         var that = this;
                         var list = that[propertyName];
-                        if (value === 1)
-                            list.$expand = false;
-                        else if (value === 2)
-                            list.$expand = true;
+                        if (list) {
+                            if (value === 1)
+                                list.$expand = false;
+                            else if (value === 2)
+                                list.$expand = true;
+                        }
                     },
                     enumerable: true
                 });
@@ -9695,7 +11602,9 @@ var Phoenix;
                 that._expanded = false;
                 that._selectedUids = [];
                 that._selectedPks = [];
-                that._model = [];
+                that.isNull = false;
+                that.isUndefined = true;
+                that._model = undefined;
                 that._items = [];
                 that._path = path;
                 that._parent = parent;
@@ -9740,6 +11649,27 @@ var Phoenix;
                     }
                 }
                 that.$selected = item;
+            };
+            DataListCore.prototype.model = function (original) {
+                return this._getModel(original);
+            };
+            DataListCore.prototype._getModel = function (original) {
+                var that = this;
+                if (original)
+                    return that._model;
+                return that._model;
+            };
+            DataListCore.prototype._initModelInParent = function () {
+                var that = this;
+                if (!that._model) {
+                    that._model = [];
+                    that.isNull = false;
+                    that.isUndefined = false;
+                    if (that._parent) {
+                        var model = that._parent.model(true);
+                        model[that._path] = [];
+                    }
+                }
             };
             DataListCore.prototype.removeSelected = function (item, persistent) {
                 var that = this;
@@ -9799,7 +11729,7 @@ var Phoenix;
                 var that = this;
                 that._selectedUids = [];
                 if (that._items) {
-                    that._model = [];
+                    that._model = undefined;
                     that._items = [];
                 }
             };
@@ -9828,15 +11758,15 @@ var Phoenix;
             };
             DataListCore.prototype._fillItems = function () {
                 var that = this;
-                that._model.forEach(function (item, index) {
-                    that._items.push(item);
-                });
+                if (that._model)
+                    that._model.forEach(function (item, index) {
+                        that._items.push(item);
+                    });
             };
             DataListCore.prototype._setModel = function (value, frozen) {
                 var that = this;
                 that.isNull = value === null;
                 that.isUndefined = value === undefined;
-                value = value || [];
                 var ofv = that.frozen;
                 if (frozen)
                     that.frozen = true;
@@ -9941,25 +11871,26 @@ var Phoenix;
                 if (that._selectedPks.length) {
                     keys = _su.pkFields(that._schemaItems.primaryKey);
                 }
-                that._model.forEach(function (item, index) {
-                    var citem = new Data(that._schemaItems, that._parent, that._path, item, that, false, that._locale, null);
-                    var addItem = false;
-                    that._items.push(citem);
-                    that._map[citem.$id] = citem;
-                    if (keys) {
-                        var pkId = _su.pk2Id(_su.extractPkValue(item, keys), keys);
-                        if (that._selectedPks.lastIndexOf(pkId) >= 0) {
-                            citem.internalSetSelected(true, false);
-                            addItem = true;
+                if (that._model)
+                    that._model.forEach(function (item, index) {
+                        var citem = new Data(that._schemaItems, that._parent, that._path, item, that, false, that._locale, null);
+                        var addItem = false;
+                        that._items.push(citem);
+                        that._map[citem.$id] = citem;
+                        if (keys) {
+                            var pkId = _su.pk2Id(_su.extractPkValue(item, keys), keys);
+                            if (that._selectedPks.lastIndexOf(pkId) >= 0) {
+                                citem.internalSetSelected(true, false);
+                                addItem = true;
+                            }
+                            else if (citem.$select)
+                                addItem = true;
                         }
                         else if (citem.$select)
                             addItem = true;
-                    }
-                    else if (citem.$select)
-                        addItem = true;
-                    if (addItem)
-                        that.pushSelected(citem, false);
-                });
+                        if (addItem)
+                            that.pushSelected(citem, false);
+                    });
             };
             DataListBase.prototype._updateSelecting = function (multiSelect, expandingProperty, list) {
                 var that = this;
@@ -10265,6 +12196,7 @@ var Phoenix;
             }
             SimpleTypeList.prototype.push = function (item) {
                 var that = this;
+                that._initModelInParent();
                 that._model.push(item);
                 that._items.push(item);
                 that._parent._notifyChanged(that._path, undefined, item, "add", { $index: that._items.length - 1, $value: item, $id: item }, false);
@@ -10274,6 +12206,8 @@ var Phoenix;
                 if (deleteCount > 0)
                     throw "Delete count is not supported.";
                 var that = this;
+                if (!that._model)
+                    return;
                 that._model.splice(start, deleteCount, item);
                 that._items.splice(start, deleteCount, item);
                 that._parent._notifyChanged(that._path, undefined, item, "add", { $index: start, $value: item, $id: item }, false);
@@ -10393,7 +12327,9 @@ var Phoenix;
                 _super.prototype.destroy.call(this);
             };
             DataList.prototype.push = function (item) {
-                this.splice(-1, 0, item);
+                var that = this;
+                that._initModelInParent();
+                that.splice(-1, 0, item);
             };
             DataList.prototype.splice = function (start, deleteCount, item) {
                 if (deleteCount > 0)
@@ -10402,8 +12338,10 @@ var Phoenix;
                 var ofv = that.frozen;
                 that.frozen = true;
                 var isPush = start < 0;
-                if (isPush)
+                if (isPush) {
+                    that._initModelInParent();
                     that._model.push(item);
+                }
                 else
                     that._model.splice(start, deleteCount, item);
                 var ii = new Data(that._schemaItems, that._parent, that._path, item, that, false, that._locale, null);
@@ -10422,6 +12360,8 @@ var Phoenix;
                 var that = this;
                 var removed = null;
                 var ofv = that.frozen, notify;
+                if (!that._model)
+                    return;
                 that.frozen = true;
                 var ii = that._items.indexOf(item);
                 var id = item.$id;
@@ -10451,6 +12391,7 @@ var Phoenix;
                 that._rootParent = parent ? parent._rootParent : that;
                 that.$id = _utils.allocID();
                 that.$create = false;
+                that._initialized = {};
                 that._selected = value && value.$select ? true : false;
                 that._model = {};
                 that.datasets = datasets;
@@ -10946,7 +12887,7 @@ var Phoenix;
                     var isMeta = _su.isMetaProp(name);
                     var val = value[name];
                     if (!val && (_su.isCompositionList(si, rs, false) || _su.isList(si, rs))) {
-                        val = [];
+                        //val = [];
                         value[name] = val;
                     }
                     if (_su.isList(si, rs))
@@ -11365,7 +13306,6 @@ var Phoenix;
         ui.formManager = fm();
     })(ui = Phoenix.ui || (Phoenix.ui = {}));
 })(Phoenix || (Phoenix = {}));
-/// <reference path="../../../../typings/index.d.ts" />
 /// <reference path="../../core/core.ts" />
 /// <reference path="../../ui/layout.control.ts" />
 /// <reference path="./schema.data.ts" />
@@ -11375,7 +13315,7 @@ var Phoenix;
 (function (Phoenix) {
     var ui;
     (function (ui) {
-        var _ui = ui, _utils = Phoenix.utils, _build = Phoenix.build, _link = Phoenix.link, _dom = Phoenix.dom, _preferences = Phoenix.preferences, _sutils = Phoenix.Observable.SchemaUtils, _outils = Phoenix.Observable.ObservableUtils, _ulocale = Phoenix.ulocale;
+        var _p = Phoenix, _ui = _p.ui, _utils = _p.utils, _build = _p.build, _link = _p.link, _dom = _p.dom, _customData = _p.customData, _preferences = _p.preferences, _sutils = _p.Observable.SchemaUtils, _outils = _p.Observable.ObservableUtils, _ulocale = _p.ulocale;
         var Form = (function (_super) {
             __extends(Form, _super);
             function Form(layoutData, options, ldata, schema, locale, preferences) {
@@ -11448,7 +13388,7 @@ var Phoenix;
                     options.validators.forEach(function (validatorName) {
                         that.$model.addValidator(validatorName, true);
                     });
-                if (!that.options.design && that.options.externalSchema && that.options.externalLayout && !_build.release) {
+                if (!that.options.design && that.options.externalSchema && that.options.externalLayout && !_build.release && !options.autoClose) {
                     that.options.authoringIndicator = true;
                     that.options.verticalSpacing = true;
                 }
@@ -11621,6 +13561,65 @@ var Phoenix;
                         container: 'body',
                         template: '<div class="tooltip bs-tooltip-help" role="tooltip"><div class="tooltip-arrow"></div><div class="tooltip-inner"></div></div>'
                     });
+            };
+            Form.prototype._loadNestedControllers = function () {
+                var that = this;
+                that._nestedControllers = [];
+                Object.keys(that.map).forEach(function (name) {
+                    var layout = that.map[name];
+                    if (layout.$refController) {
+                        var cfg = { $refProperty: layout.$refProperty, handler: null, beforeSetModel: null };
+                        var config = _customData.get(layout.$refController);
+                        if (!config)
+                            throw _utils.format('Controller not found "{0}". Use customData.register(controllerName, ctrlConfig).', layout.$refController);
+                        if (config.onModelChanged)
+                            cfg.handler = config.onModelChanged.bind(config);
+                        if (config.beforeSetModel)
+                            cfg.beforeSetModel = config.beforeSetModel.bind(config);
+                        that._nestedControllers.push(cfg);
+                    }
+                });
+            };
+            Form.prototype.hasNestedControllers = function () {
+                var that = this;
+                if (!that._nestedControllers) {
+                    that._loadNestedControllers();
+                }
+                return that._nestedControllers.length > 0;
+            };
+            Form.prototype.modelCreated = function (data) {
+                var that = this;
+                that._nestedControllers.forEach(function (cfg) {
+                    if (!cfg.beforeSetModel)
+                        return;
+                    var d = data, dispatch = false;
+                    if (cfg.$refProperty) {
+                        dispatch = true;
+                        d = _utils.getValue(data, cfg.$refProperty);
+                    }
+                    else if (!cfg.$refProperty)
+                        dispatch = true;
+                    if (dispatch && d)
+                        cfg.beforeSetModel(d);
+                });
+            };
+            Form.prototype.modelChanged = function (action, model, form, modal) {
+                var that = this;
+                that._nestedControllers.forEach(function (cfg) {
+                    if (!cfg.handler)
+                        return;
+                    var a = action, m = model, dispatch = false;
+                    if (cfg.$refProperty && a.property.index(cfg.$refProperty + '.') === 0) {
+                        dispatch = true;
+                        a = _utils.copy(action);
+                        a.property = a.property.substring(cfg.$refProperty.length + 1);
+                        m = model.getValue(cfg.$refProperty, action.params);
+                    }
+                    else if (!cfg.$refProperty)
+                        dispatch = true;
+                    if (dispatch)
+                        cfg.handler(a, m, form, modal);
+                });
             };
             Form.prototype.afterRender = function ($e) {
                 var that = this;
@@ -11834,6 +13833,7 @@ var Phoenix;
                 that.module = null;
                 that._listeners = {};
                 that._listenersByName = [];
+                that._loadNestedControllers = null;
                 if (that.$model) {
                     that.$model.onchange = null;
                     that.$model.onstatechanged = null;
@@ -11855,8 +13855,13 @@ var Phoenix;
                     if (!t.getAttribute)
                         return null;
                     id = t.getAttribute('data-render');
-                    if (id)
-                        break;
+                    if (id) {
+                        if (!that.controls[id]) {
+                            id = null;
+                        }
+                        else
+                            break;
+                    }
                     t = (t == root) ? null : t.parentNode;
                 }
                 return id ? id : null;
@@ -11873,13 +13878,14 @@ var Phoenix;
                 return that._event2FieldByElement(event.target);
             };
             Form.prototype._removeBaseEvents = function () {
-                var that = this;
-                that.$element.off('focusin');
-                that.$element.off('focusout');
-                that.$element.off('click');
-                that.$element.off('keydown');
-                that.$element.off('keypress');
-                that.$element.off('mousedown');
+                var that = this, $e = that.$element;
+                $e.off('focusin');
+                $e.off('focusout');
+                $e.off('click');
+                $e.off('keydown');
+                $e.off('keypress');
+                $e.off('mousedown');
+                $e.off('paste');
                 $(window).off('global-phoenix-resize');
                 _super.prototype._removeBaseEvents.call(this);
             };
@@ -11997,6 +14003,13 @@ var Phoenix;
                     if (control && control.keydown)
                         control.keydown(event);
                 });
+                that.$element.on('paste', function (event) {
+                    if (that._inProcessing)
+                        return that._freeze(event);
+                    var control = that._event2Field(event);
+                    if (control && control.paste)
+                        control.paste(event);
+                });
                 that.$element.on('keyup', function (event) {
                     if (that._inProcessing)
                         return that._freeze(event);
@@ -12020,6 +14033,7 @@ var Phoenix;
                 _super.prototype._addBaseEvents.call(this);
             };
             Form.prototype.afterAddedInDom = function () {
+                _super.prototype.afterAddedInDom.call(this);
                 var that = this;
                 if (that.currentResizeList)
                     that.currentResizeList.forEach(function (c) { c.resize(); });
@@ -12027,7 +14041,6 @@ var Phoenix;
                     that.afterRenderList.forEach(function (c) { c.afterAddedInDom(); });
                     that.afterRenderList = [];
                 }
-                _super.prototype.afterAddedInDom.call(this);
             };
             return Form;
         }(ui.BaseLayout));
@@ -12049,18 +14062,18 @@ var Phoenix;
         ui.OpenForm = null;
     })(ui = Phoenix.ui || (Phoenix.ui = {}));
 })(Phoenix || (Phoenix = {}));
-/// <reference path="../../../../typings/index.d.ts" />
 /// <reference path="../../core/core.ts" />
 /// <reference path="../../core/modules/ajax.ts" />
 /// <reference path="../../core/modules/application.ts" />
 /// <reference path="../modal.control.ts" />
+/// <reference path="../autoclose.control.ts" />
 /// <reference path="./form.control.ts" />
 /// <reference path="./schema.data.ts" />
 var Phoenix;
 (function (Phoenix) {
+    var _p = Phoenix, _ajax = _p.ajax, _dom = _p.dom, _utils = _p.utils, _autoclose = _p.autoclose, _modal = _p.modal, _application = _p.application, _su = _p.Observable.SchemaUtils, _external = _p.external, _customData = _p.customData;
     var ui;
     (function (ui) {
-        var _ajax = Phoenix.ajax, _utils = Phoenix.utils, _application = Phoenix.application, _su = Phoenix.Observable.SchemaUtils, _external = Phoenix.external, _customData = Phoenix.customData;
         var ModalForm = (function (_super) {
             __extends(ModalForm, _super);
             function ModalForm(formOptions, layout, schema, data, locale, preferences) {
@@ -12095,7 +14108,7 @@ var Phoenix;
                 that.render.on(newHnd);
             };
             return ModalForm;
-        }(ui.Modal));
+        }(Phoenix.modal.Modal));
         ui.ModalForm = ModalForm;
         var _openForm = function (formOptions, params, handler) {
             _su.loadSchemaRefs(params.schema, params.data, params.layout, function (ex, ldata) {
@@ -12141,7 +14154,7 @@ var Phoenix;
                 ci++;
                 opts.externalLayout = layout;
                 ln = layout;
-                promises.push(_ajax.get(config.forms + '/' + layout + '.json'));
+                promises.push(_ajax.get(config.current.forms + '/' + layout + '.json'));
             }
             if (typeof schema === 'object') {
                 params.schema = $.extend(true, {}, schema);
@@ -12150,7 +14163,7 @@ var Phoenix;
                 si = ci;
                 ci++;
                 opts.externalSchema = schema;
-                promises.push(_ajax.get(config.prototypes + '/' + schema + '.json'));
+                promises.push(_ajax.get(config.current.prototypes + '/' + schema + '.json'));
             }
             var preferenceName = _preferenceName(ln, config);
             if (preferenceName && _external.preferenceLoadHandler) {
@@ -12194,7 +14207,10 @@ var Phoenix;
             });
         };
         var _initController = function (options, config) {
-            options.beforeSetModel = config.initObjectState ? config.initObjectState.bind(config) : null;
+            if (config.isFormController)
+                options.beforeSetModel = config.beforeSetModel ? config.beforeSetModel.bind(config) : null;
+            else
+                options.beforeSetModel = config.initObjectState ? config.initObjectState.bind(config) : null;
             options.beforeModelCreated = config.initModel ? config.initModel.bind(config) : null;
             options.onSettings = config.onSettings ? config.onSettings.bind(config) : null;
             options.storageName = config.storageName;
@@ -12220,7 +14236,56 @@ var Phoenix;
             }
             _OpenModalForm(fo, opts.name, opts.meta, data, null, hnd);
         };
+        var _showAutoCloseForm = function (opts, data) {
+            if (!opts.controller)
+                throw 'Controller name is empty.';
+            var config = _customData.get(opts.controller);
+            if (!config)
+                throw _utils.format('Controller not found "{0}". Use customData.register(controllerName, ctrlConfig).', opts.controller);
+            var options = {};
+            _initController(options, config);
+            var fo = opts.options;
+            fo = options;
+            fo.natural = true;
+            var hnd = null;
+            if (config.isFormController) {
+                hnd = config.modelChanged.bind(config);
+            }
+            else if (config.onModelChanged) {
+                hnd = config.onModelChanged.bind(config);
+            }
+            fo.autoClose = opts.autoClose;
+            _OpenFormExp(null, opts.name, opts.meta, data, null, hnd, fo, null);
+        };
         var _openInlineForm = function ($parent, params, handler, opts) {
+            if (opts && opts.autoClose) {
+                var ac = opts.autoClose;
+                var acOptions = {
+                    parent: ac.parentId ? _dom.find(null, ac.parentId) : null,
+                    alignElement: ac.alignElementId ? _dom.find(null, ac.alignElementId) : null,
+                    style: ac.style,
+                    width: ac.width,
+                    height: ac.height,
+                    minWidth: ac.minWidth,
+                    minHeight: ac.minHeight,
+                    beforeClose: null,
+                    contentRender: function ($p, autoCloseControl, cb) {
+                        try {
+                            var render_1 = new ui.Form(params.layout, opts || { design: false }, params.data, params.schema, params.locale, params.preferences);
+                            render_1.$locale = params.locale;
+                            render_1.autoClose = true;
+                            render_1.render($p);
+                            if (handler)
+                                render_1.on(handler);
+                            cb();
+                        }
+                        catch (ex) {
+                            cb(ex);
+                        }
+                    }
+                };
+                return _autoclose.open(ac.align, acOptions);
+            }
             var render = new ui.Form(params.layout, opts || { design: false }, params.data, params.schema, params.locale, params.preferences);
             render.$locale = params.locale;
             render.render($parent);
@@ -12270,9 +14335,18 @@ var Phoenix;
         var FormController = (function () {
             function FormController() {
             }
+            FormController.prototype.isFormController = function () { return true; };
             FormController.prototype.data = function () { return null; };
-            FormController.prototype.initObjectState = function (model) { };
+            FormController.prototype.beforeSetModel = function (model, form) {
+                if (form && form.hasNestedControllers())
+                    form.modelCreated(model);
+                this.initObjectState(model, form);
+            };
+            FormController.prototype.initObjectState = function (model, form) { };
             FormController.prototype.modelChanged = function (action, model, form, modal) {
+                if (form.hasNestedControllers()) {
+                    form.modelChanged(action, model, form, modal);
+                }
                 this.onModelChanged(action, model, form, modal);
             };
             FormController.prototype.onModelChanged = function (action, model, form, modal) {
@@ -12292,59 +14366,50 @@ var Phoenix;
                         return that[c](ca, model, form, modal);
                 }
             };
-            FormController.isFormController = true;
             return FormController;
         }());
         ui.FormController = FormController;
+        _customData.register('phoenix.empty.controller', { onModelChanged: function (action, model, form, modalForm) { } });
         ui.formController2Options = _initController;
         ui.OpenModalForm = _OpenModalForm;
         ui.showModalForm = _showModalForm;
+        ui.showAutoCloseForm = _showAutoCloseForm;
         ui.OpenForm = _OpenFormExp;
+        _external.formOpenHandler = function (params) {
+            var opts = {
+                name: params.name,
+                meta: params.meta,
+                controller: params.controller || 'phoenix.empty.controller',
+                options: params.options || {}
+            };
+            if (!params.modal) {
+                opts.autoClose = {
+                    align: _p.autoclose.BOTTOM_LEFT,
+                    alignElementId: params.alignElementId,
+                    style: params.style,
+                    width: params.width,
+                    height: params.height,
+                    minWidth: params.minWidth,
+                    minHeight: params.minHeight
+                };
+                _showAutoCloseForm(opts);
+            }
+            else {
+                _showModalForm(opts);
+            }
+        };
     })(ui = Phoenix.ui || (Phoenix.ui = {}));
 })(Phoenix || (Phoenix = {}));
-/// <reference path="../../../../../typings/index.d.ts" />
 /// <reference path="../../../core/core.ts" />
 /// <reference path="../../../ui/layout.control.ts" />
 /// <reference path="../schema.data.ts" />
-/// <reference path="../form.control.ts" />
 var Phoenix;
 (function (Phoenix) {
-    var ui;
-    (function (ui) {
+    var _render = Phoenix.render, _ui = Phoenix.ui, _dom = Phoenix.dom, _utils = Phoenix.utils, _device = Phoenix.device, _observable = Phoenix.Observable, _ulocale = Phoenix.ulocale, _locale = Phoenix.locale, _customData = Phoenix.customData, _sutils = _observable.SchemaUtils;
+    var uiutils;
+    (function (uiutils) {
         var DATE_PICKER_NAME = 'datepicker';
-        var _render = Phoenix.render, _ui = ui, _dom = Phoenix.dom, _utils = Phoenix.utils, _device = Phoenix.device, _observable = Phoenix.Observable, _ulocale = Phoenix.ulocale, _locale = Phoenix.locale, _customData = Phoenix.customData, _sutils = _observable.SchemaUtils, _registerControl = function (factory, type, isEnum, widget, options) {
-            isEnum = isEnum || false;
-            widget = widget || '';
-            if (isEnum)
-                type = '*';
-            options = options || {};
-            var lookup = options.lookup || false;
-            var format = options.format || '';
-            if (options.readOnly)
-                _customData.register('ui-controls-readonly-' + widget + '-' + format, factory);
-            else
-                _customData.register('ui-controls-' + type + '-' + isEnum + '-' + lookup + '-' + widget + '-' + format, factory);
-        }, _getRegisteredControl = function (type, isEnum, widget, format, options) {
-            isEnum = isEnum || false;
-            if (isEnum)
-                type = '*';
-            widget = widget || '';
-            format = format || '';
-            var lookup = options && options.lookup ? true : false;
-            var readOnly = options && options.readOnly ? true : false;
-            if (readOnly) {
-                var factory = _customData.get('ui-controls-readonly-' + widget + '-' + format);
-                if (!factory && format)
-                    factory = _customData.get('ui-controls-readonly-' + widget + '-');
-                return factory;
-            }
-            else {
-                var factory = _customData.get('ui-controls-' + type + '-' + isEnum + '-' + lookup + '-' + widget + '-' + format);
-                if (!factory && format)
-                    factory = _customData.get('ui-controls-' + type + '-' + isEnum + '-' + lookup + '-' + widget + '-');
-                return factory;
-            }
-        }, _dateNative = function () {
+        var _dateNative = function () {
             var res = false, called = false;
             return function () {
                 if (called)
@@ -12430,7 +14495,7 @@ var Phoenix;
             addErrorDiv: function (html) {
                 html.push('<div class="small text-danger bs-none" id="{0}_errors"></div>');
             },
-            keyPressPassword: function (event) {
+            keyPressPassword: function (event, input, options) {
                 var code = event.which;
                 if (code === _dom.keys.VK_SPACE) {
                     event.preventDefault();
@@ -12438,17 +14503,20 @@ var Phoenix;
                 }
                 return true;
             },
-            keyPressCode: function (event) {
-                var code = event.which;
+            keyPressDate: function (event, input, options) {
+                return true;
+            },
+            keyPressCode: function (event, input, options) {
+                var code = event.keyCode;
                 if (code === _dom.keys.VK_SPACE) {
                     event.preventDefault();
                     return false;
                 }
                 return true;
             },
-            keyPressNumber: function (event) {
-                var validChars = "-0123456789,." + _locale.number.decimal;
-                var code = event.which;
+            keyPressNumber: function (event, input, options) {
+                var validChars = "-0123456789,." + options.decimalSep;
+                var code = event.keyCode;
                 if (!event.metaKey && _dom.ignoreKeys.indexOf(code) < 0) {
                     var char = String.fromCharCode(code);
                     if (validChars.indexOf(char) < 0) {
@@ -12458,7 +14526,30 @@ var Phoenix;
                 }
                 return true;
             },
-            getRegisteredControl: _getRegisteredControl,
+            doPasteDate: function (event, input, options) {
+                return true;
+            },
+            doPasteCode: function (event, input, options) {
+                return true;
+            },
+            doPasteNumber: function (event, input, options) {
+                return true;
+            },
+            doPastePassword: function (event, input, options) {
+                return true;
+            },
+            keyDownDate: function (event, input, options) {
+                return true;
+            },
+            keyDownCode: function (event, input, options) {
+                return true;
+            },
+            keyDownNumber: function (event, input, options) {
+                return true;
+            },
+            keyDownPassword: function (event, input, options) {
+                return true;
+            },
             addContainerId: function (html, authoring) {
                 if (authoring)
                     html.push(' draggable="true"');
@@ -12533,10 +14624,12 @@ var Phoenix;
             text2value: function (textValue, schema, state) {
                 var that = this;
                 if (_sutils.isDate(schema)) {
-                    if (_ui.Utils.nativeDate())
+                    if (_afutils.nativeDate())
                         return textValue;
-                    else
-                        return _ulocale.localeDate2ISO(textValue);
+                    else {
+                        var pdate = _ulocale.tryParseDate(textValue);
+                        return _ulocale.localeDate2ISO(pdate);
+                    }
                 }
                 else if (_sutils.isNumber(schema)) {
                     return _sutils.text2Value(textValue + '', schema, state);
@@ -12670,6 +14763,70 @@ var Phoenix;
                 if (options && options.inline)
                     html.push(' bs-tooltip-icon-inline');
                 html.push('"></span>');
+            }
+        };
+        if (_afutils.useDatePicker()) {
+            var tdp = function (lang) {
+                $.fn.datepicker.dates[lang] = {
+                    days: _locale.date.weekdays,
+                    daysShort: _locale.date.weekdaysShort,
+                    daysMin: _locale.date.weekdaysMin,
+                    months: _locale.date.months,
+                    monthsShort: _locale.date.monthsShort,
+                    today: _locale.date.today,
+                    clear: _locale.date.clear,
+                    format: _locale.date.dateShort.replace(/\//g, _locale.date.daySep),
+                    titleFormat: 'MM yyyy',
+                    weekStart: _locale.date.weekStart
+                };
+            };
+            tdp(_ulocale.currentLang);
+            _ulocale.register(tdp);
+        }
+        uiutils.utils = _afutils;
+    })(uiutils = Phoenix.uiutils || (Phoenix.uiutils = {}));
+})(Phoenix || (Phoenix = {}));
+/// <reference path="../../../core/core.ts" />
+/// <reference path="../../../ui/layout.control.ts" />
+/// <reference path="../schema.data.ts" />
+/// <reference path="./uiutils.ts" />
+/// <reference path="../form.control.ts" />
+var Phoenix;
+(function (Phoenix) {
+    var _uiutils = Phoenix.uiutils, _observable = Phoenix.Observable, _dom = Phoenix.dom, _customData = Phoenix.customData, _sutils = _observable.SchemaUtils;
+    var ui;
+    (function (ui) {
+        var _registerControl = function (factory, type, isEnum, widget, options) {
+            isEnum = isEnum || false;
+            widget = widget || '';
+            if (isEnum)
+                type = '*';
+            options = options || {};
+            var lookup = options.lookup || false;
+            var format = options.format || '';
+            if (options.readOnly)
+                _customData.register('ui-controls-readonly-' + widget + '-' + format, factory);
+            else
+                _customData.register('ui-controls-' + type + '-' + isEnum + '-' + lookup + '-' + widget + '-' + format, factory);
+        }, _getRegisteredControl = function (type, isEnum, widget, format, options) {
+            isEnum = isEnum || false;
+            if (isEnum)
+                type = '*';
+            widget = widget || '';
+            format = format || '';
+            var lookup = options && options.lookup ? true : false;
+            var readOnly = options && options.readOnly ? true : false;
+            if (readOnly) {
+                var factory = _customData.get('ui-controls-readonly-' + widget + '-' + format);
+                if (!factory && format)
+                    factory = _customData.get('ui-controls-readonly-' + widget + '-');
+                return factory;
+            }
+            else {
+                var factory = _customData.get('ui-controls-' + type + '-' + isEnum + '-' + lookup + '-' + widget + '-' + format);
+                if (!factory && format)
+                    factory = _customData.get('ui-controls-' + type + '-' + isEnum + '-' + lookup + '-' + widget + '-');
+                return factory;
             }
         };
         var AbsField = (function () {
@@ -12821,41 +14978,22 @@ var Phoenix;
         }());
         ui.AbsField = AbsField;
         ;
-        if (_afutils.useDatePicker()) {
-            var tdp = function (lang) {
-                $.fn.datepicker.dates[lang] = {
-                    days: _locale.date.weekdays,
-                    daysShort: _locale.date.weekdaysShort,
-                    daysMin: _locale.date.weekdaysMin,
-                    months: _locale.date.months,
-                    monthsShort: _locale.date.monthsShort,
-                    today: _locale.date.today,
-                    clear: _locale.date.clear,
-                    format: _locale.date.dateShort.replace(/\//g, _locale.date.daySep),
-                    titleFormat: 'MM yyyy',
-                    weekStart: _locale.date.weekStart
-                };
-            };
-            tdp(_ulocale.currentLang);
-            _ulocale.register(tdp);
-        }
-        ui.Utils = _afutils;
         ui.registerControl = _registerControl;
+        ui.getRegisteredControl = _getRegisteredControl;
     })(ui = Phoenix.ui || (Phoenix.ui = {}));
 })(Phoenix || (Phoenix = {}));
-/// <reference path="../../../../../typings/index.d.ts" />
 /// <reference path="../../../core/core.ts" />
 /// <reference path="./absfield.control.ts" />
 var Phoenix;
 (function (Phoenix) {
+    var _p = Phoenix, _utils = _p.utils, _dom = _p.dom, _ulocale = _p.ulocale, _ui = _p.ui, _uiutils = _p.uiutils;
     var ui;
     (function (ui) {
-        var _ui = ui, _utils = Phoenix.utils, _dom = Phoenix.dom, _ulocale = Phoenix.ulocale;
         function _createAlert(id, options, authoring) {
             options = $.extend({ columns: false }, options);
             options.columns = false;
             var html = [];
-            _ui.Utils.fieldWrapper(html, options, authoring, function () {
+            _uiutils.utils.fieldWrapper(html, options, authoring, function () {
                 html.push('<div id="{0}_alert" class="alert alert-' + (options.type || 'danger') + '" role="alert">');
                 html.push('</div>');
             });
@@ -12925,7 +15063,7 @@ var Phoenix;
             };
             Alert.prototype.render = function ($parent) {
                 var that = this;
-                var opts = that._initOptions(_ui.Utils.defaultOptions);
+                var opts = that._initOptions(_uiutils.utils.defaultOptions);
                 if (!that.$element) {
                     that.$element = $(_createAlert(that.id, opts, that.options.design));
                     that._state2UI();
@@ -12939,420 +15077,198 @@ var Phoenix;
         _ui.registerControl(Alert, "string", false, 'alert', null);
     })(ui = Phoenix.ui || (Phoenix.ui = {}));
 })(Phoenix || (Phoenix = {}));
-/// <reference path="../../../../typings/index.d.ts" />
-/// <reference path="./utils.ts" />
-/// <reference path="./dom.ts" />
+/// <reference path="../../../core/core.ts" />
+/// <reference path="./absfield.control.ts" />
 var Phoenix;
 (function (Phoenix) {
-    var _dom = Phoenix.dom, _utils = Phoenix.utils;
-    var events;
-    (function (events) {
-        var EventManager = (function () {
-            function EventManager() {
+    var _utils = Phoenix.utils, _dom = Phoenix.dom, _ui = Phoenix.ui, _ulocale = Phoenix.ulocale, _uiutils = Phoenix.uiutils;
+    var formcomplex;
+    (function (formcomplex) {
+        function _createContainer(id, options, authoring) {
+            options = $.extend({ titleIsHidden: false, placeHolder: false, columns: false }, options);
+            var html = [];
+            if (authoring) {
+                _uiutils.utils.fieldWrapper(html, options, authoring, function () { });
             }
-            EventManager.prototype.disable = function () {
-                this._isDisabled = true;
+            else {
+                var css = [];
+                if (options.style)
+                    _dom.parseStyle(options.style, css);
+                html.push('<div');
+                if (css.length)
+                    html.push(' class= "' + css.join(' ') + '"');
+                _uiutils.utils.addContainerId(html, authoring);
+                html.push('/></div>');
+            }
+            return _utils.format(html.join(''), id);
+        }
+        ;
+        var ComplexBase = (function (_super) {
+            __extends(ComplexBase, _super);
+            function ComplexBase(fp, options, form) {
+                _super.call(this, fp, options, form);
+                this._state();
+            }
+            ComplexBase.prototype.click = function (event) {
+                var that = this;
             };
-            EventManager.prototype.enable = function () {
-                this._isDisabled = false;
-            };
-            return EventManager;
-        }());
-        events.EventManager = EventManager;
-        events.mouseEvents = function (eventType) {
-            if (_dom.touch()) {
-                switch (eventType) {
-                    case 'mousedown':
-                        return 'touchstart';
-                    case 'mouseup':
-                        return 'touchend';
-                    case 'mousemove':
-                        return 'touchmove';
+            ComplexBase.prototype._setDisabled = function (element) { };
+            ComplexBase.prototype._setReadOnly = function (element) { };
+            ComplexBase.prototype._setMandatory = function (element) { };
+            ComplexBase.prototype._state2UI = function () {
+                var that = this, element = that.$element ? that.$element.get(0) : null;
+                if (element) {
+                    that.renderContent(element);
                 }
-            }
-            return eventType;
-        };
-        function isLeftButton(eventObject) {
-            if (_dom.touch())
-                return true;
-            return eventObject.which < 2;
-        }
-        events.isLeftButton = isLeftButton;
-        function stopEvent(eventObject) {
-            eventObject.stopPropagation();
-            eventObject.preventDefault();
-        }
-        events.stopEvent = stopEvent;
-        function point(event) {
-            var de = document.documentElement;
-            var res;
-            if (_dom.touch()) {
-                var t = event.targetTouches || event.touches;
-                if (t)
-                    res = {
-                        x: t[0].pageX || (t[0].clientX + (de.scrollLeft || document.body.scrollLeft)),
-                        y: t[0].pageY || (t[0].clientY + (de.scrollTop || document.body.scrollTop))
-                    };
-            }
-            if (!res)
-                res = {
-                    x: event.pageX || (event.clientX + (de.scrollLeft || document.body.scrollLeft)),
-                    y: event.pageY || (event.clientY + (de.scrollTop || document.body.scrollTop))
-                };
-            res.x = Math.round(res.x);
-            res.y = Math.round(res.y);
-            return res;
-        }
-        events.point = point;
-        events.eventManager = new EventManager();
-    })(events = Phoenix.events || (Phoenix.events = {}));
+            };
+            ComplexBase.prototype.renderContent = function (parent) {
+                var that = this, s = '';
+                if (that.state.value != undefined) {
+                    s = JSON.stringify(that.state.value.model(true), null, 2);
+                }
+                _dom.append(parent, $('<pre>' + s + '</pre>').get(0));
+            };
+            ComplexBase.prototype.changed = function (propName, ov, nv, op) {
+                var that = this;
+                that.state.value = that.form.getValue(that.$bind);
+                that._state2UI();
+            };
+            ComplexBase.prototype.stateChanged = function (propName, params) {
+                var that = this, state = that.form.getState(that.$bind), element = that.$element ? that.$element.get(0) : null;
+                if (state.isHidden !== that.state.isHidden) {
+                    that.state.isHidden = state.isHidden;
+                    that.setHidden(element);
+                }
+                if (state.isDisabled !== that.state.isDisabled) {
+                    that.state.isDisabled = state.isDisabled;
+                    that._setDisabled(element);
+                }
+                if (state.isReadOnly !== that.state.isReadOnly) {
+                    that.state.isReadOnly = state.isReadOnly;
+                    that._setReadOnly(element);
+                }
+                if (state.isMandatory !== that.state.isMandatory) {
+                    that.state.isMandatory = state.isMandatory;
+                    that._setMandatory(element);
+                }
+            };
+            ComplexBase.prototype.render = function ($parent) {
+                var that = this;
+                var opts = that._initOptions(_uiutils.utils.defaultOptions);
+                if (!that.$element) {
+                    that.$element = $(_createContainer(that.id, opts, that.options.design));
+                    that._state2UI();
+                    that.setEvents(opts);
+                }
+                that.appendElement($parent, opts);
+                return that.$element;
+            };
+            return ComplexBase;
+        }(Phoenix.ui.AbsField));
+        formcomplex.ComplexBase = ComplexBase;
+        _ui.registerControl(ComplexBase, 'object', false, 'objectjson', null);
+        _ui.registerControl(ComplexBase, 'array', false, 'objectjson', null);
+    })(formcomplex = Phoenix.formcomplex || (Phoenix.formcomplex = {}));
 })(Phoenix || (Phoenix = {}));
-/// <reference path="../../../../typings/index.d.ts" />
-/// <reference path="./utils.ts" />
-/// <reference path="./events.ts" />
-/// <reference path="./dom.ts" />
+/// <reference path="../../../core/core-refs.ts" />
+/// <reference path="./complex.control.ts" />
 var Phoenix;
 (function (Phoenix) {
-    var _dom = Phoenix.dom, _utils = Phoenix.utils, _events = Phoenix.events;
-    var drag;
-    (function (drag_1) {
-        var DragAndDropManager = (function () {
-            function DragAndDropManager() {
-                var that = this;
+    var formarray;
+    (function (formarray) {
+        var _p = Phoenix, _customData = _p.customData, _ulocale = _p.ulocale, _formcomplex = _p.formcomplex, _ui = _p.ui, _utils = _p.utils, _dom = _p.dom, _link = _p.link;
+        var GRID_COLUMNS = 4;
+        var ArrayControl = (function (_super) {
+            __extends(ArrayControl, _super);
+            function ArrayControl() {
+                _super.apply(this, arguments);
             }
-            DragAndDropManager.prototype.initialize = function () {
+            ArrayControl.prototype.customOptions = function (options) {
                 var that = this;
-                var $doc = $(document);
-                that._mu = that.mouseUp.bind(that);
-                that._md = that.mouseDownEmpty.bind(that);
-                $doc.on(_events.mouseEvents('mouseup'), that._mu);
-                $doc.on(_events.mouseEvents('mousedown'), that._md);
-            };
-            DragAndDropManager.prototype.finalize = function () {
-                var that = this;
-                var $doc = $(document);
-                if (that._mu) {
-                    $doc.off(_events.mouseEvents('mouseup'), that._mu);
-                    that._mu = null;
-                }
-                if (that._md) {
-                    $doc.off(_events.mouseEvents('mousedown'), that._mu);
-                    that._md = null;
-                }
-                that._listeners = null;
-                that._current = null;
-            };
-            DragAndDropManager.prototype.startMouseMove = function () {
-                var that = this;
-                if (!that._mm) {
-                    that._mm = that.mouseMove.bind(that);
-                    $(document).on(_events.mouseEvents('mousemove'), that._mm);
+                if (!options.item || !options.item.render)
+                    throw 'Item render is null. Use options: { item : {render: "my_item_render"}} ';
+                that._render = _customData.get(options.item.render);
+                if (!that._render) {
+                    throw 'Item render is registered. Use customData.register("' + options.item.render + '", controller);';
                 }
             };
-            DragAndDropManager.prototype.stopMouseMove = function () {
-                var that = this;
-                if (that._mm) {
-                    $(document).off(_events.mouseEvents('mousemove'), that._mm);
-                    that._mm = null;
-                }
-            };
-            DragAndDropManager.prototype._canExecuteEvent = function (event) {
-                return !!this._current;
-            };
-            DragAndDropManager.prototype.mouseUp = function (eventObject) {
-                var that = this;
-                var current = that._current;
-                if (!current)
-                    return true;
-                if (current.inDragging)
-                    current.notifyDragEnd(false, eventObject);
-                that.setCurrent(null);
-                current.clear();
-                return false;
-            };
-            DragAndDropManager.prototype.mouseDownEmpty = function (eventObject) {
-                return true;
-            };
-            DragAndDropManager.prototype.mouseMove = function (eventObject) {
-                var that = this;
-                if (!that._canExecuteEvent(eventObject))
-                    return;
-                var current = that._current;
-                if (!current)
-                    return true;
-                if (!current.ready(eventObject)) {
-                    if (!_events.isLeftButton(eventObject)) {
-                        that.setCurrent(null);
-                        current.clear();
+            // Create content
+            ArrayControl.prototype.renderContent = function (parent) {
+                var that = this, columns = 0;
+                that._map = {};
+                var isGrid = that.renderOptions && that.renderOptions.layout && that.renderOptions.layout.type === 'grid';
+                var cp = document.createDocumentFragment();
+                if (isGrid)
+                    columns = Math.max(Math.min(that.renderOptions.layout.columns || GRID_COLUMNS, 12), 1);
+                var row = null;
+                var m = that.state.value.model(true);
+                m && m.forEach(function (item, index) {
+                    var itemParent;
+                    var itemCss = [];
+                    if (isGrid) {
+                        var ci = index % columns;
+                        if (ci === 0) {
+                            row = $('<div class="row"></div>').get(0);
+                            var bootstrapCol = Math.floor(12 / columns);
+                            for (var i = 0; i < columns; i++)
+                                _dom.append(row, $('<div class="col-sm-' + bootstrapCol + '"></div>').get(0));
+                            _dom.append(cp, row);
+                        }
+                        itemParent = row.childNodes[ci];
                     }
-                    return true;
-                }
-                if (!_events.isLeftButton(eventObject)) {
-                    that.cancelDrag();
-                    return true;
-                }
-                try {
-                    current.notifyDrag(eventObject);
-                }
-                catch (e) {
-                    that.cancelDrag();
-                }
-                _events.stopEvent(eventObject);
-                return true;
-            };
-            DragAndDropManager.prototype.addDrag = function (listeners) {
-                var that = this;
-                var cd = new DragElement(listeners);
-                that._listeners = that._listeners || [];
-                that._listeners.push(cd);
-                return cd;
-            };
-            DragAndDropManager.prototype.rmvDrag = function (drag) {
-                var that = this;
-                if (that._listeners) {
-                    var i = that._listeners.indexOf(drag);
-                    if (i >= 0) {
-                        that._listeners.splice(i, 1);
-                        drag.finalize();
+                    else {
+                        itemParent = cp;
+                        itemCss.push('bs-inline-block');
                     }
-                }
-            };
-            DragAndDropManager.prototype.setCurrent = function (dragObject) {
-                var that = this;
-                if (dragObject && that._current)
-                    return false;
-                that._current = dragObject;
-                if (!that._current)
-                    that.stopMouseMove();
-                return true;
-            };
-            DragAndDropManager.prototype.cancelDrag = function () {
-                var that = this;
-                var current = that._current;
-                if (current) {
-                    if (current.inDragging)
-                        current.notifyDragEnd(true, null);
-                    that.setCurrent(null);
-                    current.clear();
-                }
-            };
-            DragAndDropManager.prototype.cover = function (value, cursor, zindex) {
-                var that = this;
-                if (value) {
-                    if (!that._coverId) {
-                        that._coverId = _utils.allocID();
-                        var scroll = _dom.documentScroll();
-                        var client = _dom.documentClientDim();
-                        client.width += scroll.left;
-                        client.height += scroll.top;
-                        client.width = Math.round(Math.max(client.width, document.body.offsetWidth));
-                        client.height = Math.round(Math.max(client.height, Math.round(document.body.offsetHeight)));
-                        var ce = document.createElement('div');
-                        ce.id = that._coverId;
-                        ce.style.position = 'absolute';
-                        ce.style.top = '0px';
-                        ce.style.left = '0px';
-                        ce.style.backgroundColor = 'white';
-                        ce.style.opacity = '0.01';
-                        ce.style.width = client.width + 'px';
-                        ce.style.height = client.height + 'px';
-                        ce.style.zIndex = (zindex || 10000) + '';
-                        ce.style.cursor = cursor;
-                        _dom.append(document.body, ce);
+                    if (that.renderOptions.item.style) {
+                        _dom.parseStyle(that.renderOptions.item.style, itemCss);
                     }
-                }
-                else {
-                    if (that._coverId) {
-                        var e = _dom.find(document.body, that._coverId);
-                        that._coverId = null;
-                        if (e)
-                            _dom.remove(e);
-                    }
-                }
-                //
-            };
-            return DragAndDropManager;
-        }());
-        drag_1.DragAndDropManager = DragAndDropManager;
-        var DragElement = (function () {
-            function DragElement(elements) {
-                var that = this;
-                that._elements = elements;
-                that._mdEvent = that.mousedown.bind(that);
-                that.clear();
-                that._setEvents();
-            }
-            DragElement.prototype.clear = function () {
-                var that = this;
-                //save
-                var ose = that.stopEvent;
-                //init
-                that.mouseMoveCount = 0;
-                that.minLeft = null;
-                that.maxLeft = null;
-                that.minTop = null;
-                that.maxTop = null;
-                that.currentLeft = 0;
-                that.currentTop = 0;
-                that.moveX = false;
-                that.moveY = false;
-                that.inDragging = false;
-                that.coverDocument = true;
-                that.cursor = 'default';
-                that.startPoint = null;
-                that.currentPoint = null;
-                that.startOffset = null;
-                that.stopEvent = false;
-                that.data = {};
-                that.floatElement = null;
-                that.floatParent = null;
-                // restore
-                that.stopEvent = ose;
-            };
-            DragElement.prototype._removeEvents = function () {
-                var that = this;
-                if (that._elements) {
-                    that._elements.forEach(function (e) {
-                        $(e).off(_events.mouseEvents('mousedown'), that._mdEvent);
-                    });
-                    that._elements = null;
-                }
-            };
-            DragElement.prototype._setEvents = function () {
-                var that = this;
-                if (that._elements) {
-                    that._elements.forEach(function (e) {
-                        $(e).on(_events.mouseEvents('mousedown'), that._mdEvent);
-                    });
-                }
-            };
-            DragElement.prototype.mousedown = function (eventObject) {
-                var that = this;
-                that.mouseMoveCount = 0;
-                that.inDragging = false;
-                if (!_events.isLeftButton(eventObject))
-                    return true;
-                if (!that.canStartDrag(eventObject))
-                    return true;
-                if (!drag_1.dragManager.setCurrent(that))
-                    return true;
-                that.startPoint = _events.point(eventObject);
-                drag_1.dragManager.startMouseMove();
-                if (that.stopEvent)
-                    _events.stopEvent(eventObject);
-                return false;
-            };
-            DragElement.prototype.finalize = function () {
-                var that = this;
-                that._removeEvents();
-                _utils.cleanUpObject(that);
-            };
-            DragElement.prototype.ready = function (eventObject) {
-                var that = this;
-                that.mouseMoveCount++;
-                if (that.mouseMoveCount == 2)
-                    that.notifyDragStart(eventObject);
-                return that.inDragging;
-            };
-            DragElement.prototype.notifyDrag = function (eventObject) {
-                var that = this;
-                if (!that.inDragging)
-                    return;
-                that.currentPoint = _events.point(eventObject);
-                var e = that.floatElement;
-                if (e && that.moveX) {
-                    var cl = that.startOffset.left + that.currentPoint.x - that.startPoint.x;
-                    if (that.minLeft !== null) {
-                        if (cl < that.minLeft)
-                            cl = that.minLeft;
-                    }
-                    if (that.maxLeft !== null) {
-                        if (cl > that.maxLeft)
-                            cl = that.maxLeft;
-                    }
-                    that.currentLeft = cl;
-                    e.style.left = cl + 'px';
-                }
-                if (e && that.moveY) {
-                    var ct = that.startOffset.top + that.currentPoint.y - that.startPoint.y;
-                    if ((that.minTop !== null) && (ct < that.minTop))
-                        ct = that.minTop;
-                    if ((that.maxTop !== null) && (ct > that.maxTop))
-                        ct = that.maxTop;
-                    that.currentTop = ct;
-                    e.style.top = ct + 'px';
-                }
-                if (that.onDrag)
-                    that.onDrag(eventObject);
-            };
-            DragElement.prototype.notifyDragStart = function (eventObject) {
-                var that = this;
-                that.inDragging = true;
-                _events.eventManager.disable();
-                if (that.coverDocument)
-                    drag_1.dragManager.cover(true, that.cursor);
-                try {
-                    if (that.onDragStart) {
-                        if (!that.onDragStart(eventObject))
-                            that.notifyDragEnd(true, eventObject);
-                        if (that.floatElement)
-                            that.startOffset = _dom.position(that.floatElement, that.floatParent);
-                    }
-                }
-                catch (e) {
-                }
-            };
-            DragElement.prototype.canStartDrag = function (event) {
-                var self = this;
-                if (self.canStartDragHandler)
-                    return self.canStartDragHandler(event);
-                else
-                    return true;
-            };
-            DragElement.prototype.canDrop = function (value) {
-                var that = this;
-                if (that.coverDocument) {
-                    drag_1.dragManager.cover(true, value ? that.cursor : 'no-drop');
-                }
-            };
-            DragElement.prototype.notifyDragEnd = function (doCancel, event) {
-                var that = this;
-                that.inDragging = false;
-                var uc = that.coverDocument;
-                if (that.onDragEnd)
-                    that.onDragEnd(doCancel, event);
-                _utils.nextTick(function () {
-                    _events.eventManager.enable();
-                    if (uc)
-                        drag_1.dragManager.cover(false);
+                    var itemContainer = $('<div class="' + itemCss.join(' ') + '"></div>').get(0);
+                    that._render.render(itemContainer, item, that._map);
+                    _dom.append(itemParent, itemContainer);
                 });
+                _dom.empty(parent);
+                if (isGrid && !_dom.hasClass(parent, 'container-fluid'))
+                    _dom.addClass(parent, 'container-fluid');
+                _dom.append(parent, cp);
             };
-            return DragElement;
-        }());
-        drag_1.DragElement = DragElement;
-        drag_1.dragManager = new DragAndDropManager();
-        Phoenix.dom.readyHandlers.push(function () {
-            drag_1.dragManager.initialize();
-        });
-        var _dragData, _setDragData = function (data) {
-            _dragData = data;
-        }, _getDragData = function () {
-            return _dragData;
-        };
-        drag_1.setData = _setDragData;
-        drag_1.getData = _getDragData;
-    })(drag = Phoenix.drag || (Phoenix.drag = {}));
+            ArrayControl.prototype.destroy = function () {
+                var that = this;
+                that._map = null;
+                that._render = null;
+                _super.prototype.destroy.call(this);
+            };
+            ArrayControl.prototype.setEvents = function (opts) {
+                var that = this;
+                if (that._render.setEvents)
+                    that._render.setEvents(opts);
+            };
+            ArrayControl.prototype.removeEvents = function () {
+                var that = this;
+                if (that._render.removeEvents)
+                    that._render.removeEvents();
+            };
+            ArrayControl.prototype.click = function (event) {
+                var that = this;
+                if (that._render.click)
+                    that._render.click(that.$element.get(0), event, that._map);
+            };
+            return ArrayControl;
+        }(Phoenix.formcomplex.ComplexBase));
+        formarray.ArrayControl = ArrayControl;
+        _ui.registerControl(ArrayControl, 'array', false, 'array-control', null);
+    })(formarray = Phoenix.formarray || (Phoenix.formarray = {}));
 })(Phoenix || (Phoenix = {}));
-/// <reference path="../../../../../typings/index.d.ts" />
 /// <reference path="../../../core/core.ts" />
 /// <reference path="./absfield.control.ts" />
 /// <reference path="../schema.data.ts" />
+/// <reference path="./uiutils.ts" />
 /// <reference path="../../../core/modules/locale.ts" />
 var Phoenix;
 (function (Phoenix) {
     var ui;
     (function (ui) {
-        var _ui = ui, _utils = Phoenix.utils, _dom = Phoenix.dom, _ui = ui, _ulocale = Phoenix.ulocale, _su = Phoenix.Observable.SchemaUtils;
+        var _utils = Phoenix.utils, _dom = Phoenix.dom, _ui = ui, _uiutils = Phoenix.uiutils, _ulocale = Phoenix.ulocale, _su = Phoenix.Observable.SchemaUtils;
         var _addDesign = function (id, options, authoring, html) {
             if (authoring)
                 html.push(' draggable="true"');
@@ -13557,7 +15473,7 @@ var Phoenix;
                     td['rowIndex'] = index;
                     td['colIndex'] = colIndex - 1;
                     var item = values.get(colIndex - 1);
-                    var v = _ui.Utils.displayValue(item.getRelativeValue(row.name), row.schema, locale, { html: true, useSymbol: true, editable: row.canEdit, check: row.check, avanced: null, tableOptions: options, state: null }, item, row.name);
+                    var v = _uiutils.utils.displayValue(item.getRelativeValue(row.name), row.schema, locale, { html: true, useSymbol: true, editable: row.canEdit, check: row.check, avanced: null, tableOptions: options, state: null }, item, row.name);
                     if (v.html) {
                         var $c = $(v.value);
                         _dom.append(td, $c.get(0));
@@ -13630,7 +15546,7 @@ var Phoenix;
                     }
                 }
                 if (align)
-                    css.push(_ui.Utils.align2Css(align));
+                    css.push(_uiutils.utils.align2Css(align));
                 if (css.length)
                     td.className = css.join(' ');
                 _dom.attr(td, 'colId', col.$bind);
@@ -13686,9 +15602,9 @@ var Phoenix;
                         if (!state.isHidden) {
                             var dv = null;
                             if (co.display && co.displaySchema) {
-                                dv = _ui.Utils.displayValue(row.getRelativeValue(co.display), co.displaySchema, locale, { tableOptions: options, avanced: co.displayOptions || {}, state: row.getRelativeState(co.display) }, row, co.display);
+                                dv = _uiutils.utils.displayValue(row.getRelativeValue(co.display), co.displaySchema, locale, { tableOptions: options, avanced: co.displayOptions || {}, state: row.getRelativeState(co.display) }, row, co.display);
                             }
-                            var v = _ui.Utils.displayValue(row.getRelativeValue(col.$bind), col.schema, locale, { html: true, useSymbol: false, selectable: !state.isDisabled, editable: editable, isTotal: isTotal, check: options.editing, avanced: co, tableOptions: options, display: dv, level: level, state: state }, row, col.$bind);
+                            var v = _uiutils.utils.displayValue(row.getRelativeValue(col.$bind), col.schema, locale, { html: true, useSymbol: false, selectable: !state.isDisabled, editable: editable, isTotal: isTotal, check: options.editing, avanced: co, tableOptions: options, display: dv, level: level, state: state }, row, col.$bind);
                             if (v.html) {
                                 var $c = $(v.value);
                                 _dom.append(p, $c.get(0));
@@ -13816,7 +15732,7 @@ var Phoenix;
             html.push('>');
             //if (options.description) {
             //    html.push("<caption>");
-            //    _ui.Utils.addTooltip(html, options.description, options);
+            //    _uiutils.utils.addTooltip(html, options.description, options);
             //    html.push("</caption>");
             //}
             if (options._useColGrp)
@@ -14016,7 +15932,7 @@ var Phoenix;
             }
             html.push('</div>');
             html.push('<center id="{0}_pagination"></center>');
-            _ui.Utils.addErrorDiv(html);
+            _uiutils.utils.addErrorDiv(html);
             html.push('</div>');
             return _utils.format(html.join(''), id);
         }, _resizeDiv = function (parent, point) {
@@ -14062,7 +15978,7 @@ var Phoenix;
             input.className = css.join(' ');
             var enums = state.filter ? col.schema.filters[state.filter] || [] : col.schema.enum;
             var ii = enums.indexOf(value);
-            _ui.Utils.fillSelect(enums, input, col.schema);
+            _uiutils.utils.fillSelect(enums, input, col.schema);
             _setRowSize(input, parent, false);
             _dom.empty(parent);
             _dom.addClass(parent, 'focused');
@@ -14086,7 +16002,7 @@ var Phoenix;
                 cp.className = 'bs-input-group';
                 pp.appendChild(cp);
             }
-            var isDatePicker = _su.isDate(col.schema) && _ui.Utils.useDatePicker();
+            var isDatePicker = _su.isDate(col.schema) && _uiutils.utils.useDatePicker();
             var input = document.createElement("input");
             input.type = opts.type || 'text';
             var css = ['bs-inplace-edit bs-inplace-edit-size'];
@@ -14109,8 +16025,8 @@ var Phoenix;
             _dom.append(parent, pp);
             if (_su.isDate(col.schema)) {
                 if (isDatePicker) {
-                    _ui.Utils.datePickerInitialize($(pp), { showOnFocus: false }, function (e) { });
-                    _ui.Utils.datePickerSetValue($(pp), value);
+                    _uiutils.utils.datePickerInitialize($(pp), { showOnFocus: false }, function (e) { });
+                    _uiutils.utils.datePickerSetValue($(pp), value);
                 }
                 else
                     input.value = _ulocale.isoDatePart(value || '');
@@ -14144,7 +16060,7 @@ var Phoenix;
             input.type = opts.type || 'text';
             var css = ['bs-inplace-edit bs-edit-border bs-inplace-edit-size'];
             if (col.options.align)
-                css.push(_ui.Utils.align2Css(col.options.align));
+                css.push(_uiutils.utils.align2Css(col.options.align));
             if (input.type === 'text' && col.schema.maxLength) {
                 input.maxLength = col.schema.maxLength;
             }
@@ -14167,7 +16083,7 @@ var Phoenix;
             }
             else
                 input.value = svalue;
-            return { input: input, parent: input, td: parent, isInputElement: true, canSelect: true, schema: col.schema };
+            return { input: input, parent: input, td: parent, isInputElement: true, canSelect: true, schema: col.schema, decimals: state.decimals };
         };
         var _gridUtil = {
             createCols: _createCols,
@@ -14196,7 +16112,6 @@ var Phoenix;
         ui.GridUtil = _gridUtil;
     })(ui = Phoenix.ui || (Phoenix.ui = {}));
 })(Phoenix || (Phoenix = {}));
-/// <reference path="../../../../../typings/index.d.ts" />
 /// <reference path="../../../core/core.ts" />
 /// <reference path="../../../core/modules/locale.ts" />
 /// <reference path="../../../core/modules/drag.ts" />
@@ -14204,11 +16119,12 @@ var Phoenix;
 /// <reference path="../errors.data.ts" />
 /// <reference path="../../pager.control.ts" />
 /// <reference path="./basicgrid.ts" />
+/// <reference path="./uiutils.ts" />
 var Phoenix;
 (function (Phoenix) {
     var ui;
     (function (ui) {
-        var _ui = ui, _utils = Phoenix.utils, _dom = Phoenix.dom, _ui = ui, _ulocale = Phoenix.ulocale, _observable = Phoenix.Observable, _gu = _ui.GridUtil, _eu = _observable.errorsUtils, _link = Phoenix.link, _locale = Phoenix.locale, _drag = Phoenix.drag, _events = Phoenix.events, _sutils = _observable.SchemaUtils;
+        var _utils = Phoenix.utils, _dom = Phoenix.dom, _ui = ui, _ulocale = Phoenix.ulocale, _uiutils = Phoenix.uiutils, _observable = Phoenix.Observable, _gu = _ui.GridUtil, _eu = _observable.errorsUtils, _link = Phoenix.link, _locale = Phoenix.locale, _drag = Phoenix.drag, _events = Phoenix.events, _sutils = _observable.SchemaUtils;
         var MIN_COL_WIDTH = 20, MAX_COL_WIDTH = 2000;
         var withModifier = function ($event, key) {
             if (key === _dom.keys.VK_TAB && $event.shiftKey)
@@ -14344,7 +16260,7 @@ var Phoenix;
                     if (key === _dom.keys.VK_UP || key === _dom.keys.VK_DOWN)
                         return false;
                 }
-                else if (_sutils.isDate(that.inplace.schema) && _ui.Utils.useDatePicker()) {
+                else if (_sutils.isDate(that.inplace.schema) && _uiutils.utils.useDatePicker()) {
                     if (key === _dom.keys.VK_UP || key === _dom.keys.VK_DOWN || key === _dom.keys.VK_LEFT || key === _dom.keys.VK_RIGHT)
                         return false;
                 }
@@ -14368,8 +16284,8 @@ var Phoenix;
                     $(that.inplace.input).off('change');
                 }
                 else if (_sutils.isDate(that.inplace.schema)) {
-                    if (_ui.Utils.useDatePicker()) {
-                        ui.Utils.datePickerDestroy($(that.inplace.parent));
+                    if (_uiutils.utils.useDatePicker()) {
+                        _uiutils.utils.datePickerDestroy($(that.inplace.parent));
                     }
                 }
             };
@@ -14382,7 +16298,7 @@ var Phoenix;
                     var si = that.inplace.input.selectedIndex;
                     return state.filter ? that.inplace.schema.filters[state.filter][si] : that.inplace.schema.enum[si];
                 }
-                return _ui.Utils.text2value(that.inplace.input.value, that.inplace.schema, state);
+                return _uiutils.utils.text2value(that.inplace.input.value, that.inplace.schema, state);
             };
             BasicGrid.prototype._inpaceEditShow = function (td, isFocusIn) {
                 var that = this;
@@ -14393,17 +16309,17 @@ var Phoenix;
                 td.tabIndex = -1;
                 var opts = { nativeNumber: false, nativeDate: false, type: 'text', after: null };
                 if (_sutils.isDate(cell.col.schema)) {
-                    opts.nativeDate = _ui.Utils.nativeDate();
+                    opts.nativeDate = _uiutils.utils.nativeDate();
                     if (opts.nativeDate) {
                         opts.type = 'date';
                     }
                     else {
-                        if (_ui.Utils.useDatePicker())
+                        if (_uiutils.utils.useDatePicker())
                             opts.after = { icon: 'calendar' };
                     }
                 }
                 else if (_sutils.isNumber(cell.col.schema)) {
-                    opts.nativeNumber = _ui.Utils.nativeNumber();
+                    opts.nativeNumber = _uiutils.utils.nativeNumber();
                     if (opts.nativeNumber)
                         opts.type = 'number';
                 }
@@ -14453,7 +16369,7 @@ var Phoenix;
                 var value = item.getValue(cell.col.$bind);
                 var state = item.getState(cell.col.$bind);
                 var s = _sutils.value2Text(value, cell.col.schema, state);
-                var opts = { nativeNumber: _ui.Utils.nativeNumber(), nativeDate: _ui.Utils.nativeDate() };
+                var opts = { nativeNumber: _uiutils.utils.nativeNumber(), nativeDate: _uiutils.utils.nativeDate() };
                 _gu.updateInplaceEdit(that.inplace, s, value, state, td, cell, cell.col, opts);
             };
             BasicGrid.prototype.removeEvents = function () {
@@ -15131,9 +17047,9 @@ var Phoenix;
                 var ii = that._viewMap[item.$id];
                 var level = ii ? ii.level || 0 : 0;
                 if (co.display && co.displaySchema) {
-                    dv = _ui.Utils.displayValue(item.getValue(co.display), co.displaySchema, that.form.$locale, { html: true, tableOptions: opts, avanced: co.displayOptions || {}, state: item.getState(co.display) }, item, co.display);
+                    dv = _uiutils.utils.displayValue(item.getValue(co.display), co.displaySchema, that.form.$locale, { html: true, tableOptions: opts, avanced: co.displayOptions || {}, state: item.getState(co.display) }, item, co.display);
                 }
-                var v = _ui.Utils.displayValue(item.getValue(field), col.schema, that.form.$locale, { html: true, useSymbol: false, editable: editable, selectable: !state.isDisabled, check: opts.editing, avanced: co, tableOptions: opts, display: dv, level: level, state: state }, item, field);
+                var v = _uiutils.utils.displayValue(item.getValue(field), col.schema, that.form.$locale, { html: true, useSymbol: false, editable: editable, selectable: !state.isDisabled, check: opts.editing, avanced: co, tableOptions: opts, display: dv, level: level, state: state }, item, field);
                 if (v.html) {
                     var $c = $(v.value);
                     _dom.append(td, $c.get(0));
@@ -15280,7 +17196,11 @@ var Phoenix;
                     if (that.inplace && _dom.isChildOf(that.inplace.td, event.target)) {
                         var cell = that._td2value(that.inplace.td);
                         if (_sutils.isNumber(that.inplace.schema)) {
-                            if (_ui.Utils.keyPressNumber(event) === false)
+                            if (_uiutils.utils.keyPressNumber(event, that.inplace.input, { decimalSep: _locale.number.decimal, thousandSep: _locale.number.thousand, places: that.inplace.decimals, schema: that.inplace.schema }) === false)
+                                return false;
+                        }
+                        else if (_sutils.isDate(that.inplace.schema)) {
+                            if (_uiutils.utils.keyPressDate(event, that.inplace.input, { sep: _locale.date.daySep, format: _locale.date.dateShort, schema: that.inplace.schema }) === false)
                                 return false;
                         }
                         else if (_sutils.isBoolean(that.inplace.schema)) {
@@ -15306,6 +17226,14 @@ var Phoenix;
                 if (that.inplace && _dom.isChildOf(that.inplace.td, $event.target)) {
                     if (!that._inplaceEditAcceptKeys(key))
                         return;
+                    if (_sutils.isNumber(that.inplace.schema)) {
+                        if (_uiutils.utils.keyDownNumber($event, that.inplace.input, { decimalSep: _locale.number.decimal, thousandSep: _locale.number.thousand, places: that.inplace.decimals, schema: that.inplace.schema }) === false)
+                            return;
+                    }
+                    else if (_sutils.isDate(that.inplace.schema)) {
+                        if (_uiutils.utils.keyDownDate($event, that.inplace.input, { sep: _locale.date.daySep, format: _locale.date.dateShort, schema: that.inplace.schema }) === false)
+                            return;
+                    }
                 }
                 if (that.fieldOptions.selecting && that.fieldOptions.selecting.cell) {
                     switch (key) {
@@ -16122,7 +18050,7 @@ var Phoenix;
             };
             BasicGrid.prototype._updOddEven = function () {
                 var that = this;
-                if (!that.renderOptions._useStripedCss && that.renderOptions.options.striped) {
+                if (!that.renderOptions._useStripedCss && that.renderOptions.striped) {
                     if (that.$element) {
                         var pr = _dom.find(that.$element.get(0), that.id + '_rows');
                         _gu.updateEvenOdd(pr);
@@ -16234,7 +18162,7 @@ var Phoenix;
                 var formatCols = [];
                 columns.forEach(function (col) {
                     var sc = col.schema;
-                    var elt = { code: col.name, lib: sc.title || sc.name, type: sc.type };
+                    var elt = { code: col.name, lib: sc.title || sc.name, type: sc.type, selected: true };
                     if (sc.enum)
                         elt.enum = sc.enum;
                     if (sc.enumNames)
@@ -16330,7 +18258,7 @@ var Phoenix;
             };
             BasicGrid.prototype.render = function ($parent) {
                 var that = this;
-                var opts = that._initOptions(_ui.Utils.defaultOptions);
+                var opts = that._initOptions(_uiutils.utils.defaultOptions);
                 if (!that.$element) {
                     if (that.$schema.description)
                         opts.description = _ulocale.tt(that.$schema.description, that.form.$locale);
@@ -16351,20 +18279,19 @@ var Phoenix;
         _ui.registerControl(BasicGrid, 'array', false, 'basicgrid', null);
     })(ui = Phoenix.ui || (Phoenix.ui = {}));
 })(Phoenix || (Phoenix = {}));
-/// <reference path="../../../../../typings/index.d.ts" />
 /// <reference path="../../../core/core.ts" />
 /// <reference path="./absfield.control.ts" />
 var Phoenix;
 (function (Phoenix) {
-    var ui;
-    (function (ui) {
-        var _ui = ui, _utils = Phoenix.utils, _dom = Phoenix.dom, _ulocale = Phoenix.ulocale;
+    var _utils = Phoenix.utils, _ui = Phoenix.ui, _dom = Phoenix.dom, _ulocale = Phoenix.ulocale, _uiutils = Phoenix.uiutils;
+    var formcheck;
+    (function (formcheck) {
         function _createCheckBox(id, options, authoring, title) {
             var _bootstrap4 = Phoenix.bootstrap4;
             title = title || '';
             options = $.extend({ titleIsHidden: false, placeHolder: false, columns: false }, options);
             var html = [];
-            _ui.Utils.fieldWrapper(html, options, authoring, function () {
+            _uiutils.utils.fieldWrapper(html, options, authoring, function () {
                 if (options.columns) {
                     html.push('<div class="no-x-padding ' + (_bootstrap4 ? 'offset-sm-' : 'col-sm-offset-') + options.labelCol + ' col-sm-' + (12 - options.labelCol) + '">');
                     html.push('<div class="checkbox">');
@@ -16471,7 +18398,7 @@ var Phoenix;
             };
             Check.prototype.render = function ($parent) {
                 var that = this;
-                var opts = that._initOptions(_ui.Utils.defaultOptions);
+                var opts = that._initOptions(_uiutils.utils.defaultOptions);
                 if (!that.$element) {
                     that.$element = $(_createCheckBox(that.id, opts, that.options.design, _ulocale.tt(that.$schema.title, that.form.$locale)));
                     that._state2UI();
@@ -16480,12 +18407,11 @@ var Phoenix;
                 return that.$element;
             };
             return Check;
-        }(ui.AbsField));
-        ui.Check = Check;
+        }(Phoenix.ui.AbsField));
+        formcheck.Check = Check;
         _ui.registerControl(Check, "boolean", false, '', null);
-    })(ui = Phoenix.ui || (Phoenix.ui = {}));
+    })(formcheck = Phoenix.formcheck || (Phoenix.formcheck = {}));
 })(Phoenix || (Phoenix = {}));
-/// <reference path="../../../../../typings/index.d.ts" />
 /// <reference path="../../../core/core.ts" />
 /// <reference path="../../../core/modules/locale.ts" />
 /// <reference path="./absfield.control.ts" />
@@ -16496,7 +18422,7 @@ var Phoenix;
 (function (Phoenix) {
     var ui;
     (function (ui) {
-        var _ui = ui, _utils = Phoenix.utils, _dom = Phoenix.dom, _ui = ui, _ulocale = Phoenix.ulocale, _eu = Phoenix.Observable.errorsUtils, _gu = ui.GridUtil, _sutils = Phoenix.Observable.SchemaUtils;
+        var _utils = Phoenix.utils, _ui = ui, _dom = Phoenix.dom, _ulocale = Phoenix.ulocale, _uiutils = Phoenix.uiutils, _eu = Phoenix.Observable.errorsUtils, _gu = _ui.GridUtil, _sutils = Phoenix.Observable.SchemaUtils;
         var ColumnGrid = (function (_super) {
             __extends(ColumnGrid, _super);
             function ColumnGrid(fp, options, form) {
@@ -16579,7 +18505,7 @@ var Phoenix;
                 columns.push(header);
                 if (that.state.value) {
                     that.state.value.forEach(function (item) {
-                        var title = _ui.Utils.displayValue(item.getRelativeValue(headerBind), headerSchema, that.form.$locale, { html: false }, item, headerBind).value;
+                        var title = _uiutils.utils.displayValue(item.getRelativeValue(headerBind), headerSchema, that.form.$locale, { html: false }, item, headerBind).value;
                         var r = $.extend({}, row);
                         r.title = title || '';
                         r.id = item.$id;
@@ -16593,7 +18519,7 @@ var Phoenix;
                 var pr = _dom.find(that.$element.get(0), that.id + '_rows');
                 var tr = pr.childNodes[rowIndex];
                 var td = tr.childNodes[colIndex];
-                var v = _ui.Utils.displayValue(value, schema, that.form.$locale, { html: true, useSymbol: false, editable: opts.editable, check: opts.check, tableOptions: that.config.options }, item, fieldName);
+                var v = _uiutils.utils.displayValue(value, schema, that.form.$locale, { html: true, useSymbol: false, editable: opts.editable, check: opts.check, tableOptions: that.config.options }, item, fieldName);
                 _dom.empty(td);
                 if (v.html) {
                     var $c = $(v.value);
@@ -16712,7 +18638,7 @@ var Phoenix;
             };
             ColumnGrid.prototype.render = function ($parent) {
                 var that = this;
-                var opts = that._initOptions(_ui.Utils.defaultOptions);
+                var opts = that._initOptions(_uiutils.utils.defaultOptions);
                 if (!that.$element) {
                     that.columns = that._initCols(that.fieldOptions);
                     that.$element = $(_gu.gridContainer(that.id, opts, that.options.design, that.$schema.title, that.form.$locale, that.columns, null));
@@ -16873,21 +18799,20 @@ var Phoenix;
         _ui.registerControl(ColumnGrid, "array", false, "columngrid", null);
     })(ui = Phoenix.ui || (Phoenix.ui = {}));
 })(Phoenix || (Phoenix = {}));
-/// <reference path="../../../../../typings/index.d.ts" />
 /// <reference path="../../../core/core.ts" />
 /// <reference path="../../../core/modules/locale.ts" />
 /// <reference path="../../page.control.ts" />
 /// <reference path="../schema.data.ts" />
 var Phoenix;
 (function (Phoenix) {
-    var ui;
-    (function (ui) {
-        var _ui = ui, _sutils = Phoenix.Observable.SchemaUtils, _utils = Phoenix.utils, _dom = Phoenix.dom, _locale = Phoenix.locale, _ulocale = Phoenix.ulocale, _ui = ui, _device = Phoenix.device;
+    var _p = Phoenix, _pagecontrol = _p.pagecontrol, _ui = _p.ui, _sutils = _p.Observable.SchemaUtils, _utils = _p.utils, _dom = _p.dom, _locale = _p.locale, _ulocale = _p.ulocale, _device = _p.device;
+    var formdropitems;
+    (function (formdropitems) {
         var DropItems = (function () {
             function DropItems($parent, $input, options) {
                 this.opened = false;
                 var that = this;
-                that.page = _ui.Page();
+                that.page = _pagecontrol.Page();
                 that.opened = false;
                 that.currentList = null;
                 that.$parent = $parent;
@@ -16897,7 +18822,7 @@ var Phoenix;
                 that.keys = _sutils.pkFields(that.options.primaryKey);
             }
             DropItems.prototype.click = function (event) {
-                var that = this, _bootstrap4 = Phoenix.bootstrap4;
+                var that = this, _bootstrap4 = _p.bootstrap4;
                 var li = _dom.parentByTag(that.$element.get(0), event.target, _bootstrap4 ? 'a' : 'li');
                 if (li) {
                     var pk = li['pk'];
@@ -16919,7 +18844,7 @@ var Phoenix;
             DropItems._itemHeight = function () {
                 var that = this;
                 if (!that.itemHeight) {
-                    var _bootstrap4 = Phoenix.bootstrap4;
+                    var _bootstrap4 = _p.bootstrap4;
                     var p = void 0;
                     if (_bootstrap4)
                         p = $('<div class="dropdown-menu bs-block" tabindex="0" style="visibility:hidden;"><a tabindex="-1" class="dropdown-item" href="#">A</a></div>').get(0);
@@ -16944,14 +18869,14 @@ var Phoenix;
                 options.maxItems = options.maxItems || 8;
             };
             DropItems.prototype._renderContent = function () {
-                var that = this, _bootstrap4 = Phoenix.bootstrap4;
+                var that = this, _bootstrap4 = _p.bootstrap4;
                 if (!that.$element) {
                     that.$element = _bootstrap4 ? $('<div class="dropdown-menu"></div>') : $('<ul class="dropdown-menu"></ul>');
                     that.$parent.get(0).appendChild(that.$element.get(0));
                 }
             };
             DropItems.prototype._renderElements = function () {
-                var that = this, _bootstrap4 = Phoenix.bootstrap4;
+                var that = this, _bootstrap4 = _p.bootstrap4;
                 if (!that.$element)
                     that._renderContent();
                 if (that.currentList) {
@@ -17228,10 +19153,9 @@ var Phoenix;
             DropItems.deltaHeight = 0;
             return DropItems;
         }());
-        ui.DropItems = DropItems;
-    })(ui = Phoenix.ui || (Phoenix.ui = {}));
+        formdropitems.DropItems = DropItems;
+    })(formdropitems = Phoenix.formdropitems || (Phoenix.formdropitems = {}));
 })(Phoenix || (Phoenix = {}));
-/// <reference path="../../../../../typings/index.d.ts" />
 /// <reference path="../../../core/core.ts" />
 /// <reference path="../../../core/modules/locale.ts" />
 /// <reference path="./absfield.control.ts" />
@@ -17239,9 +19163,9 @@ var Phoenix;
 /// <reference path="../errors.data.ts" />
 var Phoenix;
 (function (Phoenix) {
-    var ui;
-    (function (ui) {
-        var _ui = ui, _utils = Phoenix.utils, _dom = Phoenix.dom, _locale = Phoenix.locale, _su = Phoenix.Observable.SchemaUtils, _ulocale = Phoenix.ulocale, _ui = ui, _eu = Phoenix.Observable.errorsUtils;
+    var _utils = Phoenix.utils, _dom = Phoenix.dom, _locale = Phoenix.locale, _su = Phoenix.Observable.SchemaUtils, _ulocale = Phoenix.ulocale, _ui = Phoenix.ui, _uiutils = Phoenix.uiutils, _eu = Phoenix.Observable.errorsUtils;
+    var formedit;
+    (function (formedit) {
         var _createInput = function (html, options, title, tagName) {
             var _bootstrap4 = Phoenix.bootstrap4;
             tagName = tagName || 'input';
@@ -17318,7 +19242,7 @@ var Phoenix;
             if (isTextArea) {
                 html.push('</' + tagName + '>');
             }
-            _ui.Utils.addErrorDiv(html);
+            _uiutils.utils.addErrorDiv(html);
         }, _createEditInput = function (id, options, authoring, title, tagName) {
             title = title || '';
             options = $.extend({ titleIsHidden: false, placeHolder: false, columns: false, labelCol: 3 }, options);
@@ -17326,7 +19250,7 @@ var Phoenix;
             if (options.titleIsHidden) {
                 options.columns = false;
             }
-            _ui.Utils.fieldWrapper(html, options, authoring, function () {
+            _uiutils.utils.fieldWrapper(html, options, authoring, function () {
                 var _bootstrap4 = Phoenix.bootstrap4;
                 if (!options.titleIsHidden) {
                     html.push('<label for="{0}_input" id="{0}_label"');
@@ -17351,7 +19275,7 @@ var Phoenix;
                     html.push('>');
                     html.push(_utils.escapeHtml(title || '') + (options.inline ? '&nbsp;' : ''));
                     if (options.description)
-                        _ui.Utils.addTooltip(html, options.description, options);
+                        _uiutils.utils.addTooltip(html, options.description, options);
                     html.push('</label>');
                 }
                 if (options.columns)
@@ -17360,7 +19284,7 @@ var Phoenix;
                 if (options.columns)
                     html.push('</div>');
                 if (options.titleIsHidden && options.description)
-                    _ui.Utils.addTooltip(html, options.description, options);
+                    _uiutils.utils.addTooltip(html, options.description, options);
             });
             return _utils.format(html.join(''), id);
         };
@@ -17387,10 +19311,10 @@ var Phoenix;
                 var that = this;
                 var input = that._input();
                 if (that._isDate()) {
-                    if (_ui.Utils.useDatePicker())
+                    if (_uiutils.utils.useDatePicker())
                         return _ulocale.parseISODate(that.state.value || '') || '';
                     else {
-                        if (_ui.Utils.nativeDate()) {
+                        if (_uiutils.utils.nativeDate()) {
                             return that.state.value || '';
                         }
                         else
@@ -17472,10 +19396,10 @@ var Phoenix;
             BaseEdit.prototype._value2Input = function (input) {
                 var that = this;
                 if (that._isDate()) {
-                    if (_ui.Utils.useDatePicker())
-                        _ui.Utils.datePickerSetValue(that.$element, that.state.value);
+                    if (_uiutils.utils.useDatePicker())
+                        _uiutils.utils.datePickerSetValue(that.$element, that.state.value);
                     else {
-                        if (_ui.Utils.nativeDate()) {
+                        if (_uiutils.utils.nativeDate()) {
                             input.value = _ulocale.isoDatePart(that.state.value || '');
                         }
                         else
@@ -17483,7 +19407,7 @@ var Phoenix;
                     }
                 }
                 else if (that._isNumber()) {
-                    if (_ui.Utils.nativeNumber())
+                    if (_uiutils.utils.nativeNumber())
                         input.value = that.state.value || 0;
                     else
                         input.value = that._value2Text();
@@ -17568,8 +19492,8 @@ var Phoenix;
                 _super.prototype.destroy.call(this);
             };
             return BaseEdit;
-        }(ui.AbsField));
-        ui.BaseEdit = BaseEdit;
+        }(Phoenix.ui.AbsField));
+        formedit.BaseEdit = BaseEdit;
         var Edit = (function (_super) {
             __extends(Edit, _super);
             function Edit(fp, options, form) {
@@ -17602,7 +19526,7 @@ var Phoenix;
             Edit.prototype.click = function (event) { };
             Edit.prototype.internalRender = function ($parent) {
                 var that = this;
-                var opts = that._initOptions(_ui.Utils.defaultOptions);
+                var opts = that._initOptions(_uiutils.utils.defaultOptions);
                 if (!that.$element) {
                     opts.title = _ulocale.tt(that.$schema.title, that.form.$locale);
                     if (opts.placeHolder && opts.placeHolder != true)
@@ -17623,7 +19547,7 @@ var Phoenix;
             };
             Edit.prototype._text2value = function (textValue) {
                 var that = this;
-                return _ui.Utils.text2value(textValue, that.$schema, that.state);
+                return _uiutils.utils.text2value(textValue, that.$schema, that.state);
             };
             Edit.prototype._value2Text = function () {
                 var that = this;
@@ -17657,7 +19581,7 @@ var Phoenix;
             Edit.prototype.customOptionsDate = function (options) {
                 var that = this;
                 options.$format = 'date';
-                if (!_ui.Utils.nativeDate()) {
+                if (!_uiutils.utils.nativeDate()) {
                     options.after = { icon: 'calendar' };
                     options.date = true;
                 }
@@ -17673,7 +19597,7 @@ var Phoenix;
                     that._hasSymbol = true;
                 }
                 options.$format = that.$schema.format;
-                if (_ui.Utils.nativeNumber()) {
+                if (_uiutils.utils.nativeNumber()) {
                     options.type = 'number';
                 }
             };
@@ -17685,8 +19609,8 @@ var Phoenix;
             };
             Edit.prototype._setEventsDate = function () {
                 var that = this;
-                if (_ui.Utils.useDatePicker()) {
-                    _ui.Utils.datePickerInitialize(that.$element, { showOnFocus: true }, function (e) {
+                if (_uiutils.utils.useDatePicker()) {
+                    _uiutils.utils.datePickerInitialize(that.$element, { showOnFocus: true }, function (e) {
                         that.focusOut(null);
                     });
                 }
@@ -17706,16 +19630,84 @@ var Phoenix;
             Edit.prototype.checkValue = function (value, after) {
                 after(value);
             };
-            Edit.prototype.keypress = function (event) {
+            Edit.prototype.paste = function (event) {
                 var that = this;
+                var input = that._input();
+                if (that.state.isReadOnly || that.state.isDisabled)
+                    return true;
                 if (that._isNumber()) {
-                    if (_ui.Utils.keyPressNumber(event) === false)
+                    if (_uiutils.utils.doPasteNumber(event, input, { decimalSep: _locale.number.decimal, thousandSep: _locale.number.thousand, places: that.state.decimals, schema: that.$schema }) === false)
+                        return false;
+                }
+                else if (that._isDate()) {
+                    if (_uiutils.utils.doPasteDate(event, input, { sep: _locale.date.daySep, format: _locale.date.dateShort, schema: that.$schema }) === false)
                         return false;
                 }
                 else if (that._isPassword()) {
-                    if (_ui.Utils.keyPressPassword(event) === false)
+                    if (_uiutils.utils.doPastePassword(event, input, { schema: that.$schema }) === false)
                         return false;
                 }
+                return true;
+            };
+            Edit.prototype._ignoreKeys = function (event, keyPress) {
+                if (event.which === _dom.keys.VK_TAB)
+                    return true;
+                if (event.which === _dom.keys.VK_DELETE)
+                    return false;
+                if (!keyPress && (event.which === _dom.keys.VK_BACKSPACE))
+                    return false;
+                if (keyPress) {
+                    if (event.which === 0)
+                        return true;
+                    if (_dom.arrowKeys.indexOf(event.which) >= 0)
+                        return true;
+                    return false;
+                }
+                else {
+                    if (_dom.ignoreKeys.indexOf(event.which) >= 0 || _dom.arrowKeys.indexOf(event.which) >= 0)
+                        return true;
+                }
+                return false;
+            };
+            Edit.prototype.keypress = function (event) {
+                var that = this;
+                var input = that._input();
+                if (that._ignoreKeys(event, true))
+                    return true;
+                if (that._isNumber()) {
+                    if (_uiutils.utils.keyPressNumber(event, input, { decimalSep: _locale.number.decimal, thousandSep: _locale.number.thousand, places: that.state.decimals, schema: that.$schema }) === false)
+                        return false;
+                }
+                else if (that._isDate()) {
+                    if (_uiutils.utils.keyPressDate(event, input, { sep: _locale.date.daySep, format: _locale.date.dateShort, schema: that.$schema }) === false)
+                        return false;
+                }
+                else if (that._isPassword()) {
+                    if (_uiutils.utils.keyPressPassword(event, input, { schema: that.$schema }) === false)
+                        return false;
+                }
+                return true;
+            };
+            Edit.prototype.keydown = function (event) {
+                var that = this;
+                var input = that._input();
+                if (that._ignoreKeys(event, false))
+                    return true;
+                if (that.state.isReadOnly || that.state.isDisabled)
+                    true;
+                if (that._isNumber()) {
+                    if (_uiutils.utils.keyDownNumber(event, input, { decimalSep: _locale.number.decimal, thousandSep: _locale.number.thousand, places: that.state.decimals, schema: that.$schema }) === false)
+                        return false;
+                }
+                else if (that._isDate()) {
+                    if (_uiutils.utils.keyDownDate(event, input, { sep: _locale.date.daySep, format: _locale.date.dateShort, schema: that.$schema }) === false)
+                        return false;
+                }
+                else if (that._isPassword()) {
+                    if (_uiutils.utils.keyDownPassword(event, input, { schema: that.$schema }) === false)
+                        return false;
+                }
+                return true;
             };
             Edit.prototype.equals = function (nv) {
                 var that = this;
@@ -17752,13 +19744,12 @@ var Phoenix;
             };
             return Edit;
         }(BaseEdit));
-        ui.Edit = Edit;
+        formedit.Edit = Edit;
         _ui.registerControl(Edit, "string", false, '', null);
         _ui.registerControl(Edit, "number", false, '', null);
         _ui.registerControl(Edit, "integer", false, '', null);
-    })(ui = Phoenix.ui || (Phoenix.ui = {}));
+    })(formedit = Phoenix.formedit || (Phoenix.formedit = {}));
 })(Phoenix || (Phoenix = {}));
-/// <reference path="../../../../../typings/index.d.ts" />
 /// <reference path="../../../core/core.ts" />
 /// <reference path="../../../core/modules/locale.ts" />
 /// <reference path="./absfield.control.ts" />
@@ -17766,9 +19757,9 @@ var Phoenix;
 /// <reference path="../errors.data.ts" />
 var Phoenix;
 (function (Phoenix) {
-    var ui;
-    (function (ui) {
-        var _ui = ui, _utils = Phoenix.utils, _dom = Phoenix.dom, _locale = Phoenix.locale, _su = Phoenix.Observable.SchemaUtils, _ulocale = Phoenix.ulocale, _ui = ui, _eu = Phoenix.Observable.errorsUtils;
+    var _utils = Phoenix.utils, _dom = Phoenix.dom, _ui = Phoenix.ui, _locale = Phoenix.locale, _uiutils = Phoenix.uiutils, _su = Phoenix.Observable.SchemaUtils, _ulocale = Phoenix.ulocale, _eu = Phoenix.Observable.errorsUtils;
+    var formenum;
+    (function (formenum) {
         var _createEnumsInput = function (id, options, authoring, title) {
             var _bootstrap4 = Phoenix.bootstrap4;
             title = title || '';
@@ -17778,7 +19769,7 @@ var Phoenix;
                 options.columns = false;
             }
             options.placeHolder = false;
-            _ui.Utils.fieldWrapper(html, options, authoring, function () {
+            _uiutils.utils.fieldWrapper(html, options, authoring, function () {
                 if (!options.titleIsHidden) {
                     html.push('<label for="{0}_input" id="{0}_label"');
                     var css = ['bs-label'];
@@ -17801,14 +19792,14 @@ var Phoenix;
                     html.push('>');
                     html.push(_utils.escapeHtml(title || '') + (options.inline ? '&nbsp;' : ''));
                     if (options.description)
-                        _ui.Utils.addTooltip(html, options.description, options);
+                        _uiutils.utils.addTooltip(html, options.description, options);
                     html.push('</label>');
                 }
                 if (options.columns)
                     html.push('<div class="no-x-padding col-sm-' + (12 - options.labelCol) + '">');
                 html.push('<div class="bs-enum-list-wrap" id="{0}_input">');
                 html.push('</div>');
-                _ui.Utils.addErrorDiv(html);
+                _uiutils.utils.addErrorDiv(html);
                 if (options.columns)
                     html.push('</div>');
             });
@@ -18041,7 +20032,7 @@ var Phoenix;
             };
             EnumList.prototype.render = function ($parent) {
                 var that = this;
-                var opts = that._initOptions(_ui.Utils.defaultOptions);
+                var opts = that._initOptions(_uiutils.utils.defaultOptions);
                 if (!that.$element) {
                     if (that.$schema.description)
                         opts.description = _ulocale.tt(that.$schema.description, that.form.$locale);
@@ -18062,19 +20053,339 @@ var Phoenix;
                 _super.prototype.destroy.call(this);
             };
             return EnumList;
-        }(ui.AbsField));
-        ui.EnumList = EnumList;
+        }(Phoenix.ui.AbsField));
         _ui.registerControl(EnumList, "array", false, 'enums-list', null);
-    })(ui = Phoenix.ui || (Phoenix.ui = {}));
+    })(formenum || (formenum = {}));
 })(Phoenix || (Phoenix = {}));
-/// <reference path="../../../../../typings/index.d.ts" />
+/// <reference path="../../../core/core.ts" />
+/// <reference path="../../../ui/layout.control.ts" />
+/// <reference path="../schema.data.ts" />
+var Phoenix;
+(function (Phoenix) {
+    var _ui = Phoenix.ui, _uiutils = Phoenix.uiutils, _dom = Phoenix.dom, _ulocale = Phoenix.ulocale;
+    /************************
+     *** General methods ***
+     ************************/
+    function getValWithoutSelection(val, selectionStart, selectionEnd) {
+        var beforeSelection = val.substr(0, selectionStart);
+        var afterSelection = val.substr(selectionEnd, val.length - selectionEnd);
+        val = beforeSelection + afterSelection;
+        return val;
+    }
+    function isNegative(val) {
+        return val.indexOf('-') != -1;
+    }
+    function getZeroStr(places) {
+        var result = '0.';
+        for (var i = 0; i < places; i++)
+            result += '0';
+        return result;
+    }
+    function unformatMontant(val, decimalSep, thousandSep) {
+        var t1 = replaceAll(val, thousandSep, "");
+        var t2 = decimalSep == '.' ? t1 : t1.replace(decimalSep, ".");
+        var t3 = replaceAll(t2, '-', '');
+        return t2;
+    }
+    function formatMontant(val, places, decimalSep, thousandSep) {
+        if (!val)
+            val = '0';
+        if (val.indexOf('.') == -1) {
+            val += '.' + formatDecimalPart("", places);
+        }
+        var split = splitFloat(val);
+        var entPart = formatEntPart(split[0], thousandSep);
+        var decimalPart = split[1];
+        if (decimalPart.length > places) {
+            decimalPart = decimalPart.substr(0, places);
+        }
+        if (decimalPart.length < places) {
+            decimalPart = formatDecimalPart(decimalPart, places);
+        }
+        return entPart + decimalSep + decimalPart;
+    }
+    function formatDecimalPart(decimalPart, places) {
+        var addDecimals = decimalPart.length;
+        for (var i = 0; i < places - addDecimals; i++) {
+            decimalPart += "0";
+        }
+        return decimalPart;
+    }
+    function splitFloat(val) {
+        var split = val.split(".");
+        if (split[0] == '')
+            split[0] = '0';
+        return split;
+    }
+    function formatEntPart(val, thousandSep) {
+        // Manage negative values
+        var charNegative = '';
+        if (val.indexOf('-') == 0) {
+            charNegative = '-';
+            val = val.substr(1, val.length - 1);
+        }
+        // Process
+        for (var i = 0; i < val.length - 1; i++) {
+            var t = val[i];
+            if (val[i] != '0')
+                break;
+        }
+        val = val.substr(i, val.length - i);
+        // Particular case : val == ''
+        if (val == '')
+            return '0';
+        if (val.length <= 3)
+            return charNegative + val;
+        var reverseVal = reverseString(val);
+        var result = '';
+        for (var i = 0; i < reverseVal.length; i++) {
+            if (i % 3 == 0 && i > 0)
+                result += thousandSep;
+            result += reverseVal[i];
+        }
+        return reverseString(result + charNegative);
+    }
+    function reverseString(val) {
+        var t = val.split("");
+        var t2 = t.reverse();
+        var t3 = t2.join("");
+        return t3;
+    }
+    function resetSelection(input, val, start, thousandSep, decimalSep, places) {
+        var formattedNewVal1 = unformatMontant(val, decimalSep, thousandSep);
+        var formattedNewVal2 = formatMontant(formattedNewVal1, places, decimalSep, thousandSep);
+        input.value = formattedNewVal2;
+        setCaretPos(input, unformatMontant(start, decimalSep, thousandSep).length, thousandSep);
+    }
+    function replaceAll(val, search, replacement) {
+        var result = "";
+        for (var i = 0; i < val.length; i++) {
+            if (val[i] == search)
+                result += replacement;
+            else
+                result += val[i];
+        }
+        return result;
+    }
+    function validNumberEvent(event) {
+        if (event.which < 48 || event.which > 57)
+            return false;
+        return true;
+    }
+    function limit(val, min, exclusiveMin, max, exclusiveMax, places, decimalSep, thousandSep) {
+        var valFloat = parseFloat(val);
+        if (exclusiveMin) {
+            if (valFloat < min)
+                return formatMontant(min.toString(), places, decimalSep, thousandSep);
+        }
+        else {
+            if (valFloat <= min)
+                return formatMontant(min.toString(), places, decimalSep, thousandSep);
+        }
+        if (exclusiveMax) {
+            if (valFloat > max)
+                return formatMontant(max.toString(), places, decimalSep, thousandSep);
+        }
+        else {
+            if (valFloat >= max)
+                return formatMontant(max.toString(), places, decimalSep, thousandSep);
+        }
+        return formatMontant(valFloat.toString(), places, decimalSep, thousandSep);
+    }
+    function setCaretPos(input, charsBefore, thousandSep) {
+        var val = input.value;
+        var posCaret = 0;
+        if (charsBefore != 0) {
+            for (var i = 0; i < val.length; i++) {
+                if (val[i] != thousandSep)
+                    charsBefore--;
+                if (charsBefore == 0)
+                    break;
+            }
+            posCaret = i + 1;
+        }
+        _dom.selectRange(input, posCaret);
+        return;
+    }
+    /**********************
+     *** Event methods ***
+     **********************/
+    var _doPasteNumber = function (event, input, opts) {
+        var data = parseFloat(unformatMontant(event.originalEvent.clipboardData.getData('Text'), opts.decimalSep, opts.thousandSep));
+        //let data: number = parseFloat(unformatMontant(event.clipboardData.getData('Text'), opts.decimalSep, opts.thousandSep));
+        var negative = data < 0;
+        var charNegative = '';
+        if (negative) {
+            charNegative = '-';
+            data = -data;
+        }
+        if (isNaN(data)) {
+            event.preventDefault();
+            return true;
+        }
+        var dataStr = data.toString();
+        // Get selection
+        var selectionStart = event.target.selectionStart;
+        var selectionEnd = event.target.selectionEnd;
+        var selection = selectionEnd - selectionStart > 0;
+        // Get context
+        var oldVal = selection ? getValWithoutSelection(input.value, selectionStart, selectionEnd) : input.value;
+        var start = oldVal.substr(0, selectionStart);
+        var end = oldVal.substr(selectionStart, oldVal.length);
+        // Process
+        var newVal = unformatMontant(start + data + end, opts.decimalSep, opts.thousandSep);
+        var newValIntervalle = limit(charNegative + newVal, opts.schema.minimum, opts.schema.exclusiveMinimum, opts.schema.minimum, opts.schema.exclusiveMinimum, opts.places, opts.decimalSep, opts.thousandSep);
+        input.value = newValIntervalle;
+        setCaretPos(input, unformatMontant(start, opts.decimalSep, opts.thousandSep).length + dataStr.length, opts.thousandSep);
+        event.preventDefault();
+    };
+    var _keyPressNumber = function (event, input, opts) {
+        // Get selection
+        var selectionStart = event.target.selectionStart;
+        var selectionEnd = event.target.selectionEnd;
+        var selection = selectionEnd - selectionStart > 0;
+        // Get context
+        var oldVal = selection ? getValWithoutSelection(input.value, selectionStart, selectionEnd) : input.value;
+        // Manage negative numbers
+        var negative = isNegative(oldVal);
+        var charNegative = '';
+        if (negative) {
+            oldVal = oldVal.substr(1, oldVal.length - 1);
+            charNegative = '-';
+            if (selectionStart != -0) {
+                selectionStart--;
+                selectionEnd--;
+            }
+        }
+        var start = oldVal.substr(0, selectionStart);
+        var end = oldVal.substr(selectionStart, oldVal.length);
+        // Check if keypress is "," or "."
+        if (event.key === opts.decimalSep || event.key === '.') {
+            _dom.selectRange(input, oldVal.indexOf(opts.decimalSep) + 1 + charNegative.length);
+            event.preventDefault();
+            return true;
+        }
+        // Check if keypress is "-"
+        if (event.key === '-') {
+            if (oldVal.indexOf('-') != 0) {
+                var nextVal = unformatMontant(oldVal, opts.decimalSep, opts.thousandSep);
+                if (nextVal == getZeroStr(opts.places) || nextVal == '') {
+                    var nv = formatMontant(nextVal, opts.places, opts.decimalSep, opts.thousandSep);
+                    input.value = nv;
+                }
+                else {
+                    var newVal_1 = limit('-' + unformatMontant(oldVal, opts.decimalSep, opts.thousandSep), opts.schema.minimum, opts.schema.exclusiveMinimum, opts.schema.minimum, opts.schema.exclusiveMinimum, opts.places, opts.decimalSep, opts.thousandSep);
+                    input.value = newVal_1;
+                }
+            }
+            _dom.selectRange(input, 1);
+            event.preventDefault();
+            return true;
+        }
+        // Check if keypress is number
+        if (!validNumberEvent(event)) {
+            event.preventDefault();
+            return false;
+        }
+        // Particular case : 0 added to start
+        if (event.key === '0' && selectionStart == 0 && !selection) {
+            event.preventDefault();
+            return true;
+        }
+        // Process
+        var newVal = unformatMontant(start + event.key + end, opts.decimalSep, opts.thousandSep);
+        var newValIntervalle = limit(charNegative + newVal, opts.schema.minimum, opts.schema.exclusiveMinimum, opts.schema.minimum, opts.schema.exclusiveMinimum, opts.places, opts.decimalSep, opts.thousandSep);
+        input.value = newValIntervalle;
+        var correctionCaret = start == '0' ? 0 : 1;
+        setCaretPos(input, unformatMontant(start, opts.decimalSep, opts.thousandSep).length + correctionCaret, opts.thousandSep);
+        event.preventDefault();
+        return true;
+    };
+    var _keyDownNumber = function (event, input, opts) {
+        // Check if keypress is "delete"
+        if (event.which != _dom.keys.VK_BACKSPACE && event.which != _dom.keys.VK_DELETE)
+            return true;
+        var offsetCaret = 0;
+        if (event.which == _dom.keys.VK_BACKSPACE)
+            offsetCaret = -1;
+        // Get selection
+        var selectionStart = event.target.selectionStart;
+        var selectionEnd = event.target.selectionEnd;
+        var selection = selectionEnd - selectionStart > 0;
+        // Get context
+        var oldVal = selection ? getValWithoutSelection(input.value, selectionStart, selectionEnd) : input.value;
+        var start = oldVal.substr(0, selectionStart);
+        var end = oldVal.substr(selectionStart, oldVal.length);
+        // Reset selection
+        if (selection) {
+            resetSelection(input, oldVal, start, opts.thousandSep, opts.decimalSep, opts.places);
+            event.preventDefault();
+            return true;
+        }
+        // Particular case : back delete left
+        if (event.which == _dom.keys.VK_BACKSPACE && selectionStart == 0) {
+            event.preventDefault();
+            return true;
+        }
+        // Particular case : delete decimal separator
+        if (event.which == _dom.keys.VK_BACKSPACE) {
+            if (oldVal[selectionStart + offsetCaret] == opts.decimalSep) {
+                _dom.selectRange(input, selectionStart + offsetCaret);
+                event.preventDefault();
+                return true;
+            }
+        }
+        else {
+            if (oldVal[selectionStart + offsetCaret] == opts.decimalSep) {
+                _dom.selectRange(input, selectionStart + offsetCaret + 1);
+                event.preventDefault();
+                return true;
+            }
+        }
+        // Particular case : delete thousand separator
+        if (oldVal[selectionStart + offsetCaret] == opts.thousandSep) {
+            _dom.selectRange(input, selectionStart + 1 + offsetCaret * 2);
+            event.preventDefault();
+            return true;
+        }
+        else {
+            // New values
+            var newVal = '';
+            if (event.which == _dom.keys.VK_DELETE) {
+                newVal = unformatMontant(start + end.substr(1, end.length - 1), opts.decimalSep, opts.thousandSep);
+            }
+            else if (event.which == _dom.keys.VK_BACKSPACE) {
+                newVal = unformatMontant(start.substr(0, start.length - 1) + end, opts.decimalSep, opts.thousandSep);
+            }
+            var formattedNewVal = formatMontant(newVal, opts.places, opts.decimalSep, opts.thousandSep);
+            input.value = formattedNewVal;
+            // Set caret position
+            var charsBefore = unformatMontant(start, opts.decimalSep, opts.thousandSep).length + offsetCaret;
+            // Particular cases : near decimal separator
+            if (event.which == _dom.keys.VK_BACKSPACE && newVal.indexOf(".") == 0 && selectionStart == 1)
+                charsBefore = 1;
+            if (event.which == _dom.keys.VK_DELETE && newVal.indexOf(".") == 0 && selectionStart == 0)
+                charsBefore = 1;
+            setCaretPos(input, charsBefore, opts.thousandSep);
+        }
+        event.preventDefault();
+        return true;
+    };
+    /***********************
+     ****** Variables *****
+     **********************/
+    // Number
+    _uiutils.utils.doPasteNumber = _doPasteNumber;
+    _uiutils.utils.keyPressNumber = _keyPressNumber;
+    _uiutils.utils.keyDownNumber = _keyDownNumber;
+})(Phoenix || (Phoenix = {}));
 /// <reference path="../../../core/core.ts" />
 /// <reference path="./absfield.control.ts" />
 var Phoenix;
 (function (Phoenix) {
     var ui;
     (function (ui) {
-        var _ui = ui, _utils = Phoenix.utils, _dom = Phoenix.dom, _ulocale = Phoenix.ulocale;
+        var _utils = Phoenix.utils, _ui = ui, _dom = Phoenix.dom, _ulocale = Phoenix.ulocale;
         var Group = (function (_super) {
             __extends(Group, _super);
             function Group(fp, options, form) {
@@ -18164,19 +20475,18 @@ var Phoenix;
         ui.Group = Group;
     })(ui = Phoenix.ui || (Phoenix.ui = {}));
 })(Phoenix || (Phoenix = {}));
-/// <reference path="../../../../../typings/index.d.ts" />
 /// <reference path="../../../core/core.ts" />
 /// <reference path="./group.control.ts" />
 var Phoenix;
 (function (Phoenix) {
     var ui;
     (function (ui) {
-        var _ui = ui, _utils = Phoenix.utils, _dom = Phoenix.dom, _ulocale = Phoenix.ulocale;
+        var _utils = Phoenix.utils, _ui = ui, _dom = Phoenix.dom, _ulocale = Phoenix.ulocale, _uiutils = Phoenix.uiutils;
         var _createGroupBtns = function (id, options, authoring, title, enums, enumsNames) {
             title = title || '';
             options = $.extend({ titleIsHidden: false, placeHolder: false, columns: false }, options);
             var html = [];
-            _ui.Utils.fieldWrapper(html, options, authoring, function () {
+            _uiutils.utils.fieldWrapper(html, options, authoring, function () {
                 var _bootstrap4 = Phoenix.bootstrap4;
                 //add label: 
                 var addDiv = !options.columns && !options.inline;
@@ -18295,7 +20605,7 @@ var Phoenix;
             };
             BtnGroup.prototype.render = function ($parent) {
                 var that = this;
-                var opts = that._initOptions(_ui.Utils.defaultOptions);
+                var opts = that._initOptions(_uiutils.utils.defaultOptions);
                 if (!that.$element) {
                     var enumNames = that.$schema.enumNames || that.$schema.enum;
                     enumNames = enumNames.map(function (v) { return _ulocale.tt(v, that.form.$locale); });
@@ -18311,14 +20621,13 @@ var Phoenix;
         _ui.registerControl(BtnGroup, '*', true, 'grpbtn', null);
     })(ui = Phoenix.ui || (Phoenix.ui = {}));
 })(Phoenix || (Phoenix = {}));
-/// <reference path="../../../../../typings/index.d.ts" />
 /// <reference path="../../../core/core.ts" />
 /// <reference path="./absfield.control.ts" />
 var Phoenix;
 (function (Phoenix) {
-    var ui;
-    (function (ui) {
-        var _ui = ui, _utils = Phoenix.utils, _dom = Phoenix.dom, _ulocale = Phoenix.ulocale;
+    var _utils = Phoenix.utils, _ui = Phoenix.ui, _dom = Phoenix.dom, _ulocale = Phoenix.ulocale, _uiutils = Phoenix.uiutils;
+    var formlabel;
+    (function (formlabel) {
         function _createLabel(id, options, authoring, title) {
             var _bootstrap4 = Phoenix.bootstrap4;
             title = title || '';
@@ -18332,7 +20641,7 @@ var Phoenix;
             var customizer = { formGroup: "form-group" };
             if (simulateCols && !_bootstrap4)
                 customizer.formGroup += " form-horizontal";
-            _ui.Utils.fieldWrapper(html, options, authoring, function () {
+            _uiutils.utils.fieldWrapper(html, options, authoring, function () {
                 html.push('<label id="{0}_label"');
                 var css = ['bs-label'];
                 if (simulateCols) {
@@ -18356,7 +20665,7 @@ var Phoenix;
                 html.push('>');
                 html.push(_utils.escapeHtml(title || '') + (options.inline ? '&nbsp;' : ''));
                 if (options.description)
-                    _ui.Utils.addTooltip(html, options.description, options);
+                    _uiutils.utils.addTooltip(html, options.description, options);
                 html.push('</label>');
             }, customizer);
             return _utils.format(html.join(''), id);
@@ -18434,7 +20743,7 @@ var Phoenix;
             };
             Label.prototype.render = function ($parent) {
                 var that = this;
-                var opts = that._initOptions(_ui.Utils.defaultOptions);
+                var opts = that._initOptions(_uiutils.utils.defaultOptions);
                 if (!that.$element) {
                     opts.title = _ulocale.tt(that._title(), that.form.$locale);
                     if (that.$schema.description)
@@ -18448,20 +20757,19 @@ var Phoenix;
                 return that.$element;
             };
             return Label;
-        }(ui.AbsField));
-        ui.Label = Label;
+        }(Phoenix.ui.AbsField));
+        formlabel.Label = Label;
         _ui.registerControl(Label, 'meta', false, 'label', null);
-    })(ui = Phoenix.ui || (Phoenix.ui = {}));
+    })(formlabel = Phoenix.formlabel || (Phoenix.formlabel = {}));
 })(Phoenix || (Phoenix = {}));
-/// <reference path="../../../../../typings/index.d.ts" />
 /// <reference path="../../../core/core.ts" />
 /// <reference path="./absfield.control.ts" />
 /// <reference path="../form.control.ts" />
 var Phoenix;
 (function (Phoenix) {
-    var ui;
-    (function (ui) {
-        var _utils = Phoenix.utils, _ui = ui, _dom = Phoenix.dom, _ulocale = Phoenix.ulocale;
+    var _utils = Phoenix.utils, _ui = Phoenix.ui, _dom = Phoenix.dom, _uiutils = Phoenix.uiutils, _ulocale = Phoenix.ulocale;
+    var formlink;
+    (function (formlink) {
         function _addDesign(id, options, authoring, html) {
             if (authoring)
                 html.push(' draggable="true"');
@@ -18478,7 +20786,7 @@ var Phoenix;
                 if (authoring)
                     css.push('design');
                 html.push('<div class="' + css.join(' ') + '"');
-                _ui.Utils.addContainerId(html, authoring);
+                _uiutils.utils.addContainerId(html, authoring);
                 html.push('>');
             }
             html.push('<button type="button"');
@@ -18500,16 +20808,20 @@ var Phoenix;
                 html.push(' ' + options.style);
             html.push('"');
             if (options.inline) {
-                _ui.Utils.addContainerId(html, authoring);
+                _uiutils.utils.addContainerId(html, authoring);
             }
             html.push('>');
-            if (options.icon) {
+            if (options.icon && !options.iconRight)
                 html.push('<span class="' + _dom.iconClass(options.icon) + '"></span>');
-                if (title && !options.titleIsHidden)
+            if (!options.titleIsHidden) {
+                if (options.icon && !options.iconRight)
+                    html.push('&nbsp;');
+                html.push(title || '');
+                if (options.icon && options.iconRight)
                     html.push('&nbsp;');
             }
-            if (!options.titleIsHidden)
-                html.push(title || '');
+            if (options.icon && options.iconRight)
+                html.push('<span class="' + _dom.iconClass(options.icon) + '"></span>');
             html.push('</button>');
             if (!options.inline) {
                 html.push('</div>');
@@ -18566,7 +20878,7 @@ var Phoenix;
             };
             Link.prototype.render = function ($parent) {
                 var that = this;
-                var opts = that._initOptions(_ui.Utils.defaultOptions);
+                var opts = that._initOptions(_uiutils.utils.defaultOptions);
                 if (!that.$element) {
                     that.$element = $(_createButton(that.id, opts, that.options.design, _ulocale.tt(that.$schema ? that.$schema.title : that.$bind, that.form.$locale)));
                     that._state2UI();
@@ -18575,11 +20887,10 @@ var Phoenix;
                 return that.$element;
             };
             return Link;
-        }(ui.AbsField));
-        ui.Link = Link;
-    })(ui = Phoenix.ui || (Phoenix.ui = {}));
+        }(Phoenix.ui.AbsField));
+        formlink.Link = Link;
+    })(formlink = Phoenix.formlink || (Phoenix.formlink = {}));
 })(Phoenix || (Phoenix = {}));
-/// <reference path="../../../../../typings/index.d.ts" />
 /// <reference path="../../../core/core.ts" />
 /// <reference path="../../../core/modules/locale.ts" />
 /// <reference path="../../../data/datasets.ts" />
@@ -18589,9 +20900,9 @@ var Phoenix;
 /// <reference path="./dropitems.control.ts" />
 var Phoenix;
 (function (Phoenix) {
-    var ui;
-    (function (ui) {
-        var _ui = ui, _sutils = Phoenix.Observable.SchemaUtils, _data = Phoenix.data, _utils = Phoenix.utils, _dom = Phoenix.dom, _locale = Phoenix.locale, _ulocale = Phoenix.ulocale, _ui = ui, _device = Phoenix.device;
+    var _serial = Phoenix.serial, _ui = Phoenix.ui, _sutils = Phoenix.Observable.SchemaUtils, _data = Phoenix.data, _utils = Phoenix.utils, _dom = Phoenix.dom, _formedit = Phoenix.formedit, _locale = Phoenix.locale, _ulocale = Phoenix.ulocale, _device = Phoenix.device;
+    var formlookup;
+    (function (formlookup) {
         var specialKeyCodeMap = {
             27: "esc",
             9: "tab",
@@ -18610,9 +20921,8 @@ var Phoenix;
             autoComplete: false,
             maxItems: -1
         }, _lookupEnumValue2Text = function (value, $lookup) {
-            if (value === "" || value === null || value === undefined) {
+            if (value === "" || value === null || value === undefined)
                 return '';
-            }
             if ($lookup && $lookup.data && $lookup.data.$value) {
                 var values = $lookup.data.$value;
                 for (var i = 0, len = values.length; i < len; i++) {
@@ -18643,7 +20953,7 @@ var Phoenix;
                 _super.call(this, fp, options, form);
                 var that = this;
                 that.lookupOptions = defOptions;
-                that.eventBus = new Phoenix.utils.SingleEventBus(50);
+                that.eventBus = new Phoenix.serial.SingleEventBus(50);
                 that.onselectItemHandler = that._onselectItem.bind(that);
                 that.isEnum = (that.$lookup && that.$lookup.data && that.$lookup.data.$type === 'enum');
             }
@@ -18747,7 +21057,7 @@ var Phoenix;
                     if (that.renderOptions.columns) {
                         $parent = $(that._colParent());
                     }
-                    that.menu = new ui.DropItems($parent, input, {
+                    that.menu = new Phoenix.formdropitems.DropItems($parent, input, {
                         primaryKey: that.$lookup.primaryKey,
                         search: that.isEnum ? 'title' : _sutils.remoteSearch(_sutils.lastSegment(that.$bind, that.$display), that.$lookup),
                         onselect: that.onselectItemHandler
@@ -18870,6 +21180,7 @@ var Phoenix;
                 if (keyName && that._shouldTrigger(keyName, $event)) {
                     that.trigger(keyName + 'Keyed', $event);
                 }
+                return true;
             };
             Lookup.prototype.focusOut = function (event) {
                 var that = this;
@@ -18958,25 +21269,24 @@ var Phoenix;
                 _super.prototype.destroy.call(this);
             };
             return Lookup;
-        }(ui.Edit));
-        ui.Lookup = Lookup;
+        }(Phoenix.formedit.Edit));
+        formlookup.Lookup = Lookup;
         _ui.registerControl(Lookup, 'string', false, '', { lookup: true });
         _ui.registerControl(Lookup, 'number', false, '', { lookup: true });
-    })(ui = Phoenix.ui || (Phoenix.ui = {}));
+    })(formlookup = Phoenix.formlookup || (Phoenix.formlookup = {}));
 })(Phoenix || (Phoenix = {}));
-/// <reference path="../../../../../typings/index.d.ts" />
 /// <reference path="../../../core/core.ts" />
 /// <reference path="../../../core/modules/locale.ts" />
 /// <reference path="./absfield.control.ts" />
 var Phoenix;
 (function (Phoenix) {
-    var ui;
-    (function (ui) {
-        var _ui = ui, _utils = Phoenix.utils, _dom = Phoenix.dom, _locale = Phoenix.locale, _ulocale = Phoenix.ulocale, _ui = ui, _device = Phoenix.device, _observable = Phoenix.Observable, _odata = Phoenix.data.odata, _du = _observable.DataUtils;
+    var _utils = Phoenix.utils, _ui = Phoenix.ui, _dom = Phoenix.dom, _device = Phoenix.device, _uiutils = Phoenix.uiutils, _observable = Phoenix.Observable, _odata = Phoenix.data.odata, _du = _observable.DataUtils, _ulocale = Phoenix.ulocale;
+    var formpicture;
+    (function (formpicture) {
         var _createPicture = function (id, options, authoring, title, editable) {
             var html = [];
             title = title || '';
-            _ui.Utils.fieldWrapper(html, options, authoring, function () {
+            _uiutils.utils.fieldWrapper(html, options, authoring, function () {
                 var _bootstrap4 = Phoenix.bootstrap4;
                 if (!options.titleIsHidden) {
                     html.push('<label id="{0}_label"');
@@ -19002,7 +21312,7 @@ var Phoenix;
                     html.push('>');
                     html.push(_utils.escapeHtml(title || '') + (options.inline ? '&nbsp;' : ''));
                     if (options.description)
-                        _ui.Utils.addTooltip(html, options.description, options);
+                        _uiutils.utils.addTooltip(html, options.description, options);
                     html.push('</label>');
                 }
                 if (options.columns)
@@ -19093,7 +21403,7 @@ var Phoenix;
             };
             BasePicture.prototype.render = function ($parent) {
                 var that = this;
-                var opts = that._initOptions(_ui.Utils.defaultOptions);
+                var opts = that._initOptions(_uiutils.utils.defaultOptions);
                 if (!that.$element) {
                     opts.title = _ulocale.tt(that.$schema.title, that.form.$locale);
                     that.$element = $(_createPicture(that.id, opts, that.options.design, opts.title, that.editable));
@@ -19104,8 +21414,7 @@ var Phoenix;
                 return that.$element;
             };
             return BasePicture;
-        }(ui.AbsField));
-        ui.BasePicture = BasePicture;
+        }(Phoenix.ui.AbsField));
         var Picture = (function (_super) {
             __extends(Picture, _super);
             function Picture(fp, options, form) {
@@ -19119,8 +21428,8 @@ var Phoenix;
                     var f = files[0];
                     if (!f.type.match('image.*'))
                         return;
-                    var URL = window.URL || window['webkitURL'];
-                    if (URL) {
+                    var URL_1 = window.URL || window['webkitURL'];
+                    if (URL_1) {
                         var nv_1 = {
                             id: that.state.value ? that.state.value.id : undefined,
                             fileName: f.name,
@@ -19129,20 +21438,23 @@ var Phoenix;
                             contentType: f.type,
                         };
                         if (f.type === 'image/svg+xml') {
-                            var reader = new FileReader();
-                            reader.onload = function (e) {
-                                nv_1.value = reader.result;
+                            var reader_1 = new FileReader();
+                            reader_1.onload = function (e) {
+                                nv_1.value = reader_1.result;
                                 that.form.setValue(that.$bind, nv_1);
+                                _dom.processing(false);
                             };
-                            reader.readAsDataURL(f);
+                            _dom.processing(true);
+                            reader_1.readAsDataURL(f);
                         }
                         else {
-                            var img = document.createElement('img');
-                            var canvas = document.createElement("canvas");
-                            img.src = URL.createObjectURL(f);
-                            img.onload = function () {
+                            var img_1 = document.createElement('img');
+                            var canvas_1 = document.createElement("canvas");
+                            _dom.processing(true);
+                            img_1.src = URL_1.createObjectURL(f);
+                            img_1.onload = function () {
                                 var div = 1;
-                                var v = (img.width * img.height);
+                                var v = (img_1.width * img_1.height);
                                 if (v > 1200000) {
                                     div = 2;
                                 }
@@ -19152,12 +21464,13 @@ var Phoenix;
                                 else if (v > 4000000) {
                                     div = 8;
                                 }
-                                canvas.width = img.width / div;
-                                canvas.height = img.height / div;
-                                var ctx = canvas.getContext("2d");
-                                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                                nv_1.value = canvas.toDataURL();
+                                canvas_1.width = img_1.width / div;
+                                canvas_1.height = img_1.height / div;
+                                var ctx = canvas_1.getContext("2d");
+                                ctx.drawImage(img_1, 0, 0, canvas_1.width, canvas_1.height);
+                                nv_1.value = canvas_1.toDataURL();
                                 that.form.setValue(that.$bind, nv_1);
+                                _dom.processing(false);
                             };
                         }
                     }
@@ -19246,7 +21559,7 @@ var Phoenix;
                                 }
                                 var baseUrl = _odata.baseUrl(ds);
                                 var surl = _utils.execAngularExpression(value.url, { baseUrl: _odata.baseUrl(ds) || '' });
-                                img.src = _odata.addImageUrlToken(surl);
+                                img.src = _odata.addImageUrlToken(_utils.escapeHtml(surl));
                             }
                             else
                                 img.src = '';
@@ -19270,7 +21583,6 @@ var Phoenix;
             };
             return Picture;
         }(BasePicture));
-        ui.Picture = Picture;
         var ImageUrl = (function (_super) {
             __extends(ImageUrl, _super);
             function ImageUrl(fp, options, form) {
@@ -19297,25 +21609,23 @@ var Phoenix;
             };
             return ImageUrl;
         }(BasePicture));
-        ui.ImageUrl = ImageUrl;
         _ui.registerControl(Picture, "string", false, '', { format: 'stream' });
         _ui.registerControl(ImageUrl, "string", false, 'imageurl', {});
-    })(ui = Phoenix.ui || (Phoenix.ui = {}));
+    })(formpicture = Phoenix.formpicture || (Phoenix.formpicture = {}));
 })(Phoenix || (Phoenix = {}));
-/// <reference path="../../../../../typings/index.d.ts" />
 /// <reference path="../../../core/core.ts" />
 /// <reference path="./group.control.ts" />
 var Phoenix;
 (function (Phoenix) {
     var ui;
     (function (ui) {
-        var _ui = ui, _utils = Phoenix.utils, _dom = Phoenix.dom, _ulocale = Phoenix.ulocale;
+        var _utils = Phoenix.utils, _ui = ui, _dom = Phoenix.dom, _ulocale = Phoenix.ulocale, _uiutils = Phoenix.uiutils;
         var _createRadioGroups = function (id, options, authoring, title, enums, enumsNames) {
             title = title || '';
             options = $.extend({ titleIsHidden: false, placeHolder: false, columns: false, horizontal: false }, options);
             var html = [];
             var customize = null;
-            _ui.Utils.fieldWrapper(html, options, authoring, function () {
+            _uiutils.utils.fieldWrapper(html, options, authoring, function () {
                 var _bootstrap4 = Phoenix.bootstrap4;
                 if (!options.titleIsHidden) {
                     html.push('<label for="{0}_input" id="{0}_label"');
@@ -19341,7 +21651,7 @@ var Phoenix;
                     html.push('>');
                     html.push(_utils.escapeHtml(title || '') + (options.inline ? '&nbsp;' : ''));
                     if (options.description)
-                        _ui.Utils.addTooltip(html, options.description, options);
+                        _uiutils.utils.addTooltip(html, options.description, options);
                     html.push('</label>');
                     if (!options.inline && options.horizontal)
                         html.push('<div></div>'); //line
@@ -19391,7 +21701,7 @@ var Phoenix;
             };
             RadioGroup.prototype.render = function ($parent) {
                 var that = this;
-                var opts = that._initOptions(_ui.Utils.defaultOptions);
+                var opts = that._initOptions(_uiutils.utils.defaultOptions);
                 if (!that.$element) {
                     var enumNames = that.$schema.enumNames || that.$schema.enum;
                     enumNames = enumNames.map(function (v) { return _ulocale.tt(v, that.form.$locale); });
@@ -19410,19 +21720,18 @@ var Phoenix;
         _ui.registerControl(RadioGroup, "*", true, "radio", null);
     })(ui = Phoenix.ui || (Phoenix.ui = {}));
 })(Phoenix || (Phoenix = {}));
-/// <reference path="../../../../../typings/index.d.ts" />
 /// <reference path="../../../core/core.ts" />
 /// <reference path="./absfield.control.ts" />
 var Phoenix;
 (function (Phoenix) {
     var ui;
     (function (ui) {
-        var _ui = ui, _utils = Phoenix.utils, _dom = Phoenix.dom, _ulocale = Phoenix.ulocale;
+        var _utils = Phoenix.utils, _ui = ui, _dom = Phoenix.dom, _ulocale = Phoenix.ulocale, _uiutils = Phoenix.uiutils;
         function _createReadOnly(id, options, authoring, title, valuepattern) {
             title = title || '';
             options = $.extend({ titleIsHidden: false }, options);
             var html = [];
-            _ui.Utils.fieldWrapper(html, options, authoring, function () {
+            _uiutils.utils.fieldWrapper(html, options, authoring, function () {
                 html.push('<div style="background-color: red;">' + title + '</div>');
             });
             return _utils.format(html.join(''), id);
@@ -19466,13 +21775,13 @@ var Phoenix;
                 that._map.forEach(function (map) {
                     that.state.values[map.name] = that.form.getValue(map.name);
                     var cs = that.form.getState(map.name);
-                    that.state.fvalues[map.name] = _ui.Utils.displayValue(that.state.values[map.name], map.schema, that.form.$locale, { html: false, useSymbol: true, state: cs }, that.state.values, map.name).value;
+                    that.state.fvalues[map.name] = _uiutils.utils.displayValue(that.state.values[map.name], map.schema, that.form.$locale, { html: false, useSymbol: true, state: cs }, that.state.values, map.name).value;
                 });
             };
             ReadOnlyField.prototype._value2UI = function () {
                 var that = this, element = that.$element ? that.$element.get(0) : null;
                 var nv = _utils.execAngularExpression(that.$expression, that.state.fvalues, true);
-                var r = $('<div>' + nv + '</div>').get(0);
+                var r = $('<div>' + _utils.escapeHtml(nv) + '</div>').get(0);
                 _dom.empty(element);
                 while (r.childNodes.length > 0) {
                     element.appendChild(r.childNodes[0]);
@@ -19513,7 +21822,7 @@ var Phoenix;
             };
             ReadOnlyField.prototype.render = function ($parent) {
                 var that = this;
-                var opts = that._initOptions(_ui.Utils.defaultOptions);
+                var opts = that._initOptions(_uiutils.utils.defaultOptions);
                 if (!that.$element) {
                     that.$element = $(_createReadOnly(that.id, opts, that.options.design, _ulocale.tt(that.$schema.title, that.form.$locale), ''));
                     that._state2UI();
@@ -19536,7 +21845,6 @@ var Phoenix;
         _ui.registerControl(ReadOnlyField, "*", false, '', { readOnly: true });
     })(ui = Phoenix.ui || (Phoenix.ui = {}));
 })(Phoenix || (Phoenix = {}));
-/// <reference path="../../../../../typings/index.d.ts" />
 /// <reference path="../../../core/core.ts" />
 /// <reference path="../../../core/modules/locale.ts" />
 /// <reference path="./absfield.control.ts" />
@@ -19547,7 +21855,7 @@ var Phoenix;
 (function (Phoenix) {
     var ui;
     (function (ui) {
-        var _ui = ui, _utils = Phoenix.utils, _dom = Phoenix.dom, _locale = Phoenix.locale, _su = Phoenix.Observable.SchemaUtils, _ulocale = Phoenix.ulocale, _ui = ui;
+        var _ui = ui, _utils = Phoenix.utils, _formedit = Phoenix.formedit, _uiutils = Phoenix.uiutils, _dom = Phoenix.dom, _locale = Phoenix.locale, _su = Phoenix.Observable.SchemaUtils, _ulocale = Phoenix.ulocale, _ui = ui;
         ;
         var _createSelectInput = function (id, options, authoring, title, enums, enumsNames) {
             title = title || '';
@@ -19557,7 +21865,7 @@ var Phoenix;
                 options.columns = false;
             }
             options.placeHolder = false;
-            _ui.Utils.fieldWrapper(html, options, authoring, function () {
+            _uiutils.utils.fieldWrapper(html, options, authoring, function () {
                 var _bootstrap4 = Phoenix.bootstrap4;
                 if (!options.titleIsHidden) {
                     html.push('<label for="{0}_input" id="{0}_label"');
@@ -19583,7 +21891,7 @@ var Phoenix;
                     html.push('>');
                     html.push(_utils.escapeHtml(title || '') + (options.inline ? '&nbsp;' : ''));
                     if (options.description)
-                        _ui.Utils.addTooltip(html, options.description, options);
+                        _uiutils.utils.addTooltip(html, options.description, options);
                     html.push('</label>');
                 }
                 if (options.columns)
@@ -19604,11 +21912,11 @@ var Phoenix;
                     html.push('<option value="' + en + '">' + enumsNames[index] + '</option>');
                 });
                 html.push('</select>');
-                _ui.Utils.addErrorDiv(html);
+                _uiutils.utils.addErrorDiv(html);
                 if (options.columns)
                     html.push('</div>');
                 if (options.titleIsHidden && options.description)
-                    _ui.Utils.addTooltip(html, options.description, options);
+                    _uiutils.utils.addTooltip(html, options.description, options);
             });
             return _utils.format(html.join(''), id);
         };
@@ -19619,7 +21927,7 @@ var Phoenix;
             }
             Select.prototype.fillSelect = function (enums) {
                 var that = this;
-                _ui.Utils.fillSelect(enums, that._input(), that.$schema);
+                _uiutils.utils.fillSelect(enums, that._input(), that.$schema);
             };
             Select.prototype._state2UI = function () {
                 var that = this;
@@ -19660,7 +21968,7 @@ var Phoenix;
             };
             Select.prototype.render = function ($parent) {
                 var that = this;
-                var opts = that._initOptions(_ui.Utils.defaultOptions);
+                var opts = that._initOptions(_uiutils.utils.defaultOptions);
                 if (!that.$element) {
                     var enumNames = that.$schema.enumNames || that.$schema.enum;
                     enumNames = enumNames.map(function (v) { return _ulocale.tt(v + '', that.form.$locale); });
@@ -19700,24 +22008,23 @@ var Phoenix;
                 });
             };
             return Select;
-        }(ui.BaseEdit));
+        }(Phoenix.formedit.BaseEdit));
         ui.Select = Select;
         _ui.registerControl(Select, "*", true, '', null);
     })(ui = Phoenix.ui || (Phoenix.ui = {}));
 })(Phoenix || (Phoenix = {}));
-/// <reference path="../../../../../typings/index.d.ts" />
 /// <reference path="../../../core/core.ts" />
 /// <reference path="./absfield.control.ts" />
 var Phoenix;
 (function (Phoenix) {
     var ui;
     (function (ui) {
-        var _ui = ui, _utils = Phoenix.utils, _dom = Phoenix.dom, _ulocale = Phoenix.ulocale;
+        var _ui = ui, _utils = Phoenix.utils, _dom = Phoenix.dom, _ulocale = Phoenix.ulocale, _uiutils = Phoenix.uiutils;
         function _createToggle(id, options, authoring, title) {
             title = title || '';
             options = $.extend({ titleIsHidden: false, placeHolder: false, columns: false }, options);
             var html = [];
-            _ui.Utils.fieldWrapper(html, options, authoring, function () {
+            _uiutils.utils.fieldWrapper(html, options, authoring, function () {
                 var _bootstrap4 = Phoenix.bootstrap4;
                 if (!options.titleIsHidden) {
                     var css = ['bs-label'];
@@ -19743,7 +22050,7 @@ var Phoenix;
                     html.push('>');
                     html.push(_utils.escapeHtml(title || '') + (options.inline ? '&nbsp;' : ''));
                     if (options.description)
-                        _ui.Utils.addTooltip(html, options.description, options);
+                        _uiutils.utils.addTooltip(html, options.description, options);
                     html.push('</label>');
                 }
                 if (options.columns)
@@ -19752,7 +22059,7 @@ var Phoenix;
                 if (options.columns)
                     html.push('</div>');
                 if (options.titleIsHidden && options.description)
-                    _ui.Utils.addTooltip(html, options.description, options);
+                    _uiutils.utils.addTooltip(html, options.description, options);
             });
             return _utils.format(html.join(''), id);
         }
@@ -19834,7 +22141,7 @@ var Phoenix;
             };
             Toggle.prototype.render = function ($parent) {
                 var that = this;
-                var opts = that._initOptions(_ui.Utils.defaultOptions);
+                var opts = that._initOptions(_uiutils.utils.defaultOptions);
                 if (!that.$element) {
                     if (that.$schema.description)
                         opts.description = _ulocale.tt(that.$schema.description, that.form.$locale);
@@ -19856,16 +22163,16 @@ var Phoenix;
 /// <reference path="./controls/link.control.ts" />
 var Phoenix;
 (function (Phoenix) {
-    var ui;
-    (function (ui) {
-        var _render = Phoenix.render, _ui = ui, _observable = Phoenix.Observable, _sutils = Phoenix.Observable.SchemaUtils;
+    var _render = Phoenix.render, _ui = Phoenix.ui, _formlink = Phoenix.formlink, _observable = Phoenix.Observable, _sutils = Phoenix.Observable.SchemaUtils;
+    var uiregister;
+    (function (uiregister) {
         var _controlFactory = function (fd, schema, lookup) {
             if (_sutils.isLink(fd.$bind)) {
-                return ui.Link;
+                return _formlink.Link;
             }
             var meta = _sutils.isMeta(fd.$bind);
             if (meta) {
-                return _ui.Utils.getRegisteredControl('meta', false, meta.widget, '', {});
+                return _ui.getRegisteredControl('meta', false, meta.widget, '', {});
             }
             if (!schema)
                 return null;
@@ -19878,205 +22185,278 @@ var Phoenix;
                 options = options || {};
                 options.lookup = true;
             }
-            return _ui.Utils.getRegisteredControl(schema.type, schema.enum ? true : false, fd.$widget, schema.format, options);
+            return _ui.getRegisteredControl(schema.type, schema.enum ? true : false, fd.$widget, schema.format, options);
         };
         _render.register("javascript", 'field.control', _controlFactory);
         _render.register("angular", 'field.control', _controlFactory);
-    })(ui = Phoenix.ui || (Phoenix.ui = {}));
+    })(uiregister || (uiregister = {}));
 })(Phoenix || (Phoenix = {}));
-/// <reference path="../../../typings/index.d.ts" />
-/// <reference path="../core/core.ts" />
-/// <reference path="../core/modules/locale.ts" />
+/// <reference path="../core/core-refs.ts" />
 /// <reference path="../ui/form/modalform.control.ts" />
 var Phoenix;
 (function (Phoenix) {
-    var ui;
-    (function (ui) {
-        var _locale = Phoenix.locale, _utils = Phoenix.utils, schema = {
-            type: "object",
-            properties: {
-                message: {
-                    type: "string"
+    var _p = Phoenix, _locale = _p.locale, _ui = _p.ui, _utils = _p.utils, schema = {
+        type: "object",
+        properties: {
+            message: {
+                type: "string"
+            }
+        }
+    }, layout = {
+        name: "alert",
+        $type: "block",
+        $items: [{ $bind: "message", $readOnly: true, options: { $expression: "{{message}}" } }]
+    };
+    var _alert = function (title, message, after) {
+        title = title || _locale.ui.Info;
+        var opt = {
+            title: title,
+            buttons: [
+                {
+                    type: "primary",
+                    title: _locale.ui.Ok,
+                    name: "ok"
+                }
+            ]
+        };
+        var ldata = { message: message };
+        _ui.OpenModalForm(opt, layout, schema, ldata, null, function (modal, action, data, formcontrol) {
+            if (action.operation === "modal-action") {
+                switch (action.property) {
+                    case "ok":
+                        modal.close();
+                        if (after)
+                            after();
+                        break;
                 }
             }
-        }, layout = {
-            name: "alert",
-            $type: "block",
-            $items: [{ $bind: "message", $readOnly: true, options: { $expression: "{{message}}" } }]
-        };
-        var _alert = function (title, message, after) {
-            title = title || _locale.ui.Info;
-            var opt = {
-                title: title,
-                buttons: [
-                    {
-                        type: "primary",
-                        title: _locale.ui.Ok,
-                        name: "ok"
-                    }
-                ]
-            };
-            var ldata = { message: message };
-            ui.OpenModalForm(opt, layout, schema, ldata, Phoenix.locale, function (modal, action, data, formcontrol) {
-                if (action.operation === "modal-action") {
-                    switch (action.property) {
-                        case "ok":
-                            modal.close();
-                            if (after)
-                                after();
-                            break;
-                    }
-                }
-            });
-        };
-        _utils.alert = function (title, message, after) {
-            _alert(title, message, after);
-        };
-    })(ui = Phoenix.ui || (Phoenix.ui = {}));
+        });
+    };
+    _utils.alert = function (title, message, after) {
+        _alert(title, message, after);
+    };
 })(Phoenix || (Phoenix = {}));
-/// <reference path="../../../typings/index.d.ts" />
-/// <reference path="../core/core.ts" />
-/// <reference path="../core/modules/application.ts" />
+/// <reference path="../core/core-refs.ts" />
 /// <reference path="../ui/form/modalform.control.ts" />
 /// <reference path="../ui/datasets-plugin.ts" />
 var Phoenix;
 (function (Phoenix) {
-    var ui;
-    (function (ui) {
-        var _locale = Phoenix.locale, _utils = Phoenix.utils, _external = Phoenix.external, _application = Phoenix.application, _dsPlugin = Phoenix.DatasetPlugin, _dom = Phoenix.dom, _ui = ui;
-        var layoutPassword = {
-            "name": "form",
-            "$type": "block",
-            "$items": [
+    var _p = Phoenix, _locale = _p.locale, _utils = _p.utils, _external = _p.external, _application = _p.application, _dsPlugin = _p.DatasetPlugin, _dom = _p.dom, _ui = _p.ui;
+    var layoutPassword = {
+        "name": "form",
+        "$type": "block",
+        "$items": [
+            {
+                "$bind": "oldPwd"
+            },
+            {
+                "$bind": "newPwd"
+            },
+            {
+                "$bind": "$$newPwd"
+            }
+        ]
+    };
+    var _changePasswordHandler = function (after) {
+        var schemaPassword = {
+            "type": "object",
+            "properties": {
+                "oldPwd": { "title": _locale.ui.password.oldPassword, "type": "string", "format": "password", "capabilities": { noConfirming: true } },
+                "newPwd": { "title": _locale.ui.password.newPassword, "type": "string", "format": "password", "minLength": 8 }
+            },
+            "states": {
+                "oldPwd": { "isMandatory": true },
+                "newPwd": { "isMandatory": true }
+            }
+        };
+        var fo = { "title": _locale.ui.password.change, "buttons": [{ "pattern": "validate" }] };
+        _ui.OpenModalForm(fo, layoutPassword, schemaPassword, {}, {}, function (form, action, model, formControl) {
+            switch (action.property) {
+                case "validate":
+                    if (!model.validate())
+                        return;
+                    var result = {};
+                    var ds = _application.configuration && _application.configuration.application &&
+                        _application.configuration.application.authentication ? _application.configuration.application.authentication.changePasswordDs : null;
+                    if (!ds) {
+                        form.close();
+                        return;
+                    }
+                    _dom.processing(true);
+                    var toSend = {
+                        oldPwd: model.oldPwd,
+                        newPwd: model.newPwd
+                    };
+                    ds.name = "data";
+                    _dsPlugin.executeDatasets([ds], toSend, result, [], function (sended, ex) {
+                        if (!ex) {
+                            _dom.processing(false);
+                            form.close();
+                            if (after)
+                                after();
+                        }
+                        else {
+                            model.addAjaxException(ex);
+                            _dom.processing(false);
+                        }
+                    });
+                    break;
+            }
+        });
+    };
+    _external.changePasswordHandler = _changePasswordHandler;
+})(Phoenix || (Phoenix = {}));
+/// <reference path="../core/core-refs.ts" />
+/// <reference path="../ui/form/modalform.control.ts" />
+var Phoenix;
+(function (Phoenix) {
+    var _p = Phoenix, _locale = _p.locale, _ui = _p.ui, _utils = _p.utils, schema = {
+        type: "object",
+        properties: {
+            message: {
+                type: "string"
+            }
+        }
+    }, layout = {
+        name: "confirm",
+        $type: "block",
+        $items: [{ $bind: "message", $readOnly: true, options: { $expression: "{{message}}" } }]
+    };
+    var _confirm = function (title, message, onsuccess, oncancel) {
+        title = title || _locale.ui.Warning;
+        var opt = {
+            title: title,
+            buttons: [
                 {
-                    "$bind": "oldPwd"
+                    type: "default",
+                    title: _locale.ui.No,
+                    name: "no"
                 },
                 {
-                    "$bind": "newPwd"
-                },
-                {
-                    "$bind": "$$newPwd"
+                    type: "primary",
+                    title: _locale.ui.Yes,
+                    name: "yes"
                 }
             ]
         };
-        var _changePasswordHandler = function (after) {
-            var schemaPassword = {
-                "type": "object",
-                "properties": {
-                    "oldPwd": { "title": _locale.ui.password.oldPassword, "type": "string", "format": "password", "capabilities": { noConfirming: true } },
-                    "newPwd": { "title": _locale.ui.password.newPassword, "type": "string", "format": "password", "minLength": 8 }
-                },
-                "states": {
-                    "oldPwd": { "isMandatory": true },
-                    "newPwd": { "isMandatory": true }
-                }
-            };
-            var fo = { "title": _locale.ui.password.change, "buttons": [{ "pattern": "validate" }] };
-            _ui.OpenModalForm(fo, layoutPassword, schemaPassword, {}, {}, function (form, action, model, formControl) {
+        var ldata = { message: message };
+        _ui.OpenModalForm(opt, layout, schema, ldata, null, function (modal, action, data, formcontrol) {
+            if (action.operation === "modal-action") {
                 switch (action.property) {
-                    case "validate":
-                        if (!model.validate())
-                            return;
-                        var result = {};
-                        var ds = _application.configuration && _application.configuration.application &&
-                            _application.configuration.application.authentication ? _application.configuration.application.authentication.changePasswordDs : null;
-                        if (!ds) {
-                            form.close();
-                            return;
-                        }
-                        _dom.processing(true);
-                        var toSend = {
-                            oldPwd: model.oldPwd,
-                            newPwd: model.newPwd
-                        };
-                        ds.name = "data";
-                        _dsPlugin.executeDatasets([ds], toSend, result, [], function (sended, ex) {
-                            if (!ex) {
-                                _dom.processing(false);
-                                form.close();
-                                if (after)
-                                    after();
-                            }
-                            else {
-                                model.addAjaxException(ex);
-                                _dom.processing(false);
-                            }
-                        });
+                    case "yes":
+                        modal.close();
+                        if (onsuccess)
+                            onsuccess();
+                        break;
+                    case "no":
+                        modal.close();
+                        if (oncancel)
+                            oncancel();
                         break;
                 }
-            });
-        };
-        _external.changePasswordHandler = _changePasswordHandler;
-    })(ui = Phoenix.ui || (Phoenix.ui = {}));
+            }
+        });
+    };
+    Phoenix.confirmDlg = _confirm;
+    _utils.confirm = function (title, message, success, cancel) {
+        _confirm(title, message, success, cancel);
+    };
 })(Phoenix || (Phoenix = {}));
-/// <reference path="../../../typings/index.d.ts" />
-/// <reference path="../core/core.ts" />
-/// <reference path="../core/modules/locale.ts" />
-/// <reference path="../ui/form/modalform.control.ts" />
+/// <reference path="../core/core-refs.ts" />
 var Phoenix;
 (function (Phoenix) {
     var ui;
     (function (ui) {
-        var _locale = Phoenix.locale, _utils = Phoenix.utils, schema = {
-            type: "object",
-            properties: {
-                message: {
-                    type: "string"
-                }
+        var _p = Phoenix, _dom = _p.dom, _link = _p.link, _utils = _p.utils, _application = _p.application, _ulocale = _p.ulocale, _locale = _p.locale;
+        var _createImage = function (options) {
+            var _bootstrap4 = _p.bootstrap4;
+            var html = [];
+            var imgCss = ['bs-relative bs-image-mi-image'];
+            imgCss.push(_bootstrap4 ? 'img-fluid' : 'img-responsive');
+            html.push('<div id="{0}" class="bs-image-mi bs-cursor-d">');
+            html.push('<div class="bs-image-mi-border"');
+            if (options.link)
+                html.push('href="click://navigate"');
+            html.push('>');
+            var styles = ['max-width:' + options.maxWidth + 'px;'];
+            html.push('<img id="{0}_img" class="');
+            html.push(imgCss.join(' '));
+            html.push('" src="' + options.imageSrc + '"');
+            if (styles.length)
+                html.push(' style="' + styles.join('') + '"');
+            html.push(' />');
+            html.push('<span class="bs-image-mi-title">' + options.title + '</span>');
+            html.push('</div>');
+            html.push('</div>');
+            return html.join('');
+        };
+        var ImageMenuItem = (function () {
+            function ImageMenuItem(data, options) {
+                var that = this;
+                that.$id = _utils.allocID();
+                options.maxWidth = options.maxWidth || 128;
+                that._options = options;
             }
-        }, layout = {
-            name: "confirm",
-            $type: "block",
-            $items: [{ $bind: "message", $readOnly: true, options: { $expression: "{{message}}" } }]
-        };
-        var _confirm = function (title, message, onsuccess, oncancel) {
-            title = title || _locale.ui.Warning;
-            var opt = {
-                title: title,
-                buttons: [
-                    {
-                        type: "default",
-                        title: _locale.ui.No,
-                        name: "no"
-                    },
-                    {
-                        type: "primary",
-                        title: _locale.ui.Yes,
-                        name: "yes"
-                    }
-                ]
-            };
-            var ldata = { message: message };
-            ui.OpenModalForm(opt, layout, schema, ldata, Phoenix.locale, function (modal, action, data, formcontrol) {
-                if (action.operation === "modal-action") {
-                    switch (action.property) {
-                        case "yes":
-                            modal.close();
-                            if (onsuccess)
-                                onsuccess();
-                            break;
-                        case "no":
-                            modal.close();
-                            if (oncancel)
-                                oncancel();
-                            break;
-                    }
+            ImageMenuItem.prototype._setEvents = function () {
+                var that = this;
+                if (that.$element) {
+                    var e = that.$element.get(0);
+                    that.$element.on('click', function (event) {
+                        var c = _link.isCustomLink(e, event);
+                        if (c && c.protocol === "click") {
+                            var link_1 = that._options.link;
+                            var ctx = _link.context();
+                            if (typeof link_1 === 'string') {
+                                if (that.module && that.module.links && that.module.links[link_1])
+                                    _link.execLink(that.module.links[link_1], ctx, null);
+                                else
+                                    _link.execLink({ $page: link_1 }, ctx, null);
+                            }
+                            else if (link_1.$page) {
+                                _link.execLink(link_1, ctx, null);
+                            }
+                        }
+                    });
                 }
-            });
-        };
-        ui.confirmDlg = _confirm;
-        _utils.confirm = function (title, message, success, cancel) {
-            _confirm(title, message, success, cancel);
-        };
+            };
+            ImageMenuItem.prototype._removeEvents = function () {
+                var that = this;
+                if (that.$element)
+                    that.$element.off('click');
+            };
+            ImageMenuItem.prototype.render = function ($parent) {
+                var that = this;
+                if (!that.$element) {
+                    that.$element = $(_utils.format(_createImage(that._options), that.$id));
+                    that._setEvents();
+                }
+                if ($parent) {
+                    if (that._options.replaceParent)
+                        $parent.replaceWith(that.$element);
+                    else
+                        $parent.append(that.$element);
+                }
+            };
+            ImageMenuItem.prototype.destroy = function () {
+                var that = this;
+                that.module = null;
+                that._removeEvents();
+                that.$element = null;
+                that._options = null;
+            };
+            return ImageMenuItem;
+        }());
+        ui.ImageMenuItem = ImageMenuItem;
+        ;
     })(ui = Phoenix.ui || (Phoenix.ui = {}));
 })(Phoenix || (Phoenix = {}));
-/// <reference path="../core/core.ts" />
+/// <reference path="../core/core-refs.ts" />
 /// <reference path="../data/odata-provider.ts" />
 var Phoenix;
 (function (Phoenix) {
     var data;
     (function (data) {
-        var _data = data, _utils = Phoenix.utils;
+        var _p = Phoenix, _data = _p.data, _utils = _p.utils;
         var OdataEnumManager = (function () {
             function OdataEnumManager(moduleName, entity, enumTypeField, enumCodeField, enumTitleField, enumOrderByField, fields) {
                 var that = this;
@@ -20156,68 +22536,61 @@ var Phoenix;
         data.OdataEnumManager = OdataEnumManager;
     })(data = Phoenix.data || (Phoenix.data = {}));
 })(Phoenix || (Phoenix = {}));
-/// <reference path="../../../typings/index.d.ts" />
-/// <reference path="../core/core.ts" />
+/// <reference path="../core/core-refs.ts" />
 /// <reference path="../core/modules/locale.ts" />
 /// <reference path="../ui/form/modalform.control.ts" />
 var Phoenix;
 (function (Phoenix) {
-    var ui;
-    (function (ui) {
-        var _locale = Phoenix.locale, _utils = Phoenix.utils, schema = {
-            type: "object",
-            properties: {
-                value: {
-                    type: "string"
+    var _p = Phoenix, _locale = _p.locale, _utils = _p.utils, _ui = _p.ui, schema = {
+        type: "object",
+        properties: {
+            value: {
+                type: "string"
+            }
+        }
+    }, layout = {
+        name: "prompt",
+        $type: "block",
+        $items: [{ $bind: "value", options: { titleIsHidden: true } }]
+    };
+    var _prompt = function (title, defaultValue, onsuccess) {
+        title = title || _locale.ui.Warning;
+        var opt = {
+            title: title,
+            buttons: [
+                {
+                    type: "primary",
+                    title: _locale.ui.Ok,
+                    name: "ok"
+                }
+            ]
+        };
+        var ldata = { value: defaultValue || '' };
+        _ui.OpenModalForm(opt, layout, schema, ldata, null, function (modal, action, data, formcontrol) {
+            if (action.operation === "modal-action") {
+                switch (action.property) {
+                    case "ok":
+                        var nv = data.value;
+                        modal.close();
+                        if (onsuccess)
+                            onsuccess(nv);
+                        break;
                 }
             }
-        }, layout = {
-            name: "prompt",
-            $type: "block",
-            $items: [{ $bind: "value", options: { titleIsHidden: true } }]
-        };
-        var _prompt = function (title, defaultValue, onsuccess) {
-            title = title || _locale.ui.Warning;
-            var opt = {
-                title: title,
-                buttons: [
-                    {
-                        type: "primary",
-                        title: _locale.ui.Ok,
-                        name: "ok"
-                    }
-                ]
-            };
-            var ldata = { value: defaultValue || '' };
-            ui.OpenModalForm(opt, layout, schema, ldata, Phoenix.locale, function (modal, action, data, formcontrol) {
-                if (action.operation === "modal-action") {
-                    switch (action.property) {
-                        case "ok":
-                            var nv = data.value;
-                            modal.close();
-                            if (onsuccess)
-                                onsuccess(nv);
-                            break;
-                    }
-                }
-            });
-        };
-        _utils.prompt = function (title, defaultValue, success) {
-            _prompt(title, defaultValue, success);
-        };
-    })(ui = Phoenix.ui || (Phoenix.ui = {}));
+        });
+    };
+    _utils.prompt = function (title, defaultValue, success) {
+        _prompt(title, defaultValue, success);
+    };
 })(Phoenix || (Phoenix = {}));
-/// <reference path="../core/modules/locale.ts" />
-/// <reference path="../core/core.ts" />
-/// <reference path="../core/modules/application.ts" />
+/// <reference path="../core/core-refs.ts" />
 /// <reference path="../data/datasets.ts" />
 /// <reference path="../ui/form/schema.data.ts" />
 var Phoenix;
 (function (Phoenix) {
-    var _ulocale = Phoenix.ulocale, _application = Phoenix.application, _ajax = Phoenix.ajax;
     var Data;
     (function (Data) {
-        var _data = Phoenix.data, _utils = Phoenix.utils, _su = Phoenix.Observable.SchemaUtils, _dom = Phoenix.dom, _application = Phoenix.application, _schema = {
+        var _p = Phoenix, _ulocale = _p.ulocale, _application = _p.application, _ajax = _p.ajax, _data = _p.data, _utils = _p.utils, _su = _p.Observable.SchemaUtils, _dom = _p.dom, _schema = {
             getRessources: function (schemaName, ondata) {
                 var _after = function (cd) {
                     if (ondata)
@@ -20227,8 +22600,8 @@ var Phoenix;
                 var config = _application.config(_application.name);
                 if (!config)
                     throw "Application configuration not found.";
-                var lurl = config.prototypes + '/' + schemaName;
-                var p1 = Phoenix.ajax.get(lurl, {}, function (ldata) {
+                var lurl = config.current.prototypes + '/' + schemaName;
+                var p1 = _ajax.get(lurl, {}, function (ldata) {
                     return ldata;
                 });
                 return new _utils.Promise(function (resolve, reject) {
@@ -20254,429 +22627,34 @@ var Phoenix;
         _data.registerDataProvider("form-meta", _execLoadSchema);
     })(Data = Phoenix.Data || (Phoenix.Data = {}));
 })(Phoenix || (Phoenix = {}));
-/// <reference path="../../../typings/index.d.ts" />
 var Phoenix;
 (function (Phoenix) {
     var ui;
     (function (ui) {
         var _ulocale = Phoenix.ulocale, _utils = Phoenix.utils, _ajax = Phoenix.ajax, _dom = Phoenix.dom, _link = Phoenix.link;
-        var FilterExpress = (function () {
-            /*******************************
-            ************ METHODS
-            *******************************/
-            function FilterExpress(fieldList, cb, options) {
+        var RenderFiltreExpress = (function () {
+            function RenderFiltreExpress(fields, callback, options) {
                 var that = this;
-                that._id = _utils.allocID();
-                that._fieldList = that._completeFieldList($.extend(true, [], fieldList));
-                that._cb = cb;
-                var defaultOptions = {
-                    multiple: false
-                };
-                that._options = $.extend(true, defaultOptions, options);
-                that._selectedField = [];
+                that._fieldList = fields || [];
                 that._oldFilter = [];
+                that._cb = callback || null;
+                that._options = options || {};
+                that._nodeMain = $("<div class='form-inline bs-filterexpress' id='" + that._options.id + "'></div>");
             }
-            Object.defineProperty(FilterExpress.prototype, "selectedField", {
+            Object.defineProperty(RenderFiltreExpress.prototype, "fields", {
                 get: function () {
-                    return this._selectedField;
+                    return this._fieldList;
                 },
-                set: function (values) {
+                set: function (value) {
                     var that = this;
-                    that._selectedField = [];
-                    if (Array.isArray(values)) {
-                        values.forEach(function (item) {
-                            that._selectedField.push(that._getFieldByCode(item.code));
-                        });
-                    }
+                    that._fieldList = value && Array.isArray(value) && value.length ? value : that._fieldList;
+                    that.renderFieldsList();
+                    that.renderSelectedFields();
                 },
                 enumerable: true,
                 configurable: true
             });
-            FilterExpress.prototype.destroy = function () {
-                // Events
-                this._nodeValidate.off("click");
-                this._nodeMain.off("blur");
-                //supprimer les events du render focus, keyup, change
-                // Nodes
-                _dom.find(this._nodeParent[0], this._id).remove();
-                // Variables
-                this._id = null;
-                this._fieldList = null;
-                this._cb = null;
-                this._selectedField = null;
-                this._nodeMain = null;
-                this._nodeValidate = null;
-                this._options = null;
-            };
-            // Called at instanciation of component
-            FilterExpress.prototype.render = function ($parent) {
-                var that = this;
-                that._nodeParent = $parent;
-                $parent.append(that._internalRender());
-            };
-            FilterExpress.prototype._internalRender = function () {
-                var that = this;
-                that._nodeMain = $("<div class='form-inline bs-filterexpress' id='" + that._id + "'></div>");
-                if (that._options.multiple)
-                    that._internalRenderMultiple();
-                else
-                    that._internalRenderOne();
-                return that._nodeMain;
-            };
-            FilterExpress.prototype._internalRenderOne = function () {
-                var that = this;
-                // Create nodes
-                var nodeGroup = $("<div class='input-group'></div>");
-                var nodeGroupBtn = $("<div class='input-group-btn'></div>");
-                var txtNodeButton = "<button type='button' ";
-                txtNodeButton += "class='btn btn-default dropdown-toggle' data-toggle='dropdown' ";
-                txtNodeButton += "aria-haspopup='true' aria-expanded='false'></button>";
-                var nodeSelectButton = $(txtNodeButton);
-                var nodeSelectButtonTxt = $("<span>" + FilterExpress.FIELD_SELECT_TEXT_DEFAULT + " </span>");
-                var nodeSelectButtonGlyph = $("<span class='caret'></span>");
-                // Fill fields in selectNode
-                var nodeSelect = $("<ul class='dropdown-menu'></ul>");
-                that._fieldList.forEach(function (field) {
-                    var nodeOption = $("<li class='bs-cursor-p'><a code='" + field.code + "'>" + field.lib + "</a></li>");
-                    nodeSelect.append(nodeOption);
-                });
-                // Add editNode
-                var nodeEdit = $("<input type='text' class='form-control' aria-label='...'>");
-                // Add validateNode
-                var nodeGroupBtnValidate = $("<div class='input-group-btn'></div>");
-                that._nodeValidate = $("<button class='btn btn-default' type='button'><span class='" + _dom.iconClass(FilterExpress.VALIDATE_ICON_DEFAULT) + "'></span> " + FilterExpress.VALIDATE_TEXT_DEFAULT + "</button>");
-                // Append nodes to mainNode
-                that._nodeMain.append(nodeGroup);
-                nodeGroup.append(nodeGroupBtn);
-                nodeGroup.append(nodeEdit);
-                nodeGroup.append(nodeGroupBtnValidate);
-                nodeGroupBtn.append(nodeSelectButton);
-                nodeGroupBtn.append(nodeSelect);
-                nodeSelectButton.append(nodeSelectButtonTxt);
-                nodeSelectButton.append(nodeSelectButtonGlyph);
-                nodeGroupBtnValidate.append(that._nodeValidate);
-                if (that._fieldList && that._fieldList[0])
-                    _changeField(that._fieldList[0]);
-                // Change field event
-                nodeSelect.click(function (e) {
-                    var code = e.target.attributes["code"].value;
-                    var field = that._getFieldByCode(code);
-                    if (field)
-                        _changeField(field);
-                });
-                // Validate filter event
-                that._nodeValidate.click(function () {
-                    applyFilter();
-                });
-                // focusOut event
-                var blurevent = false;
-                that._nodeMain.get(0).addEventListener("focusout", function (e) {
-                    blurevent = true;
-                    var parent = false;
-                    var src = e["relatedTarget"];
-                    if (src) {
-                        var node = src;
-                        do {
-                            if (!node)
-                                break;
-                            if (_dom.hasClass(node, "bs-filterexpress")) {
-                                parent = true;
-                                break;
-                            }
-                            node = node.parentNode;
-                        } while (node && !parent);
-                    }
-                    if (!parent && e.target == nodeEdit.get(0) && that._oldFilter && that._oldFilter.length && that._oldFilter[0]["code"]) {
-                        if ((that._selectedField && that._selectedField.length) && that._selectedField[0]["code"] !== that._oldFilter[0]["code"])
-                            _changeField(that._getFieldByCode(that._oldFilter[0]["code"]));
-                        nodeEdit.val(that._oldFilter[0]["value"]);
-                    }
-                }, true);
-                that._nodeMain.get(0).addEventListener("blur", function (e) {
-                    if (blurevent)
-                        return;
-                    var parent = false;
-                    var src = e["relatedTarget"] || e["explicitOriginalTarget"];
-                    if (src) {
-                        var node = src;
-                        do {
-                            if (!node)
-                                break;
-                            if (_dom.hasClass(node, "bs-filterexpress")) {
-                                parent = true;
-                                break;
-                            }
-                            node = node.parentNode;
-                        } while (node && !parent);
-                    }
-                    if (!parent && e.target == nodeEdit.get(0) && that._oldFilter && that._oldFilter.length && that._oldFilter[0]["code"]) {
-                        if ((that._selectedField && that._selectedField.length) && that._selectedField[0]["code"] !== that._oldFilter[0]["code"])
-                            _changeField(that._getFieldByCode(that._oldFilter[0]["code"]));
-                        nodeEdit.val(that._oldFilter[0]["value"]);
-                    }
-                }, true);
-                var nodeSelectedLi = null;
-                function _changeField(field) {
-                    if (field) {
-                        nodeSelectButtonTxt.text(field.lib + " ");
-                        changeEditField(field);
-                        that._selectedField.splice(0, that._selectedField.length, field);
-                    }
-                    // Style changed
-                    if (nodeSelectedLi)
-                        nodeSelectedLi.removeClass("bs-row-selected");
-                    if (field) {
-                        var liNode = _dom.query(nodeSelect.get(0), "a[code='" + field.code + "']");
-                        if (liNode) {
-                            nodeSelectedLi = $(liNode.parentNode);
-                            nodeSelectedLi.addClass("bs-row-selected");
-                        }
-                    }
-                }
-                function removeEvents() {
-                    nodeEdit.off("focus");
-                    nodeEdit.off("keyup");
-                    nodeEdit.off("change");
-                }
-                function changeEditField(field) {
-                    removeEvents();
-                    var oldHTMLNodeEdit;
-                    var newHTMLNodeEdit;
-                    newHTMLNodeEdit = that._getEditField(field).get(0);
-                    oldHTMLNodeEdit = nodeEdit.get(0);
-                    var parent = oldHTMLNodeEdit.parentNode;
-                    parent.replaceChild(newHTMLNodeEdit, oldHTMLNodeEdit);
-                    nodeEdit = $(newHTMLNodeEdit);
-                    newHTMLNodeEdit.focus();
-                    // events 
-                    if (field.enum) {
-                        _dom.addClass(that._nodeValidate.get(0), "bs-none");
-                        nodeEdit.change(function (e) {
-                            if (e.target === nodeEdit.get(0))
-                                applyFilter();
-                        });
-                        nodeEdit.get(0).style.borderTopRightRadius = "4px";
-                        nodeEdit.get(0).style.borderBottomRightRadius = "4px";
-                    }
-                    else {
-                        _dom.removeClass(that._nodeValidate.get(0), "bs-none");
-                        // touch enter event
-                        nodeEdit.keyup(function (e) {
-                            if (e.keyCode == 13)
-                                applyFilter();
-                        });
-                        // input focus event
-                        nodeEdit.focus(function (e) {
-                            nodeEdit.get(0).select();
-                        });
-                    }
-                }
-                function applyFilter() {
-                    if (that._selectedField && that._selectedField.length) {
-                        var val = nodeEdit.val();
-                        var filter_1 = val === "" ? null : { code: that._selectedField[0]["code"], op: that._getOpField(that._selectedField[0]), values: [nodeEdit.val()] };
-                        if (that._cb && that._checkFilter(filter_1)) {
-                            that._oldFilter.splice(0);
-                            that._oldFilter.push({ code: that._selectedField[0]["code"], value: val });
-                            that._cb(filter_1);
-                        }
-                    }
-                }
-                return that._nodeMain;
-            };
-            FilterExpress.prototype._internalRenderMultiple = function () {
-                var that = this;
-                // Create nodes
-                var container = $('<div class="input-group"></div>');
-                var containerTools = $('<div class="input-group-btn"></div>');
-                that._nodeValidate = $("<button class='btn btn-default' type='button'><span class='" + _dom.iconClass(FilterExpress.VALIDATE_ICON_DEFAULT) + "'></span> " + FilterExpress.VALIDATE_TEXT_DEFAULT + "</button>");
-                var nodeSelectBtn = $('<button type="button" class="btn btn-default dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">&nbsp;<span class="caret"></span><span class="sr-only">Toggle Dropdown</span></button>');
-                var nodeSelectList = $('<ul class="dropdown-menu dropdown-menu-right">');
-                containerTools.append(that._nodeValidate);
-                containerTools.append(nodeSelectBtn);
-                containerTools.append(nodeSelectList);
-                that._nodeMain.append(container);
-                renderSelectList();
-                renderSelectedFields();
-                function renderSelectedFields() {
-                    _dom.empty(container.get(0));
-                    that._fieldList.forEach(function (field) {
-                        if (field.selected)
-                            addField(field);
-                    });
-                    container.append(containerTools);
-                }
-                function addField(field) {
-                    field.composant = {
-                        label: $('<span class="input-group-addon" id="sizing-addon2">' + (field.lib || field.libelle || field.code) + '</span>'),
-                        value: that._getEditField(field)
-                    };
-                    container.append(field.composant.label);
-                    container.append(field.composant.value);
-                    field.selected = true;
-                }
-                function renderSelectList() {
-                    _dom.empty(nodeSelectList.get(0));
-                    that._fieldList.forEach(function (field) {
-                        nodeSelectList.append('<li class="bs-cursor-p"><a href="#" data-value="' + field.code + '" tabIndex="-1"><input type="checkbox" ' + (field.selected ? "checked" : "") + ' />&nbsp;' + (field.lib || field.libelle || field.code) + '</a></li>');
-                    });
-                }
-                nodeSelectList.find('a').on('click', function (event) {
-                    var target = $(event.currentTarget);
-                    var code = target.attr('data-value');
-                    var checkboxView = target.find('input');
-                    var field = that._getFieldByCode(target.attr('data-value'));
-                    if (field) {
-                        if (field.selected) {
-                            setTimeout(function () { checkboxView.prop('checked', false); }, 0);
-                            field.selected = false;
-                        }
-                        else {
-                            setTimeout(function () { checkboxView.prop('checked', true); }, 0);
-                            field.selected = true;
-                        }
-                        renderSelectedFields();
-                    }
-                    $(event.target).blur();
-                    return false;
-                });
-                that._nodeValidate.click(function () {
-                    applyFilter();
-                });
-                function applyFilter() {
-                    var filters = [];
-                    that._fieldList.forEach(function (field) {
-                        var value = field.composant.value.val();
-                        if (field.selected && value) {
-                            var filter_2 = { code: field.code, op: that._getOpField(field), values: [value] };
-                            if (that._checkFilter(filter_2))
-                                filters.push(filter_2);
-                        }
-                    });
-                    if (that._cb && filters.length) {
-                        that._oldFilter.splice(0);
-                        that._oldFilter = filters;
-                        that._cb(filters);
-                    }
-                }
-                // let groupChoix: JQuery = $("<div class='form-group'></div>");
-                // let groupSelection: JQuery = $("<div class='form-group'></div>");
-                // let nodeSelectContainer = $('<div class="input-group"></div>');
-                // let nodeSelectParent = $('<div class="dropdown"></div>');
-                // let txtNodeButton: string = "<button type='button' ";
-                // txtNodeButton += "class='btn btn-default dropdown-toggle' data-toggle='dropdown' ";
-                // txtNodeButton += "aria-haspopup='true' aria-expanded='false'></button>";
-                // let nodeSelectButton: JQuery = $(txtNodeButton);
-                // let nodeSelectButtonTxt = $("<span>" + FilterExpress.FIELD_SELECT_TEXT_DEFAULT + " </span>");
-                // let nodeSelectButtonGlyph = $("<span class='caret'></span>");
-                // // Fill fields in selectNode
-                // let nodeSelect = $("<ul class='dropdown-menu'></ul>");
-                // updateItemField();
-                // // Add validateNode
-                // let nodeValidateBtn = $('<div class="form-group"></div>');
-                // that._nodeValidate = $("<button class='btn btn-default' type='button'><span class='" + _dom.iconClass(FilterExpress.VALIDATE_ICON_DEFAULT) + "'></span> " + FilterExpress.VALIDATE_TEXT_DEFAULT + "</button>");
-                // // Append nodes to mainNode
-                // nodeValidateBtn.append(that._nodeValidate);
-                // nodeSelectButton.append(nodeSelectButtonTxt);
-                // nodeSelectButton.append(nodeSelectButtonGlyph);
-                // nodeSelectContainer.append(nodeSelectParent);
-                // nodeSelectParent.append(nodeSelectButton);
-                // nodeSelectParent.append(nodeSelect);
-                // nodeSelectContainer.append(nodeSelectParent);
-                // groupChoix.append(nodeSelectContainer);
-                // groupChoix.append(nodeValidateBtn);
-                // container.append(groupSelection);
-                // container.append(groupChoix);
-                // container.append(nodeValidateBtn);
-                // that._nodeMain.append(container);
-                // // Select field event
-                // nodeSelect.click(function (e) {
-                //     let code = e.target.attributes["code"].value;
-                //     let field = that._getFieldByCode(code);
-                //     if (field) {
-                //         addFilter(field);
-                //         updateItemField();
-                //     }
-                // });
-                // // Remove field event
-                // groupSelection.click(function (e) {
-                //     let target = <HTMLElement>e.target;
-                //     if (!_dom.attr(target, "data-event")) return;
-                //     let itemView = _dom.findByAttribute(target, groupSelection.get(0), "data-id");
-                //     let code = itemView ? _dom.attr(itemView, "data-id") : null;
-                //     if (code) {
-                //         removeFilter(code);
-                //         updateItemField();
-                //     }
-                // });
-                // // Validate filter event
-                // that._nodeValidate.click(function () {
-                //     applyFilter();
-                // });
-                // function updateItemField() {
-                //     _dom.empty(nodeSelect.get(0));
-                //     that._fieldList.forEach((field: any) => {
-                //         let trouve = false;
-                //         that._selectedField.every(function (e) {
-                //             if (field.code == e.code) {
-                //                 trouve = true;
-                //                 return false;
-                //             }
-                //             return true;
-                //         });
-                //         if (!trouve) {
-                //             let nodeOption = $("<li class='bs-cursor-p'><a code='" + field.code + "'>" + field.lib + "</a></li>");
-                //             nodeSelect.append(nodeOption);
-                //         }
-                //     });
-                //     let parent = <HTMLElement>nodeSelect[0].parentNode;
-                //     if (nodeSelect[0].childNodes.length)
-                //         _dom.removeClass(parent, "bs-none");
-                //     else
-                //         _dom.addClass(parent, "bs-none");
-                // }
-                // function addFilter(field) {
-                //     if (field) {
-                //         let composant: JQuery = $('<div class="input-group" data-id="' + field.code + '"></div>');
-                //         composant.append($('<span class="input-group-addon">' + (field.lib || field.libelle || field.code) + '</span>'));
-                //         composant.append(that._getEditField(field));
-                //         composant.append($('<div class="input-group-btn"><button type="button" class="btn btn-default" data-event="click"><i class="' + _dom.iconClass("remove") + '" data-event="click"></i></button></div>'));
-                //         groupSelection.append(composant);
-                //         that._selectedField.push(field);
-                //     }
-                // }
-                // function removeFilter(code) {
-                //     if (code) {
-                //         let fieldView = _dom.query(groupSelection.get(0), 'div[data-id="' + code + '"]');
-                //         if (fieldView) {
-                //             _dom.remove(fieldView);
-                //             let selectedItem = that._getFieldSelectedByCode(code);
-                //             if (selectedItem) that._selectedField.splice(selectedItem.id, 1);
-                //         }
-                //     }
-                // }
-                // function applyFilter() {
-                //     if (that._selectedField && that._selectedField.length) {
-                //         let filters = that._selectedField.map(function (field) {
-                //             let filter: any = { code: field.code, op: that._getOpField(field), values: [] };
-                //             let fieldView = _dom.query(groupSelection.get(0), 'div[data-id="' + field.code + '"]');
-                //             if (fieldView) {
-                //                 let value = $(_dom.query(fieldView, "input")).val();
-                //                 filter.values.push(value);
-                //             }
-                //             if (that._checkFilter(filter))
-                //                 return filter;
-                //         });
-                //         if (that._cb && filters.length) {
-                //             that._oldFilter.splice(0);
-                //             that._oldFilter = filters;
-                //             that._cb(filters);
-                //         }
-                //     }
-                // }
-                return that._nodeMain;
-            };
-            FilterExpress.prototype._getFieldByCode = function (code) {
+            RenderFiltreExpress.prototype._getFieldByCode = function (code) {
                 var that = this;
                 var result = null;
                 that._fieldList.forEach(function (field) {
@@ -20685,7 +22663,7 @@ var Phoenix;
                 });
                 return result;
             };
-            FilterExpress.prototype._getEditField = function (field) {
+            RenderFiltreExpress.prototype._getEditField = function (field) {
                 var textNode;
                 switch (field.format) {
                     case FilterExpress.FORMAT_INTEGER:
@@ -20707,7 +22685,7 @@ var Phoenix;
                 }
                 return $(textNode);
             };
-            FilterExpress.prototype._getOpField = function (field) {
+            RenderFiltreExpress.prototype._getOpField = function (field) {
                 var op;
                 switch (field.format) {
                     case FilterExpress.FORMAT_INTEGER:
@@ -20725,7 +22703,7 @@ var Phoenix;
                 }
                 return op;
             };
-            FilterExpress.prototype._checkFilter = function (filter) {
+            RenderFiltreExpress.prototype._checkFilter = function (filter) {
                 if (!filter)
                     return true;
                 if (filter.code == "")
@@ -20733,6 +22711,397 @@ var Phoenix;
                 if (filter.op == "")
                     return false;
                 return true;
+            };
+            RenderFiltreExpress.prototype.destroy = function () {
+                // Events
+                var that = this;
+                that._nodeValidate.off("click");
+                that._nodeMain.off("blur");
+                //supprimer les events du render focus, keyup, change
+                // Nodes
+                // Variables
+                that._fieldList = null;
+                that._cb = null;
+                //that._selectedField = null;
+                that._nodeMain = null;
+                that._nodeValidate = null;
+                that._options = null;
+            };
+            RenderFiltreExpress.prototype.renderFieldsList = function () { };
+            RenderFiltreExpress.prototype.renderSelectedFields = function () { };
+            RenderFiltreExpress.prototype.validerFilter = function () { };
+            ;
+            RenderFiltreExpress.prototype.setEvents = function () {
+                var that = this;
+                that._nodeValidate.click(function () {
+                    that.validerFilter();
+                });
+            };
+            return RenderFiltreExpress;
+        }());
+        var RenderFiltreExpressOne = (function (_super) {
+            __extends(RenderFiltreExpressOne, _super);
+            function RenderFiltreExpressOne(fields, callback, options) {
+                _super.call(this, fields, callback, options);
+                var that = this;
+                var nodeGroup = $("<div class='input-group'></div>");
+                var nodeGroupBtn = $("<div class='input-group-btn'></div>");
+                var txtNodeButton = "<button type='button' ";
+                txtNodeButton += "class='btn btn-default dropdown-toggle' data-toggle='dropdown' ";
+                txtNodeButton += "aria-haspopup='true' aria-expanded='false'></button>";
+                var nodeSelectButton = $(txtNodeButton);
+                that._nodeSelectButtonTxt = $("<span>" + FilterExpress.FIELD_SELECT_TEXT_DEFAULT + " </span>");
+                var nodeSelectButtonGlyph = $("<span class='caret'></span>");
+                that._nodeSelectList = $("<ul class='dropdown-menu'></ul>");
+                // Add editNode
+                that._nodeEdit = $("<input type='text' class='form-control' aria-label='...'>");
+                // Add validateNode
+                var nodeGroupBtnValidate = $("<div class='input-group-btn'></div>");
+                that._nodeValidate = $("<button class='btn btn-default' type='button'><span class='" + _dom.iconClass(FilterExpress.VALIDATE_ICON_DEFAULT) + "'></span> " + FilterExpress.VALIDATE_TEXT_DEFAULT + "</button>");
+                // Append nodes to mainNode
+                that._nodeMain.append(nodeGroup);
+                nodeGroup.append(nodeGroupBtn);
+                nodeGroup.append(that._nodeEdit);
+                nodeGroup.append(nodeGroupBtnValidate);
+                nodeGroupBtn.append(nodeSelectButton);
+                nodeGroupBtn.append(that._nodeSelectList);
+                nodeSelectButton.append(that._nodeSelectButtonTxt);
+                nodeSelectButton.append(nodeSelectButtonGlyph);
+                nodeGroupBtnValidate.append(that._nodeValidate);
+                that.renderFieldsList();
+                that.renderSelectedFields();
+                that.setEvents();
+            }
+            RenderFiltreExpressOne.prototype.renderSelectedFields = function () {
+                var that = this;
+                var field = null;
+                that._fieldList.every(function (item) {
+                    if (item.selected) {
+                        field = item;
+                        return false;
+                    }
+                    return true;
+                });
+                if (!field && that._fieldList && that._fieldList.length) {
+                    that._fieldList[0].selected = true;
+                    field = that._fieldList[0];
+                }
+                if (field) {
+                    that._nodeSelectButtonTxt.text(field.lib + " ");
+                    that._changeEditField(field);
+                }
+                // Style changed
+                if (that._nodeSelectedLi)
+                    that._nodeSelectedLi.removeClass("bs-row-selected");
+                if (field) {
+                    var liNode = _dom.query(that._nodeSelectList.get(0), "li[data-value='" + field.code + "']");
+                    if (liNode) {
+                        that._nodeSelectedLi = $(liNode);
+                        that._nodeSelectedLi.addClass("bs-row-selected");
+                    }
+                }
+            };
+            RenderFiltreExpressOne.prototype._changeEditField = function (field) {
+                var that = this;
+                that._removeEvents();
+                var oldHTMLNodeEdit;
+                var newHTMLNodeEdit;
+                newHTMLNodeEdit = that._getEditField(field).get(0);
+                oldHTMLNodeEdit = that._nodeEdit.get(0);
+                var parent = oldHTMLNodeEdit.parentNode;
+                parent.replaceChild(newHTMLNodeEdit, oldHTMLNodeEdit);
+                that._nodeEdit = $(newHTMLNodeEdit);
+                newHTMLNodeEdit.focus();
+                // events 
+                if (field.enum) {
+                    _dom.addClass(that._nodeValidate.get(0), "bs-none");
+                    that._nodeEdit.change(function (e) {
+                        if (e.target === that._nodeEdit.get(0))
+                            that.validerFilter();
+                    });
+                    that._nodeEdit.get(0).style.borderTopRightRadius = "4px";
+                    that._nodeEdit.get(0).style.borderBottomRightRadius = "4px";
+                }
+                else {
+                    _dom.removeClass(that._nodeValidate.get(0), "bs-none");
+                    // touch enter event
+                    that._nodeEdit.keyup(function (e) {
+                        if (e.keyCode == 13)
+                            that.validerFilter();
+                    });
+                    // input focus event
+                    that._nodeEdit.focus(function (e) {
+                        that._nodeEdit.get(0).select();
+                    });
+                }
+            };
+            RenderFiltreExpressOne.prototype._removeEvents = function () {
+                var that = this;
+                that._nodeEdit.off("focus");
+                that._nodeEdit.off("keyup");
+                that._nodeEdit.off("change");
+            };
+            RenderFiltreExpressOne.prototype.renderFieldsList = function () {
+                var that = this;
+                _dom.empty(that._nodeSelectList.get(0));
+                that._fieldList.forEach(function (field) {
+                    that._nodeSelectList.append("<li class='bs-cursor-p' data-value='" + field.code + "'><a>" + field.lib + "</a></li>");
+                });
+            };
+            RenderFiltreExpressOne.prototype.setEvents = function () {
+                var that = this;
+                _super.prototype.setEvents.call(this);
+                // Change field event
+                that._nodeSelectList.click(function (e) {
+                    var targetParent = _dom.findByAttribute(e.target, that._nodeSelectList.get(0), "data-value");
+                    if (!targetParent)
+                        return;
+                    var code = targetParent.attributes["data-value"].value;
+                    if (!code)
+                        return;
+                    var field = that._getFieldByCode(code);
+                    that._fieldList = that._fieldList.map(function (item) {
+                        item.selected = (item.code == code);
+                        return item;
+                    });
+                    if (field)
+                        that.renderSelectedFields();
+                });
+                var blurevent = false;
+                that._nodeMain.get(0).addEventListener("focusout", function (e) {
+                    blurevent = true;
+                    var parent = false;
+                    var src = e["relatedTarget"];
+                    if (src) {
+                        var node = src;
+                        do {
+                            if (!node)
+                                break;
+                            if (_dom.hasClass(node, "bs-filterexpress")) {
+                                parent = true;
+                                break;
+                            }
+                            node = node.parentNode;
+                        } while (node && !parent);
+                    }
+                    if (!parent && e.target == that._nodeEdit.get(0) && that._oldFilter && that._oldFilter.length && that._oldFilter[0]["code"]) {
+                        var selected = that._getSelected();
+                        if (selected && selected.code !== that._oldFilter[0]["code"]) {
+                            that._fieldList = that._fieldList.map(function (item) {
+                                item.selected = item.code == that._oldFilter[0]["code"];
+                                return item;
+                            });
+                            that.renderSelectedFields();
+                        }
+                        that._nodeEdit.val(that._oldFilter[0]["values"][0]);
+                    }
+                }, true);
+                that._nodeMain.get(0).addEventListener("blur", function (e) {
+                    if (blurevent)
+                        return;
+                    var parent = false;
+                    var src = e["relatedTarget"] || e["explicitOriginalTarget"];
+                    if (src) {
+                        var node = src;
+                        do {
+                            if (!node)
+                                break;
+                            if (_dom.hasClass(node, "bs-filterexpress")) {
+                                parent = true;
+                                break;
+                            }
+                            node = node.parentNode;
+                        } while (node && !parent);
+                    }
+                    if (!parent && e.target == that._nodeEdit.get(0) && that._oldFilter && that._oldFilter.length && that._oldFilter[0]["code"]) {
+                        var selected = that._getSelected();
+                        if (selected && selected.code !== that._oldFilter[0]["code"]) {
+                            that._fieldList = that._fieldList.map(function (item) {
+                                item.selected = item.code == that._oldFilter[0]["code"];
+                                return item;
+                            });
+                            that.renderSelectedFields();
+                        }
+                        that._nodeEdit.val(that._oldFilter[0]["values"][0]);
+                    }
+                }, true);
+            };
+            RenderFiltreExpressOne.prototype.validerFilter = function () {
+                var that = this;
+                if (!that._cb)
+                    return;
+                var selected = that._getSelected();
+                var filter = that._nodeEdit.val() ? { code: selected.code, op: that._getOpField(selected), values: [that._nodeEdit.val()] } : null;
+                if (filter && !that._checkFilter(filter))
+                    filter = null;
+                that._oldFilter.splice(0);
+                if (filter)
+                    that._oldFilter.push(filter);
+                that._cb(filter);
+            };
+            RenderFiltreExpressOne.prototype._getSelected = function () {
+                var that = this;
+                var selected = null;
+                that._fieldList.every(function (field) {
+                    if (field.selected) {
+                        selected = field;
+                        return false;
+                    }
+                    return true;
+                });
+                return selected;
+            };
+            return RenderFiltreExpressOne;
+        }(RenderFiltreExpress));
+        var RenderFiltreExpressMultiple = (function (_super) {
+            __extends(RenderFiltreExpressMultiple, _super);
+            function RenderFiltreExpressMultiple(fields, callback, options) {
+                _super.call(this, fields, callback, options);
+                var that = this;
+                that.leftTools = $('<div class="input-group-btn"></div>');
+                that.rightTools = $('<div class="input-group-btn"></div>');
+                that._nodeValidate = $("<button class='btn btn-default' type='button'><span class='" + _dom.iconClass(FilterExpress.VALIDATE_ICON_DEFAULT) + "'></span> " + FilterExpress.VALIDATE_TEXT_DEFAULT + "</button>");
+                var nodeSelectBtn = $('<button type="button" class="btn btn-default dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false"><span class="caret"></span>&nbsp;<span class="sr-only">Toggle Dropdown</span></button>');
+                that._nodeSelectList = $('<ul class="dropdown-menu dropdown-menu-left">');
+                that.rightTools.append(that._nodeValidate);
+                that.leftTools.append(nodeSelectBtn);
+                that.leftTools.append(that._nodeSelectList);
+                that.renderFieldsList();
+                that.renderSelectedFields();
+                that.setEvents();
+            }
+            RenderFiltreExpressMultiple.prototype.renderSelectedFields = function () {
+                var that = this;
+                _dom.empty(that._nodeMain.get(0));
+                that._fieldList.forEach(function (field) {
+                    if (field.selected)
+                        that.addField(field);
+                });
+                var lleftTools;
+                var lrightTools;
+                if (that._nodeMain.get(0).childNodes.length) {
+                    lleftTools = $(that._nodeMain.get(0).firstChild);
+                    lrightTools = $(that._nodeMain.get(0).lastChild);
+                }
+                else {
+                    lleftTools = $('<div class="input-group"></div>');
+                    lrightTools = lleftTools;
+                    that._nodeMain.append(lleftTools);
+                }
+                lrightTools.append(that.rightTools);
+                $(lleftTools.get(0).firstChild).before(that.leftTools);
+            };
+            RenderFiltreExpressMultiple.prototype.addField = function (field) {
+                var that = this;
+                field.composant = {
+                    label: $('<span class="input-group-addon" id="sizing-addon2">' + (field.lib || field.libelle || field.code) + '</span>'),
+                    value: that._getEditField(field)
+                };
+                var container = $('<div class="input-group"></div>');
+                container.append(field.composant.label);
+                container.append(field.composant.value);
+                that._nodeMain.append(container);
+                field.selected = true;
+            };
+            RenderFiltreExpressMultiple.prototype.renderFieldsList = function () {
+                var that = this;
+                _dom.empty(that._nodeSelectList.get(0));
+                that._fieldList.forEach(function (field) {
+                    that._nodeSelectList.append('<li class="bs-cursor-p" data-value="' + field.code + '"><a href="#" tabIndex="-1"><input type="checkbox" ' + (field.selected ? "checked" : "") + ' />&nbsp;' + (field.lib || field.libelle || field.code) + '</a></li>');
+                });
+            };
+            RenderFiltreExpressMultiple.prototype.setEvents = function () {
+                var that = this;
+                _super.prototype.setEvents.call(this);
+                that._nodeSelectList.on('click', function (event) {
+                    var targetParent = _dom.findByAttribute(event.target, that._nodeSelectList.get(0), "data-value");
+                    if (!targetParent)
+                        return;
+                    var target = $(targetParent);
+                    var code = target.attr('data-value');
+                    if (!code)
+                        return;
+                    var checkboxView = target.find('input');
+                    var field = that._getFieldByCode(target.attr('data-value'));
+                    if (field) {
+                        if (field.selected) {
+                            setTimeout(function () { checkboxView.prop('checked', false); }, 0);
+                            field.selected = false;
+                        }
+                        else {
+                            setTimeout(function () { checkboxView.prop('checked', true); }, 0);
+                            field.selected = true;
+                        }
+                        that.renderSelectedFields();
+                    }
+                    $(event.target).blur();
+                    return false;
+                });
+            };
+            RenderFiltreExpressMultiple.prototype.validerFilter = function () {
+                var that = this;
+                if (!that._cb)
+                    return;
+                var filters = [];
+                that._fieldList.forEach(function (field) {
+                    if (!field.selected)
+                        return;
+                    var value = field.composant.value.val();
+                    if (value) {
+                        var filter_1 = { code: field.code, op: that._getOpField(field), values: [value] };
+                        if (that._checkFilter(filter_1))
+                            filters.push(filter_1);
+                    }
+                });
+                that._oldFilter.splice(0);
+                that._oldFilter = filters;
+                that._cb(filters.length ? filters : null);
+            };
+            return RenderFiltreExpressMultiple;
+        }(RenderFiltreExpress));
+        var FilterExpress = (function () {
+            /*******************************
+            ************ METHODS
+            *******************************/
+            function FilterExpress(fieldList, cb, options) {
+                var that = this;
+                fieldList = that._completeFieldList($.extend(true, [], fieldList));
+                that._cb = cb;
+                var defaultOptions = {
+                    id: _utils.allocID(),
+                    multiple: false
+                };
+                that._options = $.extend(true, defaultOptions, options);
+                if (that._options.multiple)
+                    that._render = new RenderFiltreExpressMultiple(fieldList, that._cb, that._options);
+                else
+                    that._render = new RenderFiltreExpressOne(fieldList, that._cb, that._options);
+            }
+            Object.defineProperty(FilterExpress.prototype, "fields", {
+                get: function () {
+                    return this._render.fields;
+                },
+                set: function (values) {
+                    var that = this;
+                    that._render.fields = values && Array.isArray(values) ? that._completeFieldList($.extend(true, [], values)) : [];
+                },
+                enumerable: true,
+                configurable: true
+            });
+            FilterExpress.prototype.destroy = function () {
+                var that = this;
+                // Events
+                that._render.destroy();
+                _dom.find(this._nodeParent[0], that._options.id).remove();
+                that._render = null;
+                that._cb = null;
+                that._options = null;
+            };
+            // Called at instanciation of component
+            FilterExpress.prototype.render = function ($parent) {
+                var that = this;
+                that._nodeParent = $parent;
+                $parent.append(that._render._nodeMain);
             };
             FilterExpress.prototype._completeFieldList = function (fields) {
                 fields.forEach(function (field) {
@@ -20762,7 +23131,6 @@ var Phoenix;
         ui.FilterExpress = FilterExpress;
     })(ui = Phoenix.ui || (Phoenix.ui = {}));
 })(Phoenix || (Phoenix = {}));
-/// <reference path="../../../typings/index.d.ts" />
 /// <reference path="../../js/core/core.ts" />
 var Phoenix;
 (function (Phoenix) {
@@ -20919,7 +23287,6 @@ var Phoenix;
         ui.DsLookup = DsLookup;
     })(ui = Phoenix.ui || (Phoenix.ui = {}));
 })(Phoenix || (Phoenix = {}));
-/// <reference path="../../../typings/index.d.ts" />
 /// <reference path="../../js/core/modules/locale.ts" />
 /// <reference path="../../js/ui/form/form.control.ts" />
 /// <reference path="../../js/ui/form/controls/absfield.control.ts" />
@@ -20928,7 +23295,7 @@ var Phoenix;
 (function (Phoenix) {
     var ui;
     (function (ui) {
-        var _ui = ui, _utils = Phoenix.utils, _ulocale = Phoenix.ulocale, _dom = Phoenix.dom, _sutils = Phoenix.Observable.SchemaUtils;
+        var _ui = ui, _utils = Phoenix.utils, _uiutils = Phoenix.uiutils, _ulocale = Phoenix.ulocale, _dom = Phoenix.dom, _sutils = Phoenix.Observable.SchemaUtils;
         var ListeOperateurs = (function () {
             function ListeOperateurs() {
                 this.liste = [];
@@ -21987,9 +24354,9 @@ var Phoenix;
             RenderModel1.prototype.showFilterList = function (that, filter) {
                 var editView = new FilterListView(that.listeChamps, that.listeFilters, that.listeOperateurs, function (action, data) {
                     if (action == "EDIT") {
-                        var filter_3 = that.listeFilters.get(data.id);
-                        if (filter_3)
-                            that.selecteChamp(that, filter_3.code);
+                        var filter_2 = that.listeFilters.get(data.id);
+                        if (filter_2)
+                            that.selecteChamp(that, filter_2.code);
                     }
                     else if (action == "REMOVE")
                         that.removeFilter(that, data.id);
@@ -22031,8 +24398,10 @@ var Phoenix;
         var RenderModel2 = (function (_super) {
             __extends(RenderModel2, _super);
             function RenderModel2(listeChamps, listeChampsArbre, listeFilters, listeOperateurs, listeTypes, options, callback) {
-                options.btnValidate = true;
-                _super.call(this, listeChamps, listeChampsArbre, listeFilters, listeOperateurs, listeTypes, options);
+                var defaultOptions = {
+                    btnValidate: true
+                };
+                _super.call(this, listeChamps, listeChampsArbre, listeFilters, listeOperateurs, listeTypes, $.extend(true, defaultOptions, options));
                 this._callback = callback;
             }
             RenderModel2.prototype.createContainer = function () {
@@ -22165,7 +24534,7 @@ var Phoenix;
             };
             TagView.prototype.render = function ($parent) {
                 var that = this;
-                var opts = that._initOptions(_ui.Utils.defaultOptions);
+                var opts = that._initOptions(_uiutils.utils.defaultOptions);
                 if (!that.$element) {
                     that.setEvents(null);
                     that._state2UI();
@@ -22490,7 +24859,7 @@ var Phoenix;
             };
             LookupList.prototype.render = function ($parent) {
                 var that = this;
-                var opts = that._initOptions(_ui.Utils.defaultOptions);
+                var opts = that._initOptions(_uiutils.utils.defaultOptions);
                 if (!that.$element) {
                     that.setEvents(null);
                     that.$element = $(that._createContainer(that.id, _ulocale.tt(that.$schema.title, that.form.$locale), that.options.design, opts));
@@ -22528,7 +24897,7 @@ var Phoenix;
                     return _utils.format('<div id="{0}" data-render="{0}" class="bs-filter"></div>', id);
                 };
                 this._state();
-                this.options = options || {};
+                this._options = options || {};
                 this.initData();
             }
             ComposantFilter.prototype.initData = function () {
@@ -22556,6 +24925,10 @@ var Phoenix;
                 that.listeTypes.addType("enum", "Enum", ["in", "nin", "vide", "nvide"]);
                 that.listeTypes.addType("lookup", "Lookup", ["in", "nin", "vide", "nvide"]);
                 that.listeTypes.addType("boolean", "Booléen", ["in", "nin", "vide", "nvide"]);
+                that._updateData();
+            };
+            ComposantFilter.prototype._updateData = function () {
+                var that = this;
                 that.listeChamps = new ListeChamps();
                 var champs = that.state.value && that.state.value.champs ? that.state.value.champs : [];
                 champs.forEach(function (item) {
@@ -22595,11 +24968,17 @@ var Phoenix;
                     }
                     that.listeFilters.add2(item.code, item.op, values2.length ? values2 : values);
                 });
-                that.listeChampsArbre = that.state.value && that.state.value.entree ? that.state.value.model().entree : null;
+                that.listeChampsArbre = that.state.value && that.state.value.entree && that.state.value.entree.length ? that.state.value.model().entree : null;
                 if (!that.listeChampsArbre)
                     that.listeChampsArbre = that.listeChamps.gets().map(function (item) {
                         return { name: item.code, title: item.libelle };
                     });
+            };
+            ComposantFilter.prototype.refresh = function () {
+                var that = this;
+                that._updateData();
+                _dom.empty(that.$element.get(0));
+                that.renderInternal({ data: that.state.value }, that._options);
             };
             ComposantFilter.prototype._state = function () {
                 var that = this;
@@ -22610,25 +24989,17 @@ var Phoenix;
                 });
                 that.state.value = that.form.getValue(that.$bind);
             };
-            ComposantFilter.prototype.click = function (event) { };
-            ComposantFilter.prototype._setDisabled = function (input, element) { };
-            ComposantFilter.prototype._setReadOnly = function (input, element) { };
-            ComposantFilter.prototype._setMandatory = function (input, element) { };
-            ComposantFilter.prototype._state2UI = function () { };
-            ComposantFilter.prototype.changed = function (propName, ov, nv, op) { };
-            ComposantFilter.prototype.stateChanged = function (propName, params) { };
             ComposantFilter.prototype.render = function ($parent) {
                 var that = this;
-                var opts = that._initOptions(_ui.Utils.defaultOptions);
+                var opts = that._initOptions(_uiutils.utils.defaultOptions);
                 if (!that.$element) {
                     that.$element = $(that.createContainer(that.id));
                     _dom.empty(that.$element.get(0));
                     opts.id = that.id;
                     opts.title = that.$schema.title || "";
                     opts = $.extend(true, opts, that.renderOptions);
+                    that._options = opts;
                     that.renderInternal({ data: that.state.value }, opts);
-                    that.setEvents(null);
-                    that._state2UI();
                 }
                 that.appendElement($parent, opts);
                 return that.$element;
@@ -22642,7 +25013,6 @@ var Phoenix;
         _ui.registerControl(ComposantFilter, "object", false, 'filter');
     })(ui = Phoenix.ui || (Phoenix.ui = {}));
 })(Phoenix || (Phoenix = {}));
-/// <reference path="../../../typings/index.d.ts" />
 /// <reference path="../../js/core/core.ts" />
 /// <reference path="../../js/ui/form/modalform.control.ts" />
 var Phoenix;
@@ -22743,6 +25113,93 @@ var Phoenix;
                 oFilters.push(constructeFilter(filter));
             });
             return constructeOdata(oFilters, "and")[0];
+        }, _toTitle = function (filters, champs) {
+            var tooltip = [];
+            filters.forEach(function (item) {
+                champs.forEach(function (champ) {
+                    if (item.code === champ.code) {
+                        item.lib = champ.libelle;
+                        return false;
+                    }
+                });
+                var format = (item.lib || item.code) + " " + getSymbol(item.op);
+                if (item.op === "vide" || item.op === "nvide")
+                    format += " vide";
+                else if (item.op === "between" || item.op === "nbetween")
+                    format += " " + item.values[0] + " et " + item.values[1];
+                else {
+                    if (item.getValueNames)
+                        format += " " + item.getValueNames().join(",");
+                    else
+                        format += " " + item.values.join(",");
+                }
+                if (tooltip.length)
+                    tooltip.push(" et ");
+                tooltip.push(format);
+            });
+            function getSymbol(op) {
+                var symb;
+                switch (op) {
+                    case "in":
+                        symb = "=";
+                        break;
+                    case "nin":
+                        symb = "!=";
+                        break;
+                    case "like":
+                        symb = "contient";
+                        break;
+                    case "nlike":
+                        symb = "ne contient pas";
+                        break;
+                    case "vide":
+                        symb = "est";
+                        break;
+                    case "nvide":
+                        symb = "n'est pas";
+                        break;
+                    case "gt":
+                        symb = ">";
+                        break;
+                    case "ge":
+                        symb = ">=";
+                        break;
+                    case "lt":
+                        symb = "<";
+                        break;
+                    case "le":
+                        symb = "<=";
+                        break;
+                    case "between":
+                        symb = "entre";
+                        break;
+                    case "nbetween":
+                        symb = "pas entre";
+                        break;
+                    default:
+                        symb = op;
+                }
+                return symb;
+            }
+            return tooltip.join("");
+        }, _transformPropsToFilterFormat = function (champs, columns) {
+            columns.forEach(function (item) {
+                var sc = $.extend(true, {}, item.schema);
+                switch (sc.type) {
+                    case "number":
+                        if (sc.decimals > 0)
+                            sc.type = "decimal";
+                        else
+                            sc.type = "integer";
+                        break;
+                }
+                if (item.schema.enum) {
+                    sc.enum = item.schema.enum.map(function (en, i) {
+                        return { code: en, libelle: item.schema.enumNames ? item.schema.enumNames[i] : en };
+                    });
+                }
+                _ui.filter.addField2(champs, item.name, sc.title, sc.type, { decimals: sc.decimals, enum: sc.enum, format: sc.format });
+            });
         };
         ui.filterData = {
             filter: {
@@ -22849,34 +25306,23 @@ var Phoenix;
                                             "type": "string"
                                         },
                                         "items": {
-                                            "type": "array"
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object",
+                                                "properties": {}
+                                            }
                                         }
                                     }
                                 }
                             }
                         }
                     }
-                }
+                },
+                "definitions": {}
             };
             if (ui.filterData.filter.champs.length)
                 ui.filterData.filter.champs.splice(0);
-            params.schemaColumns.forEach(function (item) {
-                var sc = $.extend(true, {}, item.schema);
-                switch (sc.type) {
-                    case "number":
-                        if (sc.decimals > 0)
-                            sc.type = "decimal";
-                        else
-                            sc.type = "integer";
-                        break;
-                }
-                if (item.schema.enum) {
-                    sc.enum = item.schema.enum.map(function (en, i) {
-                        return { code: en, libelle: item.schema.enumNames ? item.schema.enumNames[i] : en };
-                    });
-                }
-                _ui.filter.addField2(ui.filterData.filter.champs, item.name, sc.title, sc.type, { decimals: sc.decimals, enum: sc.enum, format: sc.format });
-            });
+            ui.filter.transformPropsToFilterFormat(ui.filterData.filter.champs, params.schemaColumns);
             if (ui.filterData.filter.entree)
                 ui.filterData.filter.entree = ui.multiSelectUtils.transformPropsToMultiselectFormat(params.schemaColumns, params.schemaGroups);
             var opts = { "title": "Filtre", "buttons": [{ "pattern": "validate" }] };
@@ -22890,88 +25336,20 @@ var Phoenix;
                         if (ui.filterData.filter.filters.length)
                             $filter = _ui.filter.format.toPhenix(ui.filterData.filter.champs, ui.filterData.filter.filters);
                         if (callback)
-                            callback({ value: $filter, title: formatFiltersForTooltip(ui.filterData.filter.filters, ui.filterData.filter.champs) });
+                            callback({ value: $filter, title: _toTitle(ui.filterData.filter.filters, ui.filterData.filter.champs) });
                         form.close();
                         break;
                 }
             });
-            function formatFiltersForTooltip(filters, champs) {
-                var tooltip = [];
-                filters.forEach(function (item) {
-                    champs.forEach(function (champ) {
-                        if (item.code === champ.code) {
-                            item.lib = champ.libelle;
-                            return false;
-                        }
-                    });
-                    var format = (item.lib || item.code) + " " + getSymbol(item.op);
-                    if (item.op === "vide" || item.op === "nvide")
-                        format += " vide";
-                    else if (item.op === "between" || item.op === "nbetween")
-                        format += " " + item.values[0] + " et " + item.values[1];
-                    else {
-                        if (item.getValueNames)
-                            format += " " + item.getValueNames().join(",");
-                        else
-                            format += " " + item.values.join(",");
-                    }
-                    if (tooltip.length)
-                        tooltip.push(" et ");
-                    tooltip.push(format);
-                });
-                function getSymbol(op) {
-                    var symb;
-                    switch (op) {
-                        case "in":
-                            symb = "=";
-                            break;
-                        case "nin":
-                            symb = "!=";
-                            break;
-                        case "like":
-                            symb = "contient";
-                            break;
-                        case "nlike":
-                            symb = "ne contient pas";
-                            break;
-                        case "vide":
-                            symb = "est";
-                            break;
-                        case "nvide":
-                            symb = "n'est pas";
-                            break;
-                        case "gt":
-                            symb = ">";
-                            break;
-                        case "ge":
-                            symb = ">=";
-                            break;
-                        case "lt":
-                            symb = "<";
-                            break;
-                        case "le":
-                            symb = "<=";
-                            break;
-                        case "between":
-                            symb = "entre";
-                            break;
-                        case "nbetween":
-                            symb = "pas entre";
-                            break;
-                        default:
-                            symb = op;
-                    }
-                    return symb;
-                }
-                return tooltip.join("");
-            }
         };
         ui.filter = {
             format: {
-                toPhenix: _toPhenix
+                toPhenix: _toPhenix,
+                toTitle: _toTitle
             },
             addField: _addField,
-            addField2: _addField2
+            addField2: _addField2,
+            transformPropsToFilterFormat: _transformPropsToFilterFormat
         };
         var FilterManager = (function () {
             function FilterManager() {
@@ -22993,7 +25371,6 @@ var Phoenix;
         ui.FilterManager = FilterManager;
     })(ui = Phoenix.ui || (Phoenix.ui = {}));
 })(Phoenix || (Phoenix = {}));
-/// <reference path="../../../typings/index.d.ts" />
 /// <reference path="../../js/core/core.ts" />
 /// <reference path="../../js/ui/form/modalform.control.ts" />
 var Phoenix;
@@ -23022,26 +25399,14 @@ var Phoenix;
                 "form": true
             };
             var model = {
+                "type": "object",
                 "properties": {
                     "mselect": {
                         "type": "object",
                         "properties": {
                             "entree": {
                                 "type": "array",
-                                "items": {
-                                    "type": "object",
-                                    "properties": {
-                                        "title": {
-                                            "type": "string"
-                                        },
-                                        "name": {
-                                            "type": "string"
-                                        },
-                                        "items": {
-                                            "type": "array"
-                                        }
-                                    }
-                                }
+                                "items": { "$ref": "#/definitions/elt" }
                             },
                             "sortie": {
                                 "type": "array",
@@ -23056,6 +25421,23 @@ var Phoenix;
                                         }
                                     }
                                 }
+                            }
+                        }
+                    }
+                },
+                "definitions": {
+                    "elt": {
+                        "type": "object",
+                        "properties": {
+                            "title": {
+                                "type": "string"
+                            },
+                            "name": {
+                                "type": "string"
+                            },
+                            "items": {
+                                "type": "array",
+                                "items": { "type": "object", "properties": {} }
                             }
                         }
                     }
@@ -23185,7 +25567,6 @@ var Phoenix;
         };
     })(ui = Phoenix.ui || (Phoenix.ui = {}));
 })(Phoenix || (Phoenix = {}));
-/// <reference path="../../../typings/index.d.ts" />
 /// <reference path="../../js/core/modules/locale.ts" />
 /// <reference path="../../js/ui/form/form.control.ts" />
 /// <reference path="../../js/ui/form/controls/absfield.control.ts" />
@@ -23224,13 +25605,28 @@ var Phoenix;
                 that._selectedItems = [];
                 that._init();
             }
+            Object.defineProperty(MultiSelectList.prototype, "items", {
+                get: function () {
+                    return this._data;
+                },
+                set: function (value) {
+                    var that = this;
+                    that._data = value || [];
+                    that._nodes = $.extend(true, [], value);
+                    that._selectedItems = [];
+                    that._constructeNodes(that._nodes, that._options);
+                    that._renderItems(that._nodes);
+                },
+                enumerable: true,
+                configurable: true
+            });
             Object.defineProperty(MultiSelectList.prototype, "selectedItems", {
                 get: function () {
                     return this._selectedItems;
                 },
                 set: function (value) {
                     var that = this;
-                    that._selectedItems = value;
+                    that._selectedItems = $.extend(true, [], value);
                     that._selectedItems.forEach(function (item) {
                         that.addItem(item[that._name]);
                     });
@@ -23240,7 +25636,7 @@ var Phoenix;
             });
             MultiSelectList.prototype._init = function () {
                 var that = this;
-                that._contructeNodes(that._nodes, that._options);
+                that._constructeNodes(that._nodes, that._options);
             };
             MultiSelectList.prototype._getGroupNode = function (groups, name) {
                 var that = this;
@@ -23336,7 +25732,7 @@ var Phoenix;
                 });
                 return isOk;
             };
-            MultiSelectList.prototype._contructeNodes = function (items, options) {
+            MultiSelectList.prototype._constructeNodes = function (items, options) {
                 var that = this;
                 if (Array.isArray(items) && items.length) {
                     constructeItems(items, null, 0, true, options);
@@ -23447,22 +25843,22 @@ var Phoenix;
                             itemHTML = _dom.parentByTag(that._container, target, "LI");
                         if (itemHTML && _dom.attr(itemHTML, "data-event") === "click") {
                             var parentHTML = _dom.parentByTag(that._container, itemHTML, "LI");
-                            var name_1 = _dom.attr(parentHTML, "data-id");
+                            var name_2 = _dom.attr(parentHTML, "data-id");
                             var action = _dom.attr(itemHTML, "data-action");
                             if (action === "expand")
-                                that._display(name_1, true);
+                                that._display(name_2, true);
                             else if (action === "collapse")
-                                that._display(name_1, false);
+                                that._display(name_2, false);
                             else if (action === "selectitem")
-                                that._select(name_1, that._callback);
+                                that._select(name_2, that._callback);
                             else if (action === "check" && that._options.multiSelect)
-                                that._checkF(name_1, false, that._callback);
+                                that._checkF(name_2, false, that._callback);
                             else if (action === "uncheck" && that._options.multiSelect)
-                                that._checkF(name_1, true, that._callback);
+                                that._checkF(name_2, true, that._callback);
                             else if (action === "checkG" && that._options.multiSelect)
-                                that._checkG(name_1, false, that._callback, true);
+                                that._checkG(name_2, false, that._callback, true);
                             else if (action === "uncheckG" && that._options.multiSelect)
-                                that._checkG(name_1, true, that._callback, true);
+                                that._checkG(name_2, true, that._callback, true);
                         }
                     });
             };
@@ -23654,19 +26050,18 @@ var Phoenix;
         ui.MultiSelectList = MultiSelectList;
     })(ui = Phoenix.ui || (Phoenix.ui = {}));
 })(Phoenix || (Phoenix = {}));
-/// <reference path="../../../typings/index.d.ts" />
 /// <reference path="../../js/ui/form/form.control.ts" />
 /// <reference path="../../js/ui/form/controls/absfield.control.ts" />
 var Phoenix;
 (function (Phoenix) {
     var ui;
     (function (ui) {
-        var _ui = ui, _utils = Phoenix.utils, _ulocale = Phoenix.ulocale, _dom = Phoenix.dom, _drag = Phoenix.drag, _events = Phoenix.events, _sutils = Phoenix.Observable.SchemaUtils;
+        var _ui = ui, _utils = Phoenix.utils, _ulocale = Phoenix.ulocale, _dom = Phoenix.dom, _drag = Phoenix.drag, _uiutils = Phoenix.uiutils, _events = Phoenix.events, _sutils = Phoenix.Observable.SchemaUtils;
         function _createPillboxContainer(id, options, authoring, title) {
             title = title || '';
             options = $.extend({ titleIsHidden: false, placeHolder: false, columns: false }, options);
             var html = [];
-            _ui.Utils.fieldWrapper(html, options, authoring, function () {
+            _uiutils.utils.fieldWrapper(html, options, authoring, function () {
                 html.push('<ul id="{0}" class="pillbox boxed-tags"></ul>');
             });
             return _utils.format(html.join(''), id);
@@ -23692,12 +26087,27 @@ var Phoenix;
                 that._selectedItems = [];
                 that._init();
             }
+            Object.defineProperty(PillBox.prototype, "items", {
+                get: function () {
+                    return this._data;
+                },
+                set: function (value) {
+                    var that = this;
+                    that._data = value || [];
+                    that._nodes = $.extend(true, [], value);
+                    that._selectedItems = [];
+                    that._constructeNodes(that._nodes, that._options);
+                    that._renderItems();
+                },
+                enumerable: true,
+                configurable: true
+            });
             Object.defineProperty(PillBox.prototype, "selectedItems", {
                 get: function () {
                     return this._selectedItems;
                 },
                 set: function (value) {
-                    this._selectedItems = value;
+                    this._selectedItems = $.extend(true, [], value);
                 },
                 enumerable: true,
                 configurable: true
@@ -23721,7 +26131,7 @@ var Phoenix;
                     _dom.append(item.component, htmlIcon.cloneNode());
                     item.filter = true;
                 });
-                that._input = $(that._template().itemInput).get(0);
+                that._input = that._input || $(that._template().itemInput).get(0);
             };
             PillBox.prototype._getItem = function (items, name) {
                 var that = this;
@@ -23801,8 +26211,8 @@ var Phoenix;
                             var action = _dom.attr(target, "data-action");
                             if (action === "remove") {
                                 var parentHTML = _dom.parentByTag(that._container, target, "LI");
-                                var name_2 = _dom.attr(parentHTML, "data-id");
-                                that._removeTag(name_2, that._callback);
+                                var name_3 = _dom.attr(parentHTML, "data-id");
+                                that._removeTag(name_3, that._callback);
                             }
                         }
                         else if (that._menu && that._menu.opened && that._menu.inMenu(event.target)) {
@@ -24025,7 +26435,7 @@ var Phoenix;
             PillBox.prototype._includeDropDownMenu = function () {
                 var that = this;
                 var input = _dom.query(that._input, "input");
-                that._menu = new ui.DropItems($(that._input), input, {
+                that._menu = new Phoenix.formdropitems.DropItems($(that._input), input, {
                     primaryKey: that._name,
                     search: that._title,
                     onselect: that._onMenuSelectItemHandler.bind(that)
@@ -24071,7 +26481,6 @@ var Phoenix;
         ui.PillBox = PillBox;
     })(ui = Phoenix.ui || (Phoenix.ui = {}));
 })(Phoenix || (Phoenix = {}));
-/// <reference path="../../../typings/index.d.ts" />
 /// <reference path="../../js/ui/form/form.control.ts" />
 /// <reference path="../../js/ui/form/controls/absfield.control.ts" />
 /// <reference path="./multiselect.ts" />
@@ -24080,7 +26489,7 @@ var Phoenix;
 (function (Phoenix) {
     var ui;
     (function (ui) {
-        var _ui = ui, _utils = Phoenix.utils, _ulocale = Phoenix.ulocale, _dom = Phoenix.dom, _sutils = Phoenix.Observable.SchemaUtils;
+        var _ui = ui, _utils = Phoenix.utils, _uiutils = Phoenix.uiutils, _ulocale = Phoenix.ulocale, _dom = Phoenix.dom, _uiutils = Phoenix.uiutils, _sutils = Phoenix.Observable.SchemaUtils;
         var ComposantMultiSelect = (function (_super) {
             __extends(ComposantMultiSelect, _super);
             function ComposantMultiSelect(fp, options, form) {
@@ -24099,7 +26508,7 @@ var Phoenix;
                     pillBox: true
                 };
                 var entree = that.state.value.model().entree || [];
-                var sortie = that.state.value.sortie || [];
+                that._sortie = that.state.value.sortie || [];
                 that._options = $.extend(true, optionsParDefaut, that.renderOptions);
                 that._name = that._options.mapping.id;
                 that._title = that._options.mapping.libelle || that._options.mapping.lib;
@@ -24108,14 +26517,14 @@ var Phoenix;
                         if (data.action === "add") {
                             if (that.pillBox)
                                 that.pillBox.addItem(data.data[that._name]);
-                            sortie.push(data.data);
+                            that._sortie.push(data.data);
                         }
                         else if (data.action === "remove") {
                             if (that.pillBox)
                                 that.pillBox.removeItem(data.data[that._name]);
-                            var item = getSortieItem(sortie, data.data[that._name]);
+                            var item = getSortieItem(that._sortie, data.data[that._name]);
                             if (item)
-                                sortie.remove(item.data);
+                                that._sortie.remove(item.data);
                         }
                     });
                     that.multiSelectList.selectedItems = that.state.value.model().sortie || [];
@@ -24124,18 +26533,18 @@ var Phoenix;
                         that.pillBox = new ui.PillBox(itemList, that._options, function (data) {
                             if (data.action === "add") {
                                 that.multiSelectList.addItem(data.data[that._name]);
-                                sortie.push(data.data);
+                                that._sortie.push(data.data);
                             }
                             else if (data.action === "remove") {
                                 that.multiSelectList.removeItem(data.data[that._name]);
-                                var item = getSortieItem(sortie, data.data[that._name]);
+                                var item = getSortieItem(that._sortie, data.data[that._name]);
                                 if (item)
-                                    sortie.remove(item.data);
+                                    that._sortie.remove(item.data);
                             }
                             else if (data.action === "drag") {
-                                var elt = getSortieItem(sortie, data.data[that._name]);
-                                sortie.remove(elt.data);
-                                sortie.splice(data.destIndex, 0, data.data);
+                                var elt = getSortieItem(that._sortie, data.data[that._name]);
+                                that._sortie.remove(elt.data);
+                                that._sortie.splice(data.destIndex, 0, data.data);
                             }
                         });
                         that.pillBox.selectedItems = that.state.value.model().sortie || [];
@@ -24184,6 +26593,17 @@ var Phoenix;
             };
             ComposantMultiSelect.prototype.changed = function (propName, ov, nv, op, params) {
                 var that = this;
+                that._sortie = that.state.value.sortie || [];
+                var entree = that.state.value.model().entree || [];
+                var sortie = that.state.value.model().sortie || [];
+                if (that.multiSelectList) {
+                    that.multiSelectList.items = entree;
+                    that.multiSelectList.selectedItems = sortie;
+                }
+                if (that.pillBox) {
+                    that.pillBox.items = entree;
+                    that.pillBox.selectedItems = sortie;
+                }
             };
             ComposantMultiSelect.prototype.stateChanged = function (propName) {
             };
@@ -24192,7 +26612,7 @@ var Phoenix;
             };
             ComposantMultiSelect.prototype.render = function ($parent) {
                 var that = this;
-                var opts = that._initOptions(_ui.Utils.defaultOptions);
+                var opts = that._initOptions(_uiutils.utils.defaultOptions);
                 if (!that.$element) {
                     that.$element = $(that._template(that.id));
                     var e = that.$element.get(0);
@@ -24219,21 +26639,21 @@ var Phoenix;
         _ui.registerControl(ComposantMultiSelect, "object", false, "multiselectlist", null);
     })(ui = Phoenix.ui || (Phoenix.ui = {}));
 })(Phoenix || (Phoenix = {}));
-/// <reference path="../../../typings/index.d.ts" />
 /// <reference path="../../js/core/core.ts" />
 /// <reference path="../filter-express/filter-express.control.ts" />
 var Phoenix;
 (function (Phoenix) {
     var ui;
     (function (ui) {
-        var _dom = Phoenix.dom, _ui = ui, _utils = Phoenix.utils, _locale = Phoenix.locale, _link = Phoenix.link;
+        var _dom = Phoenix.dom, _ui = ui, _utils = Phoenix.utils, _locale = Phoenix.locale, _uiutils = Phoenix.uiutils, _link = Phoenix.link;
         var ToolElement = (function () {
             function ToolElement(config, options) {
                 var that = this;
                 that.config = config || {};
                 that.options = options || {};
                 that.data = {
-                    value: config.value
+                    value: config.value,
+                    options: config.options
                 };
                 that.props = {};
                 that._defineProps();
@@ -24241,12 +26661,16 @@ var Phoenix;
             ToolElement.prototype._defineProps = function () {
                 var that = this, _dp = Phoenix.utils.defineProperty;
                 _dp("value", that);
+                _dp("options", that);
             };
             ToolElement.prototype._notifyChange = function (propertyName) {
                 var that = this;
                 switch (propertyName) {
                     case "value":
                         that.update();
+                        break;
+                    case "options":
+                        that.updateOptions();
                         break;
                 }
             };
@@ -24255,7 +26679,14 @@ var Phoenix;
             };
             ToolElement.prototype._setEvents = function () { };
             ToolElement.prototype.update = function () { };
+            ToolElement.prototype.updateOptions = function () {
+                var that = this;
+                that.options = $.extend(true, that.options, that.data.options);
+                that.updateRender();
+            };
+            ToolElement.prototype.updateRender = function () { };
             ToolElement.prototype.getValue = function () { };
+            ToolElement.prototype.getOptions = function () { };
             ToolElement.prototype.after = function () { };
             ToolElement.prototype.render = function ($parent) {
                 var that = this;
@@ -24513,16 +26944,23 @@ var Phoenix;
             function ToolElementFilterExpress(config, options) {
                 _super.call(this, config, options);
                 var that = this;
-                that.filterExpress = new _ui.FilterExpress(config.fields || [], function (filter) {
+                that.data.value = config.fields;
+                that.data.options = config.options;
+                that._init();
+            }
+            ToolElementFilterExpress.prototype._init = function () {
+                var that = this;
+                var options = that.data.options || {};
+                that.filterExpress = new _ui.FilterExpress(that.config.fields || [], function (filters) {
                     if (that.options.callback) {
-                        var lfilter = filter ? _ui.filter.format.toPhenix(config.fields, [filter]) : null;
+                        var lfilter = filters && filters.length ? _ui.filter.format.toPhenix(that.config.fields, filters) : null;
                         var ltitle = "";
                         if (lfilter)
-                            ltitle = that._format(config.fields, filter.code, filter.values[0]);
-                        that.options.callback({ id: config.id, name: config.name, type: config.type, value: { title: ltitle, value: lfilter }, toolData: config });
+                            ltitle = that._format(that.config.fields, filters);
+                        that.options.callback({ id: that.config.id, name: that.config.name, type: that.config.type, value: { title: ltitle, value: lfilter }, toolData: that.config });
                     }
-                }, config.options);
-            }
+                }, options);
+            };
             ToolElementFilterExpress.prototype.createElement = function (index, config, data) {
                 var css = [];
                 if (config.right)
@@ -24540,31 +26978,22 @@ var Phoenix;
                     _dom.append($parent.get(0), that.$element.get(0));
                 return that.$element;
             };
-            ToolElementFilterExpress.prototype._format = function (fields, code, value) {
-                var field = null;
-                fields.every(function (item) {
-                    if (item.code == code) {
-                        field = item;
-                        return false;
-                    }
-                    return true;
-                });
-                if (!field)
-                    return "";
-                if (field.enum) {
-                    var index_1 = -1;
-                    field.enumNames && field.enum.every(function (item, i) {
-                        if (item == value) {
-                            index_1 = i;
-                            return false;
-                        }
-                        return true;
-                    });
-                    if (index_1 >= 0)
-                        value = field.enumNames[index_1];
-                    return (field.lib || field.libelle) + " contient " + value;
-                }
-                return (field.lib || field.libelle) + " = " + value;
+            ToolElementFilterExpress.prototype.updateRender = function () {
+                var that = this;
+                _dom.empty(that.$element.get(0));
+                that._init();
+                if (that.filterExpress)
+                    that.filterExpress.render(that.$element);
+            };
+            ToolElementFilterExpress.prototype._format = function (fields, filters) {
+                return ui.filter.format.toTitle(filters, fields);
+            };
+            ToolElementFilterExpress.prototype.update = function () {
+                var that = this;
+                if (!that.$element)
+                    return;
+                that.config.fields = that.data.value || that.config.fields || [];
+                that.filterExpress.fields = that.data.value;
             };
             return ToolElementFilterExpress;
         }(ToolElement));
@@ -24636,11 +27065,24 @@ var Phoenix;
                 if (te)
                     te.props.value = value;
             };
-            ToolBar.prototype.getValue = function (name, value) {
+            ToolBar.prototype.getValue = function (name) {
                 var that = this;
                 var te = that.getToolElement(name);
                 if (te)
                     return te.getValue();
+                return;
+            };
+            ToolBar.prototype.setOptions = function (name, value) {
+                var that = this;
+                var te = that.getToolElement(name);
+                if (te)
+                    te.props.options = value;
+            };
+            ToolBar.prototype.getOptions = function (name) {
+                var that = this;
+                var te = that.getToolElement(name);
+                if (te)
+                    return te.getOptions();
                 return;
             };
             ToolBar.prototype._setEvents = function () {
@@ -24681,28 +27123,29 @@ var Phoenix;
                 toolElements.forEach(function (item, index) {
                     item.id = index;
                     var type = item.type;
+                    var options = $.extend(true, { callback: that.options.selectToolElement }, item.options || {});
                     switch (type.toLowerCase()) {
                         case "count":
-                            item.$component = new ToolElementCount(item, { callback: that.options.selectToolElement });
+                            item.$component = new ToolElementCount(item, options);
                             break;
                         case "filter":
-                            item.$component = new ToolElementFilter(item, { callback: that.options.selectToolElement });
+                            item.$component = new ToolElementFilter(item, options);
                             break;
                         case "search":
-                            item.$component = new ToolElementSearch(item, { callback: that.options.selectToolElement });
+                            item.$component = new ToolElementSearch(item, options);
                             break;
                         case "filterexpress":
-                            item.$component = new ToolElementFilterExpress(item, { callback: that.options.selectToolElement });
+                            item.$component = new ToolElementFilterExpress(item, options);
                             break;
                         case "dropdownaction":
-                            item.$component = new ToolElementDropdownAction(item, { callback: that.options.selectToolElement });
+                            item.$component = new ToolElementDropdownAction(item, options);
                             break;
                         case "select":
-                            item.$component = new ToolElementSelect(item, { callback: that.options.selectToolElement });
+                            item.$component = new ToolElementSelect(item, options);
                             break;
                         default:
                             item.style = item.style || item.type;
-                            item.$component = new ToolElementButton(item, { callback: that.options.selectToolElement });
+                            item.$component = new ToolElementButton(item, options);
                             break;
                     }
                     if (item.$component)
@@ -24739,6 +27182,18 @@ var Phoenix;
                 _super.call(this, fp, options, form);
                 this._state();
             }
+            ToolbarForm.prototype.getValue = function (name) {
+                return this._toolbar.getValue(name);
+            };
+            ToolbarForm.prototype.setValue = function (name, value) {
+                this._toolbar.setValue(name, value);
+            };
+            ToolbarForm.prototype.getOptions = function (name) {
+                return this._toolbar.getOptions(name);
+            };
+            ToolbarForm.prototype.setOptions = function (name, value) {
+                this._toolbar.setOptions(name, value);
+            };
             ToolbarForm.prototype.destroy = function () {
                 var that = this;
                 _super.prototype.destroy.call(this);
@@ -24754,17 +27209,17 @@ var Phoenix;
             };
             ToolbarForm.prototype.render = function ($parent) {
                 var that = this;
-                var opts = that._initOptions(_ui.Utils.defaultOptions);
+                var opts = that._initOptions(_uiutils.utils.defaultOptions);
                 if (!that.$element) {
                     that.$element = $(that._createContainer(that.id));
                     var toolElements = that.state.value._model.map(function (item) {
                         var e = { type: item.type, name: item.name, title: item.title };
-                        e = $.extend(true, e, item.data);
+                        e = $.extend(true, e, item.data, { options: item.options });
                         return e;
                     });
                     var toptions = { selectToolElement: that._onSelectToolElement.bind(that) };
-                    var tb = new _ui.ToolBar(toolElements, toptions);
-                    tb.render(that.$element);
+                    that._toolbar = new _ui.ToolBar(toolElements, toptions);
+                    that._toolbar.render(that.$element);
                 }
                 that.appendElement($parent, opts);
                 return that.$element;
