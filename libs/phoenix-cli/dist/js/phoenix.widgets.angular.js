@@ -530,14 +530,15 @@ var Phoenix;
         app.directive('widgetImageMenuItem', [function () {
                 return {
                     scope: {
-                        module: '='
+                        module: '=',
+                        authoring: '='
                     },
                     restrict: 'E',
                     replace: true,
                     compile: function (tElem, tAttrs) {
                         return {
                             pre: function (scope, element, attrs) {
-                                scope.component = new _ui.ImageMenuItem({}, $.extend(true, {}, scope.module.props.data.menu));
+                                scope.component = new _ui.ImageMenuItem({}, $.extend(true, { replaceParent: true, authoring: scope.authoring }, scope.module.props.data.menu));
                                 scope.component.module = scope.module;
                                 scope.component.render(element);
                                 scope.$on("$destroy", function () {

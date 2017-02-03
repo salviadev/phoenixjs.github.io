@@ -4,7 +4,7 @@ if (angular)
 var Phoenix;
 (function (Phoenix) {
     if (angular) {
-        var _utils = Phoenix.utils, _application = Phoenix.application, _ui = Phoenix.ui, _ajax = Phoenix.ajax, _link = Phoenix.link, _locale = Phoenix.locale, _serial = Phoenix.serial;
+        var _p = Phoenix, _utils_1 = _p.utils, _data_1 = _p.data, _application_1 = _p.application, _build_1 = _p.build, _ui_1 = _p.ui, _ajax_1 = _p.ajax, _link_1 = _p.link, _locale_1 = _p.locale, _serial_1 = _p.serial;
         var app = angular.module("phoenix.ui");
         function extractMessage(reason) {
             if (typeof reason === 'string')
@@ -16,18 +16,25 @@ var Phoenix;
         }
         function setComponentHandlers(scope) {
             scope.component.saveHandler = function (cd) {
-                var cfg = _application.config(_application.name);
-                if (cfg && cfg.current && cfg.current.pages && cfg.current.forms) {
-                    _ajax.put((scope.isform ? cfg.current.forms : cfg.current.pages) + '/' + cd.name, cd).then(function (ldata) {
+                var cfg = _application_1.config(_application_1.name);
+                var isCustomizable = _application_1.isCustomizable(scope.isform ? 'forms' : 'pages', cd.name);
+                if (cfg) {
+                    var rft = isCustomizable ? cfg.dev : cfg.current;
+                    if (!rft)
+                        return;
+                    var sn = scope.isform ? rft.forms : rft.pages;
+                    if (!sn)
+                        return;
+                    _data_1.rest.put(sn + '/' + cd.name, cd).then(function (ldata) {
                     }, function (reason) {
                         alert(extractMessage(reason));
                     });
                 }
             };
             scope.component.loadNestedHandler = function (data, after) {
-                var cfg = _application.config(_application.name);
+                var cfg = _application_1.config(_application_1.name);
                 if (cfg && cfg.current && cfg.current.pages && cfg.current.forms) {
-                    _ajax.post((scope.isform ? cfg.current.forms : cfg.current.pages) + '/load/nested', data).then(function (ldata) {
+                    _ajax_1.post((scope.isform ? cfg.current.forms : cfg.current.pages) + '/load/nested', data).then(function (ldata) {
                         if (after)
                             after(ldata);
                     }, function (reason) {
@@ -36,55 +43,67 @@ var Phoenix;
                 }
             };
             scope.component.createHandler = function (name, cd) {
-                var cfg = _application.config(_application.name);
+                var cfg = _application_1.config(_application_1.name);
                 if (cfg && cfg.current && cfg.current.pages && cfg.current.forms) {
                     cd.name = name;
                     var callBackSuccess = function (data) {
-                        var ctx = _link.context();
+                        var ctx = _link_1.context();
                         var cl = { $page: data.name, $authoring: true };
-                        _link.execLink(cl, ctx, null);
+                        _link_1.execLink(cl, ctx, null);
                     }, callBackError = function (reason) {
                         if (reason == "Conflict") {
-                            _utils.prompt(_locale.layouts.design.ConflictedPageName, cd.name, function (decision) {
+                            _utils_1.prompt(_locale_1.layouts.design.ConflictedPageName, cd.name, function (decision) {
                                 if (!decision)
                                     return;
                                 decision = decision.trim();
                                 if (!decision)
                                     return;
                                 if (decision.indexOf(' ') >= 0) {
-                                    alert(_locale.layouts.design.InvalidPageName);
+                                    alert(_locale_1.layouts.design.InvalidPageName);
                                     return;
                                 }
                                 cd.name = decision;
-                                _ajax.post((scope.isform ? cfg.current.forms : cfg.current.pages) + '/' + cd.name, cd).then(callBackSuccess, callBackError);
+                                _ajax_1.post((scope.isform ? cfg.current.forms : cfg.current.pages) + '/' + cd.name, cd).then(callBackSuccess, callBackError);
                             });
                         }
                         else
                             alert(extractMessage(reason));
                     };
-                    _ajax.post((scope.isform ? cfg.current.forms : cfg.current.pages) + '/' + cd.name, cd).then(callBackSuccess, callBackError);
+                    _ajax_1.post((scope.isform ? cfg.current.forms : cfg.current.pages) + '/' + cd.name, cd).then(callBackSuccess, callBackError);
                 }
             };
             scope.component.openHandler = function (name) {
-                var ctx = _link.context(), ll = { $page: name, $authoring: true };
-                _link.execLink(ll, ctx, null);
+                var ctx = _link_1.context(), ll = { $page: name, $authoring: true };
+                _link_1.execLink(ll, ctx, null);
             };
             scope.component.removeHandler = function (name) {
-                var cfg = _application.config(_application.name);
-                if (cfg && cfg.current && cfg.current.pages && cfg.current.forms) {
-                    _ajax.remove((scope.isform ? cfg.current.forms : cfg.current.pages) + '/' + name).then(function (ldata) {
-                        var ctx = _link.context();
-                        var ll = { $page: "home" };
-                        _link.execLink(ll, ctx, null);
+                var cfg = _application_1.config(_application_1.name);
+                var isCustomizable = _application_1.isCustomizable(scope.isform ? 'forms' : 'pages', name);
+                if (cfg) {
+                    var rft = isCustomizable ? cfg.dev : cfg.current;
+                    if (!rft)
+                        return;
+                    var sn = scope.isform ? rft.forms : rft.pages;
+                    if (!sn)
+                        return;
+                    _data_1.rest.remove(sn + '/' + name).then(function (ldata) {
+                        if (_build_1.release) {
+                            window.location.reload(true);
+                        }
+                        else {
+                            var ctx = _link_1.context();
+                            var ll = { $page: "home" };
+                            _link_1.execLink(ll, ctx, null);
+                        }
                     }, function (reason) {
                         alert(extractMessage(reason));
                     });
                 }
             };
             scope.component.listHandler = function (after) {
-                var cfg = _application.config(_application.name);
+                var cfg = _application_1.config(_application_1.name);
                 if (cfg && cfg.current && cfg.current.pages && cfg.current.forms) {
-                    _ajax.get((scope.isform ? cfg.current.forms : cfg.current.pages)).then(function (ldata) {
+                    _ajax_1.get((scope.isform ? cfg.current.forms : cfg.current.pages)).then(function (ldata) {
                         after(ldata);
                     }, function (reason) {
                         alert(extractMessage(reason));
@@ -112,7 +131,7 @@ var Phoenix;
                     link: function (scope, element, attrs) {
                         var newScope = scope.$new();
                         scope.$on("$destroy", function () {
-                            _utils.log('destroy layout', 'scope');
+                            _utils_1.log('destroy layout', 'scope');
                             scope.component.destroy();
                             scope.component = null;
                         });
@@ -123,16 +142,16 @@ var Phoenix;
                             replaceParent: true,
                             context: "angular",
                             beforeAdd: function (el, refresh) {
-                                _utils.log('compile layout', 'scope');
+                                _utils_1.log('compile layout', 'scope');
                                 $compile(el)(newScope);
                                 if (refresh) {
-                                    _serial.GlbSerial.execute(function () {
+                                    _serial_1.GlbSerial.execute(function () {
                                         scope.$digest();
                                     });
                                 }
                             },
                             beforeRemove: function (el) {
-                                _utils.log('remove layout', 'scope');
+                                _utils_1.log('remove layout', 'scope');
                                 newScope.component = null;
                                 newScope.layout = null;
                                 newScope.$destroy();
@@ -140,13 +159,13 @@ var Phoenix;
                             }
                         };
                         if (scope.isform) {
-                            _ui.OpenForm(element, scope.layout.model, scope.layout.prototype, {}, scope.layout.locale && scope.layout.locale.$view ? scope.layout.locale.$view : scope.layout.locale, null, options, function (form) {
+                            _ui_1.OpenForm(element, scope.layout.model, scope.layout.prototype, {}, scope.layout.locale && scope.layout.locale.$view ? scope.layout.locale.$view : scope.layout.locale, null, options, function (form) {
                                 scope.component = form;
                                 setComponentHandlers(scope);
                             });
                         }
                         else {
-                            scope.component = new _ui.LayoutClass(scope.layout.model || {}, options, {}, scope.layout.prototype, scope.layout.locale && scope.layout.locale.$view ? scope.layout.locale.$view : scope.layout.locale, null);
+                            scope.component = new _ui_1.LayoutClass(scope.layout.model || {}, options, {}, scope.layout.prototype, scope.layout.locale && scope.layout.locale.$view ? scope.layout.locale.$view : scope.layout.locale, null);
                             setComponentHandlers(scope);
                             scope.component.render(element);
                         }
@@ -229,14 +248,19 @@ var Phoenix;
 var Phoenix;
 (function (Phoenix) {
     if (angular) {
-        var _p_1 = Phoenix;
+        var _p_1 = Phoenix, _utils_1 = _p_1.utils;
         var app = angular.module("phoenix.ui");
         app.controller('uiAuthoringController', ["$scope", function ($scope) { }]);
         app.directive('authoring', [function () {
                 return {
                     scope: {
-                        config: '=',
-                        isform: '='
+                        toolbox: '=',
+                        isform: '=',
+                        model: '=',
+                        authoring: '=',
+                        locale: '=',
+                        prototype: '=',
+                        path: '='
                     },
                     bindToController: true,
                     restrict: 'E',
@@ -247,16 +271,20 @@ var Phoenix;
                         var _authoring = _p_1.authoring;
                         if (!_authoring)
                             return;
+                        scope.isform = scope.item.isform ? true : false;
                         scope.component = new _authoring.AuthoringEditor({
                             form: !!scope.isform,
                             design: true,
                             replaceParent: true,
                             context: "angular"
-                        }, scope.item.config);
+                        }, scope.item.toolbox);
                         scope.component.render(element);
                         scope.$on("$destroy", function () {
-                            if (scope.component)
+                            if (scope.component) {
+                                _utils_1.log('destroy authoring', 'scope');
                                 scope.component.destroy();
+                                scope.component = null;
+                            }
                         });
                     }
                 };

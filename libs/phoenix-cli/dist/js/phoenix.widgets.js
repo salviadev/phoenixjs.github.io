@@ -1506,7 +1506,7 @@ var Phoenix;
                 var that = this;
                 that._config = that.emptyConf;
                 that._data.boxes.forEach(function (box) {
-                    that._config.yAxis.categories.push(box.title);
+                    that._config.yAxis.categories.unshift(box.title);
                 });
                 that._config.yAxis.max = that._data.boxes.length - 1;
                 that._config.yAxis.labels.y = -(that._data.rows.length * PlanningChart.HEIGHT_FIX_ROW + PlanningChart.HEIGHT_FIX_BOX / 2 - PlanningChart.BOX_TITLE_PX) / 2;

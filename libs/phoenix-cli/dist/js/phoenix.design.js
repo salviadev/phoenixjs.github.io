@@ -2,7 +2,7 @@ var Phoenix;
 (function (Phoenix) {
     var ui;
     (function (ui) {
-        var _dom = Phoenix.dom, _ui = ui, _ipc = Phoenix.ipc, _link = Phoenix.link, _drag = Phoenix.drag, _utils = Phoenix.utils, _layoutUtils = Phoenix.LayoutUtils;
+        var _dom = Phoenix.dom, _ui = ui, _ipc = Phoenix.ipc, _link = Phoenix.link, _drag = Phoenix.drag, _utils = Phoenix.utils, _layoutUtils = Phoenix.layoutUtils;
         var _event2Id = function (event, root, layout) {
             var t = event.target, id = null, level, ll;
             while (t) {
@@ -768,7 +768,7 @@ var Phoenix;
 (function (Phoenix) {
     var authpropedit;
     (function (authpropedit) {
-        var _p = Phoenix, _utils = _p.utils, _ipc = _p.ipc, _ui = _p.ui, _lu = _p.LayoutUtils, _dom = _p.dom;
+        var _p = Phoenix, _utils = _p.utils, _ipc = _p.ipc, _locale = _p.locale, _ui = _p.ui, _lu = _p.layoutUtils, _dom = _p.dom;
         var PropertyEditor = (function () {
             function PropertyEditor(options) {
                 this.$element = null;
@@ -854,6 +854,12 @@ var Phoenix;
                     changed = true;
                 o.$refProperty = model.subPathSchema;
                 if (!changed && (layout.$refProperty || '') !== (model.subPathSchema || ''))
+                    changed = true;
+                o.$forceTable = model.forceTable;
+                if (!changed && (layout.$forceTable || false) !== (model.forceTable || false))
+                    changed = true;
+                o.$name = model.name;
+                if (!changed && (layout.$name || '') !== (model.name || ''))
                     changed = true;
                 if (tv === _lu.LAYOUT_BLOCK) {
                     o.$sticky = model.sticky;
@@ -980,7 +986,7 @@ var Phoenix;
                 return {
                     links: {
                         apply: {
-                            title: "Apply"
+                            title: _locale.layouts.design.actionApply
                         }
                     },
                     properties: {
@@ -1003,7 +1009,7 @@ var Phoenix;
                     $items: [
                         {
                             $type: _lu.LAYOUT_BLOCK,
-                            $title: { value: "Properties" },
+                            $title: { value: _locale.layouts.design.properties },
                             $items: [
                                 { $bind: "options", options: { rows: 5 } }
                             ]
@@ -1033,20 +1039,28 @@ var Phoenix;
                 return {
                     links: {
                         apply: {
-                            title: "Apply"
+                            title: _locale.layouts.design.actionApply
                         }
                     },
                     properties: {
                         typeLayout: {
                             type: "string"
                         },
+                        forceTable: {
+                            title: _locale.layouts.design.forceDisplayTable,
+                            type: "boolean"
+                        },
+                        name: {
+                            title: _locale.layouts.design.name,
+                            type: "string"
+                        },
                         showTitle: {
-                            title: "Show title",
+                            title: _locale.layouts.design.showTitle,
                             type: "boolean"
                         },
                         title: {
                             type: "string",
-                            title: "Title"
+                            title: _locale.layouts.design.Title,
                         },
                         titleSize: {
                             type: "number",
@@ -1060,66 +1074,66 @@ var Phoenix;
                         },
                         childrenFlow: {
                             type: "string",
-                            title: "Children disposition",
+                            title: _locale.layouts.design.childrenFlow,
                             enum: [_lu.LAYOUT_BLOCK, _lu.LAYOUT_ROW, _lu.LAYOUT_ACCORDION],
-                            enumNames: ["Vertical Flow", "Table cell", "Accordion Group"],
+                            enumNames: [_locale.layouts.design.childrenFlowVertical, _locale.layouts.design.childrenTableCell, _locale.layouts.design.childrenAccordionGroup],
                             filters: {
-                                blockrow: [_lu.LAYOUT_BLOCK, "row"],
+                                blockrow: [_lu.LAYOUT_BLOCK, _lu.LAYOUT_ROW],
                                 onlyblock: [_lu.LAYOUT_BLOCK],
                                 accordion: [_lu.LAYOUT_ACCORDION]
                             }
                         },
                         format: {
                             type: "string",
-                            title: "Appearance",
+                            title: _locale.layouts.design.appearance,
                             enum: [_lu.LAYOUT_ACCORDION, 'tabs'],
-                            enumNames: ["Accordion", "Tabs"]
+                            enumNames: [_locale.layouts.design.appearanceAccordion, _locale.layouts.design.appearanceTabs]
                         },
                         subLayoutName: {
                             type: "string",
-                            title: "Nested Layout Name",
+                            title: _locale.layouts.design.nestedLayoutName
                         },
                         subPathSchema: {
                             type: "string",
-                            title: "Bind for nested layout",
-                        },
-                        style: {
-                            type: "string",
-                            title: "Custom style",
+                            title: _locale.layouts.design.nestedLayoutBind
                         },
                         subController: {
                             type: "string",
-                            title: "Controller for nested form",
+                            title: _locale.layouts.design.nestedFormController
+                        },
+                        style: {
+                            type: "string",
+                            title: _locale.layouts.design.customStyle
                         },
                         colSize: {
                             type: "number",
-                            title: "Size",
+                            title: _locale.layouts.design.columnSize,
                             enum: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
                             enumNames: ["08.33%", "16.67%", "25.00%", "33.33%", "41.37%", "50.00%", "58.33%", "66.67%", "75.00%", "83.33%", "91.33%", "100.00%"]
                         },
                         customSize: {
                             type: "string",
-                            title: "Custom size"
+                            title: _locale.layouts.design.customColumnSize
                         },
                         formType: {
-                            title: "Form Type",
+                            title: _locale.layouts.design.formType,
                             enum: [_lu.LAYOUT_BLOCK, "horizontal", "inline"],
-                            enumNames: ["Vertical Form", "Horizontal Form", "Inline form"],
+                            enumNames: [_locale.layouts.design.ftVertical, _locale.layouts.design.ftHorizontal, _locale.layouts.design.ftInline],
                             type: "string"
                         },
                         labelCol: {
-                            title: "Label width (Bootstrap cols)",
+                            title: _locale.layouts.design.labelSize,
                             enum: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
                             type: "number"
                         },
                         sticky: {
-                            title: "Position",
+                            title: _locale.layouts.design.blockPosition,
                             type: "string",
                             enum: ['', 'top', 'bottom'],
-                            enumNames: ["Static", "Sticky Top", "Sticky Bottom"],
+                            enumNames: [_locale.layouts.design.bpStatic, _locale.layouts.design.bpStickyTop, _locale.layouts.design.bpStickyBottom],
                         },
                         titleIsHidden: {
-                            title: "No titles",
+                            title: _locale.layouts.design.noTitlesForFields,
                             type: "boolean"
                         }
                     }
@@ -1160,6 +1174,7 @@ var Phoenix;
                 return {
                     typeLayout: cv,
                     showTitle: showTitle,
+                    name: layout.$name,
                     title: layout.$title && layout.$title.value ? layout.$title.value : '',
                     titleSize: layout.$title && layout.$title.size ? layout.$title.size : 4,
                     titleStyle: layout.$title && layout.$title.style ? layout.$title.style : '',
@@ -1170,6 +1185,7 @@ var Phoenix;
                     format: format,
                     subLayoutName: layout.$ref,
                     subPathSchema: layout.$refProperty,
+                    forceTable: layout.$forceTable,
                     subController: layout.$refController,
                     style: layout.$style,
                     labelCol: (layout.$fieldsOptions && layout.$fieldsOptions.labelCol ? layout.$fieldsOptions.labelCol : 3),
@@ -1213,6 +1229,9 @@ var Phoenix;
                         subLayoutName: {
                             isHidden: !refVisible
                         },
+                        forceTable: {
+                            isHidden: cv !== _lu.LAYOUT_ROW
+                        },
                         subPathSchema: {
                             isHidden: !refVisible || !that.options.form
                         },
@@ -1251,9 +1270,11 @@ var Phoenix;
                         },
                         {
                             $type: _lu.LAYOUT_BLOCK,
-                            $title: { value: "Properties" },
+                            $title: { value: _locale.layouts.design.properties },
                             $items: [
+                                { $bind: "name" },
                                 { $bind: "childrenFlow" },
+                                { $bind: "forceTable" },
                                 { $bind: "format" },
                                 { $bind: "sticky" },
                                 { $bind: "subLayoutName" },
@@ -1267,7 +1288,7 @@ var Phoenix;
                         {
                             $type: _lu.LAYOUT_BLOCK,
                             $bindState: "formType",
-                            $title: { value: "Children (Fields)" },
+                            $title: { value: _locale.layouts.design.fieldsTitle },
                             $items: [
                                 { $bind: "formType" },
                                 { $bind: "labelCol" },
@@ -1334,6 +1355,11 @@ var Phoenix;
                                         that._sendLayout(model);
                                     else
                                         activateApply = true;
+                                    break;
+                                case "forceTable":
+                                    if (!model.validate())
+                                        return;
+                                    that._sendLayout(model);
                                     break;
                                 default:
                                     activateApply = true;
@@ -1419,7 +1445,7 @@ var Phoenix;
 //# sourceMappingURL=propeditor.control.js.map
 var Phoenix;
 (function (Phoenix) {
-    var _p = Phoenix, _utils = _p.utils, _ipc = _p.ipc, _drag = _p.drag, _dom = _p.dom, _ui = _p.ui, _locale = _p.locale, _pagecontrol = _p.pagecontrol, _ulocale = _p.ulocale;
+    var _p = Phoenix, _utils = _p.utils, _ipc = _p.ipc, _build = _p.build, _drag = _p.drag, _dom = _p.dom, _ui = _p.ui, _locale = _p.locale, _pagecontrol = _p.pagecontrol, _ulocale = _p.ulocale;
     var authtoolbar;
     (function (authtoolbar) {
         var _html = function (id, options) {
@@ -1443,17 +1469,20 @@ var Phoenix;
                 html.push('<div class="collapse navbar-collapse">');
                 html.push('<form class="navbar-form navbar-left" role="search">');
             }
-            html.push('<button type="button" class="btn btn-' + _dom.bootstrapStyles().secondary + (options.form ? ' bs-none' : '') + '" id="' + id + '_new">');
+            html.push('<button type="button" class="btn btn-' + _dom.bootstrapStyles().secondary + (_build.release || options.form ? ' bs-none' : '') + '" id="' + id + '_new">');
             html.push('<span class="' + _dom.iconClass('plus') + '" aria-hidden="false"></span> ');
             html.push(_locale.layouts.design.New);
             html.push('</button>&nbsp;');
-            html.push('<button type="button" class="btn btn-' + _dom.bootstrapStyles().secondary + (options.form ? ' bs-none' : '') + '" id="' + id + '_open">');
+            html.push('<button type="button" class="btn btn-' + _dom.bootstrapStyles().secondary + (_build.release || options.form ? ' bs-none' : '') + '" id="' + id + '_open">');
             html.push('<span class="' + _dom.iconClass('file-o') + '" aria-hidden="false"></span> ');
             html.push(_locale.layouts.design.Open.title);
             html.push('</button>&nbsp;');
             html.push('<button type="button" class="btn btn-' + _dom.bootstrapStyles().secondary + (options.form ? ' bs-none' : '') + '" id="' + id + '_remove">');
             html.push('<span class="' + _dom.iconClass('times') + '" aria-hidden="false"></span> ');
-            html.push(_locale.layouts.design.Delete);
+            if (_build.release)
+                html.push(_locale.layouts.design.DeletePreferences);
+            else
+                html.push(_locale.layouts.design.Delete);
             html.push('</button>&nbsp;');
             html.push('<button type="button" class="btn btn-' + _dom.bootstrapStyles().secondary + '" id="' + id + '_save">');
             html.push('<span class="' + _dom.iconClass('floppy') + '" aria-hidden="false"></span> ');
@@ -1505,7 +1534,7 @@ var Phoenix;
                             break;
                         case that.$id + '_remove':
                             stopEvent = true;
-                            _utils.confirm('', _locale.layouts.design.ConfirmDelete, function () {
+                            _utils.confirm('', _build.release ? _locale.layouts.design.ConfirmDeletePrefs : _locale.layouts.design.ConfirmDelete, function () {
                                 _ipc.emit('RemoveLayout', null);
                             });
                             break;
@@ -1965,17 +1994,42 @@ var Phoenix;
             }
             AuthoringEditor.prototype.render = function ($parent) {
                 var that = this;
+                var noAppend = false;
                 if (!that.$element) {
-                    that.$element = $(_html(that.id, that.options));
+                    var p = $parent.get(0).parentNode;
+                    var tp = Phoenix.dom.find(p, 'toolbox_parent');
+                    if (tp) {
+                        noAppend = true;
+                        that.$element = $(p);
+                        tp.id = 'toolbox_parent_' + that.id;
+                        var ce = _dom.find(p, 'editor');
+                        if (ce)
+                            ce.id = 'editor_' + that.id;
+                        ce = _dom.find(p, 'nav');
+                        if (ce)
+                            ce.id = 'nav_' + that.id;
+                        ce = _dom.find(p, 'toolbox');
+                        if (ce)
+                            ce.id = 'toolbox_' + that.id;
+                    }
+                    else {
+                        that.$element = $(_html(that.id, that.options));
+                    }
                     var e = that.$element.get(0);
                     if (that.options.beforeAdd)
                         that.options.beforeAdd(that.$element);
-                    that._pe.render($(_dom.find(e, 'editor_' + that.id)));
-                    that._toolBar.render($(_dom.find(e, 'nav_' + that.id)));
-                    that._toolBox.render($(_dom.find(e, 'toolbox_' + that.id)));
+                    var cc = _dom.find(e, 'editor_' + that.id);
+                    if (cc)
+                        that._pe.render($(cc));
+                    cc = _dom.find(e, 'nav_' + that.id);
+                    if (cc)
+                        that._toolBar.render($(cc));
+                    cc = _dom.find(e, 'toolbox_' + that.id);
+                    if (cc)
+                        that._toolBox.render($(cc));
                     that.setDesignMode(that.options.design);
                 }
-                if ($parent) {
+                if ($parent && !noAppend) {
                     if (that.options.replaceParent)
                         $parent.replaceWith(that.$element);
                     else
