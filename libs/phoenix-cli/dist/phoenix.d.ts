@@ -1,6 +1,6 @@
 /// <reference types="es6-promise" />
-/// <reference types="angular" />
 /// <reference types="jquery" />
+/// <reference types="angular" />
 declare namespace Phoenix {
     module utils {
         var Promise: any;
@@ -18,6 +18,8 @@ declare namespace Phoenix {
         var isNull: (value: any) => boolean;
         var isUndefined: (value: any) => boolean;
         var isNullOrUndefined: (value: any) => boolean;
+        var logRule: (spaces: number, rule: any, trigger: string) => void;
+        var showRules: (value?: boolean) => boolean;
         var escapeHtml: (value: string) => string;
         var phoenixPath: () => string;
         var parseExpression: (expression: string, context: Object) => string;
@@ -27,8 +29,8 @@ declare namespace Phoenix {
         var applyMixins: (derivedCtor: any, baseCtors: any[]) => void;
         var nextTick: any;
         var focusDelay: (fn: any) => void;
-        var dataAsPromise: (ldata: any) => Promise<any>;
-        var extractAngularVars: (expression: string, map: any[]) => string;
+        var dataAsPromise: (localData: any) => Promise<any>;
+        var extractAngularVars: (expression: string, map: any[]) => boolean;
         var execAngularExpression: (expression: string, context: any, noExpand?: boolean) => string;
         var confirm: (title: any, message: any, success: any, cancel?: any) => void;
         var alert: (title: any, message: any, success: any) => void;
@@ -48,6 +50,8 @@ declare namespace Phoenix {
         var formOpenHandler: Function;
         var preferenceLoadHandler: (name: string) => Promise<any>;
         var preferenceSaveHandler: (name: string, data: any) => Promise<void>;
+        var ruleLoaderHandler: (names: string[]) => Promise<any>;
+        var ruleViewer: (rules: any[]) => void;
     }
     module history {
         var removeLast: () => void;
@@ -148,7 +152,7 @@ declare namespace Phoenix {
 declare namespace Phoenix {
     module ajax {
         var extractAjaxErrors: (ex: any) => any;
-        var get: (lurl: string, options?: any, ondata?: any) => any;
+        var get: (lurl: string, options?: any, ondata?: any) => Promise<any>;
         var getScript: (lurl: any) => any;
         var getDefaultAjaxOptions: () => any;
         var put: (lurl: any, data: any, options?: any) => any;
@@ -476,14 +480,14 @@ declare namespace Phoenix {
 declare namespace Phoenix {
     module data {
         var menu: {
-            get: (menu: any, localization: any, appName: any) => any;
+            get: (menu: any, localization: any, appName: any) => Promise<any>;
         };
     }
 }
 declare namespace Phoenix {
     module data {
         var schema: {
-            get: (schema: string, localization: boolean, appName: string) => any;
+            get: (schema: string, localization: boolean, appName: string) => Promise<any>;
         };
     }
 }
@@ -501,7 +505,7 @@ declare namespace Phoenix {
 declare namespace Phoenix {
     module data {
         var local: {
-            getRessources: (params: any, ondata: any) => any;
+            getRessources: (params: any, ondata: any) => Promise<any>;
         };
     }
 }
@@ -513,7 +517,7 @@ declare namespace Phoenix {
                 doPost: (lurl: any, data: any, options?: any) => any;
                 doPut: (lurl: any, data: any, options?: any) => any;
                 doDelete: (lurl: any, options?: any) => any;
-                doGet: (lurl: string, options?: any, ondata?: any, params?: any) => any;
+                doGet: (lurl: string, options?: any, ondata?: any, params?: any) => Promise<any>;
                 doPatch: (lurl: any, data: any, options?: any) => any;
             };
             afterLogout: () => void;
@@ -737,7 +741,7 @@ declare namespace Phoenix {
             contentRender: any;
             links: any;
             $local: any;
-            constructor(ldata: any, options: any, layout: any);
+            constructor(localData: any, options: any, layout: any);
             ds_init(config: any): boolean;
             ds_storeLastEvent(event: any, value: any): void;
             ds_LastEvent(): any;
@@ -947,12 +951,12 @@ declare namespace Phoenix {
 }
 declare namespace Phoenix {
     module layoutUtils {
-        const LAYOUT_BLOCK: string;
-        const LAYOUT_ROW: string;
-        const LAYOUT_COLUMN: string;
-        const LAYOUT_HTML: string;
-        const LAYOUT_ACCORDION: string;
-        const LAYOUT_ACCORDION_GROUP: string;
+        const LAYOUT_BLOCK = "block";
+        const LAYOUT_ROW = "row";
+        const LAYOUT_COLUMN = "column";
+        const LAYOUT_HTML = "html";
+        const LAYOUT_ACCORDION = "accordion";
+        const LAYOUT_ACCORDION_GROUP = "accordion-group";
         var check: (layout: any, parentLayout: any, map: any, mapFields: any, namedMap: any, namedFieldMap: any) => void;
         var layoutVisible: (layout: any) => any;
         var clearMeta: (layout: any, clearIds: any) => void;
@@ -965,6 +969,7 @@ declare namespace Phoenix {
         var canSelect: (layout: any, level: any) => boolean;
         var updateCssClass: (e: any, layout: any, parent: any, options: any) => void;
         var toHtml: (layout: any, model: any, llocale: any, options: any, cb: any) => string;
+        var updateLayoutTitle: (titleElement: HTMLElement, layout: any, formData: any, llocale: any) => void;
     }
 }
 declare namespace Phoenix {
@@ -1006,14 +1011,18 @@ declare namespace Phoenix {
             _addBaseEvents(): void;
             _onSelectedChanged(element: any, data: any, notify: any): void;
             _showSelected($element: any, layout: any): void;
-            _setAccordionEvents(): void;
+            private _setAccordionEvents();
+            protected _activatePageLayout(item: any): void;
+            activatePage(name: string): void;
+            private _openTab(id);
             _doDatasetEventAfterEnabled(child: any): void;
-            _activateLayout(layout: any, value: any): void;
+            protected _activateLayout(layout: any, value: boolean): void;
             _removeAccordionEvents(): void;
             toString(layout: any): any;
             emit(eventName: any, value: any, filter: any): void;
             protected openErrors(): void;
-            _renderLayout(layout: any): JQuery;
+            protected _getFormLData(): any;
+            protected _renderLayout(layout: any): JQuery;
             protected afterRenderChildren($e: any): void;
             isChildOf(child: any, layout: any): boolean;
             _isChildVisibleOf(child: any, layout: any): boolean;
@@ -1048,6 +1057,7 @@ declare namespace Phoenix {
             getLayoutById(id: any): any;
             getLayoutElementByName(name: string): HTMLElement;
             getLayoutByName(name: string): any;
+            getLayoutsByName(name: string): any[];
             scrollTo(name: string): void;
             getNamedLayouts(): {
                 name: string;
@@ -1060,7 +1070,7 @@ declare namespace Phoenix {
             _blockToCols(layout: any): void;
             _changeType(layout: any, newtype: any): void;
             updateIsHidden(layout: any, isHidden: any): void;
-            updateLayout(id: any, data: any): void;
+            updateLayout(id: string, data: any): void;
         }
         class PageLayout extends BaseLayout implements DatasetPlugin.DatasetMethods {
             _lastEvent: any;
@@ -1098,10 +1108,10 @@ declare namespace Phoenix {
 }
 declare namespace Phoenix {
     module autoclose {
-        const SCREEN_CENTER: string;
-        const SCREEN_TOP_CENTER: string;
-        const BOTTOM_LEFT: string;
-        const BOTTOM_RIGHT: string;
+        const SCREEN_CENTER = "screencenter";
+        const SCREEN_TOP_CENTER = "screentopcenter";
+        const BOTTOM_LEFT = "bottom-left";
+        const BOTTOM_RIGHT = "bottom-right";
         function open(align: string, options: {
             width?: string;
             height?: string;
@@ -1118,14 +1128,15 @@ declare namespace Phoenix {
 }
 declare namespace Phoenix {
     module Observable {
-        const INDEX_FIELD_NAME: string;
-        const SELECTED_FIELD_NAME: string;
-        const EXPANDED_FIELD_NAME: string;
+        const INDEX_FIELD_NAME = "$index";
+        const SELECTED_FIELD_NAME = "$select";
+        const EXPANDED_FIELD_NAME = "$expand";
         var SchemaUtils: {
             RATE_DECIMALS: number;
             RATE_MAXIMUM: number;
             RATE_SYMBOL: string;
             expandSchema$Ref: (schema: any) => void;
+            path2RulePath: (propName: string) => string;
             _getDefault: (value: any) => any;
             checkLookup: (lookup: any) => any;
             schema2Authoring: (schema: any, rootSchema: any, locale: any) => any[];
@@ -1157,6 +1168,7 @@ declare namespace Phoenix {
             }, ondata?: Function) => any;
             remoteSearch: (localSearch: string, lookup: any) => string;
             lastSegment: (bind: string, display: string) => string;
+            hasProperty(propertyName: string, schema: any, rootSchema: any): boolean;
             findFirst: (value: string, searchField: any, ldata: any[]) => {
                 item: any;
                 index: number;
@@ -1179,7 +1191,7 @@ declare namespace Phoenix {
             _internalFillEnums: (schema: any, rootSchema: any, enums: any, names: any) => void;
             loadEnums(schema: any): any[];
             arrayProps: string[];
-            init: (schema: any, rootSchema: any, context: any, value: any) => any;
+            init: (schema: any, rootSchema: any, context: any, value: any, iCreate: boolean) => any;
             isCompositionRef: (prop: any, rootSchema: any) => boolean;
             isRef: (prop: any, rootSchema: any) => any;
             isList: (prop: any, rootSchema: any) => any;
@@ -1210,6 +1222,7 @@ declare namespace Phoenix {
             isNumber: (schema: any) => boolean;
             isText: (schema: any) => boolean;
             isMoney: (schema: any) => boolean;
+            hasSymbol: (schema: any) => any;
             text2Value: (textValue: any, schema: any, state: any) => any;
             value2Text: (value: any, schema: any, state: any) => any;
             expand$Ref: (cs: any, rootSchema: any) => any;
@@ -1220,13 +1233,13 @@ declare namespace Phoenix {
             getEnumManager: (name: any) => any;
         };
         var DataUtils: {
-            extractDatasets: (config: any) => any[];
+            extractDatasets: (config: any, onlyAutoOpen: boolean) => any[];
             isQuery: (ds: any) => boolean;
             isCreateOrUpdate: (ds: any) => any;
             extractMainDataSource: (config: any) => any;
             datasetsAsPromise: (ds: any[], transform: any) => any;
             datasetAsPromise: (ds: any, ldata?: any) => any;
-            loadMainData: (config: any) => any;
+            loadMainData: (config: any, onlyAutoOpen: boolean) => any;
             dsConfig: (datasets: any, prop: any, isQuery: boolean) => any;
         };
     }
@@ -1254,21 +1267,20 @@ declare namespace Phoenix {
     module Observable {
         class Errors {
             private _errors;
-            private nostore;
             name: string;
             parent: any;
-            constructor(parent: any, prop: any, value: any, nostore: any);
+            constructor(parent: any, prop: string, value: any[]);
             destroy(): void;
             errors(): any[];
             clear(notify: boolean): boolean;
             hasErrors(): boolean;
             rmvError(message: string): void;
-            addErrors(errors: any, add?: boolean): void;
-            addError(message: string, add?: boolean): void;
-            addSuccess(message: string, add?: boolean): void;
+            addErrors(errors: any[]): void;
+            addError(message: string): void;
+            addSuccess(message: string): void;
             addWarning(message: string, add?: boolean): void;
             private notify();
-            private _init(parent, prop, value, nostore);
+            private _init(parent, prop, value);
         }
         var errorsUtils: {
             errorChanged: (oldErrors: any, newErrors: any) => boolean;
@@ -1311,6 +1323,18 @@ declare namespace Phoenix {
     }
 }
 declare namespace Phoenix {
+    module rules {
+        var execInitRules: (inst: Observable.Data) => void;
+        var execBeforeSaveRules: (inst: Observable.Data) => void;
+        var execPropChangeRules: (root: Observable.Data, params: any, options: {
+            validations: boolean;
+            propagations: boolean;
+        }) => void;
+        var execValidationRules: (inst: Observable.Data, selectedProps?: string[]) => boolean;
+        var injectInContext: (propertyName: string, value: any) => void;
+    }
+}
+declare namespace Phoenix {
     module Observable {
         class DataListCore {
             protected _map: any;
@@ -1331,7 +1355,8 @@ declare namespace Phoenix {
             protected _queryable: boolean;
             isNull: boolean;
             isUndefined: boolean;
-            constructor(schema: any, parent: any, path: any, value: any, arrayParent: any, locale: any);
+            isQuery: boolean;
+            constructor(schema: any, parent: any, path: any, value: any, arrayParent: any, locale: any, isQuery: any);
             readonly parent: Data;
             $selected: any;
             pushSelected(item: Data, persistent: boolean): void;
@@ -1340,13 +1365,14 @@ declare namespace Phoenix {
             protected _initModelInParent(): void;
             removeSelected(item: Data, persistent: boolean): void;
             protected notifyChangedProperty(propName: string): void;
-            addAjaxException(ex: any): any;
+            addAjaxException(ex: any): void;
             notifyPaginationChanged(): void;
             notifyCountChanged(): void;
             notifySortingChanged(): void;
             isQueryable(): boolean;
             addErrors(errors: any): void;
             addError(message: string): void;
+            rmvError(message: string): void;
             readonly length: number;
             protected _destroyItems(): void;
             $orderby(value?: string): string;
@@ -1362,7 +1388,7 @@ declare namespace Phoenix {
             indexOf(value: any): number;
             find(prop: any, ...keys: any[]): Data;
             private _expandForEach(cb, expandingProperty, level, index);
-            forEach(cb: (item: Data, index: number, level: number) => void, expandingProperty: string): void;
+            forEach(cb: (item: Data, index: number, level: number) => void, expandingProperty?: string): void;
             get(index: any): Data;
             $expand: boolean;
         }
@@ -1428,7 +1454,6 @@ declare namespace Phoenix {
             remove(item: any): void;
         }
         class Data {
-            private _callStack;
             private _schema;
             private _initialized;
             private _selected;
@@ -1456,15 +1481,23 @@ declare namespace Phoenix {
             onRefresh: any;
             datasets: any;
             transform: string;
-            constructor(schema: any, parent: Data, path: any, value: any, arrayParent: any, frozen: any, locale: any, datasets: any, transform?: string);
+            callStack: string[];
+            design: boolean;
+            constructor(schema: any, parent: Data, path: any, value: any, arrayParent: any, frozen: any, locale: any, datasets: any, transform?: string, designMode?: boolean);
             readonly fullPath: string;
             getPropertyPath(propertyName?: string): string;
             saveModel(): void;
+            readonly $schema: any;
+            readonly parent: any;
+            readonly root: any;
             setModel(value: any): void;
             update(value: any): void;
             $refresh(options?: any): Promise<void>;
-            private _validate(validators);
-            validate(): boolean;
+            clearErrors(recursive?: boolean): void;
+            private _validate(validators, isSaving?, selectedProps?);
+            isRecursiveRule(propertyName: any): boolean;
+            validate(isSaving?: boolean): boolean;
+            partialValidate(properties: string[]): boolean;
             $select: boolean;
             select(value: boolean, multiSelect: boolean, parentArray: any, expandingProperty: string, selectChildren: boolean): void;
             toggleExpand(expandingProperty: string): boolean;
@@ -1495,17 +1528,16 @@ declare namespace Phoenix {
             _setSimpleListChild(propertyName: any, oldvalue: any, value: any): void;
             _setQueryListChild(propertyName: any, value: any[], pageSize: number, page: number, totalCount: number): void;
             private _initFromSchema(schema);
-            getParentModel(path: any): any;
-            addAjaxException(ex: any): any;
+            getParentModel(path: string): any;
+            addAjaxException(ex: any): void;
             addError(message: string): void;
             rmvError(message: string): void;
-            addErrors(errors: any): void;
+            addErrors(errors: any[]): void;
             private _beforeChange(propertyName, schema, oldValue, value, forceContinue);
-            notifyStateChanged(stateName: any, params: any): void;
+            notifyStateChanged(stateName: string, params: any): void;
             private _extractPropName(pn, params);
             private _execValidators(validators, propertyName, event, params, ldata?);
-            _notifyChanged(propertyName: any, oldValue: any, value: any, op: any, params: any, validate: any): void;
-            private _execRules(params, options);
+            notifyChanged(propertyName: any, oldValue: any, value: any, op: any, params: any, validate: any): void;
             private _destroyObject(obj, pn);
             destroy(): void;
         }
@@ -1540,9 +1572,12 @@ declare namespace Phoenix {
 declare namespace Phoenix {
     module ui {
         class Form extends ui.BaseLayout {
-            private $bind;
+            private _bindStates;
+            private _bindTitles;
+            private _bindAccordion;
             $schema: any;
             $rootSchema: any;
+            $rootPath: string;
             $data: any;
             formData: any;
             $model: Observable.Data;
@@ -1563,6 +1598,8 @@ declare namespace Phoenix {
             private _setInDelayedAction(value);
             protected initOptions(options: any): any;
             constructor(layoutData: any, options: any, ldata: any, schema: any, locale: any, preferences: any);
+            protected _getFormLData(): any;
+            private _activateTab(l);
             setData(ldata: any): void;
             processing(value: any): void;
             controlByField(name: any): any[];
@@ -1585,6 +1622,7 @@ declare namespace Phoenix {
             modelCreated(data: any): void;
             modelChanged(action: any, model: any, form: any, modal: any): void;
             protected afterRender($e: JQuery): void;
+            protected changed(propName: string, ov: any, nv: any, op: string, params: any): void;
             stateChanged(propName: any, params: any): void;
             getSchema(path: string): any;
             getLookupForSchema(path: string, lookupName: string): any;
@@ -1594,12 +1632,12 @@ declare namespace Phoenix {
             getValue(path: any): any;
             getParentModel(path: any): any;
             getState(path: any): any;
-            _enumListener(name: string, cb: any): void;
-            _rebuildListeners(): void;
-            _match(p: any, cb: any): void;
+            private _enumListener(name, cb);
+            private _rebuildListeners();
+            private _match(p, cb);
             execAction(propName: string, actionParams?: any, params?: any): void;
             broadcast(eventName: string, params: any): void;
-            _modelChanged(propName: any, ov: any, nv: any, op: any, params: any, actionParams: any): void;
+            private _modelChanged(propName, ov, nv, op, params, actionParams);
             afterchanged(propName: any, op: any, params: any, actionParams: any): void;
             on(cb: any): void;
             _stateChanged(propName: any): void;
@@ -1674,7 +1712,7 @@ declare namespace Phoenix {
             keyDownPassword: (event: JQueryEventObject, input: HTMLInputElement, options: any) => boolean;
             addContainerId: (html: string[], authoring: boolean) => void;
             containerBaseClass: (groupClass: string, authoring: boolean, options: any) => string;
-            align2Css: (align: string) => string;
+            align2Css: (align: string) => "" | "align-center" | "align-end";
             fieldWrapper: (html: string[], options: any, authoring: boolean, after: Function, customizer?: any) => void;
             fillSelect(enums: any[], input: any, schema: any): void;
             datePickerSetValue: ($element: JQuery, value: string) => void;
@@ -1690,7 +1728,7 @@ declare namespace Phoenix {
                 labelCol: number;
             };
             displayValue: (value: any, schema: any, locale: any, options: any, item: any, fieldName?: string) => any;
-            addTooltip: (html: any, description: any, options?: any) => void;
+            addTooltipAndRule: (html: any, options: any) => void;
         };
     }
 }
@@ -1725,6 +1763,7 @@ declare namespace Phoenix {
             protected beforeSaveSettings(): boolean;
             savePreferences(after: any): any;
             protected getCustomBind(): string;
+            protected getBind(): string[];
             setHidden(element: any): void;
             protected _state(): void;
             private _defineProps();
@@ -1733,6 +1772,7 @@ declare namespace Phoenix {
             setEvents(opts: any): void;
             removeEvents(): void;
             customOptions(opts: any): void;
+            showRules(): void;
             _initOptions(defOpts: any): any;
             destroy(): void;
             protected showErrors(element: any, errors: any): void;
@@ -1778,12 +1818,26 @@ declare namespace Phoenix {
         class ArrayControl extends formcomplex.ComplexBase {
             private _map;
             private _render;
+            private _layout;
+            private _id;
+            private _moveDelta;
+            private _moving;
+            private _nOverflow;
+            private _nCtrlLeft;
+            private _nCtrlRight;
+            private _nContainer;
+            private _nInScroll;
+            private _nCtrls;
             customOptions(options: any): void;
             protected renderContent(parent: any): void;
             destroy(): void;
             setEvents(opts: any): void;
             removeEvents(): void;
             click(event: any): void;
+            protected resize(): void;
+            _activeMove(): void;
+            _setMoveCtrls(): void;
+            _move(ctx: any): void;
         }
     }
 }
@@ -1817,7 +1871,7 @@ declare namespace Phoenix {
             hasFrozenColumns: (opts: any, frozenColumns: any[]) => boolean;
             cloneForMove: (element: HTMLElement) => HTMLElement;
             isPixel: (value: any) => boolean;
-            widthFromSchema: (schema: any) => number;
+            widthFromSchema: (schema: any) => 50 | 110 | 150;
             resizeDiv: (parent: HTMLElement, point: any) => HTMLElement;
             getColumnsSizeParents: (id: string, parent: HTMLElement, options: any, isFrozen: boolean) => HTMLElement[];
             multiselectContainer: (id: string, maximized: boolean) => HTMLElement;
@@ -2155,7 +2209,7 @@ declare namespace Phoenix {
     module ui {
         class Group extends AbsField {
             constructor(fp: any, options: any, form: any);
-            protected _item(ii: Number): HTMLElement;
+            protected _item(ii: number): HTMLElement;
             click(event: any): void;
             _setDisabled(element: any): void;
             protected _enumItems(cb: Function): void;
@@ -2322,6 +2376,16 @@ declare namespace Phoenix {
     }
 }
 declare namespace Phoenix {
+    module wizardctrl {
+        class WizardSteps extends ui.Group {
+            constructor(fp: any, options: any, form: any);
+            _state2UI(): void;
+            changed(propName: any, ov: any, nv: any, op: any): void;
+            render($parent: any): JQuery;
+        }
+    }
+}
+declare namespace Phoenix {
     module ui {
         class Toggle extends AbsField {
             constructor(fp: any, options: any, form: any);
@@ -2382,6 +2446,10 @@ declare namespace Phoenix {
             promise(enums: any, enumType: any): any;
         }
     }
+}
+declare namespace Phoenix {
+}
+declare namespace Phoenix {
 }
 declare namespace Phoenix {
 }

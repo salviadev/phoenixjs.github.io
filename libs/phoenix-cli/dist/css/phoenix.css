@@ -341,6 +341,32 @@ span.bs-icon-menu {
   font-weight: bold;
 }
 
+.array-control-overflow {
+  overflow-x: hidden;
+}
+.array-control-move {
+  position: absolute;
+  cursor: pointer;
+}
+.array-control-move:hover {
+  color: white;
+  opacity: 1 !important;
+}
+.array-control-goLeft {
+  background-image: -moz-linear-gradient(left, grey, transparent);
+  background-image: -webkit-linear-gradient(left, grey, transparent);
+  background-image: -o-linear-gradient(left, grey, transparent);
+  background-image: linear-gradient(left, grey, transparent);
+  opacity: 0.5;
+}
+.array-control-goRight {
+  background-image: -moz-linear-gradient(right, grey, transparent);
+  background-image: -webkit-linear-gradient(right, grey, transparent);
+  background-image: -o-linear-gradient(right, grey, transparent);
+  background-image: linear-gradient(right, grey, transparent);
+  opacity: 0.5;
+}
+
 .bs-style-block-centred {
   display: inline-block;
   text-align: left;
@@ -667,6 +693,59 @@ tr.bs-table-row.even {
   display: table-row;
 }
 
+.bs-style-block-centred {
+  display: inline-block;
+  text-align: left;
+  margin-left: auto!important;
+  margin-right: auto!important;
+}
+.bs-style-block-centred.md {
+  max-width: 740px!important;
+}
+.bs-style-upper {
+  text-transform: uppercase;
+}
+.bs-style-bg-gray-lighter {
+  background-color: #eeeeee;
+}
+.bs-style-bg-gray-light {
+  background-color: #777777;
+}
+.bs-style-island {
+  background-color: #eee;
+  border: 1px solid #bbb;
+  border-radius: 6px;
+}
+.bs-style-white {
+  background-color: #fff;
+}
+.bs-style-callout {
+  border: 1px solid #ddd;
+  border-left-width: 5px;
+  border-left-color: #ddd;
+  padding: 15px;
+}
+.bs-style-callout-info {
+  border-left-color: #31708f;
+}
+.bs-style-callout-success {
+  border-left-color: #5cb85c;
+}
+.bs-style-callout-danger {
+  border-left-color: #d9534f;
+}
+.bs-style-callout-primary {
+  border-left-color: #337ab7;
+}
+.bs-style-callout-important {
+  border-left-color: #ff6600;
+}
+.bs-style-callout-warning {
+  border-left-color: #f0ad4e;
+}
+.text-important {
+  color: #ff6600;
+}
 .form-group {
   margin-bottom: 0px;
 }
@@ -692,15 +771,16 @@ tr.bs-table-row.even {
 .bs-mandatory {
   background-color: #FFF4D9;
 }
+.bs-rules,
 .bs-tooltip-icon {
-  margin: 2px 3px;
-  float: right;
+  margin-right: 3px;
+  margin-left: 3px;
   cursor: help;
   color: #3b768c;
 }
-.bs-tooltip-icon-inline {
-  height: 30px;
-  line-height: 30px;
+.bs-rules {
+  cursor: pointer;
+  color: #5cb85c;
 }
 
 .bs-form-error {
@@ -1821,6 +1901,7 @@ body {
   margin: 0;
   padding: 0;
   overflow-x: hidden;
+  -ms-overflow-style: scrollbar;
 }
 .bs-content {
   position: relative;

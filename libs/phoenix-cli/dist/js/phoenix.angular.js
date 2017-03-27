@@ -1,6 +1,6 @@
 if (angular)
     angular.module("phoenix.ui", []);
-//# sourceMappingURL=angular.core.js.map
+
 var Phoenix;
 (function (Phoenix) {
     if (angular) {
@@ -174,7 +174,7 @@ var Phoenix;
             }]);
     }
 })(Phoenix || (Phoenix = {}));
-//# sourceMappingURL=angular.layout.js.map
+
 var Phoenix;
 (function (Phoenix) {
     if (angular) {
@@ -244,7 +244,7 @@ var Phoenix;
         _render.register("angular", "widget", _renderWiget);
     }
 })(Phoenix || (Phoenix = {}));
-//# sourceMappingURL=angular.module.js.map
+
 var Phoenix;
 (function (Phoenix) {
     if (angular) {
@@ -291,4 +291,3 @@ var Phoenix;
             }]);
     }
 })(Phoenix || (Phoenix = {}));
-//# sourceMappingURL=angular.authoring.js.map

@@ -19,7 +19,7 @@ var Phoenix;
         }, _format = function () {
             var args = [];
             for (var _i = 0; _i < arguments.length; _i++) {
-                args[_i - 0] = arguments[_i];
+                args[_i] = arguments[_i];
             }
             return args[0].replace(/{(\d+)}/g, function (match, num) {
                 num = parseInt(num, 10);
@@ -41,9 +41,7 @@ var Phoenix;
             for (var p in src) {
                 var pv = src[p];
                 var ov = dst[p];
-                if (pv === null)
-                    continue;
-                if (typeof pv === 'object' && !Array.isArray(pv)) {
+                if (pv !== null && typeof pv === 'object' && !Array.isArray(pv)) {
                     dst[p] = dst[p] || {};
                     _merge(pv, dst[p]);
                 }
@@ -176,6 +174,20 @@ var Phoenix;
                 }
             }
             throw "Invalid script Name";
+        }, _showAndLogRules = false, _logRule = function (spaces, rule, trigger) {
+            if (_showAndLogRules) {
+                spaces = (spaces || 1) - 1;
+                var sSpaces = new Array(spaces).join('  ');
+                if (typeof rule === 'string')
+                    console.log(_format('{0}{1}".', sSpaces, rule));
+                else
+                    console.log(_format('{0}Rule: "{1} - {2}", triggered by "{3}".', sSpaces, rule.name, rule.description, trigger));
+            }
+        }, _showRules = function (value) {
+            if (value !== undefined) {
+                _showAndLogRules = value;
+            }
+            return _showAndLogRules;
         }, _extractData = function (path, value) {
             if (path.indexOf(".") >= 0) {
                 var c = value;
@@ -195,10 +207,11 @@ var Phoenix;
                 return _extractData(p, context);
             });
         }, _extractAngularValues = function (expression, map) {
-            return expression.replace(/\{\{([^{]*)\}\}/g, function (match, p) {
+            expression.replace(/\{\{([^{]*)\}\}/g, function (match, p) {
                 map.push({ name: (p.split('|'))[0].trim() });
                 return '';
             });
+            return map.length > 0;
         }, _execFilter = function (filter, value) {
             switch (filter) {
                 case 'uppercase':
@@ -273,9 +286,9 @@ var Phoenix;
                 });
             }
             return dst;
-        }, _getDataAsPromise = function (ldata) {
+        }, _getDataAsPromise = function (localData) {
             var _promise = _getPromise();
-            return _promise.resolve(ldata);
+            return _promise.resolve(localData);
             //let nt = _getNextTick();
             //return new _promise(function (resolve, reject) {
             //    nt(function () {
@@ -304,6 +317,8 @@ var Phoenix;
         utils.isNull = _isNull;
         utils.isUndefined = _isUndefined;
         utils.isNullOrUndefined = _isNullOrUndefined;
+        utils.logRule = _logRule;
+        utils.showRules = _showRules;
         utils.escapeHtml = _escapeHtml;
         utils.phoenixPath = _getPath;
         utils.parseExpression = _parseexp;
@@ -423,6 +438,8 @@ var Phoenix;
         external.formOpenHandler = null;
         external.preferenceLoadHandler = _defPrefsLoader;
         external.preferenceSaveHandler = _defPrefsSaver;
+        external.ruleLoaderHandler = null;
+        external.ruleViewer = null;
     })(external = Phoenix.external || (Phoenix.external = {}));
     var history;
     (function (history) {
@@ -1770,7 +1787,9 @@ var Phoenix;
                 "appearance": "Appearance",
                 "appearanceAccordion": "Accordion",
                 "appearanceTabs": "Tabs",
+                "appearanceWizard": "None",
                 "showTitle": "Show title",
+                "bindPagesTitle": "Bind",
                 "name": "Name",
                 "forceDisplayTable": "Force display(Css) table",
                 "title": "Title",
@@ -1924,6 +1943,7 @@ var Phoenix;
             'cog': 'cog',
             'lock': 'lock',
             'question-circle': 'question-sign',
+            'bolt': 'falsh',
             'info-circle': 'info-sign',
             'th': 'list',
             'clock-o': 'time',
@@ -2562,6 +2582,15 @@ var Phoenix;
             });
         }
     });
+    /*
+    $(document).unload(function () {
+        if (dom.finalizeHandlers.length) {
+            dom.finalizeHandlers.forEach((hnd) => {
+                hnd();
+            });
+        }
+    });
+    */
 })(Phoenix || (Phoenix = {}));
 /// <reference path="./utils.ts" />
 /// <reference path="./dom.ts" />
@@ -2834,8 +2863,16 @@ var Phoenix;
             if (params.path)
                 search.push('path=' + encodeURIComponent(params.path));
             var ii = window.location.href.lastIndexOf('?');
-            if (ii > 0)
-                search.push(window.location.href.substr(ii + 1));
+            if (ii > 0) {
+                var os = window.location.href.substr(ii + 1).split('&');
+                var ss_1 = [];
+                os.forEach(function (ii) {
+                    var ci = ii.split('=');
+                    if (['prototype', 'path', 'locale'].indexOf(ci[0]) < 0)
+                        ss_1.push(ii);
+                });
+                search.push(ss_1.join('&'));
+            }
             if (search.length)
                 ch = ch + '?' + search.join('&');
             window.location.hash = '#' + _history.locationPrefix + ch;
@@ -4150,13 +4187,13 @@ var Phoenix;
     var _p = Phoenix, _link = _p.link, _utils = _p.utils, _data = _p.data, _customData = _p.customData, _application = _p.application;
     var data;
     (function (data) {
-        var _execTransform = function (cfg, ldata) {
+        var _execTransform = function (cfg, localData) {
             if (cfg.$transform) {
                 var func = _customData.get("datasets.transform." + cfg.$transform);
                 if (func)
-                    ldata = func(ldata);
+                    localData = func(localData);
             }
-            return ldata;
+            return localData;
         }, _execBeforeTransform = function (transform, params, context) {
             if (!transform)
                 return params;
@@ -4356,6 +4393,24 @@ var Phoenix;
                     $left: null,
                     $right: null
                 };
+                if (tree.$op === 'in' && tree.$children) {
+                    var aq_1 = addQuote && _addQuote(tree.$op);
+                    if (tree.$children.length) {
+                        var res = tree.$children.map(function (item) {
+                            return _getValue(item, {
+                                $url: lurl,
+                                $context: context,
+                                $data: null,
+                                $mem: _p.$mem,
+                                $local: localContext
+                            }, aq_1, false);
+                        });
+                        rtree.$right = '(' + res.join(',') + ')';
+                        rtree.$left = tree.$left;
+                        rtree.nativeIn = true;
+                    }
+                    return rtree;
+                }
                 if (tree.$left != null) {
                     if (typeof tree.$left === 'object' && (tree.$left.$op || tree.$left.$op === null)) {
                         rtree.$left = _internalExecTree(tree.$left, lurl, context, localContext, addQuote);
@@ -4458,7 +4513,7 @@ var Phoenix;
                 if (tree.$op === "not") {
                     return { value: 'not (' + right.value + ')', op: tree.$op };
                 }
-                else if (tree.$op === "in") {
+                else if (tree.$op === 'in' && !tree.nativeIn) {
                     var values = right.value.split(';');
                     var res_1 = [];
                     values.forEach(function (value) {
@@ -4713,24 +4768,24 @@ var Phoenix;
             return _getValue(value, ctx, false, false);
         }, _execBasic = function (config, lurl, context, callerObject) {
             var local = callerObject && callerObject.getLocalContext ? callerObject.getLocalContext() : null;
-            var cd, ldata = config.$data;
+            var cd, localData = config.$data;
             if (config.$params && config.$params.dataProvider) {
                 var hnd = _customData.get(config.$params.dataProvider);
                 if (hnd)
                     context = hnd(context, callerObject);
             }
             if (!config.$main && config.$output) {
-                ldata = config.$data;
+                localData = config.$data;
                 cd = _outputData(config.$output, {
                     $url: lurl,
                     $context: context,
-                    $data: ldata,
+                    $data: localData,
                     $mem: _p.$mem,
                     $local: local
                 });
             }
             else
-                cd = ldata;
+                cd = localData;
             cd = _execTransform(config, cd);
             return new _utils.Promise(function (resolve, reject) {
                 resolve(cd);
@@ -4795,22 +4850,22 @@ var Phoenix;
                 if (context.hasOwnProperty('$top') && context.$top)
                     params.$top = context.$top;
             }
-            return _data.odata.getRessources(params, function (ldata) {
-                if ((!ldata || !ldata.documents || !ldata.documents.length) && defData) {
-                    ldata.documents = ldata.documents || [];
-                    ldata.documents.push(defData);
+            return _data.odata.getRessources(params, function (localData) {
+                if ((!localData || !localData.documents || !localData.documents.length) && defData) {
+                    localData.documents = localData.documents || [];
+                    localData.documents.push(defData);
                 }
                 if (context) {
                     if (context.hasOwnProperty('$searchText')) {
-                        ldata.searchText = context.$searchText;
+                        localData.searchText = context.$searchText;
                     }
                 }
-                var cd = ldata;
+                var cd = localData;
                 if (!config.$main && config.$output)
                     cd = _outputData(config.$output, {
                         $url: lurl,
                         $context: context,
-                        $data: ldata,
+                        $data: localData,
                         $mem: _p.$mem,
                         $local: local
                     });
@@ -4820,18 +4875,17 @@ var Phoenix;
         }, _execLocal = function (config, lurl, context, callerObject) {
             var local = callerObject && callerObject.getLocalContext ? callerObject.getLocalContext() : null;
             var params = _parseRestParams(config.$params, lurl, context, local);
-            return _data.local.getRessources(params, function (ldata) {
-                var cd = ldata;
+            return _data.local.getRessources(params, function (localData) {
+                var cd = localData;
                 if (!config.$main && config.$output)
                     cd = _outputData(config.$output, {
                         $url: lurl,
                         $context: context,
-                        $data: ldata,
+                        $data: localData,
                         $mem: _p.$mem,
                         $local: local
                     });
-                cd = _execTransform(config, cd);
-                return cd;
+                return _execTransform(config, cd);
             });
         }, _execRest = function (config, lurl, context, callerObject) {
             var local = callerObject && callerObject.getLocalContext ? callerObject.getLocalContext() : null;
@@ -4839,18 +4893,17 @@ var Phoenix;
             var params = _parseRestParams(tp, lurl, context, local);
             if (config.$method)
                 params.$method = config.$method;
-            return _data.rest.getRessources(params, function (ldata) {
-                var cd = ldata;
+            return _data.rest.getRessources(params, function (localData) {
+                var cd = localData;
                 if (config.$output)
                     cd = _outputData(config.$output, {
                         $url: lurl,
                         $context: context,
-                        $data: ldata,
+                        $data: localData,
                         $mem: _p.$mem,
                         $local: local
                     });
-                cd = _execTransform(config, cd);
-                return cd;
+                return _execTransform(config, cd);
             });
         }, _emitList = function (config) {
             var res = [];
@@ -6293,20 +6346,20 @@ var Phoenix;
     (function (ui) {
         var _p = Phoenix, _dom = _p.dom, _utils = _p.utils, _locale = _p.locale, _wutils = _p.WidgetUtils, _dsPlugin = _p.DatasetPlugin, _link = _p.link, _render = _p.render;
         var Widget = (function () {
-            function Widget(ldata, options, layout) {
+            function Widget(localData, options, layout) {
                 var that = this;
-                that.item = ldata || {};
+                that.item = localData || {};
                 if (!that.item.$id)
                     that.item.$id = _utils.allocID();
-                ldata.$config = ldata.$config || {};
-                ldata.$config.data = ldata.$config.data || {};
-                that.data = ldata.$config;
+                localData.$config = localData.$config || {};
+                localData.$config.data = localData.$config.data || {};
+                that.data = localData.$config;
                 that.props = {};
                 that.item.$render = that.props;
-                that.props.data = ldata.$config.data;
+                that.props.data = localData.$config.data;
                 that.options = options || {};
                 that.contentRender = null;
-                that.links = ldata.$config.links;
+                that.links = localData.$config.links;
                 that._defineProps();
                 that.layout = layout;
                 that.$local = {};
@@ -7245,7 +7298,7 @@ var Phoenix;
         var Menu = (function (_super) {
             __extends(Menu, _super);
             function Menu(ldata, options) {
-                _super.call(this, ldata, options);
+                return _super.call(this, ldata, options) || this;
             }
             Menu.prototype._initOptions = function (options) {
                 _application.configuration = _application.configuration || {};
@@ -8512,7 +8565,18 @@ var Phoenix;
         layoutUtils.LAYOUT_ACCORDION = 'accordion';
         layoutUtils.LAYOUT_ACCORDION_GROUP = 'accordion-group';
         var _p = Phoenix, _dom = _p.dom, _utils = _p.utils, _locale = _p.locale.layouts, _ulocale = _p.ulocale, _render = _p.render, _sticky = _p.sticky;
-        var _markEmptyRowAsBlock = function (layout) {
+        var page_prefix = 'page';
+        var _checkAccordionChildName = function (name, index) {
+            name = name || '';
+            if (!name)
+                return page_prefix + index;
+            if (name.indexOf(page_prefix) === 0) {
+                var p = name.substring(page_prefix.length);
+                if ((parseInt(p, 10) + '') === p)
+                    return page_prefix + index;
+            }
+            return name;
+        }, _markEmptyRowAsBlock = function (layout) {
             if (!layout.$items.length) {
                 layout.$type = layoutUtils.LAYOUT_BLOCK;
                 layout.$origin = layoutUtils.LAYOUT_ROW;
@@ -8538,8 +8602,17 @@ var Phoenix;
                 delete layout.$fieldsOptions;
             if (map)
                 map[layout.$id] = layout;
-            if (namedMap && layout.$name)
-                namedMap[layout.$name] = layout;
+            if (namedMap && layout.$name) {
+                var old = namedMap[layout.$name];
+                if (old) {
+                    if (Array.isArray(old))
+                        old.push(layout);
+                    else
+                        namedMap[layout.$name] = [namedMap[layout.$name], layout];
+                }
+                else
+                    namedMap[layout.$name] = layout;
+            }
             if (layout.$type === layoutUtils.LAYOUT_HTML && !layout.$html) {
                 layout.$html = _locale.Html;
             }
@@ -8599,6 +8672,7 @@ var Phoenix;
             layout.$items.forEach(function (item, index) {
                 item.$type = layoutUtils.LAYOUT_ACCORDION_GROUP;
                 item.$title = item.$title || {};
+                item.$name = _checkAccordionChildName(item.$name, index);
                 item.$title.value = item.$title.value || _locale.defaultTitle;
             });
         }, _canAddLayouts = function (layout) {
@@ -8890,7 +8964,15 @@ var Phoenix;
                     html.push('"');
                 }
             }
-        }, _addTitle = function (html, layout, llocale, isForm) {
+        }, _updateLayoutTitle = function (titleElement, layout, formData, llocale) {
+            if (layout.$title.value) {
+                var tt = _ulocale.tt(layout.$title.value, llocale);
+                if (layout.$fields) {
+                    tt = _utils.execAngularExpression(tt, formData || {});
+                }
+                _dom.text(titleElement, tt);
+            }
+        }, _addTitle = function (html, layout, llocale, isForm, formData) {
             if (layout.$title && layout.$title.value === _locale.defaultTitle) {
                 delete layout.$title;
                 return;
@@ -8902,9 +8984,14 @@ var Phoenix;
                     var css = ['bs-block-title'];
                     if (layout.$title.$style)
                         _dom.parseStyle(layout.$title.$style, css);
-                    html.push(' data-ignore="true" class="' + css.join(' ') + '">');
-                    if (layout.$title.value)
-                        html.push(_utils.escapeHtml(_ulocale.tt(layout.$title.value, llocale)));
+                    html.push(' data-ignore="true" class="' + css.join(' ') + '" id="' + layout.$id + '_title">');
+                    if (layout.$title.value) {
+                        var tt = _ulocale.tt(layout.$title.value, llocale);
+                        if (layout.$fields) {
+                            tt = _utils.execAngularExpression(tt, formData || {});
+                        }
+                        html.push(_utils.escapeHtml(tt));
+                    }
                     html.push('</h' + size + '>');
                 }
             }
@@ -8920,7 +9007,7 @@ var Phoenix;
             _addId(html, layout);
             _addDataStep(html, 1, design);
             html.push('>');
-            _addTitle(html, layout, llocale, isForm);
+            _addTitle(html, layout, llocale, isForm, model);
         }, _blockAfter = function (html, layout, parent, model, llocale, design) {
             html.push('</div>');
         }, _addLinkSublayout = function (html, layout, parent, model, llocale, design) {
@@ -8948,7 +9035,7 @@ var Phoenix;
                 var css = ['nav-link'];
                 if (layout.opened)
                     css.push('active');
-                html.push(_utils.format('<a class="' + css.join(' ') + '" href="#{0}" data-layout="{0}" aria-expanded="' + (layout.opened ? 'true' : 'false') + '" role="tab" data-toggle="tab">', layout.$id));
+                html.push(_utils.format('<a class="' + css.join(' ') + '" id="{0}_tab" href="#{0}" data-layout="{0}" aria-expanded="' + (layout.opened ? 'true' : 'false') + '" role="tab" data-toggle="tab">', layout.$id));
                 html.push(layout.$title.value);
                 html.push('</a></li>');
             }
@@ -8957,7 +9044,7 @@ var Phoenix;
                 if (layout.opened)
                     html.push(' class="active"');
                 html.push('>');
-                html.push(_utils.format('<a href="#{0}" aria-controls="{0}"  data-layout="{0}" role="tab" data-toggle="tab">', layout.$id));
+                html.push(_utils.format('<a href="#{0}" id="{0}_tab" aria-controls="{0}"  data-layout="{0}" role="tab" data-toggle="tab">', layout.$id));
                 html.push(layout.$title.value);
                 html.push('</a></li>');
             }
@@ -8977,11 +9064,10 @@ var Phoenix;
                 html.push(' id="' + layout.$id + '_parent"');
                 html.push('>');
             }
-            else if (layout.$widget === 'tabs') {
+            else if (layout.$widget === 'tabs' || layout.$widget === 'none') {
                 // design is allways false
+                var isWizard = layout.$widget === 'none';
                 html.push('<div');
-                if (design)
-                    html.push(' draggable="true"');
                 _addLayoutCss(html, layout, parent, {
                     design: design,
                     step: 1
@@ -8990,7 +9076,7 @@ var Phoenix;
                 _addId(html, layout);
                 _addDataStep(html, 1, design);
                 html.push('>');
-                html.push('<ul class="nav nav-tabs bs-tabs" role="tablist">');
+                html.push('<ul class="nav nav-tabs bs-tabs' + (isWizard ? ' bs-none' : '') + '" role="tablist">');
                 layout.$items.forEach(function (item) { return _tabBuilder(html, item, layout, model, llocale, design, isForm, refBlock); });
                 html.push('</ul>');
                 html.push('<div class="tab-content">');
@@ -9001,7 +9087,7 @@ var Phoenix;
             if (design || !layout.$widget) {
                 html.push('</div>');
             }
-            else if (layout.$widget === 'tabs') {
+            else if (layout.$widget === 'tabs' || layout.$widget === 'none') {
                 html.push('</div>'); //tab-content"
                 html.push('</div>');
             }
@@ -9071,7 +9157,7 @@ var Phoenix;
                 _addLayoutId(html, 3, layout, design, true);
                 html.push('>');
             }
-            else if (parent.$widget === 'tabs') {
+            else if (parent.$widget === 'tabs' || parent.$widget === 'none') {
                 var css = ['tab-pane fade'];
                 if (layout.opened)
                     css.push('in active');
@@ -9085,7 +9171,7 @@ var Phoenix;
             if (design || !parent.$widget) {
                 html.push('</div></div></div>');
             }
-            else if (parent.$widget === 'tabs') {
+            else if (parent.$widget === 'tabs' || parent.$widget === 'none') {
                 html.push('</div>');
             }
         }, _rowBefore = function (html, layout, parent, model, llocale, design, isForm, refBlock) {
@@ -9137,7 +9223,7 @@ var Phoenix;
             _addDataStep(html, 2, design);
             layout.$idSelect = layout.$idDesign;
             html.push('>');
-            _addTitle(html, layout, llocale, isForm);
+            _addTitle(html, layout, llocale, isForm, model);
         }, _columnAfter = function (html, layout, parent, model, llocale, design) {
             html.push('</div></div>');
         }, _enumElements = function (layout, parent, onElement, root, param) {
@@ -9275,6 +9361,7 @@ var Phoenix;
                     if (isLayout) {
                         if (clearIds)
                             delete item.$id;
+                        delete item.$fields;
                         delete item.$render;
                         delete item.$idDesign;
                         delete item.$idDrag;
@@ -9312,6 +9399,8 @@ var Phoenix;
                             if (ckeckKeys && Object.keys(item.$fieldOptions).length === 0)
                                 delete item.$fieldOptions;
                         }
+                        if (item.datasets && Object.keys(item.datasets).length === 0)
+                            delete item.datasets;
                     }
                     else {
                         delete item.$render;
@@ -9338,8 +9427,18 @@ var Phoenix;
                 if (before) {
                     if (isLayout) {
                         delete map[item.$id];
-                        if (item.$name)
-                            delete namedMap[item.$name];
+                        if (item.$name) {
+                            var d = namedMap[item.$name];
+                            if (Array.isArray(d)) {
+                                var ii = d.indexOf(item);
+                                if (ii >= 0)
+                                    d.splice(ii, 1);
+                                if (!d.length)
+                                    delete namedMap[item.$name];
+                            }
+                            else
+                                delete namedMap[item.$name];
+                        }
                     }
                     else {
                         delete mapFields[item.$id];
@@ -9379,6 +9478,7 @@ var Phoenix;
         layoutUtils.canSelect = _canSelectLayout;
         layoutUtils.updateCssClass = _setLayoutCss;
         layoutUtils.toHtml = _toHtml;
+        layoutUtils.updateLayoutTitle = _updateLayoutTitle;
     })(layoutUtils = Phoenix.layoutUtils || (Phoenix.layoutUtils = {}));
 })(Phoenix || (Phoenix = {}));
 /// <reference path="../core/core.ts" />
@@ -9487,30 +9587,51 @@ var Phoenix;
                         if (l.opened === nv)
                             return;
                         if (nv) {
-                            var parentLayout = that.getLayoutById(l.$parentId);
-                            if (parentLayout) {
-                                for (var i = 0, len = parentLayout.$items.length; i < len; i++) {
-                                    var ci = parentLayout.$items[i];
-                                    if (ci.opened) {
-                                        ci.opened = false;
-                                        that._activateLayout(ci, false);
-                                        break;
-                                    }
-                                }
-                            }
-                            l.opened = nv;
-                            if (l.$content) {
-                                that._renderLayoutContent(l);
-                                that._afterVisibilityChanged({ domChanged: false, layoutCreated: true, resize: false });
-                            }
-                            else
-                                that._activateLayout(l, true);
+                            that._openTab(id);
                         }
                         else {
                             that._activateLayout(l, false);
                         }
                     }
                 });
+            };
+            BaseLayout.prototype._activatePageLayout = function (item) {
+                var that = this;
+                var tab = that.$element ? _dom.find(that.$element.get(0), item.$id + '_tab') : null;
+                if (tab) {
+                    var $tab = $(tab);
+                    $tab.tab('show');
+                }
+            };
+            BaseLayout.prototype.activatePage = function (name) {
+                var that = this;
+                var layouts = that.getLayoutsByName(name);
+                if (layouts)
+                    layouts.forEach(function (item) { return that._activatePageLayout(item); });
+            };
+            BaseLayout.prototype._openTab = function (id) {
+                var that = this;
+                var l = that.getLayoutById(id);
+                if (l.opened)
+                    return;
+                var parentLayout = that.getLayoutById(l.$parentId);
+                if (parentLayout) {
+                    for (var i = 0, len = parentLayout.$items.length; i < len; i++) {
+                        var ci = parentLayout.$items[i];
+                        if (ci.opened) {
+                            ci.opened = false;
+                            that._activateLayout(ci, false);
+                            break;
+                        }
+                    }
+                }
+                l.opened = true;
+                if (l.$content) {
+                    that._renderLayoutContent(l);
+                    that._afterVisibilityChanged({ domChanged: false, layoutCreated: true, resize: false });
+                }
+                else
+                    that._activateLayout(l, true);
             };
             BaseLayout.prototype._doDatasetEventAfterEnabled = function (child) { };
             BaseLayout.prototype._activateLayout = function (layout, value) {
@@ -9552,10 +9673,13 @@ var Phoenix;
                     }
                 }
             };
+            BaseLayout.prototype._getFormLData = function () {
+                return null;
+            };
             BaseLayout.prototype._renderLayout = function (layout) {
                 var that = this;
                 that.stickies = null;
-                var $e = $(_layoutUtils.toHtml(layout, null, that.$locale, {
+                var $e = $(_layoutUtils.toHtml(layout, that._getFormLData(), that.$locale, {
                     design: that.options.design,
                     context: that.options.context
                 }, function (item) {
@@ -10042,7 +10166,23 @@ var Phoenix;
                 if (!name)
                     return null;
                 var that = this;
-                return that.namedMap[name];
+                var l = that.namedMap[name];
+                if (l && Array.isArray(l))
+                    return l[0];
+                return l;
+            };
+            BaseLayout.prototype.getLayoutsByName = function (name) {
+                if (!name)
+                    return null;
+                var that = this;
+                var l = that.namedMap[name];
+                if (l) {
+                    if (Array.isArray(l))
+                        return l;
+                    else
+                        return [l];
+                }
+                return null;
             };
             BaseLayout.prototype.scrollTo = function (name) {
                 var that = this;
@@ -10344,6 +10484,11 @@ var Phoenix;
                         structChanged = true;
                     }
                     delete data.$widget;
+                    if ((dst.$bindPages || '') !== (data.$bindPages || '')) {
+                        dst.$bindPages = data.$bindPages;
+                        structChanged = true;
+                    }
+                    delete data.$bindPages;
                     Object.keys(data).forEach(function (pn) {
                         if (data[pn] !== dst[pn]) {
                             dst[pn] = data[pn];
@@ -10379,7 +10524,7 @@ var Phoenix;
         var PageLayout = (function (_super) {
             __extends(PageLayout, _super);
             function PageLayout() {
-                _super.apply(this, arguments);
+                return _super.apply(this, arguments) || this;
             }
             //implements DatasetMethods
             PageLayout.prototype.ds_init = function (config) { return false; };
@@ -10496,7 +10641,7 @@ var Phoenix;
         var Layout = (function (_super) {
             __extends(Layout, _super);
             function Layout(ldata, options, fdata, schema, locale, preferences) {
-                _super.call(this, ldata, options, fdata, schema, locale, preferences);
+                return _super.call(this, ldata, options, fdata, schema, locale, preferences) || this;
             }
             return Layout;
         }(PageLayout));
@@ -10718,7 +10863,7 @@ var Phoenix;
         Observable.INDEX_FIELD_NAME = '$index';
         Observable.SELECTED_FIELD_NAME = '$select';
         Observable.EXPANDED_FIELD_NAME = '$expand';
-        var _ulocale = Phoenix.ulocale, _application = Phoenix.application, _ajax = Phoenix.ajax, _dom = Phoenix.dom, _link = Phoenix.link, _data = Phoenix.data, _utils = Phoenix.utils, _ulocale = Phoenix.ulocale, _locale = Phoenix.locale, _customData = Phoenix.customData, _localeSchema = Phoenix.locale.schema, _dsPlugin = Phoenix.DatasetPlugin, _fwFields = [Observable.INDEX_FIELD_NAME, Observable.SELECTED_FIELD_NAME, Observable.EXPANDED_FIELD_NAME], _isFwField = function (fieldName) {
+        var _ulocale = Phoenix.ulocale, _external = Phoenix.external, _application = Phoenix.application, _ajax = Phoenix.ajax, _dom = Phoenix.dom, _link = Phoenix.link, _data = Phoenix.data, _utils = Phoenix.utils, _ulocale = Phoenix.ulocale, _locale = Phoenix.locale, _customData = Phoenix.customData, _localeSchema = Phoenix.locale.schema, _dsPlugin = Phoenix.DatasetPlugin, _fwFields = [Observable.INDEX_FIELD_NAME, Observable.SELECTED_FIELD_NAME, Observable.EXPANDED_FIELD_NAME], _isFwField = function (fieldName) {
             return _fwFields.indexOf(fieldName) >= 0;
         }, _registerEnumManager = function () {
             var _enumsManager = {};
@@ -10762,11 +10907,12 @@ var Phoenix;
             return cs;
         }, _rv = _registerValidator(), _em = _registerEnumManager();
         function _enumCompositions(schema, rootSchema, path, isArray, value, cb, opts) {
-            if (!cb(path, schema, rootSchema, value, isArray))
+            opts = opts || {};
+            if (!cb(path, schema, rootSchema, value, isArray, opts))
                 return;
             Object.keys(schema.properties).forEach(function (name) {
                 var prop = schema.properties[name];
-                if (!prop.$reference) {
+                if (!prop.$reference || (opts && opts.$references)) {
                     if (prop.type === 'object') {
                         var cp = path ? path + '.' + name : name;
                         _enumCompositions(prop, rootSchema, cp, false, value ? value[name] : null, cb, opts);
@@ -10775,6 +10921,7 @@ var Phoenix;
                         var pitems = _expandRefProp(prop.items, rootSchema);
                         if (pitems.type === 'object') {
                             var cp = path ? path + '.' + name : name;
+                            opts.currentRef = prop.items.$ref;
                             _enumCompositions(pitems, rootSchema, cp, true, value ? value[name] : null, cb, opts);
                         }
                     }
@@ -10937,6 +11084,15 @@ var Phoenix;
                 });
             }
         }
+        function _pathOfProp(propName) {
+            var segments = propName.split('.');
+            var ns = [];
+            segments.forEach(function (segment) {
+                if (segment.charAt(0) !== '$')
+                    ns.push(segment);
+            });
+            return ns.join('.');
+        }
         var _sutils = {
             RATE_DECIMALS: 2,
             RATE_MAXIMUM: 1000,
@@ -10944,6 +11100,7 @@ var Phoenix;
             expandSchema$Ref: function (schema) {
                 return _expand$Ref(schema, [], schema);
             },
+            path2RulePath: _pathOfProp,
             _getDefault: function (value) {
                 if (value === '@date')
                     return _ulocale.date2ISO(new Date());
@@ -10993,16 +11150,20 @@ var Phoenix;
             },
             extractClassNames: function (schema, rootSchema) {
                 var res = {};
-                _enumCompositions(schema, rootSchema, '', false, null, function (prefix, cs, rs, value, array) {
+                var refs = {};
+                _enumCompositions(schema, rootSchema, '', false, null, function (prefix, cs, rs, value, array, co) {
+                    if (co.currentRef) {
+                        if (refs[co.currentRef])
+                            return false;
+                        refs[co.currentRef] = true;
+                    }
                     if (cs.name) {
                         if (res[cs.name])
-                            return true;
+                            return false;
                         res[cs.name] = true;
-                        return true;
                     }
-                    else
-                        return false;
-                });
+                    return true;
+                }, { $references: true });
                 return Object.keys(res).length ? res : null;
             },
             expandRules: function (rules, names) {
@@ -11017,10 +11178,14 @@ var Phoenix;
                         if (names[entity.entity]) {
                             rule.triggers.forEach(function (trigger) {
                                 var ct = rule.ruleType;
-                                if (trigger === '$events.new')
-                                    ct = 'init';
+                                if (trigger === '$events.created')
+                                    ct = 'created';
+                                else if (trigger === '$events.loaded')
+                                    ct = 'loaded';
+                                else if (trigger === '$events.saving')
+                                    ct = 'saving';
                                 res.rulesbyClass[ct] = res.rulesbyClass[ct] || {};
-                                if (ct === 'init') {
+                                if (ct === 'created' || ct === 'loaded' || ct === 'saving') {
                                     res.rulesbyClass[ct][entity.entity] = res.rulesbyClass[ct][entity.entity] || [];
                                     res.rulesbyClass[ct][entity.entity].push(rule.id);
                                 }
@@ -11253,6 +11418,24 @@ var Phoenix;
                 }
                 return ls;
             },
+            hasProperty: function (propertyName, schema, rootSchema) {
+                var segments = propertyName.split('.');
+                var cs = schema;
+                for (var _i = 0, segments_1 = segments; _i < segments_1.length; _i++) {
+                    var segment = segments_1[_i];
+                    if (segment.charAt(0) === '$')
+                        continue;
+                    if (!cs.properties)
+                        return false;
+                    cs = cs.properties[segment];
+                    if (!cs)
+                        return false;
+                    if (cs.type === 'array') {
+                        cs = _expandRefProp(cs.items, rootSchema);
+                    }
+                }
+                return true;
+            },
             findFirst: function (value, searchField, ldata) {
                 if (!value || !ldata)
                     return null;
@@ -11481,8 +11664,9 @@ var Phoenix;
                 return res;
             },
             arrayProps: ['$item', '$new', '$selected'],
-            init: function (schema, rootSchema, context, value) {
+            init: function (schema, rootSchema, context, value, iCreate) {
                 var a = value || {};
+                a.$create = iCreate;
                 a.$states = a.$states || {};
                 Object.keys(schema.properties).forEach(function (pn) {
                     var cs = schema.properties[pn];
@@ -11501,25 +11685,34 @@ var Phoenix;
                         }
                     }
                     if (_sutils.isCompositionRef(cs, rootSchema)) {
-                        a[pn] = _sutils.init(cs, rootSchema, context, a[pn] || {});
+                        a[pn] = _sutils.init(cs, rootSchema, context, a[pn] || {}, iCreate);
                     }
-                    else if (_sutils.isCompositionList(cs, rootSchema, false) || _sutils.isSimpleList(cs, rootSchema)) {
+                    else if (_sutils.isCompositionList(cs, rootSchema, false)) {
+                        a[pn] = a[pn] || [];
+                        var pitems_2 = _expandRefProp(cs.items, rootSchema);
+                        a[pn].forEach(function (item) {
+                            _sutils.init(pitems_2, rootSchema, context, item, iCreate);
+                        });
+                    }
+                    else if (_sutils.isSimpleList(cs, rootSchema)) {
                     }
                     else if (_sutils.isList(cs, rootSchema)) {
                     }
                     else {
-                        if (a[pn] === undefined) {
-                            if (cs.default !== undefined && cs.default !== null)
-                                a[pn] = _sutils._getDefault(cs.default);
-                            else if (cs.enum)
-                                a[pn] = cs.enum[0];
-                            else {
-                                switch (cs.type) {
-                                    case "number":
-                                    case "integer":
-                                        if (cs.default !== null)
-                                            a[pn] = 0;
-                                        break;
+                        if (iCreate) {
+                            if (a[pn] === undefined) {
+                                if (cs.default !== undefined && cs.default !== null)
+                                    a[pn] = _sutils._getDefault(cs.default);
+                                else if (cs.enum)
+                                    a[pn] = cs.enum[0];
+                                else {
+                                    switch (cs.type) {
+                                        case "number":
+                                        case "integer":
+                                            if (cs.default !== null)
+                                                a[pn] = 0;
+                                            break;
+                                    }
                                 }
                             }
                         }
@@ -11602,6 +11795,7 @@ var Phoenix;
             },
             checkNumber: function (value, schema, locale, errors) {
                 var res = true;
+                value = value || 0;
                 if (schema.exclusiveMinimum) {
                     if (schema.minimum != undefined && value <= schema.minimum) {
                         errors.push({ message: _utils.format(_localeSchema.minNumberExclusive, _sutils._title(schema.title, locale), _sutils.formatNumber(schema, schema.minimum)) });
@@ -11722,28 +11916,28 @@ var Phoenix;
                     return after(null, null);
                 try {
                     _sutils.expandSchema$Ref(schema);
-                    var names = _sutils.extractClassNames(schema, schema);
-                    if (names) {
-                        if (schema.rules) {
-                            var rulesCfg = _sutils.expandRules(schema.rules, names);
-                            schema.rules = rulesCfg.rulesbyClass;
-                            schema.rulesMap = rulesCfg.rulesById;
-                        }
-                    }
-                    //todo
+                    var rulesCount_1 = -1;
                     var enums = _sutils.loadEnums(schema);
                     var promises = enums ? enums : [];
                     var enumsCount_1 = enums ? enums.length : 0;
-                    var mainData = _dutils.loadMainData(layout);
+                    var mainData = _dutils.loadMainData(layout, true);
                     if (mainData)
                         promises.push(mainData);
                     var dataCount_1 = mainData ? enumsCount_1 + 1 : 0;
+                    var names_1 = _sutils.extractClassNames(schema, schema);
+                    if (names_1) {
+                        if (schema.loadRules && Phoenix.external.ruleLoaderHandler) {
+                            promises.push(_external.ruleLoaderHandler(Object.keys(names_1)));
+                            rulesCount_1 = promises.length - 1;
+                        }
+                    }
                     if (!promises.length)
                         return after(null, ldata);
                     _dom.processing(true);
                     _utils.Promise.all(promises).then(function (values) {
                         _dom.processing(false);
                         var allEnums = {};
+                        var serverRules = null;
                         values.forEach(function (ev, index) {
                             if (index < enumsCount_1) {
                                 allEnums[ev.type] = ev.enums;
@@ -11751,7 +11945,22 @@ var Phoenix;
                             else if (index < dataCount_1) {
                                 $.extend(ldata, ev);
                             }
+                            if (index === rulesCount_1)
+                                serverRules = values[rulesCount_1];
                         });
+                        if (schema.rules) {
+                            if (serverRules)
+                                serverRules = serverRules.concat(schema.rules);
+                            else
+                                serverRules = schema.rules;
+                        }
+                        if (serverRules && serverRules.length) {
+                            var rulesCfg = _sutils.expandRules(serverRules, names_1);
+                            schema.rules = rulesCfg.rulesbyClass;
+                            schema.rulesMap = rulesCfg.rulesById;
+                        }
+                        else
+                            delete schema.rules;
                         if (enumsCount_1) {
                             _sutils._fillEnums(schema, allEnums);
                         }
@@ -11804,6 +12013,9 @@ var Phoenix;
             isMoney: function (schema) {
                 return _sutils.isNumber(schema) && schema.format === "money";
             },
+            hasSymbol: function (schema) {
+                return _sutils.isNumber(schema) && (schema.format === "money" || schema.format === 'rate' || schema.symbol);
+            },
             text2Value: function (textValue, schema, state) {
                 if (_sutils.isNumber(schema)) {
                     var dec = state.decimals;
@@ -11839,15 +12051,20 @@ var Phoenix;
             getEnumManager: _em.get
         };
         var _dutils = {
-            extractDatasets: function (config) {
+            extractDatasets: function (config, onlyAutoOpen) {
                 if (config.datasets) {
                     var datasets = Object.keys(config.datasets);
                     if (datasets.length) {
-                        return datasets.map(function (dsName) {
-                            var dc = $.extend({}, config.datasets[dsName], true);
+                        var res_2 = [];
+                        datasets.forEach(function (dsName) {
+                            var ds = config.datasets[dsName];
+                            if (onlyAutoOpen && ds.$autoOpen === false)
+                                return;
+                            var dc = $.extend({}, ds, true);
                             dc.name = dsName;
-                            return dc;
+                            res_2.push(dc);
                         });
+                        return res_2;
                     }
                 }
                 return null;
@@ -11956,8 +12173,8 @@ var Phoenix;
                     });
                 });
             },
-            loadMainData: function (config) {
-                var ds = _dutils.extractDatasets(config);
+            loadMainData: function (config, onlyAutoOpen) {
+                var ds = _dutils.extractDatasets(config, onlyAutoOpen);
                 if (ds && ds.length)
                     return _dutils.datasetsAsPromise(ds, config.transform);
                 return _utils.Promise.resolve(null);
@@ -12073,7 +12290,7 @@ var Phoenix;
         var DataStates = (function (_super) {
             __extends(DataStates, _super);
             function DataStates(parent, prop, value) {
-                _super.call(this, parent, prop, value);
+                var _this = _super.call(this, parent, prop, value) || this;
                 var ss = parent.getSchema('').properties[prop];
                 var l = _sutils.states;
                 if (ss) {
@@ -12082,7 +12299,8 @@ var Phoenix;
                         l = props.concat(l);
                     }
                 }
-                this._init(parent, prop, value, l);
+                _this._init(parent, prop, value, l);
+                return _this;
             }
             return DataStates;
         }(BaseState));
@@ -12090,8 +12308,9 @@ var Phoenix;
         var LinkStates = (function (_super) {
             __extends(LinkStates, _super);
             function LinkStates(parent, prop, value) {
-                _super.call(this, parent, prop, value);
-                this._init(parent, "$links." + prop, value, _sutils.linksStates);
+                var _this = _super.call(this, parent, prop, value) || this;
+                _this._init(parent, "$links." + prop, value, _sutils.linksStates);
+                return _this;
             }
             return LinkStates;
         }(BaseState));
@@ -12143,8 +12362,8 @@ var Phoenix;
             }
         };
         var Errors = (function () {
-            function Errors(parent, prop, value, nostore) {
-                this._init(parent, prop, value, nostore);
+            function Errors(parent, prop, value) {
+                this._init(parent, prop, value);
             }
             Errors.prototype.destroy = function () {
                 var that = this;
@@ -12153,7 +12372,7 @@ var Phoenix;
                 that.parent = null;
             };
             Errors.prototype.errors = function () {
-                return this._errors;
+                return this._errors.slice();
             };
             Errors.prototype.clear = function (notify) {
                 var that = this;
@@ -12171,57 +12390,48 @@ var Phoenix;
             };
             Errors.prototype.rmvError = function (message) {
                 var that = this;
-                if (that.nostore) {
-                    if (that.parent && that.parent.rmvError)
-                        that.parent.rmvError(message);
-                }
-                else {
-                    if (that._errors && that._errors.length) {
-                        var errors = that._errors;
-                        var ii = errors.findIndex(function (error) {
-                            return error.severity === 'error' && error.message === message;
-                        });
-                        if (ii >= 0) {
-                            that._errors.splice(ii, 1);
-                            that.notify();
-                        }
+                if (that._errors && that._errors.length) {
+                    var errors = that._errors;
+                    var ii = errors.findIndex(function (error) {
+                        return error.severity === 'error' && error.message === message;
+                    });
+                    if (ii >= 0) {
+                        that._errors.splice(ii, 1);
+                        that.notify();
                     }
                 }
             };
-            Errors.prototype.addErrors = function (errors, add) {
+            Errors.prototype.addErrors = function (errors) {
                 var that = this;
-                if (that.nostore) {
-                    if (that.parent && that.parent.addErrors)
-                        that.parent.addErrors(errors, add);
-                }
-                else if (add || _errorsUtils.errorChanged(that._errors, errors)) {
+                that._errors = errors || [];
+                if (errors && errors.length) {
+                    that._errors = that._errors.concat(errors);
                     that._errors = errors || [];
                     that.notify();
                 }
             };
-            Errors.prototype.addError = function (message, add) {
+            Errors.prototype.addError = function (message) {
                 var that = this;
-                that.addErrors([{ severity: "error", message: message }], add);
+                that.addErrors([{ severity: "error", message: message }]);
             };
-            Errors.prototype.addSuccess = function (message, add) {
+            Errors.prototype.addSuccess = function (message) {
                 var that = this;
-                that.addErrors([{ severity: "success", message: message, timeout: 2 }], add);
+                that.addErrors([{ severity: "success", message: message, timeout: 2 }]);
             };
             Errors.prototype.addWarning = function (message, add) {
                 var that = this;
-                that.addErrors([{ severity: "warning", message: message, timeout: 2 }], add);
+                that.addErrors([{ severity: "warning", message: message, timeout: 2 }]);
             };
             Errors.prototype.notify = function () {
                 var that = this;
                 if (that.parent && that.parent.notifyStateChanged)
                     that.parent.notifyStateChanged(that.name + '.errors', {});
             };
-            Errors.prototype._init = function (parent, prop, value, nostore) {
+            Errors.prototype._init = function (parent, prop, value) {
                 var that = this;
                 that._errors = value || [];
                 that.name = prop;
                 that.parent = parent;
-                that.nostore = nostore;
             };
             return Errors;
         }());
@@ -12514,17 +12724,307 @@ var Phoenix;
         Observable.QueryableDataSource = QueryableDataSource;
     })(Observable = Phoenix.Observable || (Phoenix.Observable = {}));
 })(Phoenix || (Phoenix = {}));
+var Phoenix;
+(function (Phoenix) {
+    var rules;
+    (function (rules_1) {
+        var _p = Phoenix, _observable = Phoenix.Observable, _su = _observable.SchemaUtils, _du = _observable.DataUtils, _locale = Phoenix.locale, _ulocale = Phoenix.ulocale, _utils = Phoenix.utils;
+        var _ctx = {}, _patchContext = function (propertyName, value) {
+            _ctx[propertyName] = value;
+        }, _parseExpression = function (expression, options) {
+            options = options || {};
+            if (options.isPropagation) {
+                expression = expression.replace(/sum\(\s*([^)]+?)\s*\)/g, function (match, args) {
+                    var sumArgs = args.split(/\s*,\s*/);
+                    if (sumArgs && sumArgs.length === 1) {
+                        var faa = sumArgs[0].split('.');
+                        var la = faa.pop();
+                        return 'sum(' + faa.join('.') + ', \'' + la + '\')';
+                    }
+                    else
+                        return match;
+                });
+            }
+            return expression;
+        }, _execPropagationRule = function (rule, inst, ctx, trigger) {
+            try {
+                if (!rule.code) {
+                    rule.code = new Function('o', 'ctx', 'window', _parseExpression(rule.expression, { isPropagation: true }));
+                    rule.conditionCode = rule.condition ? new Function('o', 'ctx', 'window', 'return ' + _parseExpression(rule.condition, { isPropagation: false })) : null;
+                }
+                var canRun = true;
+                if (rule.conditionCode)
+                    canRun = rule.conditionCode(inst, ctx, null);
+                if (canRun) {
+                    var root = inst.getRootModel();
+                    _utils.logRule(root._callStack ? root._callStack.length : 0, rule, trigger);
+                    rule.code(inst, ctx, null);
+                }
+            }
+            catch (e) {
+                _patchRuleError(e, rule, inst.getRootModel());
+            }
+        }, _patchRuleError = function (exception, rule, root) {
+            if (typeof exception === 'string')
+                exception = { message: exception };
+            var head = _utils.format('Rule \'{0}\'  {1}:', rule.name, rule.description || '');
+            root.addError([head, exception.message || ''].join('\n'));
+        }, _createContext = function (inst) {
+            var res = {
+                today: _ulocale.date2ISO(new Date()),
+                now: function () { return new Date().toISOString(); },
+                addHours: function (dateTime, hours) {
+                    var cd = _ulocale.parseISODateTime(dateTime);
+                    if (cd === null)
+                        return undefined;
+                    cd.setTime(cd.getTime() + (hours * 60 * 60 * 1000));
+                    return cd.toISOString();
+                },
+                isTriggeredBy: function (propertyName) {
+                    return false;
+                },
+                sum: function (list, propertyName) {
+                    var res = 0;
+                    list && list.forEach(function (item, index, level) {
+                        res += item[propertyName];
+                    }, '');
+                    return res;
+                },
+                safeDivide: function (dividend, divisor, def) {
+                    var td = parseFloat(divisor.toFixed(8));
+                    if (td === 0)
+                        return def;
+                    return dividend / divisor;
+                },
+                partition: function (total, list, dst, src) {
+                    var value = -1;
+                    var mindex = -1;
+                    var rest = total;
+                    var tsrc = 0;
+                    list.forEach(function (item, index, level) {
+                        var cv = item[src];
+                        if (Math.abs(cv) > value) {
+                            value = Math.abs(cv);
+                            mindex = index;
+                        }
+                        tsrc = tsrc + cv;
+                    });
+                    tsrc = parseFloat(tsrc.toFixed(8));
+                    if (tsrc !== 0 && mindex >= 0) {
+                        list.forEach(function (item, index, level) {
+                            item[dst] = total * item[src] / tsrc;
+                            rest = rest - item[dst];
+                        });
+                        rest = parseFloat(rest.toFixed(8));
+                        if (rest !== 0) {
+                            var mItem = list.get(mindex);
+                            mItem[dst] = mItem[dst] + rest;
+                        }
+                    }
+                },
+                utc: function (value) {
+                    if (!value)
+                        return 0;
+                    var d = _ulocale.parseISODateTime(value);
+                    return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), d.getUTCHours(), d.getUTCMinutes(), d.getUTCSeconds(), d.getUTCMilliseconds());
+                },
+                milliseconds2Hours: function (milliseconds) {
+                    return milliseconds / (1000 * 3600);
+                },
+                date: function (value) {
+                    return _ulocale.parseISODateTime(value);
+                }
+            };
+            Object.keys(_ctx).forEach(function (name) {
+                if (!res[name])
+                    res[name] = _ctx[name];
+            });
+            return res;
+        }, _execInitRules = function (inst) {
+            var rootSchema = inst.getRootModel().getSchema('');
+            var rules, trigger;
+            if (inst.$create) {
+                rules = rootSchema.rules && rootSchema.rules.created ? rootSchema.rules.created[inst.className] : null;
+                trigger = '$events.created';
+            }
+            else {
+                rules = rootSchema.rules && rootSchema.rules.loaded ? rootSchema.rules.loaded[inst.className] : null;
+                trigger = '$events.loaded';
+            }
+            if (rules) {
+                var ctx_1 = _createContext(inst.getRootModel());
+                rules.forEach(function (rule) { return _execPropagationRule(rootSchema.rulesMap[rule], inst, ctx_1, trigger); });
+            }
+        }, _extractPropertyPath = function (path, params) {
+            return path;
+            /*
+            let ap = path.split('.');
+            let rp = [];
+            let cp = '', stag = '';
+            for (let i = 0; i < ap.length; i++) {
+                let sp = ap[i];
+                rp.push(sp);
+                cp = cp + stag + sp;
+                stag = '.';
+                if (params[cp])
+                    rp.push(params[cp].$oid);
+            }
+            return rp.join('.');
+            */
+        }, _execBeforeSaveRules = function (inst) {
+            var rootSchema = inst.getRootModel().getSchema('');
+            var rules = rootSchema.rules && rootSchema.rules.saving ? rootSchema.rules.saving[inst.className] : null;
+            if (rules) {
+                var ctx_2 = _createContext(inst.getRootModel());
+                rules.forEach(function (rule) { return _execPropagationRule(rootSchema.rulesMap[rule], inst, ctx_2, '$events.saving'); });
+            }
+        }, _execPropChangeRules = function (root, params, options) {
+            root.callStack = root.callStack || [];
+            var cp = _extractPropertyPath(params.source, params);
+            root.callStack.push(cp);
+            try {
+                if (root.$schema.rules && ((root.$schema.rules.validation && options.validations) || (root.$schema.rules.propagation && options.propagations))) {
+                    var propertyName = params.source;
+                    var segments = propertyName.split('.');
+                    var sp_1 = segments.pop();
+                    if (sp_1.charAt(0) === '$')
+                        return;
+                    var cp_1 = [sp_1];
+                    var inst_1 = params.instance;
+                    var pp_1 = inst_1;
+                    var ctx_3 = _createContext(root);
+                    var _loop_1 = function () {
+                        var rules_2 = options.propagations && root.$schema.rules.propagation ? root.$schema.rules.propagation[inst_1.className] : null;
+                        var trigger = cp_1.join('.');
+                        var lrules = rules_2 ? rules_2[trigger] : null;
+                        lrules && lrules.forEach(function (rule) { return _execPropagationRule(root.$schema.rulesMap[rule], inst_1, ctx_3, trigger); });
+                        rules_2 = options.validations && root.$schema.rules.validation ? root.$schema.rules.validation[inst_1.className] : null;
+                        lrules = rules_2 ? rules_2[trigger] : null;
+                        lrules && lrules.forEach(function (ruleId) {
+                            var rule = root.$schema.rulesMap[ruleId];
+                            try {
+                                if (!rule.code) {
+                                    rule.code = new Function('o', 'ctx', 'window', 'return ' + _parseExpression(rule.expression, { isPropagation: false }));
+                                    rule.conditionCode = rule.condition ? new Function('o', 'ctx', 'window', 'return ' + _parseExpression(rule.condition, { isPropagation: false })) : null;
+                                }
+                                var addToRoot = rule.triggers.length > 1;
+                                var canRun = true;
+                                if (rule.conditionCode)
+                                    canRun = rule.conditionCode(inst_1, ctx_3, null);
+                                if (canRun)
+                                    _utils.logRule(root.callStack ? root.callStack.length : 0, rule, trigger);
+                                if (!canRun || rule.code(inst_1, ctx_3, null)) {
+                                    if (addToRoot)
+                                        root.rmvError(rule.errorMsg);
+                                    else
+                                        pp_1.$errors[sp_1].rmvError(rule.errorMsg);
+                                }
+                                else {
+                                    if (addToRoot)
+                                        root.addError(rule.errorMsg);
+                                    else
+                                        pp_1.$errors[sp_1].addError(rule.errorMsg);
+                                }
+                            }
+                            catch (e) {
+                                _patchRuleError(e, rule, root);
+                            }
+                        });
+                        var cs = segments.pop();
+                        if (cs && (cs.charAt(0) === '$'))
+                            cs = segments.pop();
+                        if (cs)
+                            cp_1.unshift(cs);
+                        inst_1 = inst_1.parent;
+                    };
+                    while (inst_1) {
+                        _loop_1();
+                    }
+                }
+            }
+            finally {
+                root.callStack.pop();
+                if (!root.callStack.length)
+                    root.callStack = null;
+            }
+        }, _execValidationRules = function (inst, selectedProps) {
+            if (!inst.className)
+                return false;
+            var root = inst.getRootModel();
+            if (!root.$schema.rules || !root.$schema.rules.validation || !root.$schema.rules.validation[inst.className])
+                return false;
+            var props = Object.keys(root.$schema.rules.validation[inst.className]);
+            var ctx = _createContext(inst);
+            var hasErrors = false;
+            props.forEach(function (propName) {
+                if (selectedProps && selectedProps.indexOf(propName) < 0)
+                    return false;
+                var lrules = root.$schema.rules.validation[inst.className][propName];
+                lrules && lrules.forEach(function (ruleId) {
+                    var rule = root.$schema.rulesMap[ruleId];
+                    try {
+                        if (!rule.code) {
+                            rule.code = new Function('o', 'ctx', 'window', 'return ' + _parseExpression(rule.expression, { isPropagation: false }));
+                            rule.conditionCode = rule.condition ? new Function('o', 'ctx', 'window', 'return ' + _parseExpression(rule.condition, { isPropagation: false })) : null;
+                        }
+                        var execRule_1 = true;
+                        if (rule.triggers.length) {
+                            rule.triggers.forEach(function (trigger) {
+                                if (trigger.indexOf('$events.') === 0)
+                                    return;
+                                if (execRule_1)
+                                    execRule_1 = _su.hasProperty(trigger, inst.$schema, root.$schema);
+                            });
+                        }
+                        if (!execRule_1)
+                            return;
+                        var addToRoot = rule.triggers.length > 1;
+                        var canRun = true;
+                        if (rule.conditionCode)
+                            canRun = rule.conditionCode(inst, ctx, null);
+                        if (canRun) {
+                            _utils.logRule(root.callStack ? root.callStack.length : 0, rule, propName);
+                        }
+                        if (!canRun || rule.code(inst, ctx, null)) {
+                            if (addToRoot)
+                                root.rmvError(rule.errorMsg);
+                            else
+                                inst.$errors[propName].rmvError(rule.errorMsg);
+                        }
+                        else {
+                            hasErrors = true;
+                            if (addToRoot)
+                                root.addError(rule.errorMsg);
+                            else
+                                inst.$errors[propName].addError(rule.errorMsg);
+                        }
+                    }
+                    catch (e) {
+                        _patchRuleError(e, rule, root);
+                    }
+                });
+            });
+            return hasErrors;
+        };
+        rules_1.execInitRules = _execInitRules;
+        rules_1.execBeforeSaveRules = _execBeforeSaveRules;
+        rules_1.execPropChangeRules = _execPropChangeRules;
+        rules_1.execValidationRules = _execValidationRules;
+        rules_1.injectInContext = _patchContext;
+    })(rules = Phoenix.rules || (Phoenix.rules = {}));
+})(Phoenix || (Phoenix = {}));
 /// <reference path="../../core/core.ts" />
 /// <reference path="../../core/modules/ajax.ts" />
 /// <reference path="./schema.data.ts" />
 /// <reference path="./state.data.ts" />
 /// <reference path="./errors.data.ts" />
 /// <reference path="./queryable.ts" />
+/// <reference path="./rules.ts" />
 var Phoenix;
 (function (Phoenix) {
     var Observable;
     (function (Observable) {
-        var _p = Phoenix, _application = _p.application, _observable = Observable, _su = _observable.SchemaUtils, _du = _observable.DataUtils, _utils = Phoenix.utils, _jp = _p.jsonpatch, _ajax = Phoenix.ajax, _locale = Phoenix.locale, _ulocale = Phoenix.ulocale, _localeSchema = Phoenix.locale.schema, _createProp = function (obj, propertyName) {
+        var _p = Phoenix, _application = _p.application, _observable = Observable, _rules = _p.rules, _su = _observable.SchemaUtils, _du = _observable.DataUtils, _utils = Phoenix.utils, _jp = _p.jsonpatch, _rules = _p.rules, _ajax = Phoenix.ajax, _locale = Phoenix.locale, _ulocale = Phoenix.ulocale, _localeSchema = Phoenix.locale.schema, _createProp = function (obj, propertyName) {
             var rs = obj._rootParent._schema;
             var cs = obj._schema.properties[propertyName];
             if (!_su.inModel(cs, rs))
@@ -12549,24 +13049,29 @@ var Phoenix;
                         value = bcRes.value;
                         that._initialized[propertyName] = true;
                         if (bcRes.continue) {
+                            if (that.isRecursiveRule(propertyName))
+                                return;
                             that._model[propertyName] = value;
                             var rootSchema = obj._rootParent._schema;
+                            var e = that.$errors[propertyName];
+                            if (e)
+                                e.clear(true);
                             if (_su.isCompositionRef(schema, rootSchema)) {
                                 that._setRefChild(propertyName, oldValue, value, {});
                                 //OK
-                                that._notifyChanged(propertyName, oldValue, value, 'propchange', { source: that.getPropertyPath(propertyName), instance: that }, true);
+                                that.notifyChanged(propertyName, oldValue, value, 'propchange', { source: that.getPropertyPath(propertyName), instance: that }, true);
                                 that.notifyStateChanged(propertyName, {});
                             }
                             else if (_su.isCompositionList(schema, rootSchema, false)) {
                                 that._setListChild(propertyName, oldValue, value, 'propchange', {});
                                 //OK
-                                that._notifyChanged(propertyName, oldValue, value, 'propchange', { source: that.getPropertyPath(propertyName), instance: that }, true);
+                                that.notifyChanged(propertyName, oldValue, value, 'propchange', { source: that.getPropertyPath(propertyName), instance: that }, true);
                                 that.notifyStateChanged(propertyName, {});
                             }
                             else if (_su.isSimpleList(schema, rootSchema)) {
                                 that._setSimpleListChild(propertyName, oldValue, value, 'propchange', {});
                                 //OK
-                                that._notifyChanged(propertyName, oldValue, value, 'propchange', { source: that.getPropertyPath(propertyName), instance: that }, true);
+                                that.notifyChanged(propertyName, oldValue, value, 'propchange', { source: that.getPropertyPath(propertyName), instance: that }, true);
                                 that.notifyStateChanged(propertyName, {});
                             }
                             else if (_su.isList(schema, rootSchema)) {
@@ -12574,7 +13079,7 @@ var Phoenix;
                             }
                             else {
                                 //OK
-                                that._notifyChanged(propertyName, oldValue, value, 'propchange', { source: that.getPropertyPath(propertyName), instance: that }, true);
+                                that.notifyChanged(propertyName, oldValue, value, 'propchange', { source: that.getPropertyPath(propertyName), instance: that }, true);
                             }
                         }
                     }
@@ -12631,11 +13136,11 @@ var Phoenix;
             }
             obj.$states[name] = new _observable.DataStates(obj, name, defvalue);
         }, _createErrorProp = function (obj, name, defvalue) {
-            var schema = obj._schema.properties[name];
-            var rs = obj._rootParent._schema;
-            if (!_su.inModel(schema, rs))
+            var schema = obj.$schema.properties[name];
+            var rs = obj.root.$schema;
+            if (!_su.inModel(schema, rs) || _su.isCompositionRef(schema, rs))
                 return;
-            obj.$errors[name] = new _observable.Errors(obj, name, defvalue, _su.isCompositionRef(schema, rs));
+            obj.$errors[name] = new _observable.Errors(obj, name, defvalue);
         }, _createStateLinks = function (obj, name, defvalue) {
             obj.$links[name] = new _observable.LinkStates(obj, name, defvalue);
         }, _dutils = {
@@ -12685,10 +13190,11 @@ var Phoenix;
             }
         };
         var DataListCore = (function () {
-            function DataListCore(schema, parent, path, value, arrayParent, locale) {
+            function DataListCore(schema, parent, path, value, arrayParent, locale, isQuery) {
                 var that = this;
                 that._map = {};
                 that._expanded = false;
+                that.isQuery = isQuery;
                 that._selectedUids = [];
                 that._selectedPks = [];
                 that.isNull = false;
@@ -12723,7 +13229,7 @@ var Phoenix;
                         if (that._parent) {
                             that._parent.notifyStateChanged(that._path + '.$selected', {}); ///????
                             //OK
-                            that._parent._notifyChanged(that._path + '.$selected', undefined, undefined, 'propchange', { source: that._parent.getPropertyPath(that._path + '.$selected'), instance: that._parent }, false);
+                            that._parent.notifyChanged(that._path + '.$selected', undefined, undefined, 'propchange', { source: that._parent.getPropertyPath(that._path + '.$selected'), instance: that._parent }, false);
                         }
                     }
                 },
@@ -12786,7 +13292,7 @@ var Phoenix;
             DataListCore.prototype.notifyChangedProperty = function (propName) {
                 var that = this;
                 //used for propName = count/filter/pagination/sorting
-                that._parent._notifyChanged(that._path, undefined, undefined, propName, { source: that._parent.getPropertyPath(that._path + '.' + propName), instance: that._parent }, false);
+                that._parent.notifyChanged(that._path, undefined, undefined, propName, { source: that._parent.getPropertyPath(that._path + '.' + propName), instance: that._parent }, false);
             };
             DataListCore.prototype.addAjaxException = function (ex) {
                 var that = this;
@@ -12812,6 +13318,14 @@ var Phoenix;
                 var that = this;
                 var errors = [{ severity: 'error', message: message }];
                 that.addErrors(errors);
+            };
+            DataListCore.prototype.rmvError = function (message) {
+                var that = this;
+                var err = that._parent.$errors[that._path];
+                if (err)
+                    err.rmvError(message);
+                else
+                    that._parent.rmvError(message);
             };
             Object.defineProperty(DataListCore.prototype, "length", {
                 get: function () {
@@ -12875,7 +13389,7 @@ var Phoenix;
                 var that = this;
                 that._setModel(value, true);
                 //Ok
-                that._parent._notifyChanged(that._path, undefined, undefined, 'set', { source: that._parent.getPropertyPath(that._path), instance: that._parent }, false);
+                that._parent.notifyChanged(that._path, undefined, undefined, 'set', { source: that._parent.getPropertyPath(that._path), instance: that._parent }, false);
                 that.notifyCountChanged();
                 that._parent.notifyStateChanged(that._path, {}); ///????
                 that.afterSetModel();
@@ -12943,7 +13457,7 @@ var Phoenix;
                         that._expanded = value;
                         var nv = that._parent[that._path + Observable.EXPANDED_FIELD_NAME];
                         if (nv !== ov)
-                            that._parent._notifyChanged(that._path + Observable.EXPANDED_FIELD_NAME, ov, nv, 'propchange', { source: that._parent.getPropertyPath(that._path + Observable.EXPANDED_FIELD_NAME), instance: that._parent }, true);
+                            that._parent.notifyChanged(that._path + Observable.EXPANDED_FIELD_NAME, ov, nv, 'propchange', { source: that._parent.getPropertyPath(that._path + Observable.EXPANDED_FIELD_NAME), instance: that._parent }, true);
                     }
                 },
                 enumerable: true,
@@ -12955,7 +13469,7 @@ var Phoenix;
         var DataListBase = (function (_super) {
             __extends(DataListBase, _super);
             function DataListBase() {
-                _super.apply(this, arguments);
+                return _super.apply(this, arguments) || this;
             }
             DataListBase.prototype._fillItems = function () {
                 var that = this, keys = null;
@@ -12967,6 +13481,8 @@ var Phoenix;
                 }
                 if (that._model)
                     that._model.forEach(function (item, index) {
+                        if (that.isQuery && item)
+                            item.$create = false;
                         var citem = new Data(that._schemaItems, that._parent, that._path, item, that, false, that._locale, null);
                         var addItem = false;
                         that._items.push(citem);
@@ -13172,15 +13688,25 @@ var Phoenix;
         var QueryList = (function (_super) {
             __extends(QueryList, _super);
             function QueryList(parentSchema, schema, parent, path, value, pageSize, pageNumber, totalCount, arrayParent, locale) {
-                _super.call(this, schema, parent, path, value, arrayParent, locale);
-                var that = this;
+                var _this = _super.call(this, schema, parent, path, value, arrayParent, locale, true) || this;
+                var that = _this;
                 var root = that._parent.getRootModel();
                 var cfg = _du.dsConfig(root.datasets, schema, true);
+                if (root.design) {
+                    cfg = {
+                        $type: 'odata',
+                        $params: { $entity: 'EntityIsMissing' },
+                        $autoOpen: false
+                    };
+                }
                 if (!cfg) {
                     throw 'Invalid config! You must define a dataset in form for the property: "' + path + '".';
                 }
                 that._main = cfg.$main;
                 that._queryable = true;
+                if (pageSize === undefined) {
+                    pageSize = cfg.$params.$top || 20;
+                }
                 that._query = new Observable.QueryableDataSource(cfg, that);
                 that._query.initPagination(pageSize, pageNumber, totalCount);
                 if (that._main) {
@@ -13191,6 +13717,7 @@ var Phoenix;
                         };
                     }
                 }
+                return _this;
             }
             Object.defineProperty(QueryList.prototype, "filter", {
                 get: function () {
@@ -13268,6 +13795,7 @@ var Phoenix;
             QueryList.prototype.remove = function (item) {
                 var that = this;
                 var om = item.model(true);
+                var selected = item.$select;
                 var etag = om ? om['@odata.etag'] : null;
                 if (that._schemaItems && that._schemaItems.primaryKey) {
                     var pk_1 = _su.odataId(_su.pkFields(that._schemaItems.primaryKey), item);
@@ -13302,7 +13830,7 @@ var Phoenix;
         var CompositionList = (function (_super) {
             __extends(CompositionList, _super);
             function CompositionList() {
-                _super.apply(this, arguments);
+                return _super.apply(this, arguments) || this;
             }
             CompositionList.prototype._destroyItems = function () {
                 _super.prototype._destroyItems.call(this);
@@ -13335,7 +13863,7 @@ var Phoenix;
         var SimpleCompositionList = (function (_super) {
             __extends(SimpleCompositionList, _super);
             function SimpleCompositionList() {
-                _super.apply(this, arguments);
+                return _super.apply(this, arguments) || this;
             }
             SimpleCompositionList.prototype._destroyItems = function () {
                 _super.prototype._destroyItems.call(this);
@@ -13348,14 +13876,14 @@ var Phoenix;
         var SimpleTypeList = (function (_super) {
             __extends(SimpleTypeList, _super);
             function SimpleTypeList() {
-                _super.apply(this, arguments);
+                return _super.apply(this, arguments) || this;
             }
             SimpleTypeList.prototype.push = function (item) {
                 var that = this;
                 that._initModelInParent();
                 that._model.push(item);
                 that._items.push(item);
-                that._parent._notifyChanged(that._path, undefined, item, 'add', { $index: that._items.length - 1, $value: item, $id: item, source: that._parent.getPropertyPath(that._path), instance: that._parent }, false);
+                that._parent.notifyChanged(that._path, undefined, item, 'add', { $index: that._items.length - 1, $value: item, $id: item, source: that._parent.getPropertyPath(that._path), instance: that._parent }, false);
                 that.notifyCountChanged();
             };
             SimpleTypeList.prototype.splice = function (start, deleteCount, item) {
@@ -13364,9 +13892,10 @@ var Phoenix;
                 var that = this;
                 if (!that._model)
                     return;
+                item.$create = true;
                 that._model.splice(start, deleteCount, item);
                 that._items.splice(start, deleteCount, item);
-                that._parent._notifyChanged(that._path, undefined, item, 'add', { $index: start, $value: item, $id: item, source: that._parent.getPropertyPath(that._path), instance: that._parent }, false);
+                that._parent.notifyChanged(that._path, undefined, item, 'add', { $index: start, $value: item, $id: item, source: that._parent.getPropertyPath(that._path), instance: that._parent }, false);
                 that.notifyCountChanged();
             };
             SimpleTypeList.prototype.remove = function (item) {
@@ -13375,7 +13904,7 @@ var Phoenix;
                 if (ii >= 0) {
                     that._items.splice(ii, 1);
                     that._model.splice(ii, 1);
-                    that._parent._notifyChanged(that._path, undefined, item, 'remove', { $index: ii, $value: item, $id: item, source: that._parent.getPropertyPath(that._path), instance: that._parent }, false);
+                    that._parent.notifyChanged(that._path, undefined, item, 'remove', { $index: ii, $value: item, $id: item, source: that._parent.getPropertyPath(that._path), instance: that._parent }, false);
                     that.notifyCountChanged();
                 }
             };
@@ -13385,16 +13914,18 @@ var Phoenix;
         var DataList = (function (_super) {
             __extends(DataList, _super);
             function DataList(schema, parent, path, value, arrayParent, locale) {
-                _super.call(this, schema, parent, path, value, arrayParent, locale);
-                var that = this;
+                var _this = _super.call(this, schema, parent, path, value, arrayParent, locale, false) || this;
+                var that = _this;
                 that._createNewItem(false, true);
+                return _this;
             }
             DataList.prototype._initNew = function () {
                 var that = this;
-                var o = _su.init(that._schemaItems, that._rootSchema, null, null);
+                //let o = _su.init(that._schemaItems, that._rootSchema, null, { $create: true });
+                var o = { $create: true };
                 that._new = new Data(that._schemaItems, that._parent, that._path + '.$new', o, null, true, that._locale, null);
                 //Ok
-                that._new._notifyChanged('', undefined, o, 'propchange', { source: that._parent.getPropertyPath(that._path + '.$new'), instance: that._new }, false);
+                that._new.notifyChanged('', undefined, o, 'propchange', { source: that._parent.getPropertyPath(that._path + '.$new'), instance: that._new }, false);
                 that._new.notifyStateChanged('', {});
             };
             DataList.prototype._createNewItem = function (init, define) {
@@ -13413,7 +13944,7 @@ var Phoenix;
                                 obj._initNew();
                             obj._new._setModel(value, true);
                             //OK 
-                            obj._new._notifyChanged('', undefined, value, 'propchange', { source: obj._parent.getPropertyPath(that._path + '.$new'), instance: obj._new });
+                            obj._new.notifyChanged('', undefined, value, 'propchange', { source: obj._parent.getPropertyPath(that._path + '.$new'), instance: obj._new });
                             obj._new.notifyStateChanged('', {});
                         },
                         enumerable: true
@@ -13486,6 +14017,9 @@ var Phoenix;
             };
             DataList.prototype.push = function (item) {
                 var that = this;
+                item.$create = true;
+                if (item.$select && item.$create)
+                    that.clearSelection();
                 that._initModelInParent();
                 that.splice(-1, 0, item);
             };
@@ -13495,8 +14029,8 @@ var Phoenix;
                 var that = this;
                 var ofv = that.frozen;
                 that.frozen = true;
-                if (item)
-                    item = _su.init(that._schemaItems, that._rootSchema, null, item);
+                //if (item && !item.$create)
+                //    item = _su.init(that._schemaItems, that._rootSchema, null, item);
                 var isPush = start < 0;
                 if (isPush) {
                     that._initModelInParent();
@@ -13513,7 +14047,7 @@ var Phoenix;
                 that._map[ii.$id] = ii;
                 if (ii.$select)
                     that.pushSelected(ii, true);
-                that._parent._notifyChanged(that._path, undefined, item, 'add', { $index: isPush ? that._items.length - 1 : start, $id: ii.$id, $value: ii, source: that._parent.getPropertyPath(that._path), instance: that._parent }, false);
+                that._parent.notifyChanged(that._path, undefined, item, 'add', { $index: isPush ? that._items.length - 1 : start, $id: ii.$id, $value: ii, source: that._parent.getPropertyPath(that._path), instance: that._parent }, false);
                 ii.notifyStateChanged('', {});
             };
             DataList.prototype.remove = function (item) {
@@ -13538,7 +14072,7 @@ var Phoenix;
                 delete that._map[id];
                 if (notify) {
                     var path = (that._path ? that._path + '.' : '') + '$item';
-                    that._parent._notifyChanged(that._path, undefined, item, 'remove', { $index: ii, $value: removed, $id: id, source: that._parent.getPropertyPath(that._path), instance: that._parent }, false);
+                    that._parent.notifyChanged(that._path, undefined, item, 'remove', { $index: ii, $value: removed, $id: id, source: that._parent.getPropertyPath(that._path), instance: that._parent }, false);
                     that._parent.notifyStateChanged(path, {}); ///????
                 }
             };
@@ -13546,7 +14080,7 @@ var Phoenix;
         }(CompositionList));
         Observable.DataList = DataList;
         var Data = (function () {
-            function Data(schema, parent, path, value, arrayParent, frozen, locale, datasets, transform) {
+            function Data(schema, parent, path, value, arrayParent, frozen, locale, datasets, transform, designMode) {
                 var that = this;
                 that._rootParent = parent ? parent._rootParent : that;
                 var apath = [];
@@ -13560,6 +14094,7 @@ var Phoenix;
                 if (arrayParent)
                     apath.push('$item');
                 that._fullPath = apath.join('.');
+                that.design = designMode;
                 that.$id = _utils.allocID();
                 that.$create = false;
                 that._initialized = {};
@@ -13583,17 +14118,16 @@ var Phoenix;
                 that._initFromSchema(schema);
                 if (!that._parent || frozen)
                     that.frozen = true;
-                if (value && value.$create) {
-                    delete value.$create;
-                    that.$create = true;
+                if (that === that._rootParent) {
+                    that._rootParent.$create = value ? (value.$create || false) : false;
                 }
                 that._setModel(value, false);
                 that.frozen = false;
                 if (!that._parent) {
-                    that._notifyChanged('*', undefined, value, 'propchange', { source: '' }, false);
+                    that.notifyChanged('*', undefined, value, 'propchange', { source: '' }, false);
                     that.notifyStateChanged('*', {});
                 }
-                _execInitRules(that);
+                _rules.execInitRules(that);
             }
             Object.defineProperty(Data.prototype, "fullPath", {
                 get: function () {
@@ -13612,6 +14146,27 @@ var Phoenix;
                 var that = this;
                 that._origModel = _su.copyModel(that._schema, that._model);
             };
+            Object.defineProperty(Data.prototype, "$schema", {
+                get: function () {
+                    return this._schema;
+                },
+                enumerable: true,
+                configurable: true
+            });
+            Object.defineProperty(Data.prototype, "parent", {
+                get: function () {
+                    return this._parent;
+                },
+                enumerable: true,
+                configurable: true
+            });
+            Object.defineProperty(Data.prototype, "root", {
+                get: function () {
+                    return this._rootParent;
+                },
+                enumerable: true,
+                configurable: true
+            });
             Data.prototype.setModel = function (value) {
                 var that = this;
                 that._destroyObject(that, '_children');
@@ -13620,7 +14175,7 @@ var Phoenix;
                 that._setModel(value, false);
                 that.frozen = false;
                 if (!that._parent) {
-                    that._notifyChanged('*', undefined, value, 'propchange', { sourve: '' }, false);
+                    that.notifyChanged('*', undefined, value, 'propchange', { sourve: '' }, false);
                     that.notifyStateChanged('*', {});
                 }
             };
@@ -13657,7 +14212,7 @@ var Phoenix;
                         return that.onRefresh(options);
                     else {
                         return new _utils.Promise(function (resolve, reject) {
-                            _du.loadMainData({ datasets: that.datasets, transform: that.transform }).then(function (data) {
+                            _du.loadMainData({ datasets: that.datasets, transform: that.transform }, false).then(function (data) {
                                 that.update(data);
                                 resolve();
                             }).catch(function (ex) {
@@ -13670,14 +14225,48 @@ var Phoenix;
                 else
                     return _utils.Promise.resolve();
             };
-            Data.prototype._validate = function (validators) {
+            Data.prototype.clearErrors = function (recursive) {
                 var that = this;
+                if (that.$errors) {
+                    Object.keys(that.$errors).forEach(function (errorName) {
+                        var e = that.$errors[errorName];
+                        e.clear(true);
+                    });
+                }
+                if (recursive) {
+                    var rs_1 = that._rootParent.$schema;
+                    var props = Object.keys(that._schema.properties);
+                    props.forEach(function (name) {
+                        var ss = that._schema.properties[name];
+                        if (!_su.inModel(ss, rs_1))
+                            return;
+                        if (_su.isCompositionRef(ss, rs_1)) {
+                            var ref = that[name];
+                            if (ref)
+                                ref.clearErrors(recursive);
+                        }
+                        else if (_su.isCompositionList(ss, rs_1, false)) {
+                            var list = that[name];
+                            if (list) {
+                                list.forEach(function (item) {
+                                    item.clearErrors(recursive);
+                                });
+                            }
+                        }
+                    });
+                }
+            };
+            Data.prototype._validate = function (validators, isSaving, selectedProps) {
+                var that = this;
+                that.clearErrors(false);
                 if (!validators || !validators.length)
                     return true;
                 var props = Object.keys(that._schema.properties);
                 var error = false;
                 //for each property validate
                 var rs = that._rootParent._schema;
+                if (isSaving)
+                    _rules.execBeforeSaveRules(that);
                 props.forEach(function (name) {
                     var ss = that._schema.properties[name];
                     var execPropValidate = false;
@@ -13686,10 +14275,12 @@ var Phoenix;
                     var state = that.$states[ss.$stateProperty || name];
                     if (state.isHidden || state.isDisabled)
                         return;
+                    if (selectedProps && selectedProps.indexOf(name) < 0)
+                        return false;
                     if (_su.isCompositionRef(ss, rs)) {
                         var ref = that[name];
                         if (ref) {
-                            if (!ref._validate(validators))
+                            if (!ref._validate(validators, isSaving))
                                 error = true;
                         }
                         else {
@@ -13703,7 +14294,7 @@ var Phoenix;
                         var list = that[name];
                         if (list) {
                             list.forEach(function (item) {
-                                if (!item._validate(validators))
+                                if (!item._validate(validators, isSaving))
                                     error = true;
                             });
                             execPropValidate = true;
@@ -13717,6 +14308,8 @@ var Phoenix;
                         }
                     }
                 });
+                if (_rules.execValidationRules(that, selectedProps))
+                    error = true;
                 if (!that._parent) {
                     // validate root element
                     if (!that._execValidators(validators, '', 'validate', {}, { base: that, state: null, schema: that._schema, value: null })) {
@@ -13725,10 +14318,27 @@ var Phoenix;
                 }
                 return !error;
             };
-            Data.prototype.validate = function () {
+            Data.prototype.isRecursiveRule = function (propertyName) {
                 var that = this;
                 var root = that.getRootModel();
-                return that._validate(root._validators);
+                if (!root.callStack)
+                    return;
+                var path = that.getPropertyPath(propertyName);
+                if (root.callStack.indexOf(path) >= 0) {
+                    _utils.logRule(root.callStack.length, 'Recursive rule detected: property: ' + path + ' - last rule canceled.', path);
+                    return true;
+                }
+                return false;
+            };
+            Data.prototype.validate = function (isSaving) {
+                var that = this;
+                var root = that.getRootModel();
+                return that._validate(root._validators, isSaving);
+            };
+            Data.prototype.partialValidate = function (properties) {
+                var that = this;
+                var root = that.getRootModel();
+                return that._validate(root._validators, false, properties);
             };
             Object.defineProperty(Data.prototype, "$select", {
                 get: function () {
@@ -13791,7 +14401,7 @@ var Phoenix;
                 if (that._selected !== value) {
                     that._selected = value;
                     if (notify)
-                        that._notifyChanged('$select', !that._selected, value, 'propchange', { source: that.getPropertyPath('$select'), instance: that }, true);
+                        that.notifyChanged('$select', !that._selected, value, 'propchange', { source: that.getPropertyPath('$select'), instance: that }, true);
                     return true;
                 }
                 return false;
@@ -13808,7 +14418,7 @@ var Phoenix;
                 var root = that.getRootModel();
                 if (root !== that)
                     return _utils.Promise.reject(null);
-                if (!that.validate())
+                if (!that.validate(true))
                     return _utils.Promise.reject(null);
                 var ds = _du.extractMainDataSource(that);
                 if (ds && _du.isCreateOrUpdate(ds)) {
@@ -14040,7 +14650,7 @@ var Phoenix;
                     var oo = cs[pp] ? cs[pp][propertyName] : null;
                     if (oo) {
                         state = oo.state();
-                        if (!islink && cs.$errors) {
+                        if (!islink && cs.$errors && cs.$errors[opropertyName]) {
                             state.errors = cs.$errors[opropertyName].errors();
                         }
                     }
@@ -14055,6 +14665,12 @@ var Phoenix;
                 that.isNull = value === null;
                 that.isUndefined = value === undefined;
                 value = value || {};
+                var icreate = value.$create !== undefined ? value.$create : (that._parent ? that._parent.$create : false);
+                if (value) {
+                    value = _su.init(that._schema, that._rootParent._schema, null, value, icreate);
+                    that.$create = value.$create;
+                    delete value.$create;
+                }
                 value.$states = value.$states || {};
                 value.$links = value.$links || {};
                 value.$errors = value.$errors || {};
@@ -14077,18 +14693,19 @@ var Phoenix;
                         that[name] = val;
                     if (!isMeta) {
                         if (value.$states && value.$states[name]) {
-                            var ss_1 = value.$states[name];
-                            Object.keys(ss_1).forEach(function (sn) { that.$states[name][sn] = ss_1[sn]; });
+                            var ss_2 = value.$states[name];
+                            Object.keys(ss_2).forEach(function (sn) { that.$states[name][sn] = ss_2[sn]; });
                         }
                         value.$states[name] = that.$states[name].state();
                     }
-                    if (value.$errors && value.$errors[name]) {
+                    if (value.$errors && value.$errors[name] && that.$errors[name]) {
                         var errors = value.$errors[name];
                         var ne_1 = [];
                         errors.forEach(function (err) { ne_1.push(err); });
                         that.$errors[name].addErrors(ne_1);
                     }
-                    value.$errors[name] = that.$errors[name].errors();
+                    if (that.$errors[name])
+                        value.$errors[name] = that.$errors[name].errors();
                 });
                 //for each link set state
                 if (value.$links) {
@@ -14130,7 +14747,7 @@ var Phoenix;
                 var ofv = that.frozen;
                 that.frozen = true;
                 if (!that._children[propertyName])
-                    that._children[propertyName] = new SimpleTypeList(that._schema.properties[propertyName], that, propertyName, value, null, that._locale);
+                    that._children[propertyName] = new SimpleTypeList(that._schema.properties[propertyName], that, propertyName, value, null, that._locale, false);
                 else
                     that._children[propertyName]._setModel(value, false);
                 that.frozen = ofv;
@@ -14143,7 +14760,7 @@ var Phoenix;
                     that._children[propertyName].destroy();
                 that._children[propertyName] = new QueryList(that._schema, that._schema.properties[propertyName], that, propertyName, value, pageSize, page, totalCount, null, that._locale);
                 that.frozen = ofv;
-                that._notifyChanged(propertyName, null, value, 'propchange', { source: that.getPropertyPath(propertyName), instance: that }, true);
+                that.notifyChanged(propertyName, null, value, 'propchange', { source: that.getPropertyPath(propertyName), instance: that }, true);
                 that.notifyStateChanged(propertyName, {});
             };
             Data.prototype._initFromSchema = function (schema) {
@@ -14198,9 +14815,8 @@ var Phoenix;
                     Object.keys(schema.links).forEach(function (name) { _createStateLinks(that, name, links ? links[name] : null); });
                 }
                 // root error
-                if (!that._parent) {
-                    that.$errors.$ = new _observable.Errors(that, '$', [], false);
-                }
+                if (!that._parent || that._arrayParent)
+                    that.$errors.$ = new _observable.Errors(that, '$', []);
             };
             Data.prototype.getParentModel = function (path) {
                 var segments = path.split('.');
@@ -14249,34 +14865,22 @@ var Phoenix;
             };
             Data.prototype.rmvError = function (message) {
                 var that = this;
-                if (that._arrayParent) {
-                }
-                else {
-                    if (that._parent)
-                        that._parent.rmvError(message);
-                    else {
-                        if (that.$errors.$)
-                            that.$errors.$.rmvError(message);
-                    }
-                }
+                if (that.$errors.$)
+                    that.$errors.$.rmvError(message);
+                else if (that._parent)
+                    that._parent.rmvError(message);
             };
             Data.prototype.addErrors = function (errors) {
                 var that = this;
-                if (that._arrayParent) {
-                }
-                else {
-                    if (that._parent)
-                        that._parent.addErrors(errors);
-                    else {
-                        if (that.$errors.$)
-                            that.$errors.$.addErrors(errors);
-                    }
-                }
+                if (that.$errors.$)
+                    that.$errors.$.addErrors(errors);
+                else if (that._parent)
+                    that._parent.addErrors(errors);
             };
             Data.prototype._beforeChange = function (propertyName, schema, oldValue, value, forceContinue) {
                 var that = this;
                 var res = { continue: true, value: value };
-                if (_su.isNumber(schema) && !isNaN(value)) {
+                if (_su.isNumber(schema) && !isNaN(value) && value !== null && value !== undefined) {
                     if (that.$states[propertyName] && that.$states[propertyName].decimals !== undefined) {
                         res.value = parseFloat(value.toFixed(that.$states[propertyName].decimals));
                         if (!forceContinue && oldValue === res.value)
@@ -14330,24 +14934,20 @@ var Phoenix;
                 }
                 else if (event !== 'validate')
                     return !error;
-                var first = true;
                 validators.forEach(function (validator) {
                     if (validator.active) {
                         if (!validator.hnd)
                             validator.hnd = _su.getValidator(validator.name);
                         if (validator.hnd) {
-                            if (ldata)
-                                ldata.add = !first;
                             if (!validator.hnd(event, that, { name: propertyName, params: params, locale: that._locale }, ldata)) {
                                 error = true;
                             }
-                            first = false;
                         }
                     }
                 });
                 return !error;
             };
-            Data.prototype._notifyChanged = function (propertyName, oldValue, value, op, params, validate) {
+            Data.prototype.notifyChanged = function (propertyName, oldValue, value, op, params, validate) {
                 var that = this;
                 if (that.frozen || (that._arrayParent && that._arrayParent.frozen))
                     return;
@@ -14360,15 +14960,15 @@ var Phoenix;
                                 oid = params.$oid;
                             else
                                 params.$oid = item.$id;
-                            that._parent._notifyChanged(that._path, oldValue, value, 'upd', { $id: item.$id, property: propertyName, $oid: oid }, validate);
+                            that._parent.notifyChanged(that._path, oldValue, value, 'upd', { $id: item.$id, property: propertyName, $oid: oid }, validate);
                             if (that._arrayParent.$selected === that)
-                                that._parent._notifyChanged(that._path + '.$selected', oldValue, value, 'upd', { $id: item.$id, property: propertyName, $oid: oid }, validate);
+                                that._parent.notifyChanged(that._path + '.$selected', oldValue, value, 'upd', { $id: item.$id, property: propertyName, $oid: oid }, validate);
                         }
                     }
                     propertyName = that._arrayParent.updateParams(that, propertyName, params);
                 }
                 if (that._parent) {
-                    that._parent._notifyChanged(propertyName ? (that._path + '.' + propertyName) : that._path, oldValue, value, op, params, validate);
+                    that._parent.notifyChanged(propertyName ? (that._path + '.' + propertyName) : that._path, oldValue, value, op, params, validate);
                 }
                 else {
                     _utils.logModule('proxydata') && _utils.log('Changed: ' + that._extractPropName(propertyName || '', params) + ', operation = ' + op, 'proxydata');
@@ -14378,66 +14978,8 @@ var Phoenix;
                         that._execValidators(that._validators, propertyName, 'propchanged', params);
                     }
                     //Execute validation rules 
-                    if (params.instance, params.source && params.source === propertyName) {
-                        that._callStack = that._callStack || [];
-                        that._callStack.push({ path: params.source, params: params });
-                        try {
-                            var ctx = _createContext(that);
-                            that._execRules(params, { validations: true, propagations: true });
-                        }
-                        finally {
-                            that._callStack.pop();
-                        }
-                    }
-                }
-            };
-            Data.prototype._execRules = function (params, options) {
-                var that = this;
-                if (that._schema.rules && (that._schema.rules.validation || that._schema.rules.propagation)) {
-                    var propertyName = params.source;
-                    var segments = propertyName.split('.');
-                    var sp_1 = segments.pop();
-                    if (sp_1.charAt(0) === '$')
-                        return;
-                    var cp = [sp_1];
-                    var inst_1 = params.instance;
-                    var pp_1 = inst_1;
-                    var ctx_1 = _createContext(that);
-                    while (inst_1) {
-                        var rules = options.propagations && that._schema.rules.propagation ? that._schema.rules.propagation[inst_1.className] : null;
-                        var lrules = rules ? rules[cp.join('.')] : null;
-                        lrules && lrules.forEach(function (rule) { return _execPropagationRule(that._schema.rulesMap[rule], inst_1, ctx_1); });
-                        rules = options.validations && that._schema.rules.validation ? that._schema.rules.validation[inst_1.className] : null;
-                        lrules = rules ? rules[cp.join('.')] : null;
-                        lrules && lrules.forEach(function (ruleId) {
-                            var rule = that._schema.rulesMap[ruleId];
-                            if (!rule.code) {
-                                rule.code = new Function('o', 'ctx', 'window', 'return ' + _parseExpression(rule.expression, { isPropagation: false }));
-                                rule.conditionCode = rule.condition ? new Function('o', 'ctx', 'window', 'return ' + _parseExpression(rule.condition, { isPropagation: false })) : null;
-                            }
-                            var addToRoot = rule.triggers.length > 1;
-                            var canRun = true;
-                            if (rule.conditionCode)
-                                canRun = rule.conditionCode(inst_1, ctx_1, null);
-                            if (!canRun || rule.code(inst_1, ctx_1, null)) {
-                                if (addToRoot)
-                                    that.rmvError(rule.errorMsg);
-                                else
-                                    pp_1.$errors[sp_1].rmvError(rule.errorMsg);
-                            }
-                            else {
-                                if (addToRoot)
-                                    that.addError(rule.errorMsg);
-                                else
-                                    pp_1.$errors[sp_1].addError(rule.errorMsg);
-                            }
-                        });
-                        var cs = segments.pop();
-                        if (cs && (cs.charAt(0) === '$'))
-                            cs = segments.pop();
-                        if (cs)
-                            cp.unshift(cs);
-                        inst_1 = inst_1._parent;
+                    if (params.instance && params.source && params.source === propertyName) {
+                        _rules.execPropChangeRules(that, params, { validations: true, propagations: true });
                     }
                 }
             };
@@ -14469,44 +15011,6 @@ var Phoenix;
         }());
         Observable.Data = Data;
         Observable.ObservableUtils = _dutils;
-        var _parseExpression = function (expression, options) {
-            options = options || {};
-            if (options.isPropagation) {
-            }
-            return expression;
-        }, _execPropagationRule = function (rule, inst, ctx) {
-            if (!rule.code) {
-                rule.code = new Function('o', 'ctx', 'window', _parseExpression(rule.expression, { isPropagation: true }));
-                rule.conditionCode = rule.condition ? new Function('o', 'ctx', 'window', 'return ' + _parseExpression(rule.condition, { isPropagation: false })) : null;
-            }
-            var canRun = true;
-            if (rule.conditionCode)
-                canRun = rule.conditionCode(inst, ctx, null);
-            if (canRun) {
-                rule.code(inst, ctx, null);
-            }
-        }, _createContext = function (inst) {
-            return {
-                today: _ulocale.date2ISO(new Date()),
-                isTriggeredBy: function (propertyName) {
-                    return true;
-                },
-                sum: function (list, propertyName) {
-                    var res = 0;
-                    list && list.forEach(function (item, index, level) {
-                        res += item[propertyName];
-                    }, '');
-                    return res;
-                }
-            };
-        }, _execInitRules = function (inst) {
-            var rootSchema = inst.getRootModel().getSchema('');
-            var rules = rootSchema.rules && rootSchema.rules.init ? rootSchema.rules.init[inst.className] : null;
-            if (rules) {
-                var ctx_2 = _createContext(inst.getRootModel());
-                rules.forEach(function (rule) { return _execPropagationRule(rootSchema.rulesMap[rule], inst, ctx_2); });
-            }
-        };
     })(Observable = Phoenix.Observable || (Phoenix.Observable = {}));
 })(Phoenix || (Phoenix = {}));
 /// <reference path="../../core/modules/locale.ts" />
@@ -14549,12 +15053,8 @@ var Phoenix;
                             res = false;
                     }
                 }
-                var add = false;
-                if (event === 'validate' && data) {
-                    add = data.add;
-                }
                 if (base.$errors[pn])
-                    base.$errors[pn].addErrors(errors, add);
+                    base.$errors[pn].addErrors(errors);
             }
             return res;
         };
@@ -14622,12 +15122,12 @@ var Phoenix;
 (function (Phoenix) {
     var ui;
     (function (ui) {
-        var _p = Phoenix, _ui = _p.ui, _utils = _p.utils, _build = _p.build, _link = _p.link, _dom = _p.dom, _customData = _p.customData, _preferences = _p.preferences, _sutils = _p.Observable.SchemaUtils, _outils = _p.Observable.ObservableUtils, _ulocale = _p.ulocale;
+        var _p = Phoenix, _ui = _p.ui, _utils = _p.utils, _build = _p.build, _link = _p.link, _dom = _p.dom, _layoutUtils = _p.layoutUtils, _customData = _p.customData, _preferences = _p.preferences, _sutils = _p.Observable.SchemaUtils, _outils = _p.Observable.ObservableUtils, _ulocale = _p.ulocale;
         var Form = (function (_super) {
             __extends(Form, _super);
             function Form(layoutData, options, ldata, schema, locale, preferences) {
-                _super.call(this, layoutData, options, ldata, schema, locale, preferences);
-                this._event2Layout = function (event) {
+                var _this = _super.call(this, layoutData, options, ldata, schema, locale, preferences) || this;
+                _this._event2Layout = function (event) {
                     var that = this;
                     if (!that.$element)
                         return null;
@@ -14644,7 +15144,10 @@ var Phoenix;
                     }
                     return null;
                 };
-                var that = this;
+                var that = _this;
+                var ctx = _link.context();
+                if (ctx.$url.$showRules)
+                    _utils.showRules(true);
                 if (options.module) {
                     that.module = options.module;
                     delete options.module;
@@ -14657,6 +15160,7 @@ var Phoenix;
                 that.$schema = schema || {};
                 that.$rootSchema = that.$schema;
                 if (options.path) {
+                    that.$rootPath = options.path;
                     that.$schema = _sutils.getSchema(options.path, that.$schema, that.$rootSchema, true);
                 }
                 if (options.checkFormLayout)
@@ -14673,23 +15177,46 @@ var Phoenix;
                 that.setData(ldata);
                 that.$model.onchange = that._modelChanged.bind(that);
                 that.$model.onstatechanged = that._stateChanged.bind(that);
-                that.$bind = {};
+                that._bindStates = {};
+                that._bindTitles = {};
+                that._bindAccordion = {};
                 Object.keys(that.map).forEach(function (layoutId) {
                     var l = that.map[layoutId];
                     if (l.$bindState) {
-                        that.$bind[l.$bindState] = that.$bind[l.$bindState] || [];
-                        that.$bind[l.$bindState].push(layoutId);
+                        that._bindStates[l.$bindState] = that._bindStates[l.$bindState] || [];
+                        that._bindStates[l.$bindState].push(layoutId);
+                    }
+                    if (l.$title && l.$title.value && !l.$title.isHidden) {
+                        var fields = [];
+                        if (_utils.extractAngularVars(l.$title.value, fields)) {
+                            fields && fields.forEach(function (field) {
+                                if (!that._bindTitles[field.name]) {
+                                    that._bindTitles[field.name] = [];
+                                    that.registerListenerFor(field.name, that, 'layout-titles');
+                                }
+                                that._bindTitles[field.name].push(layoutId);
+                            });
+                            l.$fields = true;
+                        }
+                    }
+                    if (l.$bindPages && l.$type === _layoutUtils.LAYOUT_ACCORDION && l.$widget === 'none') {
+                        if (!that._bindAccordion[l.$bindPages]) {
+                            that._bindAccordion[l.$bindPages] = [];
+                            that.registerListenerFor(l.$bindPages, that, 'layout-accordion');
+                        }
+                        that._bindAccordion[l.$bindPages].push(layoutId);
+                        that._activateTab(l);
                     }
                 });
-                Object.keys(that.$bind).forEach(function (propName) {
+                Object.keys(that._bindStates).forEach(function (propName) {
                     var state = that.$model.getState(propName, {});
                     if (state && state.isHidden) {
-                        var l = that.$bind[propName];
+                        var l = that._bindStates[propName];
                         l.forEach(function (layoutId) {
                             that.map[layoutId].$isHidden = true;
                         });
                     }
-                    that.registerListenerFor(propName, that, "layout-state");
+                    that.registerListenerFor(propName, that, 'layout-state');
                 });
                 that.registerListenerFor('$', that);
                 that.loadPrefs();
@@ -14702,6 +15229,7 @@ var Phoenix;
                     that.options.verticalSpacing = true;
                 }
                 that._afterCreate();
+                return _this;
             }
             Form.prototype._isInDelayedAction = function () {
                 if (this.formManager)
@@ -14720,14 +15248,38 @@ var Phoenix;
                 options.form = true;
                 return options;
             };
+            Form.prototype._getFormLData = function () {
+                return this.$model;
+            };
+            Form.prototype._activateTab = function (l) {
+                var that = this;
+                var cv = that.$model.getValue(l.$bindPages, {});
+                if (cv) {
+                    var oldActive_1 = null, newActive_1 = null;
+                    l.$items.forEach(function (item) {
+                        if (item.opened)
+                            oldActive_1 = item;
+                        if (item.$name === cv)
+                            newActive_1 = item;
+                    });
+                    if (newActive_1) {
+                        newActive_1.opened = true;
+                        if (oldActive_1 && oldActive_1 !== newActive_1)
+                            oldActive_1.opened = false;
+                    }
+                    else if (!oldActive_1 && l.$items.length)
+                        l.$items[0].opened = true;
+                }
+            };
             Form.prototype.setData = function (ldata) {
                 var that = this;
-                that.$data = _sutils.init(that.$schema, that.$schema, null, ldata || {});
+                ldata = ldata || {};
+                that.$data = _sutils.init(that.$schema, that.$schema, null, ldata, ldata.$create);
                 if (that.options.beforeSetModel) {
                     that.options.beforeSetModel(that.$data, that);
                 }
                 if (!that.$model) {
-                    that.$model = new Phoenix.Observable.Data(that.$schema, null, '', that.$data, null, false, that.$locale, that.data.datasets, that.data.transform);
+                    that.$model = new Phoenix.Observable.Data(that.$schema, null, '', that.$data, null, false, that.$locale, that.data.datasets, that.data.transform, that.options.design);
                 }
                 else {
                     that.$model.setModel(that.$data);
@@ -14922,7 +15474,7 @@ var Phoenix;
                     if (!cfg.handler)
                         return;
                     var a = action, m = model, dispatch = false;
-                    if (cfg.$refProperty && a.property.index(cfg.$refProperty + '.') === 0) {
+                    if (cfg.$refProperty && a.property && a.property.indexOf(cfg.$refProperty + '.') === 0) {
                         dispatch = true;
                         a = _utils.copy(action);
                         a.property = a.property.substring(cfg.$refProperty.length + 1);
@@ -14965,12 +15517,42 @@ var Phoenix;
                     cd++;
                 }
             };
+            Form.prototype.changed = function (propName, ov, nv, op, params) {
+                var that = this;
+                if (params.targetId === 'layout-titles') {
+                    if (that._bindTitles[params.propName]) {
+                        if (that.$element) {
+                            var e_1 = that.$element.get(0);
+                            that._bindTitles[params.propName].forEach(function (layoutId) {
+                                var titleElement = _dom.find(e_1, layoutId + '_title');
+                                if (titleElement) {
+                                    var l = that.getLayoutById(layoutId);
+                                    if (l && l.$title.value)
+                                        _layoutUtils.updateLayoutTitle(titleElement, l, that.$model, that.$locale);
+                                }
+                            });
+                        }
+                    }
+                }
+                else if (params.targetId === 'layout-accordion') {
+                    if (that._bindAccordion[params.propName]) {
+                        that._bindAccordion[params.propName].forEach(function (layoutId) {
+                            var l = that.getLayoutById(layoutId);
+                            l.$items.forEach(function (item) {
+                                if (item.$name === nv && !item.opened) {
+                                    that._activatePageLayout(item);
+                                }
+                            });
+                        });
+                    }
+                }
+            };
             Form.prototype.stateChanged = function (propName, params) {
                 var that = this;
-                if (params.targetId === "layout-state") {
+                if (params.targetId === 'layout-state') {
                     if (propName === "isHidden" && params.property) {
                         var state_1 = that.$model.getState(params.property, {});
-                        var l = that.$bind[params.property];
+                        var l = that._bindStates[params.property];
                         if (l)
                             l.forEach(function (layoutId) {
                                 var layout = that.map[layoutId];
@@ -14979,7 +15561,7 @@ var Phoenix;
                             });
                     }
                 }
-                else if (that.$model.$errors && that.$model.$errors.$) {
+                else if (params.property === '$' && propName === 'errors') {
                     var err = that.$model.$errors.$;
                     if (!err.hasErrors()) {
                         that.clearErrors();
@@ -14991,7 +15573,6 @@ var Phoenix;
                             that.showErrorItem(ce, i == 0);
                         }
                     }
-                    err.clear(false);
                 }
             };
             Form.prototype.getSchema = function (path) {
@@ -15153,7 +15734,9 @@ var Phoenix;
                 var that = this;
                 that.$data = null;
                 that.$schema = null;
-                that.$bind = null;
+                that._bindStates = null;
+                that._bindTitles = null;
+                that._bindAccordion = null;
                 that.module = null;
                 that._listeners = {};
                 that._listenersByName = [];
@@ -15288,6 +15871,11 @@ var Phoenix;
                     if (that._inProcessing)
                         return that._freeze(event);
                     var control = that._event2Field(event);
+                    if (control && event.target.id === control.id + '_rules') {
+                        control.showRules();
+                        event.preventDefault();
+                        return;
+                    }
                     if (control && control.click) {
                         if (control.stopProppagation)
                             control.stopProppagation(event);
@@ -15445,8 +16033,8 @@ var Phoenix;
         var ModalForm = (function (_super) {
             __extends(ModalForm, _super);
             function ModalForm(formOptions, layout, schema, data, locale, preferences) {
-                _super.call(this, formOptions, locale);
-                var that = this;
+                var _this = _super.call(this, formOptions, locale) || this;
+                var that = _this;
                 var opts = formOptions.opts ? formOptions.opts : {};
                 if (formOptions.validators) {
                     opts.validators = formOptions.validators;
@@ -15454,6 +16042,7 @@ var Phoenix;
                 }
                 that.render = new ui.Form(layout, opts, data, schema, locale, preferences);
                 that.render.$locale = locale;
+                return _this;
             }
             ModalForm.prototype.on = function (hnd) {
                 var that = this;
@@ -15513,16 +16102,16 @@ var Phoenix;
                 var config = _application.config(_application.name);
                 return _ajax.get(config.current.prototypes + '/' + schema + '.json');
             }
-        }, _prepareForm = function (layout, schema, fdata, locale, opts, after) {
+        }, _prepareForm = function (layout, schema, formData, locale, opts, after) {
             var ci = 0, li = -1, si = -1, promises = [], params = { locale: locale }, dataIndex = -1, preferencesIndex = -1;
             var config = _application.config(_application.name);
             opts = opts || {};
             if (locale && locale.$name)
                 opts.externalLocale = locale.$name;
-            if (!fdata || !fdata.then)
-                params.data = $.extend(true, {}, fdata);
+            if (!formData || !formData.then)
+                params.data = $.extend(true, {}, formData);
             else {
-                promises.push(fdata);
+                promises.push(formData);
                 dataIndex = 0;
                 ci++;
             }
@@ -16189,11 +16778,15 @@ var Phoenix;
                 }
                 return res;
             },
-            addTooltip: function (html, description, options) {
-                html.push('<span id="{0}_tooltip" data-toggle="tooltip" data-phoenix-tooltip="true" data-placement="auto" title="' + description + '" class="' + _dom.iconClass("question-circle") + ' bs-tooltip-icon');
-                if (options && options.inline)
-                    html.push(' bs-tooltip-icon-inline');
-                html.push('"></span>');
+            addTooltipAndRule: function (html, options) {
+                if (options.description) {
+                    html.push('<span id="{0}_tooltip" data-toggle="tooltip" data-phoenix-tooltip="true" data-placement="auto" title="' + options.description + '" class="' + _dom.iconClass("question-circle") + ' bs-tooltip-icon');
+                    html.push('"></span>');
+                }
+                if (options.rules) {
+                    html.push('<span id="{0}_rules"  class="' + _dom.iconClass('bolt') + ' bs-rules');
+                    html.push('"></span>');
+                }
             }
         };
         if (_afutils.useDatePicker()) {
@@ -16247,7 +16840,7 @@ var Phoenix;
 /// <reference path="../form.control.ts" />
 var Phoenix;
 (function (Phoenix) {
-    var _uiutils = Phoenix.uiutils, _observable = Phoenix.Observable, _dom = Phoenix.dom, _customData = Phoenix.customData, _sutils = _observable.SchemaUtils;
+    var _utils = Phoenix.utils, _uiutils = Phoenix.uiutils, _observable = Phoenix.Observable, _dom = Phoenix.dom, _external = Phoenix.external, _customData = Phoenix.customData, _sutils = _observable.SchemaUtils;
     var ui;
     (function (ui) {
         var _registerControl = function (factory, type, isEnum, widget, options) {
@@ -16352,6 +16945,12 @@ var Phoenix;
             AbsField.prototype.getCustomBind = function () {
                 return '';
             };
+            AbsField.prototype.getBind = function () {
+                var that = this, res = [];
+                if (that.$bind)
+                    res.push(that.$bind);
+                return res;
+            };
             AbsField.prototype.setHidden = function (element) {
                 if (!element)
                     return;
@@ -16382,6 +16981,44 @@ var Phoenix;
             };
             AbsField.prototype.removeEvents = function () { };
             AbsField.prototype.customOptions = function (opts) {
+                var that = this;
+                if (_utils.showRules()) {
+                    var rs_2 = that.form.$rootSchema;
+                    var bs_1 = that.form.$schema;
+                    var binds = that.getBind();
+                    binds.forEach(function (bind) {
+                        var ss = _sutils.getSchema(_sutils.parentPath(bind), bs_1, rs_2, true);
+                        var rpn = _sutils.lastSegment(bind, null);
+                        if (ss && ss.name) {
+                            if (bs_1.rules && bs_1.rules.validation && bs_1.rules.validation[ss.name] && bs_1.rules.validation[ss.name][rpn]) {
+                                opts.rules = true;
+                            }
+                            else if (bs_1.rules && bs_1.rules.propagation && bs_1.rules.propagation[ss.name] && bs_1.rules.propagation[ss.name][rpn]) {
+                                opts.rules = true;
+                            }
+                        }
+                    });
+                }
+            };
+            AbsField.prototype.showRules = function () {
+                var that = this;
+                var rs = that.form.$rootSchema, rules = [];
+                var bs = that.form.$schema;
+                var binds = that.getBind();
+                binds.forEach(function (bind) {
+                    var ss = _sutils.getSchema(_sutils.parentPath(bind), bs, rs, true);
+                    var rpn = _sutils.lastSegment(bind, null);
+                    if (ss && ss.name) {
+                        if (bs.rules && bs.rules.validation && bs.rules.validation[ss.name] && bs.rules.validation[ss.name][rpn]) {
+                            rules.push(bs.rulesMap[bs.rules.validation[ss.name][rpn]]);
+                        }
+                        if (bs.rules && bs.rules.propagation && bs.rules.propagation[ss.name] && bs.rules.propagation[ss.name][rpn]) {
+                            rules.push(bs.rulesMap[bs.rules.propagation[ss.name][rpn]]);
+                        }
+                    }
+                });
+                if (_external.ruleViewer)
+                    _external.ruleViewer(rules);
             };
             AbsField.prototype._initOptions = function (defOpts) {
                 var that = this;
@@ -16470,8 +17107,9 @@ var Phoenix;
         var Alert = (function (_super) {
             __extends(Alert, _super);
             function Alert(fp, options, form) {
-                _super.call(this, fp, options, form);
-                this._state();
+                var _this = _super.call(this, fp, options, form) || this;
+                _this._state();
+                return _this;
             }
             Alert.prototype._setDisabled = function (input, element) {
                 var that = this;
@@ -16572,8 +17210,9 @@ var Phoenix;
         var ComplexBase = (function (_super) {
             __extends(ComplexBase, _super);
             function ComplexBase(fp, options, form) {
-                _super.call(this, fp, options, form);
-                this._state();
+                var _this = _super.call(this, fp, options, form) || this;
+                _this._state();
+                return _this;
             }
             ComplexBase.prototype.click = function (event) {
                 var that = this;
@@ -16647,10 +17286,11 @@ var Phoenix;
         var ArrayControl = (function (_super) {
             __extends(ArrayControl, _super);
             function ArrayControl() {
-                _super.apply(this, arguments);
+                return _super.apply(this, arguments) || this;
             }
             ArrayControl.prototype.customOptions = function (options) {
                 var that = this;
+                _super.prototype.customOptions.call(this, options);
                 if (!options.item || !options.item.render)
                     throw 'Item render is null. Use options: { item : {render: "my_item_render"}} ';
                 that._render = _customData.get(options.item.render);
@@ -16661,20 +17301,24 @@ var Phoenix;
             // Create content
             ArrayControl.prototype.renderContent = function (parent) {
                 var that = this, columns = 0, scrollLeft = null, scrollRight = null;
+                that._id = _utils.allocID();
                 that._map = {};
-                var isGrid = that.renderOptions && that.renderOptions.layout && that.renderOptions.layout.type === 'grid';
-                var isColumn = that.renderOptions && that.renderOptions.layout && that.renderOptions.layout.type === 'column';
+                that._layout = 'inline';
+                if (that.renderOptions && that.renderOptions.layout)
+                    that._layout = that.renderOptions.layout.type;
                 var cp = document.createDocumentFragment();
-                if (isGrid || isColumn)
+                if (that._layout === 'grid' || that._layout === 'column')
                     columns = Math.max(Math.min(that.renderOptions.layout.columns || GRID_COLUMNS, 12), 1);
                 var row = null;
                 var m = that.state.value.model(true);
                 m && m.forEach(function (item, index) {
                     var itemParent;
                     var itemCss = [];
-                    if (isGrid || isColumn) {
+                    if (that._layout === 'scroll')
+                        itemCss.push(that._id + '_inScroll');
+                    if (that._layout === 'grid' || that._layout === 'column') {
                         var ci = index % columns;
-                        if ((ci === 0 && isGrid) || (index === 0 && isColumn)) {
+                        if ((ci === 0 && that._layout === 'grid') || (index === 0 && that._layout === 'column')) {
                             row = $('<div class="row"></div>').get(0);
                             var bootstrapCol = Math.floor(12 / columns);
                             for (var i = 0; i < columns; i++)
@@ -16695,9 +17339,19 @@ var Phoenix;
                     _dom.append(itemParent, itemContainer);
                 });
                 _dom.empty(parent);
-                if ((isGrid || isColumn) && !_dom.hasClass(parent, 'container-fluid'))
+                if ((that._layout === 'grid' || that._layout === 'column') && !_dom.hasClass(parent, 'container-fluid'))
                     _dom.addClass(parent, 'container-fluid');
-                _dom.append(parent, cp);
+                if (that._layout === 'scroll') {
+                    var scrollContainer = $(_utils.format('<div id="{0}_overflow" class="array-control-overflow">', that._id)).get(0);
+                    _dom.append(scrollContainer, $(_utils.format('<div id="{0}_left" class="{0}_move array-control-move array-control-goLeft"><span class="{1}"></span></div>', that._id, _dom.iconClass('chevron-left'))).get(0));
+                    _dom.append(scrollContainer, $(_utils.format('<div id="{0}_right" class="{0}_move array-control-move array-control-goRight"><span class="{1}"></span></div>', that._id, _dom.iconClass('chevron-right'))).get(0));
+                    var container = $(_utils.format('<div id="{0}_container"></div>', that._id)).get(0);
+                    _dom.append(scrollContainer, container);
+                    _dom.append(container, cp);
+                    _dom.append(parent, scrollContainer);
+                }
+                else
+                    _dom.append(parent, cp);
             };
             ArrayControl.prototype.destroy = function () {
                 var that = this;
@@ -16719,6 +17373,80 @@ var Phoenix;
                 var that = this;
                 if (that._render.click)
                     that._render.click(that.$element.get(0), event, that._map);
+            };
+            ArrayControl.prototype.resize = function () {
+                var self = this;
+                var width = 0, height = 0, maxWidth = 0;
+                if (self._layout !== 'scroll')
+                    return;
+                self._nOverflow = $(_utils.format('#{0}_overflow', self._id));
+                self._nCtrlLeft = $(_utils.format('#{0}_left', self._id));
+                self._nCtrlRight = $(_utils.format('#{0}_right', self._id));
+                self._nContainer = $(_utils.format('#{0}_container', self._id));
+                self._nInScroll = $(_utils.format('.{0}_inScroll', self._id));
+                self._nCtrls = $(_utils.format('.{0}_move', self._id));
+                self._nInScroll.each(function () {
+                    width += $(this).outerWidth();
+                    if ($(this).height() > height)
+                        height = $(this).height();
+                    if ($(this).outerWidth() > maxWidth)
+                        maxWidth = $(this).outerWidth();
+                });
+                self._nContainer.css('width', width + "px");
+                self._nContainer.css('height', (height + 10) + "px");
+                var heightMoveCtrl = self._nCtrls.height();
+                self._nCtrls.css('padding-top', height / 2 - heightMoveCtrl / 2);
+                self._nCtrls.css('padding-bottom', height / 2 - heightMoveCtrl / 2);
+                var paddingBorder = 10;
+                var paddingCenter = 20;
+                self._nCtrlLeft.css('padding-left', paddingBorder);
+                self._nCtrlLeft.css('padding-right', paddingCenter);
+                self._nCtrlRight.css('padding-left', paddingCenter);
+                self._nCtrlRight.css('padding-right', paddingBorder);
+                self._nCtrlRight.css('left', self._nOverflow.outerWidth() - (paddingCenter + paddingBorder + self._nCtrls.width() + 3));
+                self._setMoveCtrls();
+                self._moveDelta = 0;
+                self._nCtrlLeft.mouseenter(function () {
+                    self._moveDelta = -5;
+                    self._activeMove();
+                });
+                self._nCtrlLeft.mouseleave(function () {
+                    self._moveDelta = 0;
+                });
+                self._nCtrlRight.mouseenter(function () {
+                    self._moveDelta = 5;
+                    self._activeMove();
+                });
+                self._nCtrlRight.mouseleave(function () {
+                    self._moveDelta = 0;
+                });
+            };
+            ArrayControl.prototype._activeMove = function () {
+                var self = this;
+                if (self._moveDelta == 0)
+                    self._moving = false;
+                else if (!self._moving) {
+                    setTimeout(function () { self._move(self); }, 10);
+                    self._moving = true;
+                }
+            };
+            ArrayControl.prototype._setMoveCtrls = function () {
+                var self = this;
+                var scroll = self._nOverflow.scrollLeft();
+                self._nCtrlLeft.css('display', 'block');
+                self._nCtrlRight.css('display', 'block');
+                if (scroll == 0)
+                    self._nCtrlLeft.css('display', 'none');
+                if (scroll + self._nOverflow.outerWidth() + 1 > self._nContainer.outerWidth())
+                    self._nCtrlRight.css('display', 'none');
+            };
+            ArrayControl.prototype._move = function (ctx) {
+                var self = ctx;
+                var scroll = self._nOverflow.scrollLeft();
+                self._nOverflow.scrollLeft(scroll + self._moveDelta);
+                self._moving = false;
+                self._activeMove();
+                self._setMoveCtrls();
             };
             return ArrayControl;
         }(Phoenix.formcomplex.ComplexBase));
@@ -17680,8 +18408,8 @@ var Phoenix;
         var BasicGrid = (function (_super) {
             __extends(BasicGrid, _super);
             function BasicGrid(fp, options, form) {
-                _super.call(this, fp, options, form);
-                this._refreshGrid = function () {
+                var _this = _super.call(this, fp, options, form) || this;
+                _this._refreshGrid = function () {
                     var that = this;
                     var opts = that.renderOptions;
                     that.removeEvents();
@@ -17692,7 +18420,7 @@ var Phoenix;
                     that.setEvents(that.renderOptions);
                     that.resize();
                 };
-                var that = this;
+                var that = _this;
                 if (that.fieldOptions.striped === undefined) {
                     that.fieldOptions.striped = Phoenix.bootstrap4 ? false : true;
                 }
@@ -17736,6 +18464,7 @@ var Phoenix;
                 that._initOrigColumns(that.fieldOptions);
                 that._initCols(that.fieldOptions);
                 that._details = [];
+                return _this;
             }
             BasicGrid.prototype._initOrigColumns = function (opts) {
                 var that = this;
@@ -19970,7 +20699,7 @@ var Phoenix;
 /// <reference path="./absfield.control.ts" />
 var Phoenix;
 (function (Phoenix) {
-    var _utils = Phoenix.utils, _ui = Phoenix.ui, _dom = Phoenix.dom, _ulocale = Phoenix.ulocale, _uiutils = Phoenix.uiutils;
+    var _utils = Phoenix.utils, _ui = Phoenix.ui, _dom = Phoenix.dom, _ulocale = Phoenix.ulocale, _eu = Phoenix.Observable.errorsUtils, _uiutils = Phoenix.uiutils;
     var formcheck;
     (function (formcheck) {
         function _createCheckBox(id, options, authoring, title) {
@@ -19998,6 +20727,7 @@ var Phoenix;
                     html.push('&nbsp;');
                 html.push(_utils.escapeHtml(title || ''));
                 html.push('</label>');
+                _uiutils.utils.addErrorDiv(html);
                 if (!options.inline && !options.columns) {
                     html.push('</div>');
                 }
@@ -20012,8 +20742,9 @@ var Phoenix;
         var Check = (function (_super) {
             __extends(Check, _super);
             function Check(fp, options, form) {
-                _super.call(this, fp, options, form);
-                this._state();
+                var _this = _super.call(this, fp, options, form) || this;
+                _this._state();
+                return _this;
             }
             Check.prototype._input = function () {
                 var that = this, e = that.$element.get(0);
@@ -20051,6 +20782,7 @@ var Phoenix;
                     that._setDisabled(input, element);
                     that._setReadOnly(input, element);
                     that.setHidden(element);
+                    that.showErrors(element, that.state.errors);
                 }
             };
             Check.prototype.changed = function (propName, ov, nv, op) {
@@ -20081,6 +20813,12 @@ var Phoenix;
                     that.state.isMandatory = state.isMandatory;
                     if (input)
                         that._setMandatory(input, element);
+                }
+                if (!propName || (propName === 'errors')) {
+                    if (_eu.errorChanged(that.state.errors, state.errors)) {
+                        that.state.errors = state.errors;
+                        that.showErrors(element, that.state.errors);
+                    }
                 }
             };
             Check.prototype.render = function ($parent) {
@@ -20113,8 +20851,8 @@ var Phoenix;
         var ColumnGrid = (function (_super) {
             __extends(ColumnGrid, _super);
             function ColumnGrid(fp, options, form) {
-                _super.call(this, fp, options, form);
-                var that = this;
+                var _this = _super.call(this, fp, options, form) || this;
+                var that = _this;
                 var opts = that.fieldOptions;
                 that._initAllColumns();
                 form.registerListenerFor(that.$bind + ".$item", that);
@@ -20126,6 +20864,7 @@ var Phoenix;
                     that._settings = that.form.afterSettings(that.$bind, "columngrid", ctrSettings);
                 }
                 that._initRows();
+                return _this;
             }
             ColumnGrid.prototype.destroy = function () {
                 var that = this;
@@ -20836,10 +21575,10 @@ var Phoenix;
                 that.$parent = null;
                 that.$element = null;
             };
-            DropItems.itemHeight = 0;
-            DropItems.deltaHeight = 0;
             return DropItems;
         }());
+        DropItems.itemHeight = 0;
+        DropItems.deltaHeight = 0;
         formdropitems.DropItems = DropItems;
     })(formdropitems = Phoenix.formdropitems || (Phoenix.formdropitems = {}));
 })(Phoenix || (Phoenix = {}));
@@ -20964,8 +21703,7 @@ var Phoenix;
                         html.push(' class="' + css.join(' ') + '"');
                     html.push('>');
                     html.push(_utils.escapeHtml(title || '') + (options.inline ? '&nbsp;' : ''));
-                    if (options.description)
-                        _uiutils.utils.addTooltip(html, options.description, options);
+                    _uiutils.utils.addTooltipAndRule(html, options);
                     html.push('</label>');
                 }
                 if (options.columns)
@@ -20973,20 +21711,21 @@ var Phoenix;
                 _createInput(html, options, title, tagName);
                 if (options.columns)
                     html.push('</div>');
-                if (options.titleIsHidden && options.description)
-                    _uiutils.utils.addTooltip(html, options.description, options);
+                if (options.titleIsHidden && options.inline)
+                    _uiutils.utils.addTooltipAndRule(html, options);
             });
             return _utils.format(html.join(''), id);
         };
         var BaseEdit = (function (_super) {
             __extends(BaseEdit, _super);
             function BaseEdit(fp, options, form) {
-                _super.call(this, fp, options, form);
-                var that = this;
+                var _this = _super.call(this, fp, options, form) || this;
+                var that = _this;
                 that._search = fp && fp.options && fp.options.search;
                 if (that._search)
                     that._searchEventBus = new Phoenix.serial.SingleEventBus(500);
                 that._state();
+                return _this;
             }
             BaseEdit.prototype._input = function () {
                 var that = this, e = that.$element ? that.$element.get(0) : null;
@@ -21102,8 +21841,14 @@ var Phoenix;
                 if (!that._hasSymbol || !e)
                     return;
                 var after = _dom.find(e, that.id + '_after');
-                if (after)
-                    _dom.text(after, that.state.symbol);
+                if (after) {
+                    if (!that.state.symbol) {
+                        _dom.text(after, String.fromCharCode(160));
+                    }
+                    else {
+                        _dom.text(after, that.state.symbol);
+                    }
+                }
             };
             BaseEdit.prototype._value2Input = function (input) {
                 var that = this;
@@ -21220,7 +21965,7 @@ var Phoenix;
         var Edit = (function (_super) {
             __extends(Edit, _super);
             function Edit(fp, options, form) {
-                _super.call(this, fp, options, form);
+                return _super.call(this, fp, options, form) || this;
             }
             Edit.prototype.beforeAppend = function () { };
             Edit.prototype.mousedown = function (event) {
@@ -21282,6 +22027,7 @@ var Phoenix;
             };
             Edit.prototype.customOptions = function (options) {
                 var that = this;
+                _super.prototype.customOptions.call(this, options);
                 if (that._isDate()) {
                     that.customOptionsDate(options);
                 }
@@ -21326,7 +22072,7 @@ var Phoenix;
             Edit.prototype.customOptionsNumber = function (options, symbol) {
                 var that = this;
                 options.inputClass = "bs-edit-number";
-                if (symbol) {
+                if (symbol || _su.hasSymbol(that.$schema)) {
                     options.after = { value: symbol };
                     that._hasSymbol = true;
                 }
@@ -21420,7 +22166,7 @@ var Phoenix;
             Edit.prototype.keypress = function (event) {
                 var that = this;
                 if (that.state.isReadOnly || that.state.isDisabled)
-                    true;
+                    return true;
                 var input = that._input();
                 if (that._ignoreKeys(event, true))
                     return true;
@@ -21441,7 +22187,7 @@ var Phoenix;
             Edit.prototype.keydown = function (event) {
                 var that = this;
                 if (that.state.isReadOnly || that.state.isDisabled)
-                    true;
+                    return true;
                 var input = that._input();
                 if (that._ignoreKeys(event, false))
                     return true;
@@ -21560,8 +22306,7 @@ var Phoenix;
                         html.push(' class="' + css.join(' ') + '"');
                     html.push('>');
                     html.push(_utils.escapeHtml(title || '') + (options.inline ? '&nbsp;' : ''));
-                    if (options.description)
-                        _uiutils.utils.addTooltip(html, options.description, options);
+                    _uiutils.utils.addTooltipAndRule(html, options);
                     html.push('</label>');
                 }
                 if (options.columns)
@@ -21600,8 +22345,9 @@ var Phoenix;
         var EnumList = (function (_super) {
             __extends(EnumList, _super);
             function EnumList(fp, options, form) {
-                _super.call(this, fp, options, form);
-                this._state();
+                var _this = _super.call(this, fp, options, form) || this;
+                _this._state();
+                return _this;
             }
             EnumList.prototype._setDisabled = function (input, element) {
                 var that = this;
@@ -21670,11 +22416,11 @@ var Phoenix;
                     return null;
                 if (that.state.filter) {
                     var enums = that.$schemaItems.filters[that.state.filter];
-                    var res_2 = [];
+                    var res_3 = [];
                     enums.forEach(function (en) {
-                        res_2.push(that.$schemaItems.enumNames[that.$schemaItems.enum.indexOf(en)]);
+                        res_3.push(that.$schemaItems.enumNames[that.$schemaItems.enum.indexOf(en)]);
                     });
-                    return res_2;
+                    return res_3;
                 }
                 else
                     return that.$schemaItems.enumNames;
@@ -21944,22 +22690,42 @@ var Phoenix;
     function limit(val, min, exclusiveMin, max, exclusiveMax, places, decimalSep, thousandSep) {
         var valFloat = parseFloat(val);
         if (exclusiveMin) {
-            if (valFloat < min)
-                return formatMontant(min.toString(), places, decimalSep, thousandSep);
-        }
-        else {
             if (valFloat <= min)
                 return formatMontant(min.toString(), places, decimalSep, thousandSep);
         }
-        if (exclusiveMax) {
-            if (valFloat > max)
-                return formatMontant(max.toString(), places, decimalSep, thousandSep);
-        }
         else {
+            if (valFloat < min)
+                return formatMontant(min.toString(), places, decimalSep, thousandSep);
+        }
+        if (exclusiveMax) {
             if (valFloat >= max)
                 return formatMontant(max.toString(), places, decimalSep, thousandSep);
         }
+        else {
+            if (valFloat > max)
+                return formatMontant(max.toString(), places, decimalSep, thousandSep);
+        }
         return formatMontant(valFloat.toString(), places, decimalSep, thousandSep);
+    }
+    function isInLimits(val, min, exclusiveMin, max, exclusiveMax) {
+        var valFloat = parseFloat(val);
+        if (exclusiveMin) {
+            if (valFloat <= min)
+                return false;
+        }
+        else {
+            if (valFloat < min)
+                return false;
+        }
+        if (exclusiveMax) {
+            if (valFloat >= max)
+                return false;
+        }
+        else {
+            if (valFloat > max)
+                return false;
+        }
+        return true;
     }
     function setCaretPos(input, charsBefore, thousandSep) {
         var val = input.value;
@@ -22003,8 +22769,19 @@ var Phoenix;
         var end = oldVal.substr(selectionStart, oldVal.length);
         // Process
         var newVal = unformatMontant(start + data + end, opts.decimalSep, opts.thousandSep);
-        var newValIntervalle = limit(charNegative + newVal, opts.schema.minimum, opts.schema.exclusiveMinimum, opts.schema.minimum, opts.schema.exclusiveMinimum, opts.places, opts.decimalSep, opts.thousandSep);
-        input.value = newValIntervalle;
+        /*let newValIntervalle: string = limit(charNegative + newVal,
+            opts.schema.minimum,
+            opts.schema.exclusiveMinimum,
+            opts.schema.maximum,
+            opts.schema.exclusiveMaximum,
+            opts.places,
+            opts.decimalSep,
+            opts.thousandSep);*/
+        if (!isInLimits(charNegative + newVal, opts.schema.minimum, opts.schema.exclusiveMinimum, opts.schema.maximum, opts.schema.exclusiveMaximum)) {
+            event.preventDefault();
+            return false;
+        }
+        input.value = formatMontant(charNegative + newVal, opts.places, opts.decimalSep, opts.thousandSep);
         setCaretPos(input, unformatMontant(start, opts.decimalSep, opts.thousandSep).length + dataStr.length, opts.thousandSep);
         event.preventDefault();
     };
@@ -22043,8 +22820,11 @@ var Phoenix;
                     input.value = nv;
                 }
                 else {
-                    var newVal_1 = limit('-' + unformatMontant(oldVal, opts.decimalSep, opts.thousandSep), opts.schema.minimum, opts.schema.exclusiveMinimum, opts.schema.minimum, opts.schema.exclusiveMinimum, opts.places, opts.decimalSep, opts.thousandSep);
-                    input.value = newVal_1;
+                    if (!isInLimits('-' + nextVal, opts.schema.minimum, opts.schema.exclusiveMinimum, opts.schema.maximum, opts.schema.exclusiveMaximum)) {
+                        event.preventDefault();
+                        return false;
+                    }
+                    input.value = formatMontant('-' + nextVal, opts.places, opts.decimalSep, opts.thousandSep);
                 }
             }
             _dom.selectRange(input, 1);
@@ -22063,8 +22843,19 @@ var Phoenix;
         }
         // Process
         var newVal = unformatMontant(start + event.key + end, opts.decimalSep, opts.thousandSep);
-        var newValIntervalle = limit(charNegative + newVal, opts.schema.minimum, opts.schema.exclusiveMinimum, opts.schema.minimum, opts.schema.exclusiveMinimum, opts.places, opts.decimalSep, opts.thousandSep);
-        input.value = newValIntervalle;
+        /*let newValIntervalle: string = limit(charNegative + newVal,
+            opts.schema.minimum,
+            opts.schema.exclusiveMinimum,
+            opts.schema.maximum,
+            opts.schema.exclusiveMaximum,
+            opts.places,
+            opts.decimalSep,
+            opts.thousandSep);*/
+        if (!isInLimits(charNegative + newVal, opts.schema.minimum, opts.schema.exclusiveMinimum, opts.schema.maximum, opts.schema.exclusiveMaximum)) {
+            event.preventDefault();
+            return false;
+        }
+        input.value = formatMontant(charNegative + newVal, opts.places, opts.decimalSep, opts.thousandSep);
         var correctionCaret = start == '0' ? 0 : 1;
         setCaretPos(input, unformatMontant(start, opts.decimalSep, opts.thousandSep).length + correctionCaret, opts.thousandSep);
         event.preventDefault();
@@ -22408,12 +23199,13 @@ var Phoenix;
 (function (Phoenix) {
     var ui;
     (function (ui) {
-        var _utils = Phoenix.utils, _ui = ui, _dom = Phoenix.dom, _ulocale = Phoenix.ulocale;
+        var _utils = Phoenix.utils, _ui = ui, _eu = Phoenix.Observable.errorsUtils, _dom = Phoenix.dom, _ulocale = Phoenix.ulocale;
         var Group = (function (_super) {
             __extends(Group, _super);
             function Group(fp, options, form) {
-                _super.call(this, fp, options, form);
-                this._state();
+                var _this = _super.call(this, fp, options, form) || this;
+                _this._state();
+                return _this;
             }
             Group.prototype._item = function (ii) {
                 var that = this;
@@ -22431,7 +23223,11 @@ var Phoenix;
                     if (target.id.indexOf(prefix) === 0) {
                         var index = parseInt(target.id.substring(prefix.length), 10);
                         var value = that.$schema.enum[index];
-                        if (value != that.state.value) {
+                        var oldIndex = that.$schema.enum.indexOf(that.state.value);
+                        if (that.renderOptions.wizard && oldIndex >= 0 && index >= 0 && (index - oldIndex > 0)) {
+                            return;
+                        }
+                        if (value !== that.state.value) {
                             that.form.setValue(that.$bind, value);
                         }
                     }
@@ -22465,6 +23261,7 @@ var Phoenix;
                 }
                 that._setDisabled(element);
                 that.setHidden(element);
+                that.showErrors(element, that.state.errors);
             };
             Group.prototype._getDefaultItem = function () {
                 var that = this, element = that.$element ? that.$element.get(0) : null;
@@ -22494,6 +23291,12 @@ var Phoenix;
                 if (state.isMandatory != that.state.isMandatory) {
                     that.state.isMandatory = state.isMandatory;
                     that._setMandatory(element);
+                }
+                if (!propName || (propName === 'errors')) {
+                    if (_eu.errorChanged(that.state.errors, state.errors)) {
+                        that.state.errors = state.errors;
+                        that.showErrors(element, that.state.errors);
+                    }
                 }
             };
             return Group;
@@ -22541,6 +23344,7 @@ var Phoenix;
                     html.push(_utils.escapeHtml(title || '') + (options.inline ? '&nbsp;' : ''));
                     html.push('</label>');
                 }
+                _uiutils.utils.addErrorDiv(html);
                 if (options.columns)
                     html.push('<div class="no-x-padding col-sm-' + (12 - options.labelCol) + '">');
                 if (addDiv)
@@ -22567,8 +23371,9 @@ var Phoenix;
         var BtnGroup = (function (_super) {
             __extends(BtnGroup, _super);
             function BtnGroup(fp, options, form) {
-                _super.call(this, fp, options, form);
-                this._state();
+                var _this = _super.call(this, fp, options, form) || this;
+                _this._state();
+                return _this;
             }
             BtnGroup.prototype._state2UI = function () {
                 _super.prototype._state2UI.call(this, function (item) {
@@ -22690,8 +23495,7 @@ var Phoenix;
                     html.push(' for="' + options.parentId + '_input"');
                 html.push('>');
                 html.push(_utils.escapeHtml(title || '') + (options.inline ? '&nbsp;' : ''));
-                if (options.description)
-                    _uiutils.utils.addTooltip(html, options.description, options);
+                _uiutils.utils.addTooltipAndRule(html, options);
                 html.push('</label>');
             }, customizer);
             return _utils.format(html.join(''), id);
@@ -22700,8 +23504,9 @@ var Phoenix;
         var Label = (function (_super) {
             __extends(Label, _super);
             function Label(fp, options, form) {
-                _super.call(this, fp, options, form);
-                this._state();
+                var _this = _super.call(this, fp, options, form) || this;
+                _this._state();
+                return _this;
             }
             Label.prototype.isMeta = function () { return true; };
             Label.prototype.setParentId = function (id) { this._parentId = id; };
@@ -22858,8 +23663,9 @@ var Phoenix;
         var Link = (function (_super) {
             __extends(Link, _super);
             function Link(fp, options, form) {
-                _super.call(this, fp, options, form);
-                this._state();
+                var _this = _super.call(this, fp, options, form) || this;
+                _this._state();
+                return _this;
             }
             Link.prototype._button = function () {
                 var that = this;
@@ -22951,28 +23757,30 @@ var Phoenix;
             if (ldata.value)
                 ldata = ldata.value;
             if (filter) {
-                var res_3 = [];
+                var res_4 = [];
                 var f_1 = _data.compileFilterTree(filter, null, context, null);
                 ldata.forEach(function (item) {
                     if (_data.acceptFilter(f_1, item))
-                        res_3.push(item);
+                        res_4.push(item);
                 });
-                return res_3;
+                return res_4;
             }
             return ldata;
         };
         var Lookup = (function (_super) {
             __extends(Lookup, _super);
             function Lookup(fp, options, form) {
-                _super.call(this, fp, options, form);
-                var that = this;
+                var _this = _super.call(this, fp, options, form) || this;
+                var that = _this;
                 that.lookupOptions = defOptions;
                 that.eventBus = new Phoenix.serial.SingleEventBus(50);
                 that.onselectItemHandler = that._onselectItem.bind(that);
                 that.isEnum = (that.$lookup && that.$lookup.data && that.$lookup.data.$type === 'enum');
+                return _this;
             }
             Lookup.prototype.customOptions = function (options) {
                 var that = this;
+                _super.prototype.customOptions.call(this, options);
                 options.after = { icon: 'chevron-down' };
                 options.paginated = _sutils.supportPagination(that.$lookup);
             };
@@ -23442,8 +24250,7 @@ var Phoenix;
                         html.push(' class="' + css.join(' ') + '"');
                     html.push('>');
                     html.push(_utils.escapeHtml(title || '') + (options.inline ? '&nbsp;' : ''));
-                    if (options.description)
-                        _uiutils.utils.addTooltip(html, options.description, options);
+                    _uiutils.utils.addTooltipAndRule(html, options);
                     html.push('</label>');
                 }
                 if (options.columns)
@@ -23474,8 +24281,9 @@ var Phoenix;
         var BasePicture = (function (_super) {
             __extends(BasePicture, _super);
             function BasePicture(fp, options, form) {
-                _super.call(this, fp, options, form);
-                this._state();
+                var _this = _super.call(this, fp, options, form) || this;
+                _this._state();
+                return _this;
             }
             BasePicture.prototype._setDisabled = function (element) {
             };
@@ -23549,8 +24357,9 @@ var Phoenix;
         var Picture = (function (_super) {
             __extends(Picture, _super);
             function Picture(fp, options, form) {
-                _super.call(this, fp, options, form);
-                this.editable = true;
+                var _this = _super.call(this, fp, options, form) || this;
+                _this.editable = true;
+                return _this;
             }
             Picture.prototype._createImage = function (event) {
                 var that = this;
@@ -23717,8 +24526,9 @@ var Phoenix;
         var ImageUrl = (function (_super) {
             __extends(ImageUrl, _super);
             function ImageUrl(fp, options, form) {
-                _super.call(this, fp, options, form);
-                this.editable = false;
+                var _this = _super.call(this, fp, options, form) || this;
+                _this.editable = false;
+                return _this;
             }
             ImageUrl.prototype._showValue = function (value) {
                 var that = this, img = that._img(), alt = that._altimg();
@@ -23781,8 +24591,7 @@ var Phoenix;
                         html.push(' class="' + css.join(' ') + '"');
                     html.push('>');
                     html.push(_utils.escapeHtml(title || '') + (options.inline ? '&nbsp;' : ''));
-                    if (options.description)
-                        _uiutils.utils.addTooltip(html, options.description, options);
+                    _uiutils.utils.addTooltipAndRule(html, options);
                     html.push('</label>');
                     if (!options.inline && options.horizontal)
                         html.push('<div></div>'); //line
@@ -23804,6 +24613,7 @@ var Phoenix;
                     if (!options.inline && !options.horizontal)
                         html.push('</div>');
                 });
+                _uiutils.utils.addErrorDiv(html);
                 if (options.columns)
                     html.push('</div>');
             }, customize);
@@ -23812,8 +24622,9 @@ var Phoenix;
         var RadioGroup = (function (_super) {
             __extends(RadioGroup, _super);
             function RadioGroup(fp, options, form) {
-                _super.call(this, fp, options, form);
-                this._state();
+                var _this = _super.call(this, fp, options, form) || this;
+                _this._state();
+                return _this;
             }
             RadioGroup.prototype._state2UI = function () {
                 _super.prototype._state2UI.call(this, function (item) {
@@ -23860,6 +24671,7 @@ var Phoenix;
         var _utils = Phoenix.utils, _ui = ui, _dom = Phoenix.dom, _ulocale = Phoenix.ulocale, _uiutils = Phoenix.uiutils;
         function _createReadOnly(id, options, authoring, title, valuepattern) {
             title = title || '';
+            options.styles = options.styles ? options.styles : 'form-control-static';
             options = $.extend({ titleIsHidden: false }, options);
             var html = [];
             _uiutils.utils.fieldWrapper(html, options, authoring, function () {
@@ -23871,8 +24683,8 @@ var Phoenix;
         var ReadOnlyField = (function (_super) {
             __extends(ReadOnlyField, _super);
             function ReadOnlyField(fp, options, form) {
-                _super.call(this, fp, options, form);
-                var that = this;
+                var _this = _super.call(this, fp, options, form) || this;
+                var that = _this;
                 that._map = [];
                 if (fp.options && fp.options.$expression) {
                     that.$expression = fp.options.$expression;
@@ -23890,7 +24702,8 @@ var Phoenix;
                     else
                         map.schema = that.$schema;
                 });
-                this._state();
+                _this._state();
+                return _this;
             }
             ReadOnlyField.prototype._state = function () {
                 var that = this;
@@ -23989,10 +24802,11 @@ var Phoenix;
         var Search = (function (_super) {
             __extends(Search, _super);
             function Search(fp, options, form) {
-                _super.call(this, fp, options, form);
-                var that = this;
+                var _this = _super.call(this, fp, options, form) || this;
+                var that = _this;
                 that._searchField = fp.options.search;
                 that._query = that.form.getValue(that._searchField);
+                return _this;
             }
             Search.prototype.updateModel = function () {
                 var that = this;
@@ -24091,8 +24905,7 @@ var Phoenix;
                         html.push(' class="' + css.join(' ') + '"');
                     html.push('>');
                     html.push(_utils.escapeHtml(title || '') + (options.inline ? '&nbsp;' : ''));
-                    if (options.description)
-                        _uiutils.utils.addTooltip(html, options.description, options);
+                    _uiutils.utils.addTooltipAndRule(html, options);
                     html.push('</label>');
                 }
                 if (options.columns)
@@ -24116,15 +24929,15 @@ var Phoenix;
                 _uiutils.utils.addErrorDiv(html);
                 if (options.columns)
                     html.push('</div>');
-                if (options.titleIsHidden && options.description)
-                    _uiutils.utils.addTooltip(html, options.description, options);
+                if (options.titleIsHidden)
+                    _uiutils.utils.addTooltipAndRule(html, options);
             });
             return _utils.format(html.join(''), id);
         };
         var Select = (function (_super) {
             __extends(Select, _super);
             function Select(fp, options, form) {
-                _super.call(this, fp, options, form);
+                return _super.call(this, fp, options, form) || this;
             }
             Select.prototype.fillSelect = function (enums) {
                 var that = this;
@@ -24215,6 +25028,89 @@ var Phoenix;
     })(ui = Phoenix.ui || (Phoenix.ui = {}));
 })(Phoenix || (Phoenix = {}));
 /// <reference path="../../../core/core.ts" />
+/// <reference path="./group.control.ts" />
+var Phoenix;
+(function (Phoenix) {
+    var wizardctrl;
+    (function (wizardctrl) {
+        var _utils = Phoenix.utils, _ui = Phoenix.ui, _dom = Phoenix.dom, _ulocale = Phoenix.ulocale, _uiutils = Phoenix.uiutils;
+        var _createWizardSteps = function (id, options, authoring, title, enums, enumsNames) {
+            title = title || '';
+            options = $.extend({ titleIsHidden: false, placeHolder: false, columns: false }, options);
+            var html = [];
+            _uiutils.utils.fieldWrapper(html, options, authoring, function () {
+                var _bootstrap4 = Phoenix.bootstrap4;
+                //add label: 
+                var css = ['btn-group'];
+                html.push('<div class="' + css.join(' ') + '">');
+                enums.forEach(function (enumName, index) {
+                    html.push('<button tabindex="-1" type="button" id="{0}_item_' + index + '" class="btn btn-' + _dom.bootstrapStyles().secondary + '"');
+                    if (options.width) {
+                        html.push(' style="width:' + options.width + '"');
+                    }
+                    html.push('>');
+                    html.push(_utils.escapeHtml(enumsNames[index] || ''));
+                    html.push('</button>');
+                });
+                html.push('</div>');
+            });
+            return _utils.format(html.join(''), id);
+        };
+        var WizardSteps = (function (_super) {
+            __extends(WizardSteps, _super);
+            function WizardSteps(fp, options, form) {
+                var _this = _super.call(this, fp, options, form) || this;
+                _this._state();
+                return _this;
+            }
+            WizardSteps.prototype._state2UI = function () {
+                _super.prototype._state2UI.call(this, function (item) {
+                    _dom.addClass(item, 'btn-primary');
+                    _dom.removeClass(item, 'btn-' + _dom.bootstrapStyles().secondary);
+                    item.tabIndex = 0;
+                });
+            };
+            WizardSteps.prototype.changed = function (propName, ov, nv, op) {
+                var that = this;
+                if (that.state.value != nv) {
+                    that.state.value = nv;
+                    if (!that.$element)
+                        return;
+                    _super.prototype._enumItems.call(this, function (btn, value) {
+                        if (that.state.value === value) {
+                            btn.tabIndex = 0;
+                            if (that.focused)
+                                btn.focus();
+                            _dom.addClass(btn, 'btn-' + _dom.bootstrapStyles().primary);
+                            _dom.removeClass(btn, 'btn-' + _dom.bootstrapStyles().secondary);
+                        }
+                        else {
+                            _dom.addClass(btn, 'btn-' + _dom.bootstrapStyles().secondary);
+                            _dom.removeClass(btn, 'btn-' + _dom.bootstrapStyles().primary);
+                            btn.tabIndex = -1;
+                        }
+                    });
+                }
+            };
+            WizardSteps.prototype.render = function ($parent) {
+                var that = this;
+                var opts = that._initOptions(_uiutils.utils.defaultOptions);
+                if (!that.$element) {
+                    var enumNames = that.$schema.enumNames || that.$schema.enum;
+                    enumNames = enumNames.map(function (v) { return _ulocale.tt(v, that.form.$locale); });
+                    that.$element = $(_createWizardSteps(that.id, opts, that.options.design, _ulocale.tt(that.$schema.title, that.form.$locale), that.$schema.enum, enumNames));
+                    that._state2UI();
+                }
+                that.appendElement($parent, opts);
+                return that.$element;
+            };
+            return WizardSteps;
+        }(Phoenix.ui.Group));
+        wizardctrl.WizardSteps = WizardSteps;
+        _ui.registerControl(WizardSteps, '*', true, 'wizardctrl', null);
+    })(wizardctrl = Phoenix.wizardctrl || (Phoenix.wizardctrl = {}));
+})(Phoenix || (Phoenix = {}));
+/// <reference path="../../../core/core.ts" />
 /// <reference path="./absfield.control.ts" />
 var Phoenix;
 (function (Phoenix) {
@@ -24250,8 +25146,7 @@ var Phoenix;
                         html.push(' class="' + css.join(' ') + '"');
                     html.push('>');
                     html.push(_utils.escapeHtml(title || '') + (options.inline ? '&nbsp;' : ''));
-                    if (options.description)
-                        _uiutils.utils.addTooltip(html, options.description, options);
+                    _uiutils.utils.addTooltipAndRule(html, options);
                     html.push('</label>');
                 }
                 if (options.columns)
@@ -24259,8 +25154,8 @@ var Phoenix;
                 _createInput(html, options, title);
                 if (options.columns)
                     html.push('</div>');
-                if (options.titleIsHidden && options.description)
-                    _uiutils.utils.addTooltip(html, options.description, options);
+                if (options.titleIsHidden)
+                    _uiutils.utils.addTooltipAndRule(html, options);
             });
             return _utils.format(html.join(''), id);
         }
@@ -24273,8 +25168,9 @@ var Phoenix;
         var Toggle = (function (_super) {
             __extends(Toggle, _super);
             function Toggle(fp, options, form) {
-                _super.call(this, fp, options, form);
-                this._state();
+                var _this = _super.call(this, fp, options, form) || this;
+                _this._state();
+                return _this;
             }
             Toggle.prototype._check = function () {
                 var that = this, e = that.$element.get(0);
@@ -24789,6 +25685,121 @@ var Phoenix;
     };
 })(Phoenix || (Phoenix = {}));
 /// <reference path="../core/core-refs.ts" />
+var Phoenix;
+(function (Phoenix) {
+    var _p = Phoenix, _application = Phoenix.application, _external = Phoenix.external, _ajax = Phoenix.ajax;
+    var _defRuleLoader = function (names) {
+        var cfg = _application.configuration;
+        if (cfg && cfg.rules && cfg.rules.odataEntity) {
+            var uri = cfg.rules.odataEntity + '?$filter=' + encodeURIComponent('clientSide eq \'true\'') + '&$expand=' +
+                encodeURIComponent('entities($filter=entity in (' + names.map(function (cn) { return '\'' + cn + '\''; }).join(',') + '))');
+            var opts = _ajax.getDefaultAjaxOptions();
+            return _ajax.get(uri, opts, function (data) {
+                return data.value;
+            });
+        }
+        else
+            return Promise.resolve([]);
+    };
+    _external.ruleLoaderHandler = _defRuleLoader;
+})(Phoenix || (Phoenix = {}));
+/// <reference path="../core/core-refs.ts" />
+var Phoenix;
+(function (Phoenix) {
+    var _p = Phoenix, _autoclose = Phoenix.autoclose, _external = Phoenix.external, _ui = Phoenix.ui;
+    var _showRules = function (rules) {
+        var opts = {
+            name: {
+                name: 'rule-list-viewer',
+                form: true,
+                $type: 'block',
+                $items: [
+                    {
+                        $type: 'block',
+                        $title: {
+                            value: "Rules",
+                            size: 4
+                        },
+                        $items: [
+                            {
+                                $bind: 'rules',
+                                $widget: 'basicgrid',
+                                options: {
+                                    border: true,
+                                    height: 400,
+                                    scrolling: {
+                                        horizontal: true,
+                                        vertical: true,
+                                    },
+                                    columns: [
+                                        {
+                                            $bind: "ruleType",
+                                            options: { width: 70 }
+                                        },
+                                        {
+                                            $bind: "name",
+                                            options: { width: 100 }
+                                        },
+                                        {
+                                            $bind: "description",
+                                            options: { width: 150 }
+                                        },
+                                        {
+                                            $bind: "expression",
+                                            options: { width: 200 }
+                                        }
+                                    ]
+                                }
+                            }
+                        ]
+                    }
+                ]
+            },
+            meta: {
+                type: 'object',
+                properties: {
+                    rules: {
+                        type: 'array',
+                        items: {
+                            type: 'object',
+                            properties: {
+                                name: {
+                                    type: 'string',
+                                    title: 'Name'
+                                },
+                                description: {
+                                    type: 'string',
+                                    title: 'Description'
+                                },
+                                ruleType: {
+                                    type: 'string',
+                                    title: 'Type'
+                                },
+                                expression: {
+                                    type: 'string',
+                                    title: 'Expression'
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            controller: {
+                onModelChanged: function () {
+                }
+            },
+            autoClose: {
+                align: _autoclose.SCREEN_CENTER,
+                minWidth: 300,
+                showCloseButton: true
+            },
+            options: {},
+        };
+        _ui.showAutoCloseForm(opts, { rules: rules }, null);
+    };
+    _external.ruleViewer = _showRules;
+})(Phoenix || (Phoenix = {}));
+/// <reference path="../core/core-refs.ts" />
 /// <reference path="../data/datasets.ts" />
 /// <reference path="../ui/form/schema.data.ts" />
 var Phoenix;
@@ -24947,8 +25958,8 @@ var Phoenix;
         var RenderFiltreExpressOne = (function (_super) {
             __extends(RenderFiltreExpressOne, _super);
             function RenderFiltreExpressOne(fields, callback, options) {
-                _super.call(this, fields, callback, options);
-                var that = this;
+                var _this = _super.call(this, fields, callback, options) || this;
+                var that = _this;
                 var nodeGroup = $("<div class='input-group'></div>");
                 var nodeGroupBtn = $("<div class='input-group-btn'></div>");
                 var txtNodeButton = "<button type='button' ";
@@ -24976,6 +25987,7 @@ var Phoenix;
                 that.renderFieldsList();
                 that.renderSelectedFields();
                 that.setEvents();
+                return _this;
             }
             RenderFiltreExpressOne.prototype.renderSelectedFields = function () {
                 var that = this;
@@ -25161,8 +26173,8 @@ var Phoenix;
         var RenderFiltreExpressMultiple = (function (_super) {
             __extends(RenderFiltreExpressMultiple, _super);
             function RenderFiltreExpressMultiple(fields, callback, options) {
-                _super.call(this, fields, callback, options);
-                var that = this;
+                var _this = _super.call(this, fields, callback, options) || this;
+                var that = _this;
                 that.leftTools = $('<div class="input-group-btn"></div>');
                 that.rightTools = $('<div class="input-group-btn"></div>');
                 that._nodeValidate = $("<button class='btn btn-default' type='button'><span class='" + _dom.iconClass(FilterExpress.VALIDATE_ICON_DEFAULT) + "'></span> " + FilterExpress.VALIDATE_TEXT_DEFAULT + "</button>");
@@ -25174,6 +26186,7 @@ var Phoenix;
                 that.renderFieldsList();
                 that.renderSelectedFields();
                 that.setEvents();
+                return _this;
             }
             RenderFiltreExpressMultiple.prototype.renderSelectedFields = function () {
                 var that = this;
@@ -25321,18 +26334,18 @@ var Phoenix;
                 });
                 return fields;
             };
-            // Constants
-            FilterExpress.FIELD_SELECT_TEXT_DEFAULT = "Choix du champ";
-            FilterExpress.VALIDATE_TEXT_DEFAULT = ""; // "Valider"
-            FilterExpress.VALIDATE_ICON_DEFAULT = "search";
-            FilterExpress.FORMAT_STRING = "string";
-            FilterExpress.FORMAT_INTEGER = "integer";
-            FilterExpress.FORMAT_ENUM = "enum";
-            FilterExpress.OP_STRING = "like";
-            FilterExpress.OP_INTEGER = "in";
-            FilterExpress.OP_ENUM = "in";
             return FilterExpress;
         }());
+        // Constants
+        FilterExpress.FIELD_SELECT_TEXT_DEFAULT = "Choix du champ";
+        FilterExpress.VALIDATE_TEXT_DEFAULT = ""; // "Valider"
+        FilterExpress.VALIDATE_ICON_DEFAULT = "search";
+        FilterExpress.FORMAT_STRING = "string";
+        FilterExpress.FORMAT_INTEGER = "integer";
+        FilterExpress.FORMAT_ENUM = "enum";
+        FilterExpress.OP_STRING = "like";
+        FilterExpress.OP_INTEGER = "in";
+        FilterExpress.OP_ENUM = "in";
         ui.FilterExpress = FilterExpress;
     })(ui = Phoenix.ui || (Phoenix.ui = {}));
 })(Phoenix || (Phoenix = {}));
@@ -25925,7 +26938,7 @@ var Phoenix;
         var ModelVideVal = (function (_super) {
             __extends(ModelVideVal, _super);
             function ModelVideVal(options) {
-                _super.call(this, options);
+                return _super.call(this, options) || this;
             }
             ModelVideVal.prototype.getValues = function () {
                 return [""];
@@ -25935,8 +26948,8 @@ var Phoenix;
         var ModelOneVal = (function (_super) {
             __extends(ModelOneVal, _super);
             function ModelOneVal(options) {
-                _super.call(this, options);
-                var that = this;
+                var _this = _super.call(this, options) || this;
+                var that = _this;
                 that.options = options || {};
                 that.model = {
                     type: "object",
@@ -25967,6 +26980,7 @@ var Phoenix;
                     ]
                 };
                 that.data = { value: null };
+                return _this;
             }
             ModelOneVal.prototype.getValues = function () {
                 if (this.data.value != null)
@@ -25984,8 +26998,8 @@ var Phoenix;
         var ModelTwoVal = (function (_super) {
             __extends(ModelTwoVal, _super);
             function ModelTwoVal(options) {
-                _super.call(this, options);
-                var that = this;
+                var _this = _super.call(this, options) || this;
+                var that = _this;
                 that.options = options || {};
                 that.model = {
                     type: "object",
@@ -26036,6 +27050,7 @@ var Phoenix;
                     ]
                 };
                 that.data = { value1: null, value2: null };
+                return _this;
             }
             ModelTwoVal.prototype.getValues = function () {
                 var that = this;
@@ -26056,8 +27071,8 @@ var Phoenix;
         var ModelMultiVal = (function (_super) {
             __extends(ModelMultiVal, _super);
             function ModelMultiVal(options) {
-                _super.call(this, options);
-                var that = this;
+                var _this = _super.call(this, options) || this;
+                var that = _this;
                 that.options = options || {};
                 that.model = {
                     type: "object",
@@ -26086,6 +27101,7 @@ var Phoenix;
                     ]
                 };
                 that.data = { value: null };
+                return _this;
             }
             ModelMultiVal.prototype.getValues = function () {
                 var that = this;
@@ -26125,8 +27141,8 @@ var Phoenix;
         var ModelEnumVal = (function (_super) {
             __extends(ModelEnumVal, _super);
             function ModelEnumVal(options) {
-                _super.call(this, options);
-                var that = this;
+                var _this = _super.call(this, options) || this;
+                var that = _this;
                 that.options = options || {};
                 that.options.enumName = that.options.enumName || that.options.champName;
                 that.model = {
@@ -26175,6 +27191,7 @@ var Phoenix;
                     that.model.properties.value.items.enums[that.options.enumName].enumNames.push(item.libelle || item.code);
                 });
                 that.data = { value: [] };
+                return _this;
             }
             ModelEnumVal.prototype.getValues = function () {
                 var that = this;
@@ -26205,8 +27222,8 @@ var Phoenix;
         var ModelLookupVal = (function (_super) {
             __extends(ModelLookupVal, _super);
             function ModelLookupVal(options) {
-                _super.call(this, options);
-                var that = this;
+                var _this = _super.call(this, options) || this;
+                var that = _this;
                 that.options = options || {};
                 that.model = {
                     type: "object",
@@ -26251,6 +27268,7 @@ var Phoenix;
                     ]
                 };
                 that.data = { value: [] };
+                return _this;
             }
             ModelLookupVal.prototype.getValues = function () {
                 var that = this;
@@ -26369,10 +27387,9 @@ var Phoenix;
                         var model = that.modelType.getModel();
                         var layout = that.modelType.getLayout();
                         if (model && layout) {
-                            var ldata = void 0;
                             if (that.filter)
                                 that.modelType.setValuesByFilter(that.filter.values);
-                            ldata = that.modelType.getData();
+                            var ldata = that.modelType.getData();
                             _ui.OpenForm($(parent), layout, model, ldata, {}, function (action, data, formControl) {
                                 switch (action.operation) {
                                     case "propchange":
@@ -26603,11 +27620,13 @@ var Phoenix;
         var RenderModel2 = (function (_super) {
             __extends(RenderModel2, _super);
             function RenderModel2(listeChamps, listeChampsArbre, listeFilters, listeOperateurs, listeTypes, options, callback) {
+                var _this;
                 var defaultOptions = {
                     btnValidate: true
                 };
-                _super.call(this, listeChamps, listeChampsArbre, listeFilters, listeOperateurs, listeTypes, $.extend(true, defaultOptions, options));
-                this._callback = callback;
+                _this = _super.call(this, listeChamps, listeChampsArbre, listeFilters, listeOperateurs, listeTypes, $.extend(true, defaultOptions, options)) || this;
+                _this._callback = callback;
+                return _this;
             }
             RenderModel2.prototype.createContainer = function () {
                 var that = this;
@@ -26643,10 +27662,11 @@ var Phoenix;
         var TagView = (function (_super) {
             __extends(TagView, _super);
             function TagView(fp, options, form) {
-                _super.call(this, fp, options, form);
-                var that = this;
+                var _this = _super.call(this, fp, options, form) || this;
+                var that = _this;
                 form.registerListenerFor(that.$bind + ".$item", that);
-                this._state();
+                _this._state();
+                return _this;
             }
             TagView.prototype._state = function () {
                 var that = this;
@@ -26724,7 +27744,6 @@ var Phoenix;
                 if (tag.selected)
                     _dom.addClass(item, "focus");
                 _dom.attr(item, "data-id", tag.code);
-                //item.innerHTML = tag.libelle + ' <i data-id="UPDATE" class="glyphicon glyphicon-pencil" ></i><i data-id="REMOVE" class="glyphicon glyphicon-remove" ></i>';
                 item.innerHTML = tag.libelle + ' <i data-id="REMOVE" class="' + _dom.iconClass("remove") + '" ></i>';
                 _dom.append(that.$element.get(0), item);
             };
@@ -26860,9 +27879,9 @@ var Phoenix;
                 else {
                     options = options || {};
                     //let e: HTMLElement = $('<div tabindex="0" class="bs-checkboxlist-list checkbox-inline"><div class="bs-checkboxlist-list-check"><a><center><span class="' + _dom.iconClass('square-o') + '"></span></center></a></div><div class="bs-checkboxlist-list-title"></div></div>').get(0);
-                    var e_1 = $('<div tabindex="0" class="bs-checkboxlist-list col-lg-6 col-xs-12 checkbox-inline"><div class="bs-checkboxlist-list-check"><a><span class="' + _dom.iconClass('square-o') + '"></span></a></div><div class="bs-checkboxlist-list-title"></div></div>').get(0);
+                    var e_2 = $('<div tabindex="0" class="bs-checkboxlist-list col-lg-6 col-xs-12 checkbox-inline"><div class="bs-checkboxlist-list-check"><a><span class="' + _dom.iconClass('square-o') + '"></span></a></div><div class="bs-checkboxlist-list-title"></div></div>').get(0);
                     elements.forEach(function (en, index) {
-                        var ii = e_1.cloneNode(true);
+                        var ii = e_2.cloneNode(true);
                         if (options.disabled) {
                             _dom.attr(ii, "tabindex", "-1");
                             _dom.removeClass(ii, "bs-pointer");
@@ -26915,10 +27934,11 @@ var Phoenix;
         var LookupList = (function (_super) {
             __extends(LookupList, _super);
             function LookupList(fp, options, form) {
-                _super.call(this, fp, options, form);
-                var that = this;
+                var _this = _super.call(this, fp, options, form) || this;
+                var that = _this;
                 //form.registerListenerFor(that.$bind + ".$item", that);
-                this._state();
+                _this._state();
+                return _this;
             }
             LookupList.prototype._state = function () {
                 var that = this;
@@ -27080,8 +28100,8 @@ var Phoenix;
         var ComposantFilter = (function (_super) {
             __extends(ComposantFilter, _super);
             function ComposantFilter(fp, options, form) {
-                _super.call(this, fp, options, form);
-                this.renderInternal = function (context, options) {
+                var _this = _super.call(this, fp, options, form) || this;
+                _this.renderInternal = function (context, options) {
                     var that = this;
                     if (!that.$element)
                         return;
@@ -27098,12 +28118,13 @@ var Phoenix;
                     }
                     _dom.append(that.$element.get(0), view.render());
                 };
-                this.createContainer = function (id) {
+                _this.createContainer = function (id) {
                     return _utils.format('<div id="{0}" data-render="{0}" class="bs-filter"></div>', id);
                 };
-                this._state();
-                this._options = options || {};
-                this.initData();
+                _this._state();
+                _this._options = options || {};
+                _this.initData();
+                return _this;
             }
             ComposantFilter.prototype.initData = function () {
                 var that = this;
@@ -28710,8 +29731,8 @@ var Phoenix;
         var ComposantMultiSelect = (function (_super) {
             __extends(ComposantMultiSelect, _super);
             function ComposantMultiSelect(fp, options, form) {
-                _super.call(this, fp, options, form);
-                var that = this;
+                var _this = _super.call(this, fp, options, form) || this;
+                var that = _this;
                 that._state();
                 var optionsParDefaut = {
                     mapping: {
@@ -28731,6 +29752,7 @@ var Phoenix;
                     if (that._options.pillBox)
                         that._initPillBox(that._extractItems(entree, false), that.state.value.model().sortie);
                 }
+                return _this;
             }
             ComposantMultiSelect.prototype._initMultiSelectList = function (entree, sortie) {
                 var that = this;
@@ -29016,7 +30038,7 @@ var Phoenix;
         var ToolElementButton = (function (_super) {
             __extends(ToolElementButton, _super);
             function ToolElementButton(config, options) {
-                _super.call(this, config, options);
+                return _super.call(this, config, options) || this;
             }
             ToolElementButton.prototype.createElement = function (index, config, data) {
                 var css = ["bs-button btn btn-default"];
@@ -29040,7 +30062,7 @@ var Phoenix;
         var ToolElementCount = (function (_super) {
             __extends(ToolElementCount, _super);
             function ToolElementCount(config, options) {
-                _super.call(this, config, options);
+                return _super.call(this, config, options) || this;
             }
             ToolElementCount.prototype.createElement = function (index, config, data) {
                 var css = ["label", "label-default", "form-control-static", "bs-toolbar-item", "bs-toolbar-item-count"];
@@ -29061,7 +30083,7 @@ var Phoenix;
         var ToolElementDropdownAction = (function (_super) {
             __extends(ToolElementDropdownAction, _super);
             function ToolElementDropdownAction(config, options) {
-                _super.call(this, config, options);
+                return _super.call(this, config, options) || this;
             }
             ToolElementDropdownAction.prototype.createElement = function (index, config, data) {
                 var css = ["bs-toolbar-item dropdown"];
@@ -29114,13 +30136,14 @@ var Phoenix;
         var ToolElementSelect = (function (_super) {
             __extends(ToolElementSelect, _super);
             function ToolElementSelect(config, options) {
-                _super.call(this, config, options);
-                var that = this;
+                var _this = _super.call(this, config, options) || this;
+                var that = _this;
                 config.value = config.value || {};
                 // Test
                 config.value.default = _link.context().$url.idTra;
                 // Test
                 config.value.items = config.value.items || [];
+                return _this;
             }
             ToolElementSelect.prototype.createElement = function (index, config, data) {
                 var css = ["bs-toolbar-item"];
@@ -29176,9 +30199,10 @@ var Phoenix;
         var ToolElementSearch = (function (_super) {
             __extends(ToolElementSearch, _super);
             function ToolElementSearch(config, options) {
-                _super.call(this, config, options);
-                this.data.value = "";
-                this.oldValue = "";
+                var _this = _super.call(this, config, options) || this;
+                _this.data.value = "";
+                _this.oldValue = "";
+                return _this;
             }
             ToolElementSearch.prototype.createElement = function (index, config, data) {
                 var css = [];
@@ -29246,11 +30270,12 @@ var Phoenix;
         var ToolElementFilterExpress = (function (_super) {
             __extends(ToolElementFilterExpress, _super);
             function ToolElementFilterExpress(config, options) {
-                _super.call(this, config, options);
-                var that = this;
+                var _this = _super.call(this, config, options) || this;
+                var that = _this;
                 that.data.value = config.fields;
                 that.data.options = config.options;
                 that._init();
+                return _this;
             }
             ToolElementFilterExpress.prototype._init = function () {
                 var that = this;
@@ -29305,7 +30330,7 @@ var Phoenix;
         var ToolElementFilter = (function (_super) {
             __extends(ToolElementFilter, _super);
             function ToolElementFilter(config, options) {
-                _super.call(this, config, options);
+                return _super.call(this, config, options) || this;
             }
             ToolElementFilter.prototype.createElement = function (index, config, data) {
                 var css = ["bs-button btn btn-default"];
@@ -29488,8 +30513,9 @@ var Phoenix;
         var ToolbarForm = (function (_super) {
             __extends(ToolbarForm, _super);
             function ToolbarForm(fp, options, form) {
-                _super.call(this, fp, options, form);
-                this._state();
+                var _this = _super.call(this, fp, options, form) || this;
+                _this._state();
+                return _this;
             }
             ToolbarForm.prototype.getValue = function (name) {
                 return this._toolbar.getValue(name);
@@ -29539,4 +30565,3 @@ var Phoenix;
         _ui.registerControl(ToolbarForm, "array", false, "toolbar");
     })(ui = Phoenix.ui || (Phoenix.ui = {}));
 })(Phoenix || (Phoenix = {}));
-//# sourceMappingURL=core.js.map

@@ -2,20 +2,20 @@ var Phoenix;
 (function (Phoenix) {
     var ui;
     (function (ui) {
-        var _html = [
-            '<div id="{0}" class="carousel bs-carousel">',
-            '<ol class="carousel-indicators"></ol>',
-            '<div class="carousel-inner"></div>',
-            '<a data-slide="prev" data-target="#{0}" class="left carousel-control" style="cursor:pointer;"><span class="glyphicon glyphicon-chevron-left"></span></a>',
-            '<a data-slide="next" data-target="#{0}" class="right carousel-control" style="cursor:pointer;"><span class="glyphicon glyphicon-chevron-right"></span></a>',
-            '</div>'
-        ];
         var _utils = Phoenix.utils, _dom = Phoenix.dom, _device = Phoenix.device, _render = Phoenix.render, _renderImage = function (cont, slide) {
             cont.appendChild($('<h4 class="title">Photo : ' + slide.title + '</h4>').get(0));
             var img = $('<div></div>').get(0);
             img.appendChild($('<img alt="Pas de photo" src="' + slide.url + '" />').get(0));
             cont.appendChild(img);
         };
+        var _html = [
+            '<div id="{0}" class="carousel bs-carousel">',
+            '<ol class="carousel-indicators"></ol>',
+            '<div class="carousel-inner"></div>',
+            _utils.format('<a data-slide="prev" data-target="#{0}" class="left carousel-control" style="cursor:pointer;"><span class="{0}"></span></a>', _dom.iconClass('chevron-left')),
+            _utils.format('<a data-slide="next" data-target="#{0}" class="right carousel-control" style="cursor:pointer;"><span class="{0}"></span></a>', _dom.iconClass('chevron-right')),
+            '</div>'
+        ];
         var Carousel = (function () {
             function Carousel(options) {
                 var that = this;
@@ -127,7 +127,7 @@ var Phoenix;
         ;
     })(ui = Phoenix.ui || (Phoenix.ui = {}));
 })(Phoenix || (Phoenix = {}));
-//# sourceMappingURL=carousel.control.js.map
+
 var Phoenix;
 (function (Phoenix) {
     var ui;
@@ -163,7 +163,7 @@ var Phoenix;
         ui.translateHighcharts = _ensureLang();
     })(ui = Phoenix.ui || (Phoenix.ui = {}));
 })(Phoenix || (Phoenix = {}));
-//# sourceMappingURL=highcharts.control.js.map
+
 var __extends = (this && this.__extends) || function (d, b) {
     for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p];
     function __() { this.constructor = d; }
@@ -178,7 +178,7 @@ var Phoenix;
             function FormContainer(options, layout, schema, formData, module) {
                 var that = this;
                 options = options || {};
-                that.formData = formData || {};
+                that.formData = formData || { $create: true };
                 that.options = options;
                 that.layout = layout;
                 that.schema = schema;
@@ -223,6 +223,7 @@ var Phoenix;
         var FormContainerController = (function (_super) {
             __extends(FormContainerController, _super);
             function FormContainerController(options, formName, metaName, controllerName, parentModule) {
+                var _this;
                 if (!formName)
                     throw 'Form name is empty.';
                 if (!metaName)
@@ -234,20 +235,21 @@ var Phoenix;
                     throw _utils.format('Controller not found "{0}". Use customData.register(controllerName, ctrlConfig).', controllerName);
                 ui.formController2Options(options, config);
                 var d = (config.data ? config.data() : null);
-                _super.call(this, options, formName, metaName, d, parentModule);
+                _this = _super.call(this, options, formName, metaName, d, parentModule) || this;
                 if (config.isFormController) {
-                    this.action = config.modelChanged.bind(config);
+                    _this.action = config.modelChanged.bind(config);
                 }
                 else if (config.onModelChanged) {
-                    this.action = config.onModelChanged.bind(config);
+                    _this.action = config.onModelChanged.bind(config);
                 }
+                return _this;
             }
             return FormContainerController;
         }(FormContainer));
         ui.FormContainerController = FormContainerController;
     })(ui = Phoenix.ui || (Phoenix.ui = {}));
 })(Phoenix || (Phoenix = {}));
-//# sourceMappingURL=inlineform.js.map
+
 var Phoenix;
 (function (Phoenix) {
     var ui;
@@ -513,7 +515,7 @@ var Phoenix;
         _render.register("javascript", "widget.content.control.googlechart", GoogleChart);
     })(ui = Phoenix.ui || (Phoenix.ui = {}));
 })(Phoenix || (Phoenix = {}));
-//# sourceMappingURL=charts.control.js.map
+
 var Phoenix;
 (function (Phoenix) {
     var ui;
@@ -918,7 +920,7 @@ var Phoenix;
         _render.register("javascript", "widget.content.control.listview", ListView);
     })(ui = Phoenix.ui || (Phoenix.ui = {}));
 })(Phoenix || (Phoenix = {}));
-//# sourceMappingURL=listview.js.map
+
 var Phoenix;
 (function (Phoenix) {
     var ui;
@@ -945,7 +947,7 @@ var Phoenix;
         ui.Map = Map;
     })(ui = Phoenix.ui || (Phoenix.ui = {}));
 })(Phoenix || (Phoenix = {}));
-//# sourceMappingURL=basemap-controller.js.map
+
 var __extends = (this && this.__extends) || function (d, b) {
     for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p];
     function __() { this.constructor = d; }
@@ -959,7 +961,7 @@ var Phoenix;
         var GoogleMaps = (function (_super) {
             __extends(GoogleMaps, _super);
             function GoogleMaps(options, callback) {
-                _super.call(this, options, callback);
+                return _super.call(this, options, callback) || this;
             }
             GoogleMaps.prototype.getLatLng = function (adresses, callBack) {
                 var that = this;
@@ -1059,7 +1061,7 @@ var Phoenix;
         };
     })(ui = Phoenix.ui || (Phoenix.ui = {}));
 })(Phoenix || (Phoenix = {}));
-//# sourceMappingURL=googlemap-controller.js.map
+
 var __extends = (this && this.__extends) || function (d, b) {
     for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p];
     function __() { this.constructor = d; }
@@ -1073,7 +1075,7 @@ var Phoenix;
         var OpenStreetMap = (function (_super) {
             __extends(OpenStreetMap, _super);
             function OpenStreetMap(options, callback) {
-                _super.call(this, options, callback);
+                return _super.call(this, options, callback) || this;
             }
             OpenStreetMap.prototype.getLatLng = function (adresses, callBack) {
                 var that = this;
@@ -1169,7 +1171,7 @@ var Phoenix;
         };
     })(ui = Phoenix.ui || (Phoenix.ui = {}));
 })(Phoenix || (Phoenix = {}));
-//# sourceMappingURL=openstreetmap-controller.js.map
+
 var Phoenix;
 (function (Phoenix) {
     var ui;
@@ -1207,7 +1209,7 @@ var Phoenix;
         ui.ModuleTitle = ModuleTitle;
     })(ui = Phoenix.ui || (Phoenix.ui = {}));
 })(Phoenix || (Phoenix = {}));
-//# sourceMappingURL=module-title.js.map
+
 var Phoenix;
 (function (Phoenix) {
     var ui;
@@ -1597,33 +1599,33 @@ var Phoenix;
                     }
                 }
             };
-            PlanningChart.HEIGHT_FIX_PLANNING = 100;
-            PlanningChart.HEIGHT_FIX_BOX = 30;
-            PlanningChart.HEIGHT_FIX_ROW = 30;
-            PlanningChart.Z_INDEX_POINT = 30;
-            PlanningChart.Z_INDEX_LINE = 20;
-            PlanningChart.Z_INDEX_DEFAULT = 10;
-            PlanningChart.LINEAR_GRADIENT = {
-                x1: 0,
-                y1: 0,
-                x2: 1.2,
-                y2: 0
-            };
-            PlanningChart.BORDER_COLOR = "white";
-            PlanningChart.BORDER_WIDTH = 1;
-            PlanningChart.BOX_TITLE_PX = 12;
-            PlanningChart.SERIE_STYLE_HEIGHT = 25;
-            PlanningChart.SERIE_STYLE_SMALL_HEIGHT = 10;
-            PlanningChart.BORDER_RADIUS_DEFAULT = 10;
-            PlanningChart.PLOT_LINE_COLOR = "#5E6165";
-            PlanningChart.ADD_DAYS_SECURE = 30;
             return PlanningChart;
         }());
+        PlanningChart.HEIGHT_FIX_PLANNING = 100;
+        PlanningChart.HEIGHT_FIX_BOX = 30;
+        PlanningChart.HEIGHT_FIX_ROW = 30;
+        PlanningChart.Z_INDEX_POINT = 30;
+        PlanningChart.Z_INDEX_LINE = 20;
+        PlanningChart.Z_INDEX_DEFAULT = 10;
+        PlanningChart.LINEAR_GRADIENT = {
+            x1: 0,
+            y1: 0,
+            x2: 1.2,
+            y2: 0
+        };
+        PlanningChart.BORDER_COLOR = "white";
+        PlanningChart.BORDER_WIDTH = 1;
+        PlanningChart.BOX_TITLE_PX = 12;
+        PlanningChart.SERIE_STYLE_HEIGHT = 25;
+        PlanningChart.SERIE_STYLE_SMALL_HEIGHT = 10;
+        PlanningChart.BORDER_RADIUS_DEFAULT = 10;
+        PlanningChart.PLOT_LINE_COLOR = "#5E6165";
+        PlanningChart.ADD_DAYS_SECURE = 30;
         ui.PlanningChart = PlanningChart;
         _render.register("javascript", "widget.content.control.planningchart", PlanningChart);
     })(ui = Phoenix.ui || (Phoenix.ui = {}));
 })(Phoenix || (Phoenix = {}));
-//# sourceMappingURL=charts.control.js.map
+
 var Phoenix;
 (function (Phoenix) {
     var ui;
@@ -1719,7 +1721,7 @@ var Phoenix;
         ui.constructXRangeType = constructXRangeType;
     })(ui = Phoenix.ui || (Phoenix.ui = {}));
 })(Phoenix || (Phoenix = {}));
-//# sourceMappingURL=xrange-type.js.map
+
 var Phoenix;
 (function (Phoenix) {
     var ui;
@@ -1754,4 +1756,3 @@ var Phoenix;
         _render.register("javascript", "widget.content.control.test", Content);
     })(ui = Phoenix.ui || (Phoenix.ui = {}));
 })(Phoenix || (Phoenix = {}));
-//# sourceMappingURL=test.js.map

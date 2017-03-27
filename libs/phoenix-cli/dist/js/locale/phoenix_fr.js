@@ -33,7 +33,9 @@ var Phoenix;
                 "appearance": "Affichage sous forme de ",
                 "appearanceAccordion": "Accordéon",
                 "appearanceTabs": "Onglets",
-                "showTitle": "Afficher un titre",
+                "appearanceWizard": "None",
+                "showTitle": "Afficher le titre",
+                "bindPagesTitle": "Bind",
                 "name": "Nom",
                 "forceDisplayTable": "Forcer display(Css) table",
                 "title": "Titre",
@@ -146,4 +148,3 @@ var Phoenix;
     };
     Phoenix.ulocale.translate(fr, "fr");
 })(Phoenix || (Phoenix = {}));
-//# sourceMappingURL=phoenix_fr.js.map

@@ -763,7 +763,7 @@ var Phoenix;
         $.extend(_ui.Form.prototype, _methods);
     })(ui = Phoenix.ui || (Phoenix.ui = {}));
 })(Phoenix || (Phoenix = {}));
-//# sourceMappingURL=layout.control.design.js.map
+
 var Phoenix;
 (function (Phoenix) {
     var authpropedit;
@@ -872,6 +872,11 @@ var Phoenix;
                 o.$style = model.style;
                 if (!changed && (layout.$style || '') !== (model.style || ''))
                     changed = true;
+                var bp = (tv === _lu.LAYOUT_ACCORDION && model.format === 'none') ? model.bindPages : undefined;
+                o.$bindPages = bp;
+                if (layout.$bindPages !== bp) {
+                    changed = true;
+                }
                 if (!model.$states.colSize.isHidden) {
                     if (tv === "column") {
                         if (model.colSize !== layout.$colSize) {
@@ -1060,7 +1065,11 @@ var Phoenix;
                         },
                         title: {
                             type: "string",
-                            title: _locale.layouts.design.Title,
+                            title: _locale.layouts.design.Title
+                        },
+                        bindPages: {
+                            type: "string",
+                            title: _locale.layouts.design.bindPagesTitle
                         },
                         titleSize: {
                             type: "number",
@@ -1086,8 +1095,8 @@ var Phoenix;
                         format: {
                             type: "string",
                             title: _locale.layouts.design.appearance,
-                            enum: [_lu.LAYOUT_ACCORDION, 'tabs'],
-                            enumNames: [_locale.layouts.design.appearanceAccordion, _locale.layouts.design.appearanceTabs]
+                            enum: [_lu.LAYOUT_ACCORDION, 'tabs', 'none'],
+                            enumNames: [_locale.layouts.design.appearanceAccordion, _locale.layouts.design.appearanceTabs, _locale.layouts.design.appearanceWizard]
                         },
                         subLayoutName: {
                             type: "string",
@@ -1179,6 +1188,7 @@ var Phoenix;
                     titleSize: layout.$title && layout.$title.size ? layout.$title.size : 4,
                     titleStyle: layout.$title && layout.$title.style ? layout.$title.style : '',
                     childrenFlow: cf,
+                    bindPages: layout.$bindPages,
                     colSize: layout.$colSize || 0,
                     customSize: layout.$customColSize,
                     formType: ft,
@@ -1198,6 +1208,9 @@ var Phoenix;
                         },
                         title: {
                             isHidden: !titleVisible || !showTitle
+                        },
+                        bindPages: {
+                            isHidden: !(cv === _lu.LAYOUT_ACCORDION && layout.$widget === 'none')
                         },
                         titleSize: {
                             isHidden: (!titleVisible || !showTitle) || isAccordionGroup
@@ -1277,6 +1290,7 @@ var Phoenix;
                                 { $bind: "forceTable" },
                                 { $bind: "format" },
                                 { $bind: "sticky" },
+                                { $bind: "bindPages" },
                                 { $bind: "subLayoutName" },
                                 { $bind: "subPathSchema" },
                                 { $bind: "subController" },
@@ -1361,6 +1375,8 @@ var Phoenix;
                                         return;
                                     that._sendLayout(model);
                                     break;
+                                case "format":
+                                    model.$states.bindPages.isHidden = !(model.typeLayout === _lu.LAYOUT_ACCORDION && model.format === 'none');
                                 default:
                                     activateApply = true;
                                     break;
@@ -1442,7 +1458,7 @@ var Phoenix;
         ;
     })(authpropedit = Phoenix.authpropedit || (Phoenix.authpropedit = {}));
 })(Phoenix || (Phoenix = {}));
-//# sourceMappingURL=propeditor.control.js.map
+
 var Phoenix;
 (function (Phoenix) {
     var _p = Phoenix, _utils = _p.utils, _ipc = _p.ipc, _build = _p.build, _drag = _p.drag, _dom = _p.dom, _ui = _p.ui, _locale = _p.locale, _pagecontrol = _p.pagecontrol, _ulocale = _p.ulocale;
@@ -1602,7 +1618,7 @@ var Phoenix;
                     name: "open",
                     $type: "block",
                     $items: [{ $bind: "page" }]
-                }, ldata = { page: files[0] }, opt = {
+                }, localData = { page: files[0] }, opt = {
                     title: _locale.layouts.design.Open.title,
                     buttons: [
                         {
@@ -1617,7 +1633,7 @@ var Phoenix;
                         }
                     ]
                 };
-                _ui.OpenModalForm(opt, layout, schema, ldata, Phoenix.locale, function (modal, action, data, formcontrol) {
+                _ui.OpenModalForm(opt, layout, schema, localData, Phoenix.locale, function (modal, action, data, formcontrol) {
                     if (action.operation === "modal-action") {
                         switch (action.property) {
                             case "ok":
@@ -1663,7 +1679,7 @@ var Phoenix;
         authtoolbar.AuthoringToolBar = AuthoringToolBar;
     })(authtoolbar = Phoenix.authtoolbar || (Phoenix.authtoolbar = {}));
 })(Phoenix || (Phoenix = {}));
-//# sourceMappingURL=toolbar.authoring.control.js.map
+
 var Phoenix;
 (function (Phoenix) {
     var authtoolboxutils;
@@ -1798,7 +1814,7 @@ var Phoenix;
         authtoolboxutils.toHtml = toHtml;
     })(authtoolboxutils = Phoenix.authtoolboxutils || (Phoenix.authtoolboxutils = {}));
 })(Phoenix || (Phoenix = {}));
-//# sourceMappingURL=toolbox.js.map
+
 var Phoenix;
 (function (Phoenix) {
     var authtoolbox;
@@ -1961,7 +1977,7 @@ var Phoenix;
         ;
     })(authtoolbox = Phoenix.authtoolbox || (Phoenix.authtoolbox = {}));
 })(Phoenix || (Phoenix = {}));
-//# sourceMappingURL=toolbox.control.js.map
+
 var Phoenix;
 (function (Phoenix) {
     var _p = Phoenix, _utils = _p.utils, _ipc = _p.ipc, _dom = _p.dom, _authtoolbar = _p.authtoolbar, _authtoolbox = _p.authtoolbox, _authpropedit = _p.authpropedit;
@@ -2076,4 +2092,3 @@ var Phoenix;
         authoring.AuthoringEditor = AuthoringEditor;
     })(authoring = Phoenix.authoring || (Phoenix.authoring = {}));
 })(Phoenix || (Phoenix = {}));
-//# sourceMappingURL=authoring.control.js.map
