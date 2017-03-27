@@ -14,7 +14,7 @@ $(function () {
                 "$items": [
                     {
                         "opened": true,
-                        "$name": "One",
+                        "$name": "one",
                         "$title": {
                             "value": "Fire"
                         },
@@ -48,16 +48,16 @@ $(function () {
                         "$items": [
                             {
                                 "$type": "html",
-                                "$html": "<h2>Two</h2><p>This is tab Three</p>"
+                                "$html": "<h2>Three</h2><p>This is tab Three</p>"
                             }
                         ]
                     }
                 ]
             },
-             {
+            {
                 "$type": "block",
                 "$inline": true,
-                "$items": [{ $bind: "activeTab", $widget: "grpbtn"}]
+                "$items": [{ "$bind": "activeTab", "$widget": "grpbtn" }]
             },
 
         ],
@@ -91,4 +91,5 @@ $(function () {
             });
     })();
 });
+
 
