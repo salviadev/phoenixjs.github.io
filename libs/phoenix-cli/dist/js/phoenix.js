@@ -1,8 +1,13 @@
-var __extends = (this && this.__extends) || function (d, b) {
-    for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p];
-    function __() { this.constructor = d; }
-    d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
-};
+var __extends = (this && this.__extends) || (function () {
+    var extendStatics = Object.setPrototypeOf ||
+        ({ __proto__: [] } instanceof Array && function (d, b) { d.__proto__ = b; }) ||
+        function (d, b) { for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p]; };
+    return function (d, b) {
+        extendStatics(d, b);
+        function __() { this.constructor = d; }
+        d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
+    };
+})();
 var Phoenix;
 (function (Phoenix) {
     var utils;
@@ -10524,7 +10529,7 @@ var Phoenix;
         var PageLayout = (function (_super) {
             __extends(PageLayout, _super);
             function PageLayout() {
-                return _super.apply(this, arguments) || this;
+                return _super !== null && _super.apply(this, arguments) || this;
             }
             //implements DatasetMethods
             PageLayout.prototype.ds_init = function (config) { return false; };
@@ -12904,7 +12909,10 @@ var Phoenix;
                             var rule = root.$schema.rulesMap[ruleId];
                             try {
                                 if (!rule.code) {
-                                    rule.code = new Function('o', 'ctx', 'window', 'return ' + _parseExpression(rule.expression, { isPropagation: false }));
+                                    var returnCode = 'return ';
+                                    if (rule.expression.indexOf(returnCode) >= 0)
+                                        returnCode = '';
+                                    rule.code = new Function('o', 'ctx', 'window', returnCode + _parseExpression(rule.expression, { isPropagation: false }));
                                     rule.conditionCode = rule.condition ? new Function('o', 'ctx', 'window', 'return ' + _parseExpression(rule.condition, { isPropagation: false })) : null;
                                 }
                                 var addToRoot = rule.triggers.length > 1;
@@ -12964,7 +12972,10 @@ var Phoenix;
                     var rule = root.$schema.rulesMap[ruleId];
                     try {
                         if (!rule.code) {
-                            rule.code = new Function('o', 'ctx', 'window', 'return ' + _parseExpression(rule.expression, { isPropagation: false }));
+                            var returnCode = 'return ';
+                            if (rule.expression.indexOf(returnCode) >= 0)
+                                returnCode = '';
+                            rule.code = new Function('o', 'ctx', 'window', returnCode + _parseExpression(rule.expression, { isPropagation: false }));
                             rule.conditionCode = rule.condition ? new Function('o', 'ctx', 'window', 'return ' + _parseExpression(rule.condition, { isPropagation: false })) : null;
                         }
                         var execRule_1 = true;
@@ -13469,7 +13480,7 @@ var Phoenix;
         var DataListBase = (function (_super) {
             __extends(DataListBase, _super);
             function DataListBase() {
-                return _super.apply(this, arguments) || this;
+                return _super !== null && _super.apply(this, arguments) || this;
             }
             DataListBase.prototype._fillItems = function () {
                 var that = this, keys = null;
@@ -13830,7 +13841,7 @@ var Phoenix;
         var CompositionList = (function (_super) {
             __extends(CompositionList, _super);
             function CompositionList() {
-                return _super.apply(this, arguments) || this;
+                return _super !== null && _super.apply(this, arguments) || this;
             }
             CompositionList.prototype._destroyItems = function () {
                 _super.prototype._destroyItems.call(this);
@@ -13863,7 +13874,7 @@ var Phoenix;
         var SimpleCompositionList = (function (_super) {
             __extends(SimpleCompositionList, _super);
             function SimpleCompositionList() {
-                return _super.apply(this, arguments) || this;
+                return _super !== null && _super.apply(this, arguments) || this;
             }
             SimpleCompositionList.prototype._destroyItems = function () {
                 _super.prototype._destroyItems.call(this);
@@ -13876,7 +13887,7 @@ var Phoenix;
         var SimpleTypeList = (function (_super) {
             __extends(SimpleTypeList, _super);
             function SimpleTypeList() {
-                return _super.apply(this, arguments) || this;
+                return _super !== null && _super.apply(this, arguments) || this;
             }
             SimpleTypeList.prototype.push = function (item) {
                 var that = this;
@@ -17286,7 +17297,7 @@ var Phoenix;
         var ArrayControl = (function (_super) {
             __extends(ArrayControl, _super);
             function ArrayControl() {
-                return _super.apply(this, arguments) || this;
+                return _super !== null && _super.apply(this, arguments) || this;
             }
             ArrayControl.prototype.customOptions = function (options) {
                 var that = this;
@@ -27620,7 +27631,7 @@ var Phoenix;
         var RenderModel2 = (function (_super) {
             __extends(RenderModel2, _super);
             function RenderModel2(listeChamps, listeChampsArbre, listeFilters, listeOperateurs, listeTypes, options, callback) {
-                var _this;
+                var _this = this;
                 var defaultOptions = {
                     btnValidate: true
                 };
