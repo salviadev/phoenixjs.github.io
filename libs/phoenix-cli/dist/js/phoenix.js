@@ -1,13 +1,8 @@
-var __extends = (this && this.__extends) || (function () {
-    var extendStatics = Object.setPrototypeOf ||
-        ({ __proto__: [] } instanceof Array && function (d, b) { d.__proto__ = b; }) ||
-        function (d, b) { for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p]; };
-    return function (d, b) {
-        extendStatics(d, b);
-        function __() { this.constructor = d; }
-        d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
-    };
-})();
+var __extends = (this && this.__extends) || function (d, b) {
+    for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p];
+    function __() { this.constructor = d; }
+    d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
+};
 var Phoenix;
 (function (Phoenix) {
     var utils;
@@ -10529,7 +10524,7 @@ var Phoenix;
         var PageLayout = (function (_super) {
             __extends(PageLayout, _super);
             function PageLayout() {
-                return _super !== null && _super.apply(this, arguments) || this;
+                return _super.apply(this, arguments) || this;
             }
             //implements DatasetMethods
             PageLayout.prototype.ds_init = function (config) { return false; };
@@ -13480,7 +13475,7 @@ var Phoenix;
         var DataListBase = (function (_super) {
             __extends(DataListBase, _super);
             function DataListBase() {
-                return _super !== null && _super.apply(this, arguments) || this;
+                return _super.apply(this, arguments) || this;
             }
             DataListBase.prototype._fillItems = function () {
                 var that = this, keys = null;
@@ -13841,7 +13836,7 @@ var Phoenix;
         var CompositionList = (function (_super) {
             __extends(CompositionList, _super);
             function CompositionList() {
-                return _super !== null && _super.apply(this, arguments) || this;
+                return _super.apply(this, arguments) || this;
             }
             CompositionList.prototype._destroyItems = function () {
                 _super.prototype._destroyItems.call(this);
@@ -13874,7 +13869,7 @@ var Phoenix;
         var SimpleCompositionList = (function (_super) {
             __extends(SimpleCompositionList, _super);
             function SimpleCompositionList() {
-                return _super !== null && _super.apply(this, arguments) || this;
+                return _super.apply(this, arguments) || this;
             }
             SimpleCompositionList.prototype._destroyItems = function () {
                 _super.prototype._destroyItems.call(this);
@@ -13887,7 +13882,7 @@ var Phoenix;
         var SimpleTypeList = (function (_super) {
             __extends(SimpleTypeList, _super);
             function SimpleTypeList() {
-                return _super !== null && _super.apply(this, arguments) || this;
+                return _super.apply(this, arguments) || this;
             }
             SimpleTypeList.prototype.push = function (item) {
                 var that = this;
@@ -15242,6 +15237,20 @@ var Phoenix;
                 that._afterCreate();
                 return _this;
             }
+            Form.prototype.addChildForm = function (aForm) {
+                var that = this;
+                that._childrenForms = that._childrenForms || [];
+                that._childrenForms.push(aForm);
+                aForm._parentForm = that;
+            };
+            Form.prototype.removeChildForm = function (aForm) {
+                var that = this;
+                if (that._childrenForms) {
+                    var ii = that._childrenForms.indexOf(aForm);
+                    if (ii >= 0)
+                        that._childrenForms.splice(ii, 1);
+                }
+            };
             Form.prototype._isInDelayedAction = function () {
                 if (this.formManager)
                     return this.formManager.isInAction();
@@ -15662,8 +15671,24 @@ var Phoenix;
                     });
                 }
             };
+            Form.prototype.openInlineForm = function (opts) {
+                var that = this;
+                var layout = that.getLayoutByName(opts.where);
+                if (layout && ui.OpenInlineForm)
+                    ui.OpenInlineForm(layout.$id, opts.name, opts.meta, opts.controller, opts.data, opts.locale, function (childForm) {
+                        that.addChildForm(childForm);
+                    });
+            };
             Form.prototype.execAction = function (propName, actionParams, params) {
                 this._modelChanged(propName, null, null, 'execute', params, actionParams);
+            };
+            Form.prototype.close = function () {
+                var that = this;
+                if (that.$content) {
+                    that.$content.empty();
+                    _dom.remove(that.$content.get(0));
+                }
+                that.destroy();
             };
             Form.prototype.broadcast = function (eventName, params) {
                 this.formManager.broadcast(eventName, params);
@@ -15752,6 +15777,13 @@ var Phoenix;
                 that._listeners = {};
                 that._listenersByName = [];
                 that._loadNestedControllers = null;
+                if (that._parentForm)
+                    that._parentForm.removeChildForm(that);
+                if (that._childrenForms) {
+                    var children = that._childrenForms.slice();
+                    children.forEach(function (item) { return item.destroy(); });
+                    that._childrenForms = null;
+                }
                 if (that.$model) {
                     that.$model.onchange = null;
                     that.$model.onstatechanged = null;
@@ -16027,6 +16059,7 @@ var Phoenix;
         }
         ui.removeForm = removeForm;
         ui.OpenForm = null;
+        ui.OpenInlineForm = null;
     })(ui = Phoenix.ui || (Phoenix.ui = {}));
 })(Phoenix || (Phoenix = {}));
 /// <reference path="../../core/core.ts" />
@@ -16205,7 +16238,7 @@ var Phoenix;
                 throw 'Controller name is empty.';
             var config = typeof opts.controller === 'string' ? _customData.get(opts.controller) : opts.controller;
             if (!config)
-                throw _utils.format('Controller not found "{0}". Use customData.register(controllerName,if typeof    ctrlConfig).', opts.controller);
+                throw _utils.format('Controller not found "{0}". Use customData.register(controllerName, ctrlConfig).', opts.controller);
             var options = {};
             _initController(options, config);
             var fo = opts.options;
@@ -16218,7 +16251,32 @@ var Phoenix;
             else if (config.onModelChanged) {
                 hnd = config.onModelChanged.bind(config);
             }
-            _OpenModalForm(fo, opts.name, opts.meta, data, null, hnd);
+            _OpenModalForm(fo, opts.name, opts.meta, data, opts.locale, hnd);
+        };
+        var _showInlineForm = function (opts, after, data) {
+            if (!opts.controller)
+                throw 'Controller name is empty.';
+            var config = typeof opts.controller === 'string' ? _customData.get(opts.controller) : opts.controller;
+            if (!config)
+                throw _utils.format('Controller not found "{0}". Use customData.register(controllerName, ctrlConfig).', opts.controller);
+            var options = {};
+            _initController(options, config);
+            var fo = opts.options;
+            fo.opts = options;
+            fo.natural = true;
+            var hnd = null;
+            if (config.isFormController) {
+                hnd = config.modelChanged.bind(config);
+            }
+            else if (config.onModelChanged) {
+                hnd = config.onModelChanged.bind(config);
+            }
+            if (!opts.formParent)
+                throw 'No form parent.';
+            var parent = _dom.find(null, opts.formParent);
+            if (!parent)
+                throw 'No form parent.';
+            _OpenFormExp($(parent), opts.name, opts.meta, data, opts.locale, hnd, fo, after);
         };
         var _showAutoCloseForm = function (opts, data, after) {
             if (!opts.controller)
@@ -16292,7 +16350,6 @@ var Phoenix;
                 after(render);
         };
         var _loadSubLayouts = function ($parent, params, handler, formOpts, after) {
-            params.layout;
         };
         var _afterLoadSchema = function ($parent, params, handler, formOpts, after) {
             _su.loadSchemaRefs(params.schema, params.data, params.layout, function (ex, ldata) {
@@ -16374,6 +16431,17 @@ var Phoenix;
         ui.showModalForm = _showModalForm;
         ui.showAutoCloseForm = _showAutoCloseForm;
         ui.OpenForm = _OpenFormExp;
+        ui.OpenInlineForm = function (parentId, layout, schema, contrtoller, formData, locale, after) {
+            var opts = {
+                name: layout,
+                meta: schema,
+                controller: contrtoller,
+                options: {},
+                formParent: parentId,
+                locale: locale
+            };
+            _showInlineForm(opts, after, formData);
+        };
         _external.formOpenHandler = function (params) {
             var opts = {
                 name: params.name,
@@ -17297,7 +17365,7 @@ var Phoenix;
         var ArrayControl = (function (_super) {
             __extends(ArrayControl, _super);
             function ArrayControl() {
-                return _super !== null && _super.apply(this, arguments) || this;
+                return _super.apply(this, arguments) || this;
             }
             ArrayControl.prototype.customOptions = function (options) {
                 var that = this;
@@ -27631,7 +27699,7 @@ var Phoenix;
         var RenderModel2 = (function (_super) {
             __extends(RenderModel2, _super);
             function RenderModel2(listeChamps, listeChampsArbre, listeFilters, listeOperateurs, listeTypes, options, callback) {
-                var _this = this;
+                var _this;
                 var defaultOptions = {
                     btnValidate: true
                 };

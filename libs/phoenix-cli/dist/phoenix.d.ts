@@ -1575,6 +1575,8 @@ declare namespace Phoenix {
             private _bindStates;
             private _bindTitles;
             private _bindAccordion;
+            private _parentForm;
+            private _childrenForms;
             $schema: any;
             $rootSchema: any;
             $rootPath: string;
@@ -1594,6 +1596,8 @@ declare namespace Phoenix {
             private _listeners;
             private _listenersByName;
             formManager: FormManager;
+            addChildForm(aForm: Form): void;
+            removeChildForm(aForm: Form): void;
             private _isInDelayedAction();
             private _setInDelayedAction(value);
             protected initOptions(options: any): any;
@@ -1635,7 +1639,16 @@ declare namespace Phoenix {
             private _enumListener(name, cb);
             private _rebuildListeners();
             private _match(p, cb);
+            openInlineForm(opts: {
+                where: string;
+                name: any;
+                meta: any;
+                controller: any;
+                data?: any;
+                locale?: any;
+            }): void;
             execAction(propName: string, actionParams?: any, params?: any): void;
+            close(): void;
             broadcast(eventName: string, params: any): void;
             private _modelChanged(propName, ov, nv, op, params, actionParams);
             afterchanged(propName: any, op: any, params: any, actionParams: any): void;
@@ -1656,6 +1669,7 @@ declare namespace Phoenix {
         var FormClass: typeof Form;
         function removeForm(form: BaseLayout): void;
         var OpenForm: ($parent: JQuery, layout: any, schema: any, fdata: any, locale: any, handler: any, formOpts?: any, after?: Function) => void;
+        var OpenInlineForm: (parentId: string, layout: any, schema: any, contrtoller: any, fdata: any, locale: any, after?: Function) => void;
     }
 }
 declare namespace Phoenix {
@@ -1667,6 +1681,7 @@ declare namespace Phoenix {
             autoClose?: any;
             options: any;
             locale?: any;
+            formParent?: string;
         }
         class ModalForm extends modal.Modal {
             constructor(formOptions: any, layout: any, schema: any, data: any, locale: any, preferences: any);
@@ -1683,11 +1698,11 @@ declare namespace Phoenix {
             modelChanged(action: any, model: any, form: any, modal?: any): void;
             onModelChanged(action: any, model: any, form: any, modal?: any): any;
         }
-        var loadSchema: (schema: any) => Promise<any>;
-        var formController2Options: (options: any, config: any) => void;
-        var OpenModalForm: (formOptions: any, layout: any, schema: any, fdata: any, locale: any, handler: any) => void;
-        var showModalForm: (opts: ModalFormOptions, data?: any) => void;
-        var showAutoCloseForm: (opts: ModalFormOptions, data?: any, after?: any) => void;
+        const loadSchema: (schema: any) => Promise<any>;
+        const formController2Options: (options: any, config: any) => void;
+        const OpenModalForm: (formOptions: any, layout: any, schema: any, fdata: any, locale: any, handler: any) => void;
+        const showModalForm: (opts: ModalFormOptions, data?: any) => void;
+        const showAutoCloseForm: (opts: ModalFormOptions, data?: any, after?: any) => void;
     }
 }
 declare namespace Phoenix {
