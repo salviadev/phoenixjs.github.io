@@ -34,7 +34,7 @@ $(function () {
 			{
 				"$type": "block",
 				"$title": {
-					"value": "Select a row and push the button"
+					"value": "Select a row and click on 'Add detail'"
 				},
 				"$items": []
 			},
