@@ -44,6 +44,7 @@ $(function () {
 					{
 						"$inline": true,
 						"$items": [
+							{ "$bind": "$links.closeDetail", "options": { "right": true, "type": "danger" } },
 							{ "$bind": "$links.showDetail", "options": { "right": true, "type": "success" } }
 						]
 					}
@@ -58,6 +59,9 @@ $(function () {
 				"$items": []
 			},
 			{
+				"$title": {
+					"value": "After"
+				},
 				"$type": "block",
 				"$items": []
 			}
@@ -89,6 +93,9 @@ $(function () {
 			"links": {
 				"showDetail": {
 					"title": "Add detail"
+				},
+				"closeDetail": {
+					"title": "Close Details"
 				}
 
 			}
@@ -109,8 +116,8 @@ $(function () {
 		},
 		"states": {
 			"Name": { "isReadOnly": true },
-			"Type": { "isDisabled": true },
-			"DateOfBirth": { "isDisabled": true },
+			"Type": { "isReadOnly": true },
+			"DateOfBirth": { "isReadOnly": true },
 			"PV": { "isReadOnly": true },
 			"Price": { "isReadOnly": true }
 
@@ -141,7 +148,6 @@ $(function () {
 			},
 			{
 				"$type": "row",
-				"$name": "detail",
 				"$items": [
 					{
 						"$inline": true,
@@ -193,6 +199,9 @@ $(function () {
 							data: modelDetail
 						})
 					}
+					break;
+				case '$links.closeDetail':
+					form.closeInlineForms('detail');
 					break;
 			}
 		});

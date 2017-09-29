@@ -671,7 +671,7 @@ var Phoenix;
                 }, this);
                 _ipc.listen('onRemoveLayout', function () {
                     if (this.removeHandler) {
-                        this.removeHandler(this.data.name);
+                        this.removeHandler();
                     }
                 }, this);
                 _ipc.listen('onListLayout', function (after) {
@@ -1468,10 +1468,7 @@ var Phoenix;
             var _bootstrap4 = _p.bootstrap4;
             var html = [];
             if (_bootstrap4) {
-                html.push('<nav class="navbar navbar-dark bg-inverse" id="' + id + '">');
-                html.push('<a class="navbar-brand" href="#">');
-                html.push(_locale.layouts.design.AuthoringMode);
-                html.push('</a>');
+                html.push('<div class="bs-island" id="' + id + '">');
                 html.push('<form class="form-inline">');
             }
             else {
@@ -1485,22 +1482,22 @@ var Phoenix;
                 html.push('<div class="collapse navbar-collapse">');
                 html.push('<form class="navbar-form navbar-left" role="search">');
             }
-            html.push('<button type="button" class="btn btn-' + _dom.bootstrapStyles().secondary + (_build.release || options.form ? ' bs-none' : '') + '" id="' + id + '_new">');
+            html.push('<button type="button" class="mr-2 bs-button btn btn-' + _dom.bootstrapStyles(true).secondary + (_build.release || options.form ? ' bs-none' : '') + '" id="' + id + '_new">');
             html.push('<span class="' + _dom.iconClass('plus') + '" aria-hidden="false"></span> ');
             html.push(_locale.layouts.design.New);
             html.push('</button>&nbsp;');
-            html.push('<button type="button" class="btn btn-' + _dom.bootstrapStyles().secondary + (_build.release || options.form ? ' bs-none' : '') + '" id="' + id + '_open">');
+            html.push('<button type="button" class="mr-2 bs-button  btn btn-' + _dom.bootstrapStyles(true).secondary + (_build.release || options.form ? ' bs-none' : '') + '" id="' + id + '_open">');
             html.push('<span class="' + _dom.iconClass('file-o') + '" aria-hidden="false"></span> ');
             html.push(_locale.layouts.design.Open.title);
             html.push('</button>&nbsp;');
-            html.push('<button type="button" class="btn btn-' + _dom.bootstrapStyles().secondary + (options.form ? ' bs-none' : '') + '" id="' + id + '_remove">');
+            html.push('<button type="button" class="mr-2 bs-button btn btn-' + _dom.bootstrapStyles(true).secondary + (options.form ? ' bs-none' : '') + '" id="' + id + '_remove">');
             html.push('<span class="' + _dom.iconClass('times') + '" aria-hidden="false"></span> ');
             if (_build.release)
                 html.push(_locale.layouts.design.DeletePreferences);
             else
                 html.push(_locale.layouts.design.Delete);
             html.push('</button>&nbsp;');
-            html.push('<button type="button" class="btn btn-' + _dom.bootstrapStyles().secondary + '" id="' + id + '_save">');
+            html.push('<button type="button" class="mr-2 bs-button btn btn-' + _dom.bootstrapStyles(true).secondary + '" id="' + id + '_save">');
             html.push('<span class="' + _dom.iconClass('floppy') + '" aria-hidden="false"></span> ');
             html.push(_locale.layouts.design.Save);
             html.push('</button>&nbsp;');
@@ -1522,7 +1519,10 @@ var Phoenix;
             if (!_bootstrap4) {
                 html.push('</div>');
             }
-            html.push('</nav>');
+            if (_bootstrap4)
+                html.push('<div>');
+            else
+                html.push('</nav>');
             return html.join('');
         };
         var AuthoringToolBar = (function () {
@@ -1731,7 +1731,7 @@ var Phoenix;
             if (!_bootstrap4)
                 html.push('</h3>');
             html.push('</div>');
-            html.push('<div id="' + item.$id + '_content" class="panel-collapse collapse' + (first ? ' in' : '') + '" role="tabpanel" aria-labelledby="' + item.$id + '_tab">');
+            html.push('<div id="' + item.$id + '_content" class="panel-collapse collapse' + (first ? (_bootstrap4 ? ' show' : ' in') : '') + '" role="tabpanel" aria-labelledby="' + item.$id + '_title">');
             html.push('<ul class="list-group">');
         }, _afterGroup = function (html, item) {
             html.push('</ul></div></div>');
@@ -1989,7 +1989,7 @@ var Phoenix;
         html.push('<div id="content"></div>');
         html.push('</div>');
         html.push('<div id="toolbox_parent_{0}" style="width:300px">');
-        html.push('<div id="toolbox_{0}"></div>');
+        html.push('<div id="toolbox_{0}" class="bs-scroll-container"></div>');
         html.push('</div>');
         html.push('</div>');
         html.push('<div id="editor_{0}"></div>');
@@ -2013,7 +2013,7 @@ var Phoenix;
                 var noAppend = false;
                 if (!that.$element) {
                     var p = $parent.get(0).parentNode;
-                    var tp = Phoenix.dom.find(p, 'toolbox_parent');
+                    var tp = _dom.find(p, 'toolbox_parent');
                     if (tp) {
                         noAppend = true;
                         that.$element = $(p);
@@ -2041,8 +2041,9 @@ var Phoenix;
                     if (cc)
                         that._toolBar.render($(cc));
                     cc = _dom.find(e, 'toolbox_' + that.id);
-                    if (cc)
+                    if (cc) {
                         that._toolBox.render($(cc));
+                    }
                     that.setDesignMode(that.options.design);
                 }
                 if ($parent && !noAppend) {

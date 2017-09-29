@@ -1,15 +1,5 @@
 {
 	"modules": {
-		"listview": {
-			"$moduleTitle": "ListView Component",
-			"$titleIsHidden": true,
-			"data": {
-				"dataset": "Enter dataset name",
-				"search": true,
-				"pagination": true,
-				"$type": "Type of item"
-			}
-		},
 		"form": {
 			"$moduleTitle": "Form",
 			"form": {
@@ -23,6 +13,13 @@
 			"$titleIsHidden": true,
 			"data": {
 				"tabs": []
+			}
+		},
+		"IFrame": {
+			"$moduleTitle": "IFrame",
+			"$titleIsHidden": true,
+			"data": {
+				"src": "https://www.google.com"
 			}
 		},
 		"image-menu-item": {

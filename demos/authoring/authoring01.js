@@ -26,17 +26,43 @@ $(function () {
 		"$items": [
 			{
 				"$type": "accordion",
-				"$widget": "tabs",
+				"$widget": "none",
+				"$bindPages": "Type",
 				"$items": [
 					{
 						"opened": true,
+						"$name": "fire",
+						"$title": {
+							"value": "Fire"
+						},
 						"$type": "accordion-group",
 						"$items": [{"$type": "block", "$items": [{ "$bind": "PV" }] }]
 					},
 					{
 						"$type": "accordion-group",
+						"$name": "grass",
+						"$title": {
+							"value": "Grass"
+						},
 						"$items": [{"$type": "block", "$items": [{ "$bind": "Price" }] }]
+					},
+					{
+						"$type": "accordion-group",
+						"$name": "ground",
+						"$title": {
+							"value": "Ground"
+						},
+						"$items": [{"$type": "block", "$items": [{ "$bind": "DateOfBirth" }] }]
+					},
+					{
+						"$type": "accordion-group",
+						"$name": "water",
+						"$title": {
+							"value": "Water"
+						},
+						"$items": [{"$type": "block", "$items": [{ "$bind": "Name" }] }]
 					}
+
 				]
 			},
 			{
@@ -77,7 +103,49 @@ $(function () {
 						}
 					}
 				]
+			},
+			{
+				"$type": "accordion",
+				"$widget": "none",
+				"$bindPages": "Type",
+				"$items": [
+					{
+						"opened": true,
+						"$name": "fire",
+						"$title": {
+							"value": "Fire"
+						},
+						"$type": "accordion-group",
+						"$items": [{"$type": "block", "$items": [{ "$bind": "PV" }] }]
+					},
+					{
+						"$type": "accordion-group",
+						"$name": "grass",
+						"$title": {
+							"value": "Grass"
+						},
+						"$items": [{"$type": "block", "$items": [{ "$bind": "Price" }] }]
+					},
+					{
+						"$type": "accordion-group",
+						"$name": "ground",
+						"$title": {
+							"value": "Ground"
+						},
+						"$items": [{"$type": "block", "$items": [{ "$bind": "DateOfBirth" }] }]
+					},
+					{
+						"$type": "accordion-group",
+						"$name": "water",
+						"$title": {
+							"value": "Water"
+						},
+						"$items": [{"$type": "block", "$items": [{ "$bind": "Name" }] }]
+					}
+
+				]
 			}
+			
 		],
 		"form": true
 	};
@@ -100,7 +168,7 @@ $(function () {
 	var pe = new Phoenix.authoring.AuthoringEditor({ design: true, form: true }, tbData);
 	pe.render($('#auth'));
 
-	Phoenix.ui.OpenForm($('#content'), layout, schema, { Name: 'Taupiqueur', Type: 'ground', DateOfBirth: '2001-01-12', PV: 120, Price: 15000 }, {}, function () { }, { design: true }, function (form) {
+	Phoenix.ui.OpenForm($('#content'), layout, schema, { Name: 'Taupiqueur', Type: 'grass', DateOfBirth: '2001-01-12', PV: 120, Price: 15000 }, {}, function () { }, { design: true }, function (form) {
 		form.saveHandler = function (cd) {
 			console.log(JSON.stringify(cd, null, 2));
 		};

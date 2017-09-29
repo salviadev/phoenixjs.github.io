@@ -1,10 +1,16 @@
-var __extends = (this && this.__extends) || function (d, b) {
-    for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p];
-    function __() { this.constructor = d; }
-    d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
-};
+var __extends = (this && this.__extends) || (function () {
+    var extendStatics = Object.setPrototypeOf ||
+        ({ __proto__: [] } instanceof Array && function (d, b) { d.__proto__ = b; }) ||
+        function (d, b) { for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p]; };
+    return function (d, b) {
+        extendStatics(d, b);
+        function __() { this.constructor = d; }
+        d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
+    };
+})();
 var Phoenix;
 (function (Phoenix) {
+    var _p = Phoenix;
     var utils;
     (function (utils) {
         var _getPromise = function () {
@@ -174,21 +180,21 @@ var Phoenix;
                 }
             }
             throw "Invalid script Name";
-        }, _showAndLogRules = false, _logRule = function (spaces, rule, trigger) {
+        }, _showAndLogRules = false, _logRule = function (spaces, rule, trigger, entity) {
             if (_showAndLogRules) {
                 spaces = (spaces || 1) - 1;
                 var sSpaces = new Array(spaces).join('  ');
                 if (typeof rule === 'string')
                     console.log(_format('{0}{1}".', sSpaces, rule));
                 else
-                    console.log(_format('{0}Rule: "{1} - {2}", triggered by "{3}".', sSpaces, rule.name, rule.description, trigger));
+                    console.log(_format('{0} {4} Rule: "{1} - {2}", triggered by "{3}".', sSpaces, rule.name, rule.description, trigger, entity));
             }
         }, _showRules = function (value) {
             if (value !== undefined) {
                 _showAndLogRules = value;
             }
             return _showAndLogRules;
-        }, _extractData = function (path, value) {
+        }, _extractData = function (path, value, keepVariable) {
             if (path.indexOf(".") >= 0) {
                 var c = value;
                 path.split(".").forEach(function (pn) {
@@ -198,13 +204,15 @@ var Phoenix;
                 return (c || '') + '';
             }
             else
-                return value[path] === undefined ? path : value[path];
+                return value[path] === undefined ? (keepVariable ? path : '') : value[path];
             ;
+        }, _parseVariable = function (path, value) {
+            return _extractData(path, value, true);
         }, _hasexp = function (expression) {
             return (expression || '').indexOf('{{') >= 0;
         }, _parseexp = function (expression, context) {
             return expression.replace(/{{([^{]*)}}/g, function (match, p) {
-                return _extractData(p, context);
+                return _extractData(p, context, false);
             });
         }, _extractAngularValues = function (expression, map) {
             expression.replace(/\{\{([^{]*)\}\}/g, function (match, p) {
@@ -226,7 +234,7 @@ var Phoenix;
             return expression.replace(/\{\{([^{]*)\}\}/g, function (match, p) {
                 var ss = p.split('|');
                 var prop = (ss[0] || '').trim();
-                var val = noExpand ? context[prop] : _extractData(prop, context);
+                var val = noExpand ? context[prop] : _extractData(prop, context, false);
                 for (var i = 1, ll = ss.length; i < ll; i++) {
                     val = _execFilter((ss[i] || '').trim(), val);
                 }
@@ -323,7 +331,7 @@ var Phoenix;
         utils.phoenixPath = _getPath;
         utils.parseExpression = _parseexp;
         utils.hasExpression = _hasexp;
-        utils.parseVariable = _extractData;
+        utils.parseVariable = _parseVariable;
         utils.defineProperty = _dp;
         utils.applyMixins = _applyMixins;
         utils.nextTick = _getNextTick();
@@ -398,6 +406,7 @@ var Phoenix;
 var Phoenix;
 (function (Phoenix) {
     var _p = Phoenix, _utils = _p.utils;
+    Phoenix.fwSyncNames = true;
     var external;
     (function (external) {
         var _defPrefsLoader = function (name) {
@@ -467,42 +476,11 @@ var Phoenix;
             }
         }, _hasBack = function () {
             return _value.length > 1;
-        }, _replaceHash;
-        /* replaceHash */
-        if ('replaceState' in window.history) {
-            _replaceHash = function (newhash) {
-                if (('' + newhash).charAt(0) !== '#')
-                    newhash = '#' + newhash;
-                if (_locationPrefix && newhash.charAt(1) !== _locationPrefix)
-                    newhash = '#' + _locationPrefix + newhash.substring(1);
-                var ch = window.location.hash;
-                if (window.location.hash !== newhash) {
-                    _removeLast();
-                    window.history.replaceState('', '', newhash);
-                }
-            };
-        }
-        else {
-            var hash = window.location.hash;
-            _replaceHash = function (newhash) {
-                if (('' + newhash).charAt(0) !== '#')
-                    newhash = '#' + newhash;
-                if (_locationPrefix && newhash.charAt(1) !== _locationPrefix)
-                    newhash = '#' + _locationPrefix + newhash.substring(1);
-                var ch = window.location.hash;
-                if (location.hash !== newhash) {
-                    _removeLast();
-                    if (location.hash !== hash)
-                        window.history.back();
-                    window.location.hash = newhash;
-                }
-            };
-        }
+        };
         history.removeLast = _removeLast;
         history.add = _add;
         history.hasBack = _hasBack;
         history.value = _value;
-        history.replaceHash = _replaceHash;
         history.locationPrefix = _locationPrefix;
     })(history = Phoenix.history || (Phoenix.history = {}));
     var render;
@@ -564,7 +542,7 @@ var Phoenix;
 (function (Phoenix) {
     var serial;
     (function (serial) {
-        var Serial = (function () {
+        var Serial = /** @class */ (function () {
             function Serial() {
                 this._eventList = [];
             }
@@ -596,7 +574,7 @@ var Phoenix;
             return Serial;
         }());
         serial.Serial = Serial;
-        var BusEvent = (function () {
+        var BusEvent = /** @class */ (function () {
             function BusEvent(delay, promise, resolve, errorhandler, ondispose) {
                 var that = this;
                 that.ondispose = ondispose;
@@ -652,7 +630,7 @@ var Phoenix;
             };
             return BusEvent;
         }());
-        var SingleEventBus = (function () {
+        var SingleEventBus = /** @class */ (function () {
             function SingleEventBus(delay) {
                 this.defaultDelay = 0;
                 var that = this;
@@ -1060,21 +1038,24 @@ var Phoenix;
                     var detail = _parseError(jqXHR);
                     if (detail)
                         errorThrown = null;
+                    var errorThrownObject = null;
                     if (errorThrown) {
                         if (typeof errorThrown === 'string') {
-                            errorThrown = { message: errorThrown };
+                            errorThrownObject = { message: errorThrown };
                         }
+                        else
+                            errorThrownObject = errorThrown;
                     }
-                    errorThrown = errorThrown || {
+                    errorThrownObject = errorThrownObject || {
                         message: textStatus,
                         detail: detail
                     };
-                    errorThrown.status = jqXHR.status;
-                    errorThrown._ajax = true;
-                    if (errorThrown.message === 'error' && errorThrown.detail && errorThrown.detail.responseText) {
-                        errorThrown.message = errorThrown.detail.responseText;
+                    errorThrownObject.status = jqXHR.status;
+                    errorThrownObject._ajax = true;
+                    if (errorThrownObject.message === 'error' && errorThrownObject.detail && errorThrownObject.detail.responseText) {
+                        errorThrownObject.message = errorThrownObject.detail.responseText;
                     }
-                    reject(errorThrown);
+                    reject(errorThrownObject);
                 });
             });
         }, _sendVerb = function (method, lurl, data, options) {
@@ -1088,6 +1069,8 @@ var Phoenix;
             };
             if (options && options.headers) {
                 opts.headers = options.headers;
+                if (opts.headers.contentType)
+                    opts.contentType = opts.headers.contentType;
             }
             if (data)
                 opts.data = JSON.stringify(data);
@@ -1107,17 +1090,20 @@ var Phoenix;
                     var detail = _parseError(jqXHR);
                     if (detail)
                         errorThrown = null;
+                    var errorThrownObject = null;
                     if (errorThrown) {
                         if (typeof errorThrown === 'string') {
-                            errorThrown = { message: errorThrown };
+                            errorThrownObject = { message: errorThrown };
                         }
+                        else
+                            errorThrownObject = errorThrown;
                     }
-                    errorThrown = errorThrown || {
+                    errorThrownObject = errorThrownObject || {
                         message: textStatus,
                         detail: detail
                     };
-                    errorThrown.status = jqXHR.status;
-                    reject(errorThrown);
+                    errorThrownObject.status = jqXHR.status;
+                    reject(errorThrownObject);
                 });
             });
         }, _put = function (lurl, data, options) {
@@ -1300,7 +1286,7 @@ var Phoenix;
                             setTimeout(function () {
                                 URL.revokeObjectURL(downloadUrl);
                                 resolve({});
-                            }, 100);
+                            }, 300);
                         }
                     }
                     else {
@@ -1559,6 +1545,8 @@ var Phoenix;
                 return _formatMoney(value, _locale.number.places, _locale.number.thousand, _locale.number.decimal, _locale.number.symbol, _locale.number.format);
             else
                 return _formatNumber(value, _locale.number.places, _locale.number.thousand, _locale.number.decimal);
+        }, _integer = function (value) {
+            return (value || 0) + '';
         }, _decimal = function (value, decimals, symbol) {
             if (value === null)
                 return '';
@@ -1680,6 +1668,7 @@ var Phoenix;
         ulocale.money = _money;
         ulocale.truncMoney = _truncMoney;
         ulocale.decimal = _decimal;
+        ulocale.integer = _integer;
         ulocale.format = _formatObject;
         ulocale.parseISODate = _parseDateISO8601;
         ulocale.parseISODateAsUTC = _parseISODateAsUTC;
@@ -1826,6 +1815,8 @@ var Phoenix;
             "Ok": "Ok",
             "Yes": "Yes",
             "No": "No",
+            "false": "False",
+            "true": "True",
             "Warning": "Warning",
             "Info": "Information",
             "Disconnect": "Disconnect",
@@ -1839,6 +1830,8 @@ var Phoenix;
             },
             "ApplyDetailChanges": "Apply",
             "Selected": "Sel.",
+            "Add": "Add",
+            "selectedFilters": "Selected filters",
             "OpenNewTab": "Open link in new tab",
             "Search": "Search"
         },
@@ -1898,76 +1891,131 @@ var Phoenix;
             "weekStart": 0,
             "today": "Today",
             "clear": "Clear"
+        },
+        "operators": {
+            "in": { "symbol": "=", "title": "equal", "binary": false },
+            "nin": { "symbol": "!=", "title": "not equal", "binary": false },
+            "gt": { "symbol": ">", "title": "is greater than", "binary": false },
+            "ge": { "symbol": ">=", "title": "is greater or equal than", "binary": false },
+            "lt": { "symbol": "<", "title": "is less than", "binary": false },
+            "le": { "symbol": ">", "title": "is less or equal than", "binary": false },
+            "between": { "symbol": "between", "title": "between", "binary": true },
+            "nbetween": { "symbol": "not between", "title": "not between", "binary": true },
+            "like": { "symbol": "contains", "title": "contains", "binary": false },
+            "nlike": { "symbol": "not contains", "title": "not contains", "binary": false },
+            "empty": { "symbol": "is null", "title": "is null", "binary": false },
+            "nempty": { "symbol": "is not null", "title": "is not null", "binary": false }
+        },
+        "types": {
+            "number": { "title": "Number", "operators": ["in", "nin", "gt", "ge", "lt", "le", "between", "nbetween", "empty", "nempty"] },
+            "decimal": { "title": "Decimal", "operators": ["in", "nin", "gt", "ge", "lt", "le", "between", "nbetween", "empty", "nempty"] },
+            "money": { "title": "Money", "operators": ["in", "nin", "gt", "ge", "lt", "le", "between", "nbetween", "empty", "nempty"] },
+            "integer": { "title": "Integer", "operators": ["in", "nin", "gt", "ge", "lt", "le", "between", "nbetween", "empty", "nempty"] },
+            "date": { "title": "Date", "operators": ["in", "nin", "gt", "ge", "lt", "le", "between", "nbetween", "empty", "nempty"] },
+            "time": { "title": "Time", "operators": ["in", "nin", "gt", "ge", "lt", "le", "between", "nbetween", "empty", "nempty"] },
+            "date-time": { "title": "Date Time", "operators": ["in", "nin", "gt", "ge", "lt", "le", "between", "nbetween", "empty", "nempty"] },
+            "string": { "title": "String", "operators": ["in", "nin", "like", "nlike", "empty", "nempty"] },
+            "enum": { "title": "Enum", "operators": ["in", "nin", "empty", "nempty"] },
+            "lookup": { "title": "Lookup", "operators": ["in", "nin", "empty", "nempty"] },
+            "boolean": { "title": "Boolean", "operators": ["in", "nin", "empty", "nempty"] }
         }
     };
     Phoenix.ulocale.translate(en, "en");
 })(Phoenix || (Phoenix = {}));
 var Phoenix;
 (function (Phoenix) {
-    Phoenix.bootstrap4 = false;
-    Phoenix.fontawesome = true;
+    Phoenix.bootstrap4 = true;
+    Phoenix.fontawesome = false;
     var dom;
     (function (dom) {
         var _mapIcon = {
-            'times-circle': 'remove-sign',
-            'times-circle-o': 'remove-circle',
-            'times': 'remove',
+            'arrow-left': 'arrow-back',
+            'arrow-right': 'arrow-forward',
+            'arrow-down': 'arrow-downward',
+            'arrow-up': 'arrow-upward',
+            'backward': 'fast-rewind',
+            'bars': 'menu',
+            'bolt': 'toys',
+            'filter': 'filter-list',
+            'wrench': 'build',
+            'building': 'add-to-queue',
+            'calendar': 'date-range',
+            'caret-up': 'arrow-drop-up',
+            'caret-down': 'arrow-drop-down',
+            'check-square-o': 'check-box',
+            'chevron-down': 'expand-more',
             'chevron-left': 'chevron-left',
             'chevron-right': 'chevron-right',
-            'arrow-left': 'arrow-left',
-            "arrow-right": 'arrow-right',
-            'backward': 'backward',
-            'forward': 'forward',
-            'file-o': 'file',
-            'floppy': 'floppy-save',
-            'power-off': 'off',
-            'user': 'user',
-            'pencil': 'pencil',
-            'trash': 'trash',
-            'check-square-o': 'check',
-            'square-o': 'unchecked',
-            'plus-circle': 'plus-sign',
-            'minus-circle': 'minus-sign',
-            'plus': 'plus',
-            'minus': 'minus',
-            'search': 'search',
-            'chevron-down': 'menu-down',
-            'ellipsis-v': 'option-vertical',
-            'bars': 'menu-hamburger',
-            'thumb-tack': 'pushpin',
-            'calendar': 'calendar',
-            'exclamation-circle': 'exclamation-sign',
+            'clock-o': 'schedule',
             'cloud': 'cloud',
-            'caret-up': 'triangle-top',
-            'caret-down': 'triangle-bottom',
-            'cog': 'cog',
+            'cog': 'settings',
+            'ellipsis-v': 'more-vert',
+            'exclamation-circle': 'error',
+            'eye': 'visibility',
+            'forward': 'fast-forward',
+            'file-o': 'folder',
+            'floppy': 'done',
+            'info-circle': 'info',
             'lock': 'lock',
-            'question-circle': 'question-sign',
-            'bolt': 'falsh',
-            'info-circle': 'info-sign',
-            'th': 'list',
-            'clock-o': 'time',
-            'building': 'new-window',
-            'window-minimize': 'resize-small',
-            'window-maximize': 'resize-full'
+            'minus': 'remove',
+            'remove': 'clear',
+            'minus-circle': 'remove-circle',
+            'pencil': 'edit',
+            'power-off': 'power-settings-new',
+            'plus': 'add',
+            'plus-circle': 'add-circle',
+            'question-circle': 'info',
+            'search': 'search',
+            'square-o': 'check-box-outline-blank',
+            'th': 'apps',
+            'thumb-tack': 'turned-in',
+            'times': 'close',
+            'times-circle': 'cancel',
+            'times-circle-o': 'highlight-off',
+            'trash': 'delete',
+            'user': 'account-box',
+            'window-minimize': 'fullscreen-exit',
+            'window-maximize': 'fullscreen' //ok
         };
         var _bootstrapBtnCache = null;
-        var _bootstrapBtns = function () {
-            if (_bootstrapBtnCache)
+        var _bootstraOutlinepBtnCache = null;
+        var _bootstrapBtns = function (useOutline) {
+            if (useOutline) {
+                if (_bootstraOutlinepBtnCache)
+                    return _bootstraOutlinepBtnCache;
+                var _bootstrap4 = Phoenix.bootstrap4;
+                _bootstraOutlinepBtnCache = {
+                    primary: _bootstrap4 ? 'outline-primary' : 'primary',
+                    secondary: _bootstrap4 ? 'outline-secondary' : 'default',
+                    default: _bootstrap4 ? 'outline-secondary' : 'default',
+                    important: _bootstrap4 ? 'outline-important' : 'important',
+                    success: _bootstrap4 ? 'outline-success' : 'success',
+                    info: _bootstrap4 ? 'outline-info' : 'info',
+                    danger: _bootstrap4 ? 'outline-danger' : 'danger',
+                    warning: _bootstrap4 ? 'outline-warning' : 'warning',
+                    link: _bootstrap4 ? 'outline-link' : 'link',
+                    dark: _bootstrap4 ? 'outline-dark' : 'default'
+                };
+                return _bootstraOutlinepBtnCache;
+            }
+            else {
+                if (_bootstrapBtnCache)
+                    return _bootstrapBtnCache;
+                var _bootstrap4 = Phoenix.bootstrap4;
+                _bootstrapBtnCache = {
+                    primary: 'primary',
+                    secondary: _bootstrap4 ? 'secondary' : 'default',
+                    default: _bootstrap4 ? 'secondary' : 'default',
+                    important: 'important',
+                    success: 'success',
+                    info: 'info',
+                    danger: 'danger',
+                    warning: 'warning',
+                    link: 'link',
+                    dark: 'default'
+                };
                 return _bootstrapBtnCache;
-            var _bootstrap4 = Phoenix.bootstrap4;
-            _bootstrapBtnCache = {
-                primary: 'primary',
-                secondary: _bootstrap4 ? 'secondary' : 'default',
-                default: _bootstrap4 ? 'secondary' : 'default',
-                important: 'important',
-                success: 'success',
-                info: 'info',
-                danger: 'danger',
-                warning: 'warning',
-                link: 'link'
-            };
-            return _bootstrapBtnCache;
+            }
         }, _parseStyle = function (style, css) {
             if (style) {
                 var a = style.split(' ');
@@ -2004,9 +2052,9 @@ var Phoenix;
             if (noPrefix === void 0) { noPrefix = false; }
             var icon = Phoenix.fontawesome ? iconName : (_mapIcon[iconName] ? _mapIcon[iconName] : iconName);
             if (noPrefix)
-                return (Phoenix.fontawesome ? 'fa-' : 'glyphicon-') + icon;
+                return (Phoenix.fontawesome ? 'fa-' : 'mdi-') + icon;
             else
-                return (Phoenix.fontawesome ? 'fa fa-' : 'glyphicon glyphicon-') + icon;
+                return (Phoenix.fontawesome ? 'fa fa-' : 'mdi mdi-') + icon;
         }, _customIconClass = function (iconName, iconClass) {
             if (iconClass)
                 return iconClass + ' ' + iconClass + '-' + iconName;
@@ -2031,7 +2079,8 @@ var Phoenix;
             if (parent) {
                 return parent.querySelector(selector);
             }
-            return null;
+            else
+                return window.document.querySelector(selector);
         }, _addClass = function (element, className) {
             if (element.classList)
                 element.classList.add(className);
@@ -2448,14 +2497,20 @@ var Phoenix;
             return _cover != null;
         }, _inCover = function (element) {
             return _cover && (_isChildOf(_cover, element));
-        }, _processing = function (value) {
+        }, _processing = function (value, delay) {
             if (value) {
                 _coverRefCount++;
                 if (!_cover) {
                     _coverRefCount = 1;
-                    _cover = $('<div class="bs-cover"></div>').get(0);
+                    _cover = $('<div class="bs-cover' + (delay ? ' bs-none' : '') + '"></div>').get(0);
                     _cover.style.height = ($(document).height() - 1) + 'px';
                     _append(document.body, _cover);
+                    if (delay) {
+                        setTimeout(function () {
+                            if (_cover)
+                                _removeClass(_cover, 'bs-none');
+                        }, delay);
+                    }
                 }
             }
             else {
@@ -2511,6 +2566,30 @@ var Phoenix;
                     clearTimeout(_resizeTimeOut);
                 _resizeTimeOut = setTimeout(_emitResize, 50);
             });
+        }, _setCookie = function (name, value, path, expireDate) {
+            try {
+                if (!value)
+                    expireDate = new Date();
+                document.cookie = name + '=' + value + ((expireDate != null) ? ('; expires=' + expireDate.toUTCString()) : "") + (path ? ('; path=' + path) : '/');
+            }
+            catch (e) {
+                return false;
+            }
+            return (_getCookie(name) == value);
+        }, _getCookie = function (name) {
+            var s = (document.cookie || '');
+            var a = s.split('; ');
+            for (var i = 0, len = a.length; i < len; i++) {
+                var c = a[i].split('=');
+                if (name == c[0]) {
+                    var r = c[1] || '';
+                    if (r == '')
+                        return null;
+                    else
+                        return r;
+                }
+            }
+            return null;
         };
         dom.readyHandlers = [_setResizeHnd];
         dom.finalizeHandlers = [];
@@ -2574,6 +2653,8 @@ var Phoenix;
         dom.selectRange = _selectRange;
         dom.childrenRectsbyAttribute = _childrenRectsbyAttribute;
         dom.findAttrByPosition = _getAttrByPosition;
+        dom.setCookie = _setCookie;
+        dom.getCookie = _getCookie;
     })(dom = Phoenix.dom || (Phoenix.dom = {}));
     $(document).ready(function () {
         if (dom.readyHandlers.length) {
@@ -2616,6 +2697,8 @@ var Phoenix;
         }, _parseUrl = function (value) {
             var search = {};
             var path = value;
+            if (path.charAt(0) === '#')
+                path = path.substr(1);
             if (_history.locationPrefix && path.charAt(0) === _history.locationPrefix)
                 path = path.substr(1);
             var i = path.indexOf('?');
@@ -2646,40 +2729,8 @@ var Phoenix;
                 }
             }
             return null;
-        }, _urlSearch = function (value, replace) {
-            if (value == null) {
-                return _parseUrl(window.location.href).search;
-            }
-            else {
-                var searchString = _obj2Search(value);
-                if (!window.location.hash) {
-                    if (window.location.search !== searchString)
-                        window.location.search = searchString;
-                }
-                else {
-                    var ch = window.location.hash;
-                    var ii = ch.indexOf('?');
-                    if (ii > 0) {
-                        ch = ch.substring(0, ii);
-                        ch = ch + searchString;
-                    }
-                    if (replace) {
-                        _history.replaceHash(ch);
-                    }
-                    else {
-                        if (window.location.hash != ch) {
-                            if (window.history) {
-                                try {
-                                    window.history.replaceState(undefined, undefined, ch);
-                                }
-                                catch (ex) {
-                                    window.location.hash = ch;
-                                }
-                            }
-                        }
-                    }
-                }
-            }
+        }, _urlSearch = function () {
+            return _parseUrl(window.location.href).search;
         }, _extractPage = function (cfg) {
             var page = cfg.$page;
             if (_device.phone && cfg.$pageMobile)
@@ -2695,7 +2746,7 @@ var Phoenix;
             catch (e) {
             }
             var ctx = {
-                $url: _urlSearch(null, false),
+                $url: _urlSearch(),
                 $mem: _p.$mem,
                 $user: {
                     name: usr ? usr.name || usr.nom || usr.login : '',
@@ -2817,7 +2868,14 @@ var Phoenix;
                 location.replace(lhref);
             else
                 location.href = lhref;
-        }, _setHash = function (newhash, replace, newWindow) {
+        }, _parseUrl2Hash = function (value) {
+            return '#' + (Phoenix.history.locationPrefix ? Phoenix.history.locationPrefix : '') + value.path + _obj2Search(value.search);
+        }, _changeSearch = function (search) {
+            var parsedUrl = _parseUrl(window.location.hash);
+            _utils.merge(search, parsedUrl.search);
+            var newHash = _parseUrl2Hash(parsedUrl);
+            _setHash(newHash, true, false, true);
+        }, _setHash = function (newhash, replace, newWindow, noReload) {
             if (!newhash || ('' + newhash).charAt(0) !== '#')
                 newhash = '#' + newhash;
             if (_history.locationPrefix && newhash.charAt(1) !== _history.locationPrefix)
@@ -2834,7 +2892,7 @@ var Phoenix;
             if (window.location.hash === newhash)
                 return;
             if (_external.hashHandler) {
-                _external.hashHandler(newhash, replace);
+                _external.hashHandler(newhash, replace, noReload);
             }
             else {
                 _history.removeLast();
@@ -2846,9 +2904,8 @@ var Phoenix;
                 }
             }
         }, _doOpenForm = function (params) {
-            if (_external.formOpenHandler) {
+            if (_external.formOpenHandler)
                 _external.formOpenHandler(params);
-            }
         }, _doFormAuthoring = function (params) {
             if (!params.name)
                 return;
@@ -2911,7 +2968,7 @@ var Phoenix;
                     if (clink.$module !== _application.name)
                         return _navigateToModule(hash, clink.$module, _application.name, clink.$replace, nw);
                 }
-                _setHash(hash, clink.$replace, nw);
+                _setHash(hash, clink.$replace, nw, false);
                 if (clink.$authoring)
                     _doAuthoring();
             }
@@ -2964,9 +3021,9 @@ var Phoenix;
         link_1.isCustomProtocol = _isCustomLink;
         link_1.doAuthoring = _doAuthoring;
         link_1.doFormAuthoring = _doFormAuthoring;
-        link_1.setHash = _setHash;
         link_1.execLink = _execLink;
         link_1.context = _context;
+        link_1.changeSearch = _changeSearch;
     })(link = Phoenix.link || (Phoenix.link = {}));
 })(Phoenix || (Phoenix = {}));
 /// <reference path="./core.ts" />
@@ -2978,7 +3035,7 @@ var Phoenix;
     var _p = Phoenix, _link = _p.link, _utils = _p.utils;
     _link.registerCustomProtocol("page", function (value, context, config, params) {
         if (!context.$url)
-            context.$url = _link.search(null, false);
+            context.$url = _link.search();
         if (!context.$mem)
             context.$mem = _p.$mem;
         var i = value.indexOf("://");
@@ -3033,7 +3090,7 @@ var Phoenix;
     var _dom = Phoenix.dom, _utils = Phoenix.utils;
     var events;
     (function (events) {
-        var EventManager = (function () {
+        var EventManager = /** @class */ (function () {
             function EventManager() {
             }
             EventManager.prototype.disable = function () {
@@ -3102,7 +3159,7 @@ var Phoenix;
     var _dom = Phoenix.dom, _utils = Phoenix.utils, _events = Phoenix.events, _customData = Phoenix.customData;
     var drag;
     (function (drag_1) {
-        var DragAndDropManager = (function () {
+        var DragAndDropManager = /** @class */ (function () {
             function DragAndDropManager() {
                 var that = this;
             }
@@ -3266,7 +3323,7 @@ var Phoenix;
             return DragAndDropManager;
         }());
         drag_1.DragAndDropManager = DragAndDropManager;
-        var DragElement = (function () {
+        var DragElement = /** @class */ (function () {
             function DragElement(elements) {
                 var that = this;
                 that._elements = elements;
@@ -3550,7 +3607,7 @@ var Phoenix;
                 }
             }
         };
-        var StickyManager = (function () {
+        var StickyManager = /** @class */ (function () {
             function StickyManager() {
                 this._map = {};
                 this._list = [];
@@ -3760,6 +3817,39 @@ var Phoenix;
         };
     })(jsonpatch = Phoenix.jsonpatch || (Phoenix.jsonpatch = {}));
 })(Phoenix || (Phoenix = {}));
+var Phoenix;
+(function (Phoenix) {
+    var filters;
+    (function (filters) {
+        filters.OPERATORS = {
+            in: 'in',
+            nin: 'nin',
+            gt: 'gt',
+            ge: 'ge',
+            lt: 'lt',
+            le: 'le',
+            between: 'between',
+            nbetween: 'nbetween',
+            like: 'like',
+            nlike: 'nlike',
+            empty: 'empty',
+            nempty: 'nempty'
+        };
+        filters.TYPES = {
+            number: 'number',
+            decimal: 'decimal',
+            money: 'money',
+            integer: 'integer',
+            date: 'date',
+            time: 'time',
+            'date-time': '"date-time',
+            string: 'string',
+            enum: 'enum',
+            lookup: 'lookup',
+            boolean: 'boolean'
+        };
+    })(filters = Phoenix.filters || (Phoenix.filters = {}));
+})(Phoenix || (Phoenix = {}));
 /// <reference path="./modules/ajax.ts" />
 /// <reference path="./modules/application.ts" />
 /// <reference path="./modules/authentication.ts" />
@@ -3774,6 +3864,7 @@ var Phoenix;
 /// <reference path="./modules/ulocale.ts" />
 /// <reference path="./modules/jsonpatch.ts" />
 /// <reference path="./modules/utils.ts" />
+/// <reference path="./modules/filters.ts" />
 /// <reference path="./core.ts" /> 
 /// <reference path="../core/core-refs.ts" />
 var Phoenix;
@@ -3827,7 +3918,11 @@ var Phoenix;
     var _p = Phoenix, _ajax = _p.ajax, _utils = _p.utils, _dom = Phoenix.dom, _link = _p.link, _application = _p.application;
     var data;
     (function (data) {
-        var _execPath = function (path, ldata) {
+        var _waitForCookie = function (cookie, after) {
+            if (_dom.getCookie(cookie))
+                return after();
+            window.setTimeout(_waitForCookie.bind(window, cookie, after), 500);
+        }, _execPath = function (path, ldata) {
             if (!path)
                 return null;
             if (path === '.')
@@ -3871,15 +3966,22 @@ var Phoenix;
                 return _rest.getRessources(params, null);
             },
             getRessources: function (params, ondata) {
-                var _after = function (cd) {
-                    if (ondata)
-                        cd = ondata(cd);
+                var _after = ondata ? function (cd) {
+                    cd = ondata(cd);
                     return cd;
-                };
+                } : null;
                 var lurl = params.$url, addAuth = false;
                 var isDownload = params.$download;
-                if (isDownload)
+                var waitForCookie = '';
+                if (isDownload) {
                     delete params.$download;
+                    if (params.$cookie) {
+                        waitForCookie = params.$cookie;
+                        delete params.$cookie;
+                        // Remove cookie
+                        _dom.setCookie(waitForCookie, '', '/', null);
+                    }
+                }
                 var config = _application.config(_application.name) || {};
                 config.rest = config.rest || {};
                 var base = config.rest.base || '';
@@ -3908,7 +4010,19 @@ var Phoenix;
                 lurl = _addTenantId(lurl);
                 switch (params.$method) {
                     case 'POST':
-                        return _ajax.post(lurl, params.$data, opts);
+                        if (_after) {
+                            return new _utils.Promise(function (resolve, reject) {
+                                _ajax.post(lurl, params.$data, opts).then(function (rdata) {
+                                    rdata = _after(rdata);
+                                    resolve(rdata);
+                                }).catch(function (err) {
+                                    reject(err);
+                                });
+                            });
+                        }
+                        else {
+                            return _ajax.post(lurl, params.$data, opts);
+                        }
                     case 'PUT':
                         return _ajax.put(lurl, params.$data, opts);
                     case 'PATCH':
@@ -3917,15 +4031,22 @@ var Phoenix;
                         return _ajax.remove(lurl, opts);
                     default:
                         if (isDownload) {
-                            var frame = _dom.downloadFrame();
+                            var frame_1 = _dom.downloadFrame();
                             if (addAuth)
                                 lurl = _ajax.addAuthToUrl(lurl);
-                            frame.src = lurl;
-                            _after({});
+                            frame_1.src = lurl;
+                            if (waitForCookie) {
+                                return new _utils.Promise(function (resolve, reject) {
+                                    _waitForCookie(waitForCookie, resolve);
+                                });
+                            }
+                            else {
+                                return _utils.Promise.resolve();
+                            }
                         }
                         else {
                             return _ajax.get(lurl, opts, function (ldata) {
-                                return _after(ldata);
+                                return _after ? _after(ldata) : ldata;
                             });
                         }
                 }
@@ -4066,6 +4187,9 @@ var Phoenix;
                 var lurl = _odata.urlResEntity(params, true);
                 var opts = _ajax.getDefaultAjaxOptions();
                 opts.headers = opts.headers || {};
+                if (Phoenix.application.useJSONPatch) {
+                    opts.headers["Content-Type"] = 'application/json-patch+json';
+                }
                 if (etag) {
                     opts.headers['If-Match'] = etag;
                 }
@@ -4271,6 +4395,8 @@ var Phoenix;
                 return value[index];
             else
                 return null;
+        }, _getValueArray = function (value, context, addQuote, output) {
+            return _getValue(value, context, addQuote, true);
         }, _getValue = function (value, context, addQuote, output) {
             var cv = value;
             var ctx = ['$url', '$context', '$data', '$item', '$mem', '$local'];
@@ -4278,6 +4404,8 @@ var Phoenix;
             if (vt === 'object' && cv) {
                 ct = value.type;
                 cv = value.value;
+                if (ct === 'literal')
+                    return cv;
                 vt = typeof cv;
             }
             var isArray = false;
@@ -4393,8 +4521,44 @@ var Phoenix;
                     $left: null,
                     $right: null
                 };
-                if (tree.$op === 'in' && tree.$children) {
-                    var aq_1 = addQuote && _addQuote(tree.$op);
+                if (tree.$op === '$func' && tree.$arguments) {
+                    var setNull_1 = false;
+                    var aq_1 = true;
+                    tree.$arguments.forEach(function (argument, index) {
+                        var checkValue = true;
+                        if (typeof argument === 'object') {
+                            checkValue = (argument.type !== 'literal');
+                        }
+                        var v = _getValue(argument, {
+                            $url: lurl,
+                            $context: context,
+                            $data: null,
+                            $mem: _p.$mem,
+                            $local: localContext
+                        }, aq_1, false);
+                        tree.$arguments[index] = v;
+                        if (checkValue && (v === '\'\'' || v === null || v === undefined))
+                            setNull_1 = true;
+                    });
+                    if (setNull_1) {
+                        rtree.$right = null;
+                        rtree.$left = null;
+                        return rtree;
+                    }
+                    else
+                        tree.$right = tree.$arguments.join(', ');
+                }
+                else if (tree.$op === 'in' && tree.$children) {
+                    var aq_2 = addQuote && _addQuote(tree.$op);
+                    if (!Array.isArray(tree.$children)) {
+                        tree.$children = _getValueArray(tree.$children, {
+                            $url: lurl,
+                            $context: context,
+                            $data: null,
+                            $mem: _p.$mem,
+                            $local: localContext
+                        }, aq_2, false);
+                    }
                     if (tree.$children.length) {
                         var res = tree.$children.map(function (item) {
                             return _getValue(item, {
@@ -4403,7 +4567,7 @@ var Phoenix;
                                 $data: null,
                                 $mem: _p.$mem,
                                 $local: localContext
-                            }, aq_1, false);
+                            }, aq_2, false);
                         });
                         rtree.$right = '(' + res.join(',') + ')';
                         rtree.$left = tree.$left;
@@ -4509,12 +4673,18 @@ var Phoenix;
             if (tree && typeof tree == 'object' && tree.$op) {
                 var left = _tree2filter(tree.$left);
                 var right = _tree2filter(tree.$right);
+                if (tree.$nulls === "ignore" && right.value == null) {
+                    if (tree.op === 'not') {
+                        return { value: null, op: null };
+                    }
+                    return { value: left.value, op: left.op };
+                }
                 //unary operators
                 if (tree.$op === "not") {
                     return { value: 'not (' + right.value + ')', op: tree.$op };
                 }
                 else if (tree.$op === 'in' && !tree.nativeIn) {
-                    var values = right.value.split(';');
+                    var values = (right.value || '').split(';');
                     var res_1 = [];
                     values.forEach(function (value) {
                         res_1.push(left.value + ' eq ' + value);
@@ -4569,9 +4739,28 @@ var Phoenix;
         }, _parseTree = function (tree, lurl, context, localContext) {
             var rtree = _execTree(tree, lurl, context, localContext);
             return _tree2filter(rtree).value;
-        }, _parseRestParams = function (params, lurl, context, localContext) {
+        }, _parseRestParams = function (params, lurl, context, localContext, isSync) {
             var res = { $url: null, $list: null, $query: null, $method: "GET" };
             res.$method = (params.$method || 'GET').toUpperCase();
+            var transactionId, viewId;
+            if (isSync) {
+                if (!params.$entity)
+                    throw 'Invalid sync dataset - $params.$entity';
+                res.$transactionId = params.$transactionId || 'id';
+                if (!res.$transactionId)
+                    throw 'Invalid sync dataset -$params.$transactionId';
+                res.$viewId = params.$viewId || 'viewId';
+                if (!res.$viewId)
+                    throw 'Invalid sync dataset -$params.$viewId';
+                transactionId = lurl[res.$transactionId];
+                viewId = lurl[res.$viewId];
+                if (transactionId && viewId)
+                    res.$method = params.$method === 'PATCH' ? 'PATCH' : 'GET';
+                else
+                    res.$method = 'POST';
+                if (res.$method !== 'POST')
+                    params.$data = null;
+            }
             res.$url = _utils.execAngularExpression(params.$url, {
                 $url: lurl,
                 $context: context,
@@ -4579,8 +4768,20 @@ var Phoenix;
                 $mem: _p.$mem,
                 $local: localContext
             });
+            if (isSync) {
+                var curl = res.$url.split('/');
+                curl.push(params.$entity);
+                if (viewId && transactionId) {
+                    curl.push(viewId);
+                    params.$query = params.$query || {};
+                    params.$query.id = transactionId;
+                }
+                res.$url = curl.join('/');
+            }
             if (params.$download)
                 res.$download = params.$download;
+            if (params.$cookie)
+                res.$cookie = params.$cookie;
             res.$list = params.$list;
             if (params.$query) {
                 res.$query = {};
@@ -4874,7 +5075,7 @@ var Phoenix;
             }, config.$errors);
         }, _execLocal = function (config, lurl, context, callerObject) {
             var local = callerObject && callerObject.getLocalContext ? callerObject.getLocalContext() : null;
-            var params = _parseRestParams(config.$params, lurl, context, local);
+            var params = _parseRestParams(config.$params, lurl, context, local, false);
             return _data.local.getRessources(params, function (localData) {
                 var cd = localData;
                 if (!config.$main && config.$output)
@@ -4890,7 +5091,7 @@ var Phoenix;
         }, _execRest = function (config, lurl, context, callerObject) {
             var local = callerObject && callerObject.getLocalContext ? callerObject.getLocalContext() : null;
             var tp = _execBeforeTransform(config.$beforeExecute, config.$params, context);
-            var params = _parseRestParams(tp, lurl, context, local);
+            var params = _parseRestParams(config.$params, lurl, context, local, false);
             if (config.$method)
                 params.$method = config.$method;
             return _data.rest.getRessources(params, function (localData) {
@@ -4905,6 +5106,33 @@ var Phoenix;
                     });
                 return _execTransform(config, cd);
             });
+        }, _execSync = function (config, lurl, context, callerObject) {
+            var local = callerObject && callerObject.getLocalContext ? callerObject.getLocalContext() : null;
+            var tp = _execBeforeTransform(config.$beforeExecute, config.$params, context);
+            var params = _parseRestParams(tp, lurl, context, local, true);
+            var after = function (localData) {
+                var cd = localData;
+                if (params.$method === 'POST') {
+                    cd = cd.data;
+                    var search_1 = {};
+                    search_1[params.$transactionId] = localData.id;
+                    search_1[params.$viewId] = cd.id;
+                    _link.changeSearch(search_1);
+                }
+                if (config.$output)
+                    cd = _outputData(config.$output, {
+                        $url: lurl,
+                        $context: context,
+                        $data: localData,
+                        $mem: _p.$mem,
+                        $local: local
+                    });
+                return _execTransform(config, cd);
+            };
+            if (params.$method === 'DELETE' || params.$method === 'PUT') {
+                after = null;
+            }
+            return _data.rest.getRessources(params, after);
         }, _emitList = function (config) {
             var res = [];
             if (config.$emit) {
@@ -4920,7 +5148,7 @@ var Phoenix;
             return res;
         };
         data.execData = function (config, context, callerObject) {
-            var lurl = _link.search(null, false);
+            var lurl = _link.search();
             if (!config)
                 return null;
             if (config.$condition) {
@@ -4935,6 +5163,8 @@ var Phoenix;
                     return _execBasic(config, lurl, context, callerObject);
                 case 'odata':
                     return _execOData(config, lurl, context, callerObject);
+                case 'sync':
+                    return _execSync(config, lurl, context, callerObject);
                 case 'rest':
                     return _execRest(config, lurl, context, callerObject);
                 case 'local':
@@ -4947,7 +5177,7 @@ var Phoenix;
             }
             return null;
         };
-        var DataSet = (function () {
+        var DataSet = /** @class */ (function () {
             function DataSet(config) {
                 var that = this;
                 that.config = _checkDataSetConfig(config);
@@ -4960,7 +5190,7 @@ var Phoenix;
             }
             DataSet.prototype.execute = function (context, callerObject) {
                 var that = this;
-                var lurl = _link.search(null, false);
+                var lurl = _link.search();
                 switch (that.config.$type) {
                     case "basic":
                         return _execBasic(that.config, lurl, context, callerObject);
@@ -5028,7 +5258,7 @@ var Phoenix;
                     var found = null;
                     if (that.config.$autoselect && typeof that.config.$autoselect == 'object') {
                         var context = {
-                            $url: _link.search(null, false),
+                            $url: _link.search(),
                             $mem: _p.$mem
                         };
                         var memData = _outputData(that.config.$autoselect, context);
@@ -5182,7 +5412,7 @@ var Phoenix;
             }
             return pages;
         };
-        var Pager = (function () {
+        var Pager = /** @class */ (function () {
             function Pager(options) {
                 var that = this, defOptions = {
                     boundaryLinks: false,
@@ -5224,14 +5454,16 @@ var Phoenix;
             Pager.prototype._renderPager = function () {
                 var that = this;
                 var e = that.$element.get(0);
+                if (Phoenix.bootstrap4)
+                    e = e.lastChild;
                 if (that.visible) {
-                    var frag = document.createDocumentFragment();
-                    var p = $('<li><a href></a><li>').get(0);
-                    var span = document.createElement("span");
+                    var frag_1 = document.createDocumentFragment();
+                    var p_1 = $(Phoenix.bootstrap4 ? '<li class="page-item"><a class="page-link" href></a><li>' : '<li><a href></a><li>').get(0);
+                    var span_1 = document.createElement("span");
                     that.pages.forEach(function (page) {
-                        var ii = p.cloneNode(true);
+                        var ii = p_1.cloneNode(true);
                         if (page.icon) {
-                            var sp = span.cloneNode(true);
+                            var sp = span_1.cloneNode(true);
                             _dom.attr(sp, "class", _dom.iconClass(page.icon));
                             _dom.attr(sp, "page", page.number);
                             _dom.append(ii.firstChild, sp);
@@ -5244,10 +5476,10 @@ var Phoenix;
                             _dom.addClass(ii, 'disabled');
                         if (page.active)
                             _dom.addClass(ii, 'active');
-                        frag.appendChild(ii);
+                        frag_1.appendChild(ii);
                     });
-                    that.$element.empty();
-                    e.appendChild(frag);
+                    $(e).empty();
+                    e.appendChild(frag_1);
                     _dom.removeClass(e, 'bs-none');
                 }
                 else
@@ -5309,7 +5541,7 @@ var Phoenix;
             Pager.prototype.render = function ($parent) {
                 var that = this;
                 if (!that.$element) {
-                    that.$element = $('<ul class="pagination' + (that._options.size != 'default' ? (' pagination-' + that._options.size) : '') + '"></ul>');
+                    that.$element = $((Phoenix.bootstrap4 ? '<nav><div class="bs-island"></div>' : '') + '<ul class="d-inline-flex pagination' + (that._options.size != 'default' ? (' pagination-' + that._options.size) : '') + '"></ul>' + (Phoenix.bootstrap4 ? '</nav>' : ''));
                     that._renderPager();
                     that._setEvents();
                 }
@@ -5344,7 +5576,7 @@ var Phoenix;
             '<h4 >{1}</h4>',
             '<p>{2}</p>',
             '<p>',
-            '<a class="bs-button btn btn-default" href="{4}" role="button">{3}</a>',
+            '<a class="bs-button btn btn-"' + _dom.bootstrapStyles(false).secondary + ' href="{4}" role="button">{3}</a>',
             '</p>',
             '</div>'
         ];
@@ -5376,7 +5608,7 @@ var Phoenix;
             });
             return cfg;
         };
-        var PageControl = (function () {
+        var PageControl = /** @class */ (function () {
             function PageControl() {
                 var that = this;
                 that.children = [];
@@ -5409,10 +5641,10 @@ var Phoenix;
             };
             PageControl.prototype.currentPage = function () {
                 var that = this;
-                var l = that.childByType("layout");
-                if (l)
-                    return l.data.name || "";
-                return "";
+                var path = _link.parseUrl(window.location.hash).path;
+                if (path && path.charAt(0) === '/')
+                    path = path.substr(1);
+                return path;
             };
             PageControl.prototype.emittersFor = function (events) {
                 var that = this, res = [], len = events.length;
@@ -5666,7 +5898,7 @@ var Phoenix;
             };
             PageControl.prototype._closePopup = function (event) {
                 var that = this;
-                if (that.popup) {
+                if (that.popup && (!that.popup.stayOnTop || event === null)) {
                     if (!event || (that.popup.inPopup && !that.popup.inPopup(event.originalEvent ? event.originalEvent.target : event.target))) {
                         if (that.popup.hide)
                             that.popup.hide(event ? (event.originalEvent ? event.originalEvent.target : event.target) : null);
@@ -5761,7 +5993,7 @@ var Phoenix;
             else
                 html.push('</ul>');
         };
-        var ContextMenu = (function () {
+        var ContextMenu = /** @class */ (function () {
             function ContextMenu(data, parent) {
                 var that = this;
                 that._data = data;
@@ -5842,7 +6074,7 @@ var Phoenix;
             //options name, type, icon, title, cancel
             options = _patternButton(options);
             html.push('<button data-action="' + options.name + '" type="button"');
-            html.push(' class="bs-btn-inline pull-right bs-button btn btn-' + options.type || 'default');
+            html.push(' class="bs-btn-inline float-right bs-button btn btn-' + options.type || 'default');
             html.push('"');
             if (options.close)
                 html.push(' data-dismiss="modal"');
@@ -5856,13 +6088,15 @@ var Phoenix;
             html.push('</button>');
         };
         var _createModal = function (options, locale) {
+            var _bootstrap4 = Phoenix.bootstrap4;
             var html = [
                 '<div class="modal fade" data-backdrop="static"  id="{0}" role="dialog" aria-labelledby="{0}_label">',
                 '	<div class="modal-dialog' + (options.size ? (' modal-' + options.size) : '') + '" role="document">',
                 '		<div class="modal-content">',
                 '		<div class="modal-header">',
+                _bootstrap4 ? '			<h5 class="modal-title" id="{0}_label">{1}</h5>' : '',
                 '			<button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>',
-                '			<h4 class="modal-title" id="{0}_label">{1}</h4>',
+                _bootstrap4 ? '' : '			<h4 class="modal-title" id="{0}_label">{1}</h4>',
                 '		</div>',
                 '		<div class="modal-body" id="{0}_body">',
                 '		</div>',
@@ -5878,7 +6112,7 @@ var Phoenix;
             html.push('</div>');
             return _utils.format(html.join(''), options.id, _ulocale.tt(options.title, locale));
         };
-        var Modal = (function () {
+        var Modal = /** @class */ (function () {
             function Modal(options, locale) {
                 this.options = options || {};
                 ;
@@ -5958,8 +6192,10 @@ var Phoenix;
                     if (that.render)
                         that.render.render($(_dom.find(that.$element.get(0), that.$id + '_body')));
                     _dom.append(document.body, that.$element.get(0));
-                    that.$element.modal({});
-                    that._addEvents();
+                    if (that.$element.modal) {
+                        that.$element.modal({});
+                        that._addEvents();
+                    }
                 }
             };
             Modal.prototype.destroy = function () {
@@ -6031,7 +6267,7 @@ var Phoenix;
             else if (that && that.datasets) {
                 Object.keys(that.datasets).forEach(function (dataset) {
                     var ds = that.datasets[dataset];
-                    var lurl = _link.search(null, false);
+                    var lurl = _link.search();
                     var ctx = that.ds_context();
                     if (ds && ds.canExecute(event, ctx))
                         _pushDataset(dataset, names, _ctxByName(dataset));
@@ -6076,6 +6312,8 @@ var Phoenix;
                     if (!isLoad && notify && that && that.dataChangedHandler)
                         that.dataChangedHandler(names);
                 }).catch(function (ex) {
+                    if (ex)
+                        console.log(ex);
                     if (that && that.loadingHandler)
                         that.loadingHandler(false);
                     if (that && that.errorHandler)
@@ -6088,7 +6326,7 @@ var Phoenix;
             else
                 after(true);
         };
-        var DatasetMethods = (function () {
+        var DatasetMethods = /** @class */ (function () {
             function DatasetMethods() {
             }
             DatasetMethods.prototype.ds_init = function (config) {
@@ -6169,7 +6407,7 @@ var Phoenix;
             DatasetMethods.prototype.ds_context = function () {
                 var that = this;
                 var map = {
-                    $url: _link.search(null, false),
+                    $url: _link.search(),
                     $mem: _mem,
                     $local: that.getLocalContextHandler ? that.getLocalContextHandler() : null,
                 };
@@ -6345,7 +6583,7 @@ var Phoenix;
     var ui;
     (function (ui) {
         var _p = Phoenix, _dom = _p.dom, _utils = _p.utils, _locale = _p.locale, _wutils = _p.WidgetUtils, _dsPlugin = _p.DatasetPlugin, _link = _p.link, _render = _p.render;
-        var Widget = (function () {
+        var Widget = /** @class */ (function () {
             function Widget(localData, options, layout) {
                 var that = this;
                 that.item = localData || {};
@@ -6787,7 +7025,7 @@ var Phoenix;
                     item.collapsed = false;
             });
         };
-        var MenuBase = (function () {
+        var MenuBase = /** @class */ (function () {
             function MenuBase(data, options) {
                 this._initOptions(options);
                 this.init(data, options);
@@ -7018,7 +7256,7 @@ var Phoenix;
                 var data = that.props.data.ds[dataset];
                 if (data) {
                     var items = [];
-                    var url = _link.search(null, false);
+                    var url = _link.search();
                     var mem = _mem;
                     if (data.documents) {
                         if (data.documents.length) {
@@ -7295,7 +7533,7 @@ var Phoenix;
                 css.push(_dom.iconClass('minus'));
             return css.join(' ');
         };
-        var Menu = (function (_super) {
+        var Menu = /** @class */ (function (_super) {
             __extends(Menu, _super);
             function Menu(ldata, options) {
                 return _super.call(this, ldata, options) || this;
@@ -7457,6 +7695,8 @@ var Phoenix;
                             _dom.removeClass(e, 'active');
                         }
                     }
+                    //    p = that._map[p.$parentId];
+                    //}
                 }
             };
             Menu.prototype._selectDatasetItem = function (dataset, item) {
@@ -7676,7 +7916,7 @@ var Phoenix;
             Menu.prototype._executeContextMenu = function (event, item, link) {
                 var that = this;
                 if (item.$link && item.$link.$page) {
-                    var ll = $.extend(item.$link);
+                    var ll = $.extend(true, {}, item.$link);
                     var data_3 = [{ link: ll, title: _locale.ui.OpenNewTab }];
                     _contextmenu.openContextMenu(event, that, data_3);
                     return true;
@@ -7756,19 +7996,23 @@ var Phoenix;
         var _defaultHeader = function (options) {
             var html = [];
             var _bootstrap4 = _p.bootstrap4;
-            var css = ['navbar-fixed-top no-y-margin no-x-margin'];
-            html.push('<div class="' + css.join(' ') + '">');
-            css = ['bs-header-bar navbar  no-y-margin no-x-margin'];
-            if (!_bootstrap4)
-                css.push('navbar-inverse');
+            var css = ['no-y-margin no-x-margin'];
+            if (_bootstrap4)
+                css.push('fixed-top');
             else
-                css.push('navbar-dark bg-inverse no-x-padding no-y-padding');
+                css.push('navbar-fixed-top');
+            html.push('<div class="' + css.join(' ') + '">');
+            css = ['bs-header-bar no-y-margin no-x-margin no-x-padding  no-y-padding'];
+            if (!_bootstrap4)
+                css.push('navbar navbar-inverse');
+            else
+                css.push('bg-dark');
             html.push('<nav class="' + css.join(' ') + '">');
             html.push('    <div class="container-fluid no-x-padding">');
             html.push('        <div class="bs-title bs-title-nav-pos header_title"></div>');
-            html.push('        <ul class="nav navbar-nav no-x-margin no-y-margin bs-nav-button bs-left-nav header_left_buttons">');
+            html.push('        <ul class="' + (_bootstrap4 ? '' : 'nav navbar-nav ') + 'no-x-margin no-y-margin bs-nav-button bs-left-nav header_left_buttons">');
             html.push('        </ul>');
-            html.push('        <ul class="nav navbar-nav no-x-margin no-y-margin bs-nav-button bs-right-nav header_right_buttons">');
+            html.push('        <ul class="' + (_bootstrap4 ? '' : 'nav navbar-nav ') + 'no-x-margin no-y-margin bs-nav-button bs-right-nav header_right_buttons">');
             html.push('        </ul>');
             html.push('    </div>');
             html.push('</nav>');
@@ -7788,14 +8032,14 @@ var Phoenix;
         }, _addButton = function (item, index) {
             var html = [];
             var _bootstrap4 = _p.bootstrap4;
-            var hiddenXs = _bootstrap4 ? 'hidden-xs-down' : 'hidden-xs';
+            var hiddenXs = _bootstrap4 ? 'd-none d-sm-inline-block' : 'hidden-xs';
             item.id = _utils.allocID();
             var ct = item.title;
             if (ct && typeof ct === 'object') {
                 ct = ct[_ulocale.currentLang];
             }
             if (item.$location) {
-                html.push('<span id="{1}" class="bs-loc-link {2}" href="#" data-phoenix-href="click://{0}" ><span>');
+                html.push('<span id="{1}" class="bs-loc-link bs-style-icon-lg {2}" href="#" data-phoenix-href="click://{0}"><span>');
             }
             else {
                 html.push('<li id="{1}">');
@@ -7839,7 +8083,7 @@ var Phoenix;
                         }
                     }
                     else {
-                        html.push('<a class="bs-nav-link" href="#"  data-phoenix-href="click://{0}">');
+                        html.push('<a class="bs-nav-link" href="#" data-phoenix-href="click://{0}">');
                         css.push('{2}');
                         html.push('<span class="' + css.join(' ') + '"></span>');
                         html.push('</a>');
@@ -7876,7 +8120,7 @@ var Phoenix;
             });
             _dom.append(ul, frag);
         };
-        var Header = (function () {
+        var Header = /** @class */ (function () {
             function Header(data, options) {
                 this._init(data, options);
             }
@@ -8448,7 +8692,7 @@ var Phoenix;
     var tabs;
     (function (tabs_1) {
         var _p = Phoenix, _pagecontrol = _p.pagecontrol, _dom = _p.dom, _link = _p.link, _utils = _p.utils, _application = _p.application, _ulocale = _p.ulocale, _locale = _p.locale;
-        var Tabs = (function () {
+        var Tabs = /** @class */ (function () {
             function Tabs(options, tabs) {
                 var that = this, defOptions = {
                     justified: false,
@@ -8496,7 +8740,7 @@ var Phoenix;
                             tab.active = false;
                     }
                     if (tab.active)
-                        _dom.addClass(ii, 'active');
+                        _dom.addClass(ii, Phoenix.bootstrap4 ? 'show active' : 'active');
                     frag.appendChild(ii);
                 });
                 _dom.empty(ul);
@@ -8713,6 +8957,16 @@ var Phoenix;
                     return false;
             }
             return true;
+        }, _allFieldsRight = function (layout) {
+            if (layout.$items && layout.$items.length) {
+                var res_2 = true;
+                layout.$items.forEach(function (field) {
+                    res_2 = res_2 && field && field.options && field.options.right;
+                });
+                return res_2;
+                ;
+            }
+            return false;
         }, _addStdThemes = function (layout, css, options) {
             var s = layout.$style;
             if (!s && layout.$sticky)
@@ -8746,8 +9000,12 @@ var Phoenix;
                         }
                     }
                     if (_canAddFields(layout)) {
-                        if (layout.$inline && (options.design || !layout.$html))
-                            css.push('form-inline bs-inline-container');
+                        if (layout.$inline && (options.design || !layout.$html)) {
+                            if (Phoenix.bootstrap4 && _allFieldsRight(layout))
+                                css.push('form-inline d-block bs-inline-container');
+                            else
+                                css.push('form-inline bs-inline-container');
+                        }
                         if (options.design) {
                             css.push('drop-fields-zone');
                             if (!canAddLayouts) {
@@ -8762,6 +9020,8 @@ var Phoenix;
                     }
                     if (!parent) {
                         css.push('bs-root-container');
+                        if (options.design)
+                            css.push('bs-scroll-container');
                         if (!layout.form)
                             css.push('page');
                     }
@@ -8819,7 +9079,10 @@ var Phoenix;
                     break;
                 case layoutUtils.LAYOUT_ACCORDION_GROUP:
                     if (options.step === 1) {
-                        css.push('panel panel-default');
+                        if (_bootstrap4)
+                            css.push('card');
+                        else
+                            css.push('panel panel-default');
                         if (options.design) {
                             css.push('design');
                             if (layout.selected)
@@ -8827,13 +9090,20 @@ var Phoenix;
                         }
                     }
                     else if (options.step === 2) {
-                        css.push('panel-collapse collapse');
-                        if (layout.opened)
-                            css.push('in');
+                        if (_bootstrap4) {
+                            css.push('collapse');
+                            if (layout.opened)
+                                css.push('show');
+                        }
+                        else {
+                            css.push('panel-collapse collapse');
+                            if (layout.opened)
+                                css.push('in');
+                        }
                     }
                     else if (options.step === 3) {
                         if (_bootstrap4)
-                            css.push('panel-body');
+                            css.push('card-body');
                         canAddLayouts = _canAddLayouts(layout);
                         if (canAddLayouts) {
                             if (options.design || _noPadding(layout, parent)) {
@@ -8844,8 +9114,12 @@ var Phoenix;
                                 css.push('drop-layouts-zone');
                         }
                         if (_canAddFields(layout)) {
-                            if (layout.$inline && (options.design || !layout.$html))
-                                css.push('form-inline bs-inline-container');
+                            if (layout.$inline && (options.design || !layout.$html)) {
+                                if (Phoenix.bootstrap4 && _allFieldsRight(layout))
+                                    css.push('form-inline d-block bs-inline-container');
+                                else
+                                    css.push('form-inline bs-inline-container');
+                            }
                             if (options.design) {
                                 css.push('drop-fields-zone');
                                 if (!canAddLayouts)
@@ -8858,7 +9132,7 @@ var Phoenix;
                 case layoutUtils.LAYOUT_COLUMN:
                     if (options.step === 1) {
                         if (options.design)
-                            css.push('col-design col-xs-' + layout.$colSize);
+                            css.push('col-design col' + (_bootstrap4 ? '' : '-xs') + '-' + layout.$colSize);
                         else {
                             if (layout.$customColSize) {
                                 css.push(layout.$customColSize);
@@ -8881,8 +9155,12 @@ var Phoenix;
                                 css.push('drop-layouts-zone');
                         }
                         if (_canAddFields(layout)) {
-                            if (layout.$inline && (options.design || !layout.$html))
-                                css.push('form-inline bs-inline-container');
+                            if (layout.$inline && (options.design || !layout.$html)) {
+                                if (Phoenix.bootstrap4 && _allFieldsRight(layout))
+                                    css.push('form-inline d-block bs-inline-container');
+                                else
+                                    css.push('form-inline bs-inline-container');
+                            }
                             if (options.design) {
                                 css.push('drop-fields-zone');
                                 if (!canAddLayouts) {
@@ -9028,15 +9306,19 @@ var Phoenix;
                 html.push(layout.$html);
         }, _htmlAfter = function (html, layout, model, llocale, design) {
             html.push('</div>');
-        }, _tabBuilder = function (html, layout, parent, model, llocale, design, isForm, refBlock) {
+        }, _tabBuilder = function (html, layout, parent, model, llocale, design, isForm, formData, refBlock) {
             var _bootstrap4 = _p.bootstrap4;
             if (_bootstrap4) {
                 html.push('<li class="nav-item">');
                 var css = ['nav-link'];
                 if (layout.opened)
                     css.push('active');
-                html.push(_utils.format('<a class="' + css.join(' ') + '" id="{0}_tab" href="#{0}" data-layout="{0}" aria-expanded="' + (layout.opened ? 'true' : 'false') + '" role="tab" data-toggle="tab">', layout.$id));
-                html.push(layout.$title.value);
+                html.push(_utils.format('<a class="' + css.join(' ') + '" id="{0}_title" href="#{0}" data-layout="{0}" aria-expanded="' + (layout.opened ? 'true' : 'false') + '" role="tab" data-toggle="tab">', layout.$id));
+                var tt = _ulocale.tt(layout.$title.value, llocale);
+                if (layout.$fields) {
+                    tt = _utils.execAngularExpression(tt, formData || {});
+                }
+                html.push(_utils.escapeHtml(tt));
                 html.push('</a></li>');
             }
             else {
@@ -9044,14 +9326,20 @@ var Phoenix;
                 if (layout.opened)
                     html.push(' class="active"');
                 html.push('>');
-                html.push(_utils.format('<a href="#{0}" id="{0}_tab" aria-controls="{0}"  data-layout="{0}" role="tab" data-toggle="tab">', layout.$id));
-                html.push(layout.$title.value);
+                html.push(_utils.format('<a href="#{0}" id="{0}_title" aria-controls="{0}"  data-layout="{0}" role="tab" data-toggle="tab">', layout.$id));
+                var tt = _ulocale.tt(layout.$title.value, llocale);
+                if (layout.$fields) {
+                    tt = _utils.execAngularExpression(tt, formData || {});
+                }
+                html.push(_utils.escapeHtml(tt));
                 html.push('</a></li>');
             }
         }, _accordionBefore = function (html, layout, parent, model, llocale, design, isForm, refBlock) {
             _checkAccordionChildren(layout);
             if (design || !layout.$widget) {
-                html.push('<div role="tablist" aria-multiselectable="true"');
+                html.push('<div role="tablist"');
+                if (!Phoenix.bootstrap4)
+                    html.push(' aria-multiselectable="true"');
                 if (design)
                     html.push(' draggable="true"');
                 _addLayoutCss(html, layout, parent, {
@@ -9077,7 +9365,7 @@ var Phoenix;
                 _addDataStep(html, 1, design);
                 html.push('>');
                 html.push('<ul class="nav nav-tabs bs-tabs' + (isWizard ? ' bs-none' : '') + '" role="tablist">');
-                layout.$items.forEach(function (item) { return _tabBuilder(html, item, layout, model, llocale, design, isForm, refBlock); });
+                layout.$items.forEach(function (item) { return _tabBuilder(html, item, layout, model, llocale, design, isForm, model, refBlock); });
                 html.push('</ul>');
                 html.push('<div class="tab-content">');
             }
@@ -9092,8 +9380,8 @@ var Phoenix;
                 html.push('</div>');
             }
         }, _accordionGroupBefore = function (html, layout, parent, model, llocale, design, isForm, refBlock) {
+            var _bootstrap4 = _p.bootstrap4;
             if (design || !parent.$widget) {
-                var _bootstrap4 = _p.bootstrap4;
                 html.push('<div');
                 _addLayoutCss(html, layout, parent, {
                     design: design,
@@ -9109,11 +9397,14 @@ var Phoenix;
                 if (design)
                     html.push(' draggable="true"');
                 html.push('>');
-                html.push('<div class="panel-heading" role="tab"');
+                if (_bootstrap4)
+                    html.push('<div class="card-header" role="tab"');
+                else
+                    html.push('<div class="panel-heading" role="tab"');
                 _addId(html, layout, "heading");
                 html.push('>');
                 if (_bootstrap4)
-                    html.push('<h5 class="panel-title">');
+                    html.push('<h5 class="mb-0">');
                 else {
                     html.push('<h4 class="panel-title bs-pointer collapsed" data-toggle="collapse" data-parent="#' + parent.$id + '"');
                     if (layout.opened)
@@ -9125,23 +9416,26 @@ var Phoenix;
                 }
                 if (_bootstrap4) {
                     html.push('<a');
-                    html.push(' data-toggle="collapse"');
-                    html.push(' data-parent="#' + parent.$id + '"');
-                    html.push(' href="#' + layout.$idStep2 + '"');
-                    html.push(' aria-controls="' + layout.$idStep2 + '"');
+                    html.push(' data-toggle="collapse"'); //OK
+                    html.push(' href="#' + layout.$idStep2 + '"'); //OK
+                    html.push(' aria-controls="' + layout.$idStep2 + '"'); //OK
                     if (layout.opened)
                         html.push(' aria-expanded="true"');
-                    else
+                    else {
                         html.push(' aria-expanded="false"');
+                        html.push(' class="collapsed"');
+                    }
                     html.push('>');
                 }
                 html.push(_utils.escapeHtml(layout.$title ? layout.$title.value : ''));
                 if (_bootstrap4)
-                    html.push('</a></h4>');
+                    html.push('</a></h5>');
                 else
-                    html.push('</h5>');
+                    html.push('</h4>');
                 html.push('</div>');
                 html.push('<div role="tabpanel" aria-labelledby="heading_' + layout.$id + '"');
+                if (_bootstrap4)
+                    html.push(' data-parent="#' + parent.$id + '"');
                 _addLayoutCss(html, layout, parent, {
                     design: design,
                     step: 2
@@ -9160,9 +9454,9 @@ var Phoenix;
             else if (parent.$widget === 'tabs' || parent.$widget === 'none') {
                 var css = ['tab-pane fade'];
                 if (layout.opened)
-                    css.push('in active');
+                    css.push('in ' + (_bootstrap4 ? 'show active' : 'active'));
                 html.push('<div role="tabpanel"');
-                html.push('< class="' + css.join(' ') + '"');
+                html.push(' class="' + css.join(' ') + '"');
                 layout.$idDesign = layout.$id;
                 _addId(html, layout);
                 html.push('>');
@@ -9300,19 +9594,19 @@ var Phoenix;
                         rb(param.html, item, parent, model, llocale, options.design, isForm, param.stop);
                         if (param.stop)
                             _addLinkSublayout(param.html, item, parent, model, llocale, options.design);
-                        if (!_layoutIsVisible(item)) {
-                            item.oldHtml = param.html;
-                            param.html = [];
-                        }
+                        //if (!_layoutIsVisible(item)) {
+                        //	item.oldHtml = param.html;
+                        //		param.html = [];
+                        //}
                         if (cb)
                             cb(item);
                     }
                     else {
-                        if (!_layoutIsVisible(item)) {
-                            item.$content = param.html;
-                            param.html = item.oldHtml;
-                            delete item.oldHtml;
-                        }
+                        //if (!_layoutIsVisible(item)) {
+                        //	item.$content = param.html;
+                        //	param.html = item.oldHtml;
+                        //	delete item.oldHtml;
+                        //}
                         if (!options.design && item.$html && item.$items && item.$items.length && _canAddFields(item)) {
                             param.html.push(_utils.format(item.$html.replace(/id="/g, 'id="{0}_'), item.$id));
                         }
@@ -9422,6 +9716,11 @@ var Phoenix;
                     }
                 }
             }, true);
+        }, _enumSubLayouts = function (layout, cb) {
+            _enumElements(layout, null, function (item, parent, isLayout, before) {
+                if (before && isLayout)
+                    cb(item);
+            }, false);
         }, _clearMaps = function (layout, map, mapFields, namedMap, namedMapFields) {
             _enumElements(layout, null, function (item, parent, isLayout, before) {
                 if (before) {
@@ -9479,6 +9778,7 @@ var Phoenix;
         layoutUtils.updateCssClass = _setLayoutCss;
         layoutUtils.toHtml = _toHtml;
         layoutUtils.updateLayoutTitle = _updateLayoutTitle;
+        layoutUtils.enumSubLayouts = _enumSubLayouts;
     })(layoutUtils = Phoenix.layoutUtils || (Phoenix.layoutUtils = {}));
 })(Phoenix || (Phoenix = {}));
 /// <reference path="../core/core.ts" />
@@ -9508,7 +9808,7 @@ var Phoenix;
             }
             return null;
         };
-        var BaseLayout = (function () {
+        var BaseLayout = /** @class */ (function () {
             function BaseLayout(ldata, options, fdata, schema, locale, preferences) {
                 options = this.initOptions(options);
                 this.$locale = null;
@@ -9520,7 +9820,7 @@ var Phoenix;
                 return options;
             };
             BaseLayout.prototype._init = function (ldata, options) {
-                //Layout
+                // Layout
                 var that = this;
                 that.$element = null;
                 that.$content = null;
@@ -9536,7 +9836,7 @@ var Phoenix;
                 that.data.form = that.options.form;
                 ldata.map = that.map;
                 ldata.fields = that.mapFields;
-                that.children = {}; //Is used only in javascript mode to cleanup children
+                that.children = {}; // Is used only in javascript mode to cleanup children
                 that.controls = {}; // list of instanced modules or controls   
                 that.expressionTitle = false;
                 var isForm = that.options.form;
@@ -9576,14 +9876,14 @@ var Phoenix;
             BaseLayout.prototype._showSelected = function ($element, layout) { };
             BaseLayout.prototype._setAccordionEvents = function () {
                 var that = this;
-                that.$element.on('show.bs.collapse hide.bs.collapse show.bs.tab hide.bs.tab', function (event) {
+                that.$element.on('shown.bs.collapse hide.bs.collapse shown.bs.tab hide.bs.tab', function (event) {
                     var ee = event.target;
                     if (!ee || !ee.hasAttribute('data-layout'))
                         return;
                     var id = ee.getAttribute('data-layout');
                     var l = that.getLayoutById(id);
                     if (l) {
-                        var nv = event.type === "show";
+                        var nv = event.type === 'shown';
                         if (l.opened === nv)
                             return;
                         if (nv) {
@@ -9597,7 +9897,7 @@ var Phoenix;
             };
             BaseLayout.prototype._activatePageLayout = function (item) {
                 var that = this;
-                var tab = that.$element ? _dom.find(that.$element.get(0), item.$id + '_tab') : null;
+                var tab = that.$element ? _dom.find(that.$element.get(0), item.$id + '_title') : null;
                 if (tab) {
                     var $tab = $(tab);
                     $tab.tab('show');
@@ -9626,12 +9926,15 @@ var Phoenix;
                     }
                 }
                 l.opened = true;
+                that._updateLayoutContent(l);
+                that._activateLayout(l, true);
+                /*
                 if (l.$content) {
                     that._renderLayoutContent(l);
-                    that._afterVisibilityChanged({ domChanged: false, layoutCreated: true, resize: false });
-                }
-                else
+                    that._afterVisibilityChanged({ inDom: true, resize: false });
+                } else
                     that._activateLayout(l, true);
+                */
             };
             BaseLayout.prototype._doDatasetEventAfterEnabled = function (child) { };
             BaseLayout.prototype._activateLayout = function (layout, value) {
@@ -9650,7 +9953,7 @@ var Phoenix;
                         child.disabled = true;
                     });
                 }
-                that._afterVisibilityChanged({ domChanged: true, layoutCreated: false, resize: false });
+                that._afterVisibilityChanged({ inDom: true, resize: value });
             };
             BaseLayout.prototype._removeAccordionEvents = function () {
                 var that = this;
@@ -9760,6 +10063,14 @@ var Phoenix;
                 return res;
             };
             BaseLayout.prototype._refreshDataSets = function (children) { };
+            BaseLayout.prototype._afterLayoutAdded = function (layout) { };
+            BaseLayout.prototype._updateLayoutContent = function (layout) {
+                var that = this;
+                var cc = _dom.find(that.$element.get(0), layout.$idDesign);
+                var $p = $(cc);
+                that._renderChildren($p);
+                that.afterAddedInDom();
+            };
             BaseLayout.prototype._renderLayoutContent = function (layout) {
                 var that = this;
                 var cc = _dom.find(that.$element.get(0), layout.$idDesign);
@@ -9774,6 +10085,7 @@ var Phoenix;
                 if (that.options.beforeAdd)
                     that.options.beforeAdd($p, true);
                 parent.insertBefore(cc, cb);
+                that._afterLayoutAdded(layout);
                 that._renderChildren($p);
                 var vc = that._getVisibleChildren(layout);
                 that._refreshDataSets(vc);
@@ -9866,6 +10178,21 @@ var Phoenix;
                                 that.resizeList.push(p);
                             }
                             res.push(p);
+                            if (isField) {
+                                if (p.getChildren) {
+                                    var subControls = p.getChildren();
+                                    subControls.forEach(function (child) {
+                                        toRender.push({ parent: child.parent, control: child.control });
+                                        child.control.id = child.control.id || _utils.allocID();
+                                        that.children[child.control.id] = child.control;
+                                        that.controls[child.control.id] = child.control;
+                                        if (child.control.resize) {
+                                            that.resizeList = that.resizeList || [];
+                                            that.resizeList.push(child.control);
+                                        }
+                                    });
+                                }
+                            }
                         }
                     });
                     metaCtrls.forEach(function (metaControl) {
@@ -9877,6 +10204,8 @@ var Phoenix;
                         }
                     });
                     toRender.forEach(function (item) {
+                        if (typeof item.parent === 'string')
+                            item.parent = _dom.find(e, item.parent);
                         item.control.render($(item.parent));
                         if (item.control.afterAddedInDom) {
                             that.afterRenderList = that.afterRenderList || [];
@@ -9886,10 +10215,13 @@ var Phoenix;
                 }
                 return res;
             };
+            BaseLayout.prototype.addControl = function (layout, controlName, control) {
+                //
+            };
             BaseLayout.prototype._afterVisibilityChanged = function (options) {
                 var that = this;
                 that._refreshCurrentResizeList();
-                that._refreshStickies(options.layoutCreated === true);
+                that._refreshStickies(options.resize);
             };
             BaseLayout.prototype._refreshStickies = function (refresh) {
                 var that = this;
@@ -10003,7 +10335,6 @@ var Phoenix;
                     if (that.options.beforeAdd)
                         that.options.beforeAdd(that.$element, refresh);
                     that.$content.append(that.$element);
-                    that._afterVisibilityChanged({ domChanged: false, layoutCreated: true, resize: false });
                     that._addEvents();
                     that._refreshSelected();
                     if ($parent) {
@@ -10013,6 +10344,7 @@ var Phoenix;
                             $parent.replaceWith(that.$content);
                         else
                             $parent.append(that.$content);
+                        that._afterVisibilityChanged({ inDom: false, resize: true });
                         that.afterAddedInDom();
                     }
                 }
@@ -10293,6 +10625,7 @@ var Phoenix;
                         }
                         else {
                             var ni = { $items: [item], $auto: true, $type: _layoutUtils.LAYOUT_COLUMN, $colSize: item.$colSize, $customColSize: item.$customColSize };
+                            //item = ni;  ???
                         }
                     });
             };
@@ -10373,6 +10706,10 @@ var Phoenix;
                 if (layout.$isHidden !== isHidden) {
                     layout.$isHidden = isHidden;
                     that._afterPropsChanged(layout);
+                    if (!isHidden) {
+                        that._activateLayout(layout, true);
+                        //
+                    }
                 }
             };
             BaseLayout.prototype.updateLayout = function (id, data) {
@@ -10521,10 +10858,10 @@ var Phoenix;
         }());
         ui.BaseLayout = BaseLayout;
         ;
-        var PageLayout = (function (_super) {
+        var PageLayout = /** @class */ (function (_super) {
             __extends(PageLayout, _super);
             function PageLayout() {
-                return _super.apply(this, arguments) || this;
+                return _super !== null && _super.apply(this, arguments) || this;
             }
             //implements DatasetMethods
             PageLayout.prototype.ds_init = function (config) { return false; };
@@ -10638,7 +10975,7 @@ var Phoenix;
         }(BaseLayout));
         ui.PageLayout = PageLayout;
         _utils.applyMixins(PageLayout, [Phoenix.DatasetPlugin.DatasetMethods]);
-        var Layout = (function (_super) {
+        var Layout = /** @class */ (function (_super) {
             __extends(Layout, _super);
             function Layout(ldata, options, fdata, schema, locale, preferences) {
                 return _super.call(this, ldata, options, fdata, schema, locale, preferences) || this;
@@ -10660,7 +10997,7 @@ var Phoenix;
         autoclose.SCREEN_TOP_CENTER = 'screentopcenter';
         autoclose.BOTTOM_LEFT = 'bottom-left';
         autoclose.BOTTOM_RIGHT = 'bottom-right';
-        var AutoClose = (function () {
+        var AutoClose = /** @class */ (function () {
             function AutoClose(align, options) {
                 var that = this;
                 that._align = align;
@@ -10676,6 +11013,7 @@ var Phoenix;
                 that._contentRender = options.contentRender;
                 that._autocloseParents = options.parents || [];
                 that.opener = options.opener;
+                that.stayOnTop = options.stayOnTop;
                 if (options.alignElement)
                     that.$alignElement = $(options.alignElement);
                 that.$parent = $(options.parent);
@@ -10689,7 +11027,7 @@ var Phoenix;
             };
             AutoClose.prototype.destroy = function () {
                 var that = this;
-                $(window).off('global-phoenix-resize');
+                $(window).off('global-phoenix-resize', that._resize);
                 that._autocloseParents = null;
                 that.$element = null;
                 that.$parent = null;
@@ -10760,7 +11098,13 @@ var Phoenix;
                 var space = _dom.documentClientDim();
                 var cre = _dom.offset(e);
                 var crae = _dom.offset(ae);
-                e.style.top = Math.max(0, Math.round(crae.top + crae.height) - 1) + 'px';
+                var docScroll = _dom.documentScroll();
+                var viewSize = _dom.documentViewSize();
+                var top = Math.round(crae.top + crae.height) - 1;
+                if (top + cre.height > docScroll.top + viewSize.height) {
+                    top = docScroll.top + viewSize.height - cre.height;
+                }
+                e.style.top = Math.max(0, Math.round(Math.max(docScroll.top, top))) + 'px';
                 var cl = crae.left;
                 if (cl + cre.width > space.width)
                     cl = Math.max(0, space.width - cre.width);
@@ -10913,6 +11257,8 @@ var Phoenix;
             Object.keys(schema.properties).forEach(function (name) {
                 var prop = schema.properties[name];
                 if (!prop.$reference || (opts && opts.$references)) {
+                    if (!prop.type && prop.$ref)
+                        prop = _expandRefProp(prop, rootSchema);
                     if (prop.type === 'object') {
                         var cp = path ? path + '.' + name : name;
                         _enumCompositions(prop, rootSchema, cp, false, value ? value[name] : null, cb, opts);
@@ -10928,27 +11274,33 @@ var Phoenix;
                 }
             });
         }
-        function _copyObject(schema, rootSchema, src, dst) {
+        function _copyObject(schema, rootSchema, src, dst, copyUX, copyStates) {
             var op = Object.keys(src);
             op.forEach(function (propertyName) {
                 var srcValue = src[propertyName];
                 var ps = null;
-                if (schema) {
+                if (schema && !copyUX) {
                     ps = schema.properties[propertyName];
                     if (ps && (ps.$reference || ps.$ux || ps.ux))
                         return;
                 }
-                if (!ps && propertyName.charAt(0) === '$')
+                if (!ps && propertyName.charAt(0) === '$' || propertyName.charAt(0) === '_') {
+                    if (copyStates && propertyName === '$states') {
+                        dst[propertyName] = $.extend(true, {}, src);
+                    }
                     return;
+                }
                 var doDefAction = false;
                 if (ps) {
+                    if (!ps.type && ps.$ref)
+                        ps = _expandRefProp(ps, rootSchema);
                     if (ps.type === 'object') {
                         if (srcValue === null) {
                             dst[propertyName] = null;
                         }
                         else {
                             dst[propertyName] = {};
-                            _copyObject(ps, rootSchema, srcValue, dst[propertyName]);
+                            _copyObject(ps, rootSchema, srcValue, dst[propertyName], copyUX);
                         }
                     }
                     else if (ps.type === 'array') {
@@ -10968,7 +11320,7 @@ var Phoenix;
                                 srcValue.forEach(function (item, index) {
                                     var dv = {};
                                     dst[propertyName][index] = dv;
-                                    _copyObject(pitems_1, rootSchema, item, dv);
+                                    _copyObject(pitems_1, rootSchema, item, dv, copyUX);
                                 });
                             }
                         }
@@ -10990,13 +11342,13 @@ var Phoenix;
                             else {
                                 var dv = {};
                                 dst[propertyName][index] = dv;
-                                _copyObject(null, rootSchema, item, dv);
+                                _copyObject(null, rootSchema, item, dv, copyUX);
                             }
                         });
                     }
                     else if (typeof srcValue === 'object') {
                         dst[propertyName] = {};
-                        _copyObject(null, rootSchema, srcValue, dst[propertyName]);
+                        _copyObject(null, rootSchema, srcValue, dst[propertyName], copyUX);
                     }
                     else
                         dst[propertyName] = srcValue;
@@ -11042,6 +11394,8 @@ var Phoenix;
             else if (item.$ref) {
                 if (cs.indexOf(item.$ref) < 0) {
                     toMerge = [{ $ref: item.$ref }];
+                    if (item.ux)
+                        toMerge[0].ux = true;
                     delete item.$ref;
                 }
             }
@@ -11049,10 +11403,23 @@ var Phoenix;
                 toMerge.forEach(function (ci) {
                     var ncs = cs.slice(0);
                     if (ci.$ref) {
-                        var ref = _load$ref(ci.$ref, config);
-                        ncs.push(ci.$ref);
+                        var ref_1 = _load$ref(ci.$ref, config);
+                        if (ci.ux) {
+                            ref_1.properties && Object.keys(ref_1.properties).forEach(function (propertyName) {
+                                var propSchema = ref_1.properties[propertyName];
+                                if (propSchema.ux === undefined)
+                                    propSchema.ux = true;
+                            });
+                            ref_1.links && Object.keys(ref_1.links).forEach(function (propertyName) {
+                                var propSchema = ref_1.links[propertyName];
+                                if (propSchema.ux === undefined)
+                                    propSchema.ux = true;
+                            });
+                        }
+                        if (ci.type !== 'array' && ref_1.type !== 'array')
+                            ncs.push(ci.$ref);
                         delete ci.$ref;
-                        _utils.merge(ref, ci);
+                        _utils.merge(ref_1, ci);
                     }
                     _expand$Ref(ci, ncs, config);
                     _utils.merge(ci, item);
@@ -11098,6 +11465,35 @@ var Phoenix;
             RATE_MAXIMUM: 1000,
             RATE_SYMBOL: '%',
             expandSchema$Ref: function (schema) {
+                if (schema.definitions) {
+                    Object.keys(schema.definitions).forEach(function (defName) {
+                        var def = schema.definitions[defName];
+                        if (def.allOf) {
+                            var allOf = def.allOf;
+                            delete def.allOf;
+                            allOf.forEach(function (item) {
+                                if (item.$ref) {
+                                    var ref_2 = $.extend(true, {}, _load$ref(item.$ref, schema));
+                                    delete item.$ref;
+                                    if (item.ux) {
+                                        ref_2.properties && Object.keys(ref_2.properties).forEach(function (propertyName) {
+                                            var propSchema = ref_2.properties[propertyName];
+                                            if (propSchema.ux === undefined)
+                                                propSchema.ux = true;
+                                        });
+                                        ref_2.links && Object.keys(ref_2.links).forEach(function (propertyName) {
+                                            var propSchema = ref_2.links[propertyName];
+                                            if (propSchema.ux === undefined)
+                                                propSchema.ux = true;
+                                        });
+                                    }
+                                    _utils.merge(ref_2, item);
+                                }
+                                Phoenix.utils.merge(item, def);
+                            });
+                        }
+                    });
+                }
                 return _expand$Ref(schema, [], schema);
             },
             path2RulePath: _pathOfProp,
@@ -11246,10 +11642,10 @@ var Phoenix;
             },
             isFwField: _isFwField,
             // copy only schema properties
-            copyModel: function (schema, model, rootSchema) {
+            copyModel: function (schema, model, rootSchema, copyUX, copyStates) {
                 var res = {};
                 rootSchema = rootSchema || schema;
-                _copyObject(schema, rootSchema, model, res);
+                _copyObject(schema, rootSchema, model, res, copyUX, copyStates);
                 return res;
             },
             columns: function (schema, rootSchema, locale) {
@@ -11300,7 +11696,7 @@ var Phoenix;
                     return '\'' + pkValue + '\'';
                 }
                 else {
-                    return pkValue + '';
+                    return pkValue;
                 }
             },
             extractPkValue: function (item, map) {
@@ -11430,6 +11826,8 @@ var Phoenix;
                     cs = cs.properties[segment];
                     if (!cs)
                         return false;
+                    if (!cs.type && cs.$ref)
+                        cs = _expandRefProp(cs, rootSchema);
                     if (cs.type === 'array') {
                         cs = _expandRefProp(cs.items, rootSchema);
                     }
@@ -11469,13 +11867,13 @@ var Phoenix;
                     if (!cs)
                         break;
                     var s = segments[i];
-                    if ((cs.type == "array") && (_sutils.arrayProps.indexOf(s) >= 0)) {
+                    if (_sutils.arrayProps.indexOf(s) >= 0)
+                        continue;
+                    cs = cs.properties ? cs.properties[s] : null;
+                    if (cs && !cs.type && cs.$ref)
+                        cs = _expandRefProp(cs, rootSchema);
+                    if (cs && cs.type === "array")
                         cs = _expandRefProp(cs.items, rootSchema);
-                        ;
-                    }
-                    else {
-                        cs = cs.properties ? cs.properties[s] : null;
-                    }
                 }
                 if (cs && cs.lookups)
                     return _sutils.checkLookup(cs.lookups[lookupName]);
@@ -11490,6 +11888,8 @@ var Phoenix;
                     if (!cs)
                         break;
                     var s = segments[i];
+                    if (!cs.type && cs.$ref)
+                        cs = _expandRefProp(cs, rootSchema);
                     if ((cs.type == "array") && (_sutils.arrayProps.indexOf(s) >= 0)) {
                         // $item, $new 
                         cs = _expandRefProp(cs.items, rootSchema);
@@ -11503,6 +11903,8 @@ var Phoenix;
                             if (link) {
                                 link = false;
                                 cs = cs[s];
+                                cs.isLink = true;
+                                break;
                             }
                             else {
                                 cs = cs.properties ? cs.properties[s] : null;
@@ -11525,8 +11927,8 @@ var Phoenix;
                     cs = _expandRefProp(cs.items, rootSchema);
                 return cs;
             },
-            states: ['isHidden', 'isDisabled', 'isReadOnly', 'isMandatory'],
-            statesAndErrors: ['isHidden', 'isDisabled', 'isReadOnly', 'isMandatory', 'errors', 'filter', 'symbol', 'decimals'],
+            states: ['isHidden', 'isDisabled', 'isReadOnly', 'isMandatory', 'style'],
+            statesAndErrors: ['isHidden', 'isDisabled', 'isReadOnly', 'isMandatory', 'errors', 'filter', 'symbol', 'decimals', 'style', 'orderBy', 'selected', 'filter', 'search'],
             linksStates: ['isHidden', 'isDisabled'],
             isLink: function (path) {
                 return (path.split('.').indexOf('$links') >= 0);
@@ -11565,12 +11967,19 @@ var Phoenix;
                     });
                 Object.keys(schema.properties).forEach(function (pn) {
                     var cs = schema.properties[pn];
+                    if (!cs.type && cs.$ref)
+                        cs = _expandRefProp(cs, rootSchema);
                     if (!_sutils.inModel(cs, rootSchema))
                         return;
                     if (_sutils.isCompositionRef(cs, rootSchema)) {
                         _sutils._internalExtractEnums(cs, rootSchema, enums, names);
                     }
                     else if (_sutils.isCompositionList(cs, rootSchema, true)) {
+                        if (cs.items.$ref) {
+                            if (names.indexOf(cs.items.$ref) >= 0)
+                                return;
+                            names.push(cs.items.$ref);
+                        }
                         _sutils._internalExtractEnums(_expandRefProp(cs.items, rootSchema), rootSchema, enums, names);
                     }
                     else {
@@ -11618,6 +12027,8 @@ var Phoenix;
                     });
                 Object.keys(schema.properties).forEach(function (pn) {
                     var cs = schema.properties[pn];
+                    if (cs.$ref && !cs.type)
+                        cs = _expandRefProp(cs.items, rootSchema);
                     if (!_sutils.inModel(cs, rootSchema))
                         return;
                     if (_sutils.isCompositionRef(cs, rootSchema)) {
@@ -11664,12 +12075,17 @@ var Phoenix;
                 return res;
             },
             arrayProps: ['$item', '$new', '$selected'],
-            init: function (schema, rootSchema, context, value, iCreate) {
+            init: function (schema, rootSchema, context, value, iCreate, opts) {
                 var a = value || {};
+                if (a._schema_initialized)
+                    return a;
+                a._schema_initialized = true;
                 a.$create = iCreate;
                 a.$states = a.$states || {};
                 Object.keys(schema.properties).forEach(function (pn) {
                     var cs = schema.properties[pn];
+                    if (!cs.type && cs.$ref)
+                        cs = _expandRefProp(cs, rootSchema);
                     if (!_sutils.inModel(cs, rootSchema))
                         return;
                     var isMeta = _sutils.isMetaProp(pn);
@@ -11685,18 +12101,37 @@ var Phoenix;
                         }
                     }
                     if (_sutils.isCompositionRef(cs, rootSchema)) {
-                        a[pn] = _sutils.init(cs, rootSchema, context, a[pn] || {}, iCreate);
+                        a[pn] = _sutils.init(cs, rootSchema, context, a[pn] || {}, iCreate, { children: opts.children, select: opts.select });
                     }
                     else if (_sutils.isCompositionList(cs, rootSchema, false)) {
                         a[pn] = a[pn] || [];
+                        var doSelect_1 = opts.select && (!cs.children || cs.children !== opts.children);
+                        var co_1 = { children: cs.children, select: opts.select };
                         var pitems_2 = _expandRefProp(cs.items, rootSchema);
-                        a[pn].forEach(function (item) {
-                            _sutils.init(pitems_2, rootSchema, context, item, iCreate);
+                        var firstItem_1 = null;
+                        var selectedItems_1 = a.$states ? a.$states[pn] : null;
+                        if (selectedItems_1)
+                            selectedItems_1 = selectedItems_1.selected;
+                        a[pn].forEach(function (item, index) {
+                            if (item.id && selectedItems_1 && selectedItems_1.indexOf(item.id) >= 0) {
+                                item.$select = true;
+                            }
+                            if (doSelect_1 && index === 0 && item.$select === undefined) {
+                                firstItem_1 = item;
+                            }
+                            if (item.$select) {
+                                firstItem_1 = null;
+                            }
+                            _sutils.init(pitems_2, rootSchema, context, item, iCreate, co_1);
                         });
+                        if (firstItem_1 && !cs.syncSelected && cs.autoSelect !== false)
+                            firstItem_1.$select = true;
                     }
                     else if (_sutils.isSimpleList(cs, rootSchema)) {
+                        //a[pn] = a[pn] || [];
                     }
                     else if (_sutils.isList(cs, rootSchema)) {
+                        //a[pn] = a[pn] || [];
                     }
                     else {
                         if (iCreate) {
@@ -11709,8 +12144,11 @@ var Phoenix;
                                     switch (cs.type) {
                                         case "number":
                                         case "integer":
-                                            if (cs.default !== null)
-                                                a[pn] = 0;
+                                            if (cs.default !== undefined) {
+                                                a[pn] = cs.default;
+                                            }
+                                            //if (cs.default !== null)
+                                            //    a[pn] = 0;
                                             break;
                                     }
                                 }
@@ -11722,15 +12160,21 @@ var Phoenix;
             },
             //
             isCompositionRef: function (prop, rootSchema) {
+                if (!prop.type && prop.$ref)
+                    prop = _expandRefProp(prop, rootSchema);
                 return prop.type === "object" && !prop.$reference;
             },
             isRef: function (prop, rootSchema) {
                 return prop.type === "object" && prop.$reference;
             },
             isList: function (prop, rootSchema) {
+                if (!prop.type && prop.$ref)
+                    prop = _expandRefProp(prop, rootSchema);
                 return prop.type === "array" && prop.$reference;
             },
             isCompositionList: function (prop, rootSchema, followRefs) {
+                if (!prop.type && prop.$ref)
+                    prop = _expandRefProp(prop, rootSchema);
                 if (prop.type === "array" && prop.items) {
                     var pitems = _expandRefProp(prop.items, rootSchema);
                     return (pitems.type === "object" || pitems.type === "array") && (!prop.$reference || (followRefs && prop.$reference));
@@ -11739,6 +12183,8 @@ var Phoenix;
                     return false;
             },
             isSimpleList: function (prop, rootSchema) {
+                if (!prop.type && prop.$ref)
+                    prop = _expandRefProp(prop, rootSchema);
                 if (prop.type === "array" && prop.items) {
                     var pitems = _expandRefProp(prop.items, rootSchema);
                     return (pitems.type !== "object" || pitems.type === "array") && !prop.$reference;
@@ -11763,6 +12209,8 @@ var Phoenix;
             },
             canSort: function (schema) {
                 if (schema) {
+                    if (schema.isLink)
+                        return false;
                     if (schema.hidden)
                         return false;
                     _parseCapabilities(schema);
@@ -11916,11 +12364,12 @@ var Phoenix;
                     return after(null, null);
                 try {
                     _sutils.expandSchema$Ref(schema);
+                    // console.log(JSON.stringify(schema, null, 2))
                     var rulesCount_1 = -1;
                     var enums = _sutils.loadEnums(schema);
                     var promises = enums ? enums : [];
                     var enumsCount_1 = enums ? enums.length : 0;
-                    var mainData = _dutils.loadMainData(layout, true);
+                    var mainData = _dutils.loadMainData({ datasets: layout.datasets, transform: layout.transform, context: ldata }, true);
                     if (mainData)
                         promises.push(mainData);
                     var dataCount_1 = mainData ? enumsCount_1 + 1 : 0;
@@ -11984,7 +12433,9 @@ var Phoenix;
                 else if (_sutils.isNumber(schema)) {
                     return ['symbol', 'decimals'];
                 }
-                return null;
+                else if (schema.type === 'array' && schema.items && schema.items.type === 'object' && !schema.items.$reference) {
+                    return ['orderBy', 'selected', 'filter', 'search'];
+                }
             },
             isPassword: function (schema) {
                 return schema.type === "string" && schema.format === "password";
@@ -12036,14 +12487,33 @@ var Phoenix;
             expand$Ref: function (cs, rootSchema) {
                 return _expandRefProp(cs, rootSchema);
             },
-            removeExpand: function (propName, expandingProperty) {
+            parsePath: function (base, propName, expandingProperty) {
+                var s = propName.substr(base.length + 1);
+                var a = s.split('.');
+                var start = a.shift();
                 if (!expandingProperty)
-                    return propName;
-                var s = expandingProperty + '.$item.';
-                var ii = propName.lastIndexOf(s);
-                if (ii < 0)
-                    return propName;
-                return propName.substr(ii + s.length);
+                    return base + '.' + start;
+                s = a.join('.');
+                var res = [base, start];
+                var search = expandingProperty + '.$item.';
+                var sl = search.length;
+                var searchSelected = expandingProperty + '.$selected.';
+                var ssl = search.length;
+                while (true) {
+                    if (s.substr(0, sl) === search) {
+                        res.push(expandingProperty + '.$item');
+                        s = s.substr(sl);
+                    }
+                    else if (s.substr(0, ssl) === searchSelected) {
+                        res.push(expandingProperty + '.$selected');
+                        s = s.substr(ssl);
+                    }
+                    else
+                        break;
+                }
+                if (s === expandingProperty)
+                    res.push(s);
+                return res.join('.');
             },
             registerValidator: _rv.register,
             getValidator: _rv.get,
@@ -12055,16 +12525,16 @@ var Phoenix;
                 if (config.datasets) {
                     var datasets = Object.keys(config.datasets);
                     if (datasets.length) {
-                        var res_2 = [];
+                        var res_3 = [];
                         datasets.forEach(function (dsName) {
                             var ds = config.datasets[dsName];
                             if (onlyAutoOpen && ds.$autoOpen === false)
                                 return;
                             var dc = $.extend({}, ds, true);
                             dc.name = dsName;
-                            res_2.push(dc);
+                            res_3.push(dc);
                         });
-                        return res_2;
+                        return res_3;
                     }
                 }
                 return null;
@@ -12094,7 +12564,7 @@ var Phoenix;
                 }
                 return main;
             },
-            datasetsAsPromise: function (ds, transform) {
+            datasetsAsPromise: function (ds, transform, context) {
                 return new _utils.Promise(function (resolve, reject) {
                     var result = {};
                     _dom.processing(true);
@@ -12117,7 +12587,7 @@ var Phoenix;
                     if (_dutils.isCreateOrUpdate(main)) {
                         main.$create = main.$create || {};
                     }
-                    _dsPlugin.executeDatasets(ds, {}, result, {}, function (sended, ex) {
+                    _dsPlugin.executeDatasets(ds, context || {}, result, {}, function (sended, ex) {
                         _dom.processing(false);
                         if (!ex) {
                             var mainData_1 = $.extend({}, result[main.name] || {});
@@ -12176,7 +12646,7 @@ var Phoenix;
             loadMainData: function (config, onlyAutoOpen) {
                 var ds = _dutils.extractDatasets(config, onlyAutoOpen);
                 if (ds && ds.length)
-                    return _dutils.datasetsAsPromise(ds, config.transform);
+                    return _dutils.datasetsAsPromise(ds, config.transform, config.context);
                 return _utils.Promise.resolve(null);
             },
             dsConfig: function (datasets, prop, isQuery) {
@@ -12231,7 +12701,7 @@ var Phoenix;
     var Observable;
     (function (Observable) {
         var _sutils = Observable.SchemaUtils;
-        var BaseState = (function () {
+        var BaseState = /** @class */ (function () {
             function BaseState(parent, prop, value) {
             }
             BaseState.prototype.destroy = function () {
@@ -12287,7 +12757,7 @@ var Phoenix;
         }());
         Observable.BaseState = BaseState;
         ;
-        var DataStates = (function (_super) {
+        var DataStates = /** @class */ (function (_super) {
             __extends(DataStates, _super);
             function DataStates(parent, prop, value) {
                 var _this = _super.call(this, parent, prop, value) || this;
@@ -12305,7 +12775,7 @@ var Phoenix;
             return DataStates;
         }(BaseState));
         Observable.DataStates = DataStates;
-        var LinkStates = (function (_super) {
+        var LinkStates = /** @class */ (function (_super) {
             __extends(LinkStates, _super);
             function LinkStates(parent, prop, value) {
                 var _this = _super.call(this, parent, prop, value) || this;
@@ -12321,6 +12791,7 @@ var Phoenix;
 /// <reference path="./schema.data.ts" />
 var Phoenix;
 (function (Phoenix) {
+    var _utils = Phoenix.utils;
     var Observable;
     (function (Observable) {
         var _errorsUtils = {
@@ -12361,9 +12832,10 @@ var Phoenix;
                 }
             }
         };
-        var Errors = (function () {
+        var Errors = /** @class */ (function () {
             function Errors(parent, prop, value) {
                 this._init(parent, prop, value);
+                this.isArray = true;
             }
             Errors.prototype.destroy = function () {
                 var that = this;
@@ -12373,6 +12845,35 @@ var Phoenix;
             };
             Errors.prototype.errors = function () {
                 return this._errors.slice();
+            };
+            Object.defineProperty(Errors.prototype, "length", {
+                get: function () {
+                    return this._errors ? this._errors.length : 0;
+                },
+                enumerable: true,
+                configurable: true
+            });
+            Errors.prototype.find = function (prop) {
+                var keys = [];
+                for (var _i = 1; _i < arguments.length; _i++) {
+                    keys[_i - 1] = arguments[_i];
+                }
+                if (!this._errors)
+                    return null;
+                var props = prop.split(','), ll = props.length;
+                for (var i = 0, len = this._errors.length; i < len; i++) {
+                    var found = true;
+                    var item = this._errors[i];
+                    for (var j = 0; j < ll; j++) {
+                        if (keys[j] !== item[props[j]]) {
+                            found = false;
+                            break;
+                        }
+                    }
+                    if (found)
+                        return item;
+                }
+                return null;
             };
             Errors.prototype.clear = function (notify) {
                 var that = this;
@@ -12401,26 +12902,55 @@ var Phoenix;
                     }
                 }
             };
+            Errors.prototype.rmvErrorById = function (id) {
+                var that = this;
+                if (that._errors && that._errors.length) {
+                    var errors = that._errors;
+                    var ii = errors.findIndex(function (error) {
+                        return error.id === id;
+                    });
+                    if (ii >= 0) {
+                        that._errors.splice(ii, 1);
+                        that.notify();
+                    }
+                }
+            };
             Errors.prototype.addErrors = function (errors) {
                 var that = this;
-                that._errors = errors || [];
+                that._errors = that._errors || [];
                 if (errors && errors.length) {
+                    errors.forEach(function (error) {
+                        error.id = error.id || _utils.allocUuid();
+                    });
                     that._errors = that._errors.concat(errors);
-                    that._errors = errors || [];
                     that.notify();
                 }
             };
-            Errors.prototype.addError = function (message) {
+            Errors.prototype.push = function (error) {
                 var that = this;
-                that.addErrors([{ severity: "error", message: message }]);
+                that.addErrors([error]);
             };
-            Errors.prototype.addSuccess = function (message) {
+            Errors.prototype.remove = function (error) {
                 var that = this;
-                that.addErrors([{ severity: "success", message: message, timeout: 2 }]);
+                if (that._errors) {
+                    var ii = that._errors.indexOf(error);
+                    if (ii >= 0) {
+                        that._errors.splice(ii, 1);
+                        that.notify();
+                    }
+                }
             };
-            Errors.prototype.addWarning = function (message, add) {
+            Errors.prototype.addError = function (message, id) {
                 var that = this;
-                that.addErrors([{ severity: "warning", message: message, timeout: 2 }]);
+                that.addErrors([{ severity: "error", message: message, id: id || _utils.allocUuid() }]);
+            };
+            Errors.prototype.addSuccess = function (message, id) {
+                var that = this;
+                that.addErrors([{ severity: "success", message: message, timeout: 2, id: id || _utils.allocUuid() }]);
+            };
+            Errors.prototype.addWarning = function (message, id) {
+                var that = this;
+                that.addErrors([{ severity: "warning", message: message, timeout: 2, id: id || _utils.allocUuid() }]);
             };
             Errors.prototype.notify = function () {
                 var that = this;
@@ -12447,7 +12977,7 @@ var Phoenix;
     var Observable;
     (function (Observable) {
         var _utils = Phoenix.utils, _dom = Phoenix.dom, _sutils = Observable.SchemaUtils, _dutils = Observable.DataUtils, _dsPlugin = Phoenix.DatasetPlugin;
-        var QueryableDataSource = (function () {
+        var QueryableDataSource = /** @class */ (function () {
             function QueryableDataSource(dsConfig, model) {
                 if (dsConfig.$type !== 'odata')
                     throw new Error('Only odata sources are supported.');
@@ -12683,7 +13213,8 @@ var Phoenix;
                             delete that._config.$params.$skip;
                         }
                     }
-                    _dsPlugin.executeDatasets([that._config], {}, result, {}, function (sended, ex) {
+                    ;
+                    _dsPlugin.executeDatasets([that._config], that._model.parent.model(true) || {}, result, {}, function (sended, ex) {
                         _dom.processing(false);
                         if (!ex) {
                             var ldata = result.data;
@@ -12757,7 +13288,7 @@ var Phoenix;
                     canRun = rule.conditionCode(inst, ctx, null);
                 if (canRun) {
                     var root = inst.getRootModel();
-                    _utils.logRule(root._callStack ? root._callStack.length : 0, rule, trigger);
+                    _utils.logRule(root._callStack ? root._callStack.length : 0, rule, trigger, inst.className || '');
                     rule.code(inst, ctx, null);
                 }
             }
@@ -12786,23 +13317,26 @@ var Phoenix;
                 sum: function (list, propertyName) {
                     var res = 0;
                     list && list.forEach(function (item, index, level) {
-                        res += item[propertyName];
+                        res += (item[propertyName] || 0);
                     }, '');
                     return res;
                 },
                 safeDivide: function (dividend, divisor, def) {
+                    divisor = divisor || 0;
+                    dividend = dividend || 0;
                     var td = parseFloat(divisor.toFixed(8));
                     if (td === 0)
-                        return def;
+                        return def || 0;
                     return dividend / divisor;
                 },
                 partition: function (total, list, dst, src) {
                     var value = -1;
                     var mindex = -1;
+                    total = total || 0;
                     var rest = total;
                     var tsrc = 0;
                     list.forEach(function (item, index, level) {
-                        var cv = item[src];
+                        var cv = item[src] || 0;
                         if (Math.abs(cv) > value) {
                             value = Math.abs(cv);
                             mindex = index;
@@ -12812,13 +13346,14 @@ var Phoenix;
                     tsrc = parseFloat(tsrc.toFixed(8));
                     if (tsrc !== 0 && mindex >= 0) {
                         list.forEach(function (item, index, level) {
-                            item[dst] = total * item[src] / tsrc;
+                            var d = item[src] || 0;
+                            item[dst] = total * d / tsrc;
                             rest = rest - item[dst];
                         });
                         rest = parseFloat(rest.toFixed(8));
                         if (rest !== 0) {
                             var mItem = list.get(mindex);
-                            mItem[dst] = mItem[dst] + rest;
+                            mItem[dst] = (mItem[dst] || 0) + rest;
                         }
                     }
                 },
@@ -12878,13 +13413,14 @@ var Phoenix;
                 var ctx_2 = _createContext(inst.getRootModel());
                 rules.forEach(function (rule) { return _execPropagationRule(rootSchema.rulesMap[rule], inst, ctx_2, '$events.saving'); });
             }
-        }, _execPropChangeRules = function (root, params, options) {
+        }, _patchErrorMessage = function (message, ctx, instance) {
+            return _utils.execAngularExpression(message, { o: instance || {}, ctx: ctx });
+        }, _execPropChangeRules = function (root, propertyName, params, options) {
             root.callStack = root.callStack || [];
-            var cp = _extractPropertyPath(params.source, params);
+            var cp = _extractPropertyPath(propertyName, params);
             root.callStack.push(cp);
             try {
                 if (root.$schema.rules && ((root.$schema.rules.validation && options.validations) || (root.$schema.rules.propagation && options.propagations))) {
-                    var propertyName = params.source;
                     var segments = propertyName.split('.');
                     var sp_1 = segments.pop();
                     if (sp_1.charAt(0) === '$')
@@ -12915,18 +13451,18 @@ var Phoenix;
                                 if (rule.conditionCode)
                                     canRun = rule.conditionCode(inst_1, ctx_3, null);
                                 if (canRun)
-                                    _utils.logRule(root.callStack ? root.callStack.length : 0, rule, trigger);
+                                    _utils.logRule(root.callStack ? root.callStack.length : 0, rule, trigger, inst_1.className || '');
                                 if (!canRun || rule.code(inst_1, ctx_3, null)) {
                                     if (addToRoot)
-                                        root.rmvError(rule.errorMsg);
+                                        root.rmvError(_patchErrorMessage(rule.errorMsg, ctx_3, inst_1));
                                     else
-                                        pp_1.$errors[sp_1].rmvError(rule.errorMsg);
+                                        pp_1.$errors[sp_1].rmvError(_patchErrorMessage(rule.errorMsg, ctx_3, inst_1));
                                 }
                                 else {
                                     if (addToRoot)
-                                        root.addError(rule.errorMsg);
+                                        root.addError(_patchErrorMessage(rule.errorMsg, ctx_3, inst_1));
                                     else
-                                        pp_1.$errors[sp_1].addError(rule.errorMsg);
+                                        pp_1.$errors[sp_1].addError(_patchErrorMessage(rule.errorMsg, ctx_3, inst_1));
                                 }
                             }
                             catch (e) {
@@ -12989,20 +13525,20 @@ var Phoenix;
                         if (rule.conditionCode)
                             canRun = rule.conditionCode(inst, ctx, null);
                         if (canRun) {
-                            _utils.logRule(root.callStack ? root.callStack.length : 0, rule, propName);
+                            _utils.logRule(root.callStack ? root.callStack.length : 0, rule, propName, inst.className || '');
                         }
                         if (!canRun || rule.code(inst, ctx, null)) {
                             if (addToRoot)
-                                root.rmvError(rule.errorMsg);
+                                root.rmvError(_patchErrorMessage(rule.errorMsg, ctx, inst));
                             else
-                                inst.$errors[propName].rmvError(rule.errorMsg);
+                                inst.$errors[propName].rmvError(_patchErrorMessage(rule.errorMsg, ctx, inst));
                         }
                         else {
                             hasErrors = true;
                             if (addToRoot)
-                                root.addError(rule.errorMsg);
+                                root.addError(_patchErrorMessage(rule.errorMsg, ctx, inst));
                             else
-                                inst.$errors[propName].addError(rule.errorMsg);
+                                inst.$errors[propName].addError(_patchErrorMessage(rule.errorMsg, ctx, inst));
                         }
                     }
                     catch (e) {
@@ -13030,6 +13566,7 @@ var Phoenix;
 (function (Phoenix) {
     var Observable;
     (function (Observable) {
+        var JSONJPATCH_PROPERTY = 0, JSONJPATCH_METHOD = 1, JSONJPATCH_STATES = 2, JSONJPATCH_ERRORS = 3;
         var _p = Phoenix, _application = _p.application, _observable = Observable, _rules = _p.rules, _su = _observable.SchemaUtils, _du = _observable.DataUtils, _utils = Phoenix.utils, _jp = _p.jsonpatch, _rules = _p.rules, _ajax = Phoenix.ajax, _locale = Phoenix.locale, _ulocale = Phoenix.ulocale, _localeSchema = Phoenix.locale.schema, _createProp = function (obj, propertyName) {
             var rs = obj._rootParent._schema;
             var cs = obj._schema.properties[propertyName];
@@ -13051,7 +13588,7 @@ var Phoenix;
                     var oldValue = that._model[propertyName];
                     if (oldValue !== value || !that._initialized[propertyName]) {
                         var schema = that._schema.properties[propertyName];
-                        var bcRes = that._beforeChange(propertyName, schema, oldValue, value, !that._initialized[propertyName]);
+                        var bcRes = that._beforeChange(that, propertyName, schema, oldValue, value, !that._initialized[propertyName]);
                         value = bcRes.value;
                         that._initialized[propertyName] = true;
                         if (bcRes.continue) {
@@ -13064,28 +13601,28 @@ var Phoenix;
                                 e.clear(true);
                             if (_su.isCompositionRef(schema, rootSchema)) {
                                 that._setRefChild(propertyName, oldValue, value, {});
-                                //OK
-                                that.notifyChanged(propertyName, oldValue, value, 'propchange', { source: that.getPropertyPath(propertyName), instance: that }, true);
-                                that.notifyStateChanged(propertyName, {});
+                                //OK2
+                                that.notifyChanged(propertyName, oldValue, value, 'propchange', { instance: that, checkChildren: true }, true);
+                                that.notifyStateChanged(propertyName, { checkChildren: true });
                             }
                             else if (_su.isCompositionList(schema, rootSchema, false)) {
-                                that._setListChild(propertyName, oldValue, value, 'propchange', {});
-                                //OK
-                                that.notifyChanged(propertyName, oldValue, value, 'propchange', { source: that.getPropertyPath(propertyName), instance: that }, true);
-                                that.notifyStateChanged(propertyName, {});
+                                that._setListChild(propertyName, oldValue, value, 'propchange', { checkChildren: true });
+                                //OK2
+                                that.notifyChanged(propertyName, oldValue, value, 'propchange', { instance: that }, true);
+                                that.notifyStateChanged(propertyName, { checkChildren: true });
                             }
                             else if (_su.isSimpleList(schema, rootSchema)) {
                                 that._setSimpleListChild(propertyName, oldValue, value, 'propchange', {});
-                                //OK
-                                that.notifyChanged(propertyName, oldValue, value, 'propchange', { source: that.getPropertyPath(propertyName), instance: that }, true);
-                                that.notifyStateChanged(propertyName, {});
+                                //OK2
+                                that.notifyChanged(propertyName, oldValue, value, 'propchange', { instance: that }, true);
+                                that.notifyStateChanged(propertyName, { checkChildren: true });
                             }
                             else if (_su.isList(schema, rootSchema)) {
                                 that[propertyName].setModel(value);
                             }
                             else {
-                                //OK
-                                that.notifyChanged(propertyName, oldValue, value, 'propchange', { source: that.getPropertyPath(propertyName), instance: that }, true);
+                                //OK2
+                                that.notifyChanged(propertyName, oldValue, value, 'propchange', { instance: that }, true);
                             }
                         }
                     }
@@ -13159,15 +13696,57 @@ var Phoenix;
             getState: function (path, model, params) {
                 return model.getState(path, params);
             },
+            _segment2Id: function (segment) {
+                var id = parseInt(segment, 10);
+                if ((id + '') !== segment)
+                    id = segment;
+                return id;
+            },
+            _resolveJSONPatchSegment: function (segment, value, useId) {
+                if (value.isArray) {
+                    var id = _dutils._segment2Id(segment);
+                    return { value: value.find('id', id), useId: useId };
+                }
+                return { value: value[segment], useId: useId };
+            },
+            getJSONPatchParent: function (segment, value) {
+                var segments = segment.split('/');
+                segments.shift();
+                var res = { lastSegment: segments.pop(), value: null, type: JSONJPATCH_PROPERTY };
+                if (segment.indexOf('$states') >= 0) {
+                    res.type = JSONJPATCH_STATES;
+                }
+                else if (segment.indexOf('$errors') >= 0) {
+                    res.type = JSONJPATCH_ERRORS;
+                }
+                else if (segment.indexOf('$links') >= 0) {
+                    res.type = JSONJPATCH_METHOD;
+                    return res;
+                }
+                var cv = value;
+                var useId = true;
+                while (segments.length) {
+                    var p = _dutils._resolveJSONPatchSegment(segments.shift(), cv, useId);
+                    useId = p.useId;
+                    cv = p.value;
+                    if (!cv)
+                        break;
+                }
+                if (cv) {
+                    var nv = cv[res.lastSegment];
+                    if (nv && nv.isArray) {
+                        res.lastSegment = '';
+                        cv = nv;
+                    }
+                }
+                res.value = cv;
+                return res;
+            },
             _resolveSegment: function (segment, path, value, params, val, isSet) {
                 if (segment === '$item') {
                     if (params) {
                         var p = params[path];
-                        if (p && p.$index !== undefined) {
-                            if (isSet)
-                                value[p.$index] = val;
-                            return value.get(p.$index);
-                        }
+                        return p;
                     }
                 }
                 else if (segment === '$selected') {
@@ -13195,9 +13774,10 @@ var Phoenix;
                 return undefined;
             }
         };
-        var DataListCore = (function () {
-            function DataListCore(schema, parent, path, value, arrayParent, locale, isQuery) {
+        var DataListCore = /** @class */ (function () {
+            function DataListCore(schema, parent, path, value, arrayParent, locale, isQuery, parentSelected) {
                 var that = this;
+                that.isArray = true;
                 that._map = {};
                 that._expanded = false;
                 that.isQuery = isQuery;
@@ -13209,40 +13789,100 @@ var Phoenix;
                 that._items = [];
                 that._path = path;
                 that._parent = parent;
+                that._parentSelected = parentSelected;
                 that._locale = locale;
                 that._arrayParent = arrayParent;
                 that._rootSchema = that._parent.getRootModel().getSchema('');
-                that._schema = schema;
-                that._schemaItems = _su.expand$Ref(schema.items, that._rootSchema);
+                that._schema = _su.expand$Ref(schema, that._rootSchema);
+                that._schemaItems = _su.expand$Ref(that._schema.items, that._rootSchema);
                 that.frozen = false;
-                that._setModel(value, false);
+                that._setModel(value, true);
             }
+            Object.defineProperty(DataListCore.prototype, "schema", {
+                get: function () {
+                    var that = this;
+                    return that._schema;
+                },
+                enumerable: true,
+                configurable: true
+            });
+            Object.defineProperty(DataListCore.prototype, "path", {
+                get: function () {
+                    var that = this;
+                    return that._path;
+                },
+                enumerable: true,
+                configurable: true
+            });
             Object.defineProperty(DataListCore.prototype, "parent", {
                 get: function () {
-                    return this._parent;
+                    var that = this;
+                    return that._parent;
                 },
                 enumerable: true,
                 configurable: true
             });
             Object.defineProperty(DataListCore.prototype, "$selected", {
                 get: function () {
-                    return this._selected;
+                    var that = this;
+                    if (that._parentSelected)
+                        return that._parentSelected.$selected;
+                    else
+                        return this._selected;
                 },
                 set: function (value) {
-                    var that = this;
-                    if (that._selected !== value) {
-                        that._selected = value;
-                        if (that._parent) {
-                            that._parent.notifyStateChanged(that._path + '.$selected', {}); ///????
-                            //OK
-                            that._parent.notifyChanged(that._path + '.$selected', undefined, undefined, 'propchange', { source: that._parent.getPropertyPath(that._path + '.$selected'), instance: that._parent }, false);
-                        }
-                    }
+                    this._setSelected(value, true);
                 },
                 enumerable: true,
                 configurable: true
             });
-            DataListCore.prototype.pushSelected = function (item, persistent) {
+            DataListCore.prototype._setSelected = function (value, notify) {
+                var that = this;
+                if (that._parentSelected) {
+                    that._parentSelected._setSelected(value, notify);
+                }
+                else if (that._selected !== value) {
+                    var os = that._selected;
+                    that._selected = value;
+                    if (notify && that._parent) {
+                        that._parent.notifyChanged(that._path + '.$selected', os, that._selected, 'propchange', { checkChildren: true, instance: that._parent }, false);
+                        that._parent.notifyStateChanged(that._path + '.$selected', { checkChildren: true }); ///????
+                    }
+                }
+            };
+            DataListCore.prototype.enumSelectedItems = function (expandingProperty, cb) {
+            };
+            DataListCore.prototype.getJSONPatchPath = function (propertyName) {
+                var that = this;
+                propertyName = propertyName ? that.path + '.' + propertyName : that.path;
+                return that.parent.getJSONPatchPath(propertyName);
+            };
+            DataListCore.prototype.getFullPath = function () {
+                var that = this;
+                return that.parent.getPropertyPath(that.path);
+            };
+            DataListCore.prototype._rmvSelected = function (value, notify) {
+                var that = this;
+                if (that._parentSelected) {
+                    that._parentSelected._rmvSelected(value, notify);
+                }
+                else if (that._selected === value) {
+                    var ns_1 = null;
+                    var os = that._selected;
+                    if (that._schema && that._schema.children) {
+                        that.enumSelectedItems(that._schema.children, function (item) {
+                            if (!ns_1)
+                                ns_1 = item;
+                        });
+                    }
+                    that._selected = ns_1;
+                    if (notify && that._parent) {
+                        that._parent.notifyChanged(that._path + '.$selected', os, that._selected, 'propchange', { checkChildren: true, instance: that._parent }, false);
+                        that._parent.notifyStateChanged(that._path + '.$selected', { checkChildren: true });
+                    }
+                }
+            };
+            DataListCore.prototype.pushSelected = function (item, persistent, notify) {
                 var that = this;
                 var id = item.$id;
                 var ii = that._selectedUids.indexOf(id);
@@ -13254,12 +13894,21 @@ var Phoenix;
                     ii = that._selectedPks.indexOf(id);
                     if (ii < 0) {
                         that._selectedPks.push(id);
+                        if (notify) {
+                            // send selected
+                            if (that._schema.syncSelected && that.parent.execSyncAction(that.getJSONPatchPath() + '.$selected', JSON.stringify(that._selectedPks))) {
+                            }
+                        }
                     }
                 }
-                that.$selected = item;
+                that._setSelected(item, notify);
             };
             DataListCore.prototype.model = function (original) {
                 return this._getModel(original);
+            };
+            DataListCore.prototype.schemaModel = function () {
+                var that = this;
+                return that._model;
             };
             DataListCore.prototype._getModel = function (original) {
                 var that = this;
@@ -13279,11 +13928,9 @@ var Phoenix;
                     }
                 }
             };
-            DataListCore.prototype.removeSelected = function (item, persistent) {
+            DataListCore.prototype.removeSelected = function (item, persistent, notifySelectedChanged) {
                 var that = this;
                 var ii = that._selectedUids.indexOf(item.$id);
-                if (ii === that.$selected)
-                    that.$selected = null;
                 if (ii >= 0) {
                     that._selectedUids.splice(ii, 1);
                 }
@@ -13291,14 +13938,21 @@ var Phoenix;
                     var keys = _su.pkFields(that._schemaItems.primaryKey);
                     var id = _su.pk2Id(_su.extractPkValue(item, keys), keys);
                     ii = that._selectedPks.indexOf(id);
-                    if (ii >= 0)
+                    if (ii >= 0) {
                         that._selectedPks.splice(ii, 1);
+                        if (notifySelectedChanged) {
+                            // send selected
+                            if (that._schema.syncSelected && that.parent.execSyncAction(that.getJSONPatchPath() + '.$selected', JSON.stringify(that._selectedPks))) {
+                            }
+                        }
+                    }
                 }
+                that._rmvSelected(item, true);
             };
-            DataListCore.prototype.notifyChangedProperty = function (propName) {
+            DataListCore.prototype.notifyChangedProperty = function (operation) {
                 var that = this;
                 //used for propName = count/filter/pagination/sorting
-                that._parent.notifyChanged(that._path, undefined, undefined, propName, { source: that._parent.getPropertyPath(that._path + '.' + propName), instance: that._parent }, false);
+                that._parent.notifyChanged(that._path, undefined, undefined, operation, { instance: that._parent }, false);
             };
             DataListCore.prototype.addAjaxException = function (ex) {
                 var that = this;
@@ -13322,7 +13976,7 @@ var Phoenix;
             };
             DataListCore.prototype.addError = function (message) {
                 var that = this;
-                var errors = [{ severity: 'error', message: message }];
+                var errors = [{ severity: 'error', message: message, id: _utils.allocUuid() }];
                 that.addErrors(errors);
             };
             DataListCore.prototype.rmvError = function (message) {
@@ -13364,6 +14018,7 @@ var Phoenix;
                 var that = this;
                 that._parent = null;
                 that._arrayParent = null;
+                that._parentSelected = null;
                 that._destroyItems();
                 that._selectedPks = null;
                 that._model = null;
@@ -13395,22 +14050,14 @@ var Phoenix;
                 var that = this;
                 that._setModel(value, true);
                 //Ok
-                that._parent.notifyChanged(that._path, undefined, undefined, 'set', { source: that._parent.getPropertyPath(that._path), instance: that._parent }, false);
+                that._parent.notifyChanged(that._path, undefined, undefined, 'propchange', { instance: that._parent, checkChildren: true }, false);
                 that.notifyCountChanged();
-                that._parent.notifyStateChanged(that._path, {}); ///????
+                that._parent.notifyStateChanged(that._path, { checkChildren: true }); ///????
                 that.afterSetModel();
             };
             DataListCore.prototype.afterSetModel = function () {
                 var that = this;
                 that.$selected = null;
-            };
-            DataListCore.prototype.updateParams = function (item, prop, value, arrayPropName) {
-                var that = this;
-                arrayPropName = arrayPropName || '$item';
-                var ii = that._items.indexOf(item);
-                prop = (prop ? (arrayPropName + '.' + prop) : arrayPropName);
-                value[item.fullPath] = { $index: ii, $value: item };
-                return prop;
             };
             DataListCore.prototype.indexOf = function (value) {
                 return this._items.indexOf(value);
@@ -13435,21 +14082,21 @@ var Phoenix;
                 }
                 return null;
             };
-            DataListCore.prototype._expandForEach = function (cb, expandingProperty, level, index) {
+            DataListCore.prototype._expandForEach = function (cb, expandingProperty, level, index, noCheckExpanding) {
                 this._items.forEach(function (item) {
                     cb(item, index, level);
                     index++;
-                    var list = item[expandingProperty];
-                    if (list && list.$expand) {
-                        index = list._expandForEach(cb, expandingProperty, level + 1, index);
+                    var list = _utils.getValue(item, expandingProperty);
+                    if (list && (list.$expand || noCheckExpanding)) {
+                        index = list._expandForEach(cb, expandingProperty, level + 1, index, noCheckExpanding);
                     }
                 });
                 return index;
             };
-            DataListCore.prototype.forEach = function (cb, expandingProperty) {
+            DataListCore.prototype.forEach = function (cb, expandingProperty, noCheckExpanding) {
                 if (!expandingProperty)
                     return this._items.forEach(function (item, index) { return cb(item, index, 0); });
-                this._expandForEach(cb, expandingProperty, 0, 0);
+                this._expandForEach(cb, expandingProperty, 0, 0, noCheckExpanding);
             };
             DataListCore.prototype.get = function (index) { return this._items[index]; };
             Object.defineProperty(DataListCore.prototype, "$expand", {
@@ -13463,7 +14110,7 @@ var Phoenix;
                         that._expanded = value;
                         var nv = that._parent[that._path + Observable.EXPANDED_FIELD_NAME];
                         if (nv !== ov)
-                            that._parent.notifyChanged(that._path + Observable.EXPANDED_FIELD_NAME, ov, nv, 'propchange', { source: that._parent.getPropertyPath(that._path + Observable.EXPANDED_FIELD_NAME), instance: that._parent }, true);
+                            that._parent.notifyChanged(that._path + Observable.EXPANDED_FIELD_NAME, ov, nv, 'propchange', { instance: that._parent }, true);
                     }
                 },
                 enumerable: true,
@@ -13472,16 +14119,17 @@ var Phoenix;
             return DataListCore;
         }());
         Observable.DataListCore = DataListCore;
-        var DataListBase = (function (_super) {
+        var DataListBase = /** @class */ (function (_super) {
             __extends(DataListBase, _super);
             function DataListBase() {
-                return _super.apply(this, arguments) || this;
+                return _super !== null && _super.apply(this, arguments) || this;
             }
             DataListBase.prototype._fillItems = function () {
                 var that = this, keys = null;
                 that._map = {};
                 that._selectedUids = [];
-                that.$selected = null;
+                if (that._selected)
+                    that.$selected = null;
                 if (that._selectedPks.length) {
                     keys = _su.pkFields(that._schemaItems.primaryKey);
                 }
@@ -13496,7 +14144,9 @@ var Phoenix;
                         if (keys) {
                             var pkId = _su.pk2Id(_su.extractPkValue(item, keys), keys);
                             if (that._selectedPks.lastIndexOf(pkId) >= 0) {
-                                citem.internalSetSelected(true, false);
+                                if (citem.internalSetSelected(true)) {
+                                    citem.notifyChanged('$select', false, true, 'propchange', { instance: citem }, true);
+                                }
                                 addItem = true;
                             }
                             else if (citem.$select)
@@ -13504,21 +14154,24 @@ var Phoenix;
                         }
                         else if (citem.$select)
                             addItem = true;
-                        if (addItem)
-                            that.pushSelected(citem, false);
+                        if (addItem) {
+                            that.pushSelected(citem, false, false);
+                        }
                     });
             };
-            DataListBase.prototype._updateSelecting = function (multiSelect, expandingProperty, list) {
+            DataListBase.prototype._updateSelecting = function (multiSelect, expandingProperty, list, root) {
                 var that = this;
                 if (multiSelect) {
                     that._selectedUids.forEach(function (sel) {
                         var ii = that._map[sel];
                         if (ii)
-                            that.pushSelected(ii, true);
+                            that.pushSelected(ii, true, true);
                     });
                 }
                 else {
+                    // Send selected
                     that._selectedPks = [];
+                    that._selected = null;
                     if (that._selectedUids.length) {
                         var sel = that._selectedUids.slice(0);
                         if (!list.length)
@@ -13528,13 +14181,19 @@ var Phoenix;
                             if (ii)
                                 ii.$select = false;
                         });
+                        if (list.length && list[0]) {
+                            var ii = that._map[list[0]];
+                            list[0] = null;
+                            if (ii)
+                                that.pushSelected(ii, true, true);
+                        }
                     }
                 }
                 if (expandingProperty) {
                     that._items.forEach(function (item) {
-                        var elist = item[expandingProperty];
+                        var elist = _utils.getValue(item, expandingProperty);
                         if (elist)
-                            elist._updateSelecting(multiSelect, expandingProperty, list);
+                            elist._updateSelecting(multiSelect, expandingProperty, list, false);
                     }, null);
                 }
             };
@@ -13545,7 +14204,7 @@ var Phoenix;
                 });
             };
             DataListBase.prototype.updateSelecting = function (multiSelect, expandingProperty) {
-                this._updateSelecting(multiSelect, expandingProperty, []);
+                this._updateSelecting(multiSelect, expandingProperty, [], true);
             };
             DataListBase.prototype.enumSelectedItems = function (expandingProperty, cb) {
                 var that = this;
@@ -13581,8 +14240,8 @@ var Phoenix;
                 else {
                     that._enumSelected(null, cb);
                     that._items.forEach(function (item) {
-                        var list = item[expandingProperty];
-                        if (list && list.$expand)
+                        var list = _utils.getValue(item, expandingProperty);
+                        if (list && list.length)
                             list._enumSelected(expandingProperty, cb);
                     });
                 }
@@ -13596,24 +14255,32 @@ var Phoenix;
                         if (multiSelect) {
                             item.$select = true;
                             if (expandingProperty && selectChildren) {
-                                var list = item[expandingProperty];
+                                var list = _utils.getValue(item, expandingProperty);
                                 if (list)
                                     list._enumChildren(expandingProperty, function (ii) { ii.$select = true; });
                             }
                         }
                         else {
+                            var selList_1 = [];
                             that._enumSelected(expandingProperty, function (parent, ii) {
                                 if (parent && !ii) {
                                     parent._selectedUids = [];
                                 }
                                 else {
-                                    ii.internalSetSelected(false, true);
+                                    if (ii.internalSetSelected(false)) {
+                                        selList_1.push({ item: ii, value: false });
+                                    }
                                 }
                             });
-                            item.internalSetSelected(true, true);
+                            if (item.internalSetSelected(true)) {
+                                selList_1.push({ item: item, value: true });
+                            }
                             var pa = item._arrayParent;
                             if (pa)
-                                pa.pushSelected(item, false);
+                                pa.pushSelected(item, false, true);
+                            selList_1.forEach(function (citem) {
+                                citem.item.notifyChanged('$select', !citem.value, citem.value, 'propchange', { instance: citem.item }, true);
+                            });
                         }
                     }
                 }
@@ -13622,16 +14289,19 @@ var Phoenix;
                         if (multiSelect) {
                             item.$select = false;
                             if (expandingProperty && selectChildren) {
-                                var list = item[expandingProperty];
+                                var list = _utils.getValue(item, expandingProperty);
                                 if (list)
                                     list._enumChildren(expandingProperty, function (ii) { ii.$select = false; });
                             }
                         }
                         else {
-                            item.internalSetSelected(false, true);
+                            var doNotify = item.internalSetSelected(false, true);
                             var pa = item._arrayParent;
                             if (pa)
-                                that.removeSelected(item, false);
+                                that.removeSelected(item, false, true);
+                            if (doNotify) {
+                                item.notifyChanged('$select', true, false, 'propchange', { instance: item }, true);
+                            }
                         }
                     }
                 }
@@ -13674,6 +14344,26 @@ var Phoenix;
                         that.selectItem(true, ns, false, '', false);
                 }
             };
+            DataListBase.prototype.sortByKey = function (values, key) {
+                var that = this;
+                if (!values || !values.length)
+                    return;
+                if (that._model && that._model.length) {
+                    var mm_1 = {};
+                    var im_1 = {};
+                    that._model.forEach(function (mi, index) {
+                        mm_1[mi[key]] = mi;
+                        im_1[mi[key]] = that._items[index];
+                    });
+                    that._model.splice(0, that._model.length);
+                    that._items.splice(0, that._items.length);
+                    values.forEach(function (value, index) {
+                        that._model.push(mm_1[value]);
+                        that._items.push(im_1[value]);
+                    });
+                    that._parent.notifyChanged(that._path, undefined, undefined, 'propchange', { instance: that._parent, checkChildren: true }, false);
+                }
+            };
             DataListBase.prototype.findById = function (id) {
                 return this._map[id];
             };
@@ -13683,18 +14373,30 @@ var Phoenix;
                     value = that.findById(value);
                 return value ? that._items.indexOf(value) : null;
             };
-            DataListBase.prototype._beforeRemoveItem = function (item) {
+            DataListBase.prototype.$orderby = function (value) {
                 var that = this;
-                if (that.$selected === item)
-                    that.$selected = null;
+                var states = that.parent.$states[that.path];
+                if (value === undefined)
+                    return states.orderBy;
+                states.orderBy = value;
+                return states.orderBy;
+            };
+            DataListBase.prototype.$filter = function (value) {
+                //mongo db filter 
+                var that = this;
+                var states = that.parent.$states[that.path];
+                if (value === undefined)
+                    return states.filter;
+                states.filter = value;
+                return states.filter;
             };
             return DataListBase;
         }(DataListCore));
         Observable.DataListBase = DataListBase;
-        var QueryList = (function (_super) {
+        var QueryList = /** @class */ (function (_super) {
             __extends(QueryList, _super);
             function QueryList(parentSchema, schema, parent, path, value, pageSize, pageNumber, totalCount, arrayParent, locale) {
-                var _this = _super.call(this, schema, parent, path, value, arrayParent, locale, true) || this;
+                var _this = _super.call(this, schema, parent, path, value, arrayParent, locale, true, null) || this;
                 var that = _this;
                 var root = that._parent.getRootModel();
                 var cfg = _du.dsConfig(root.datasets, schema, true);
@@ -13833,10 +14535,10 @@ var Phoenix;
             return QueryList;
         }(DataListBase));
         Observable.QueryList = QueryList;
-        var CompositionList = (function (_super) {
+        var CompositionList = /** @class */ (function (_super) {
             __extends(CompositionList, _super);
             function CompositionList() {
-                return _super.apply(this, arguments) || this;
+                return _super !== null && _super.apply(this, arguments) || this;
             }
             CompositionList.prototype._destroyItems = function () {
                 _super.prototype._destroyItems.call(this);
@@ -13866,10 +14568,10 @@ var Phoenix;
             return CompositionList;
         }(DataListBase));
         Observable.CompositionList = CompositionList;
-        var SimpleCompositionList = (function (_super) {
+        var SimpleCompositionList = /** @class */ (function (_super) {
             __extends(SimpleCompositionList, _super);
             function SimpleCompositionList() {
-                return _super.apply(this, arguments) || this;
+                return _super !== null && _super.apply(this, arguments) || this;
             }
             SimpleCompositionList.prototype._destroyItems = function () {
                 _super.prototype._destroyItems.call(this);
@@ -13879,17 +14581,17 @@ var Phoenix;
             return SimpleCompositionList;
         }(DataListCore));
         Observable.SimpleCompositionList = SimpleCompositionList;
-        var SimpleTypeList = (function (_super) {
+        var SimpleTypeList = /** @class */ (function (_super) {
             __extends(SimpleTypeList, _super);
             function SimpleTypeList() {
-                return _super.apply(this, arguments) || this;
+                return _super !== null && _super.apply(this, arguments) || this;
             }
             SimpleTypeList.prototype.push = function (item) {
                 var that = this;
                 that._initModelInParent();
                 that._model.push(item);
                 that._items.push(item);
-                that._parent.notifyChanged(that._path, undefined, item, 'add', { $index: that._items.length - 1, $value: item, $id: item, source: that._parent.getPropertyPath(that._path), instance: that._parent }, false);
+                that._parent.notifyChanged(that._path, undefined, item, 'add', { $index: that._items.length - 1, $value: item, $id: item, instance: that._parent }, false);
                 that.notifyCountChanged();
             };
             SimpleTypeList.prototype.splice = function (start, deleteCount, item) {
@@ -13901,7 +14603,7 @@ var Phoenix;
                 item.$create = true;
                 that._model.splice(start, deleteCount, item);
                 that._items.splice(start, deleteCount, item);
-                that._parent.notifyChanged(that._path, undefined, item, 'add', { $index: start, $value: item, $id: item, source: that._parent.getPropertyPath(that._path), instance: that._parent }, false);
+                that._parent.notifyChanged(that._path, undefined, item, 'add', { method: true, change: true, $index: start, $value: item, $id: item, instance: that._parent }, false);
                 that.notifyCountChanged();
             };
             SimpleTypeList.prototype.remove = function (item) {
@@ -13910,17 +14612,17 @@ var Phoenix;
                 if (ii >= 0) {
                     that._items.splice(ii, 1);
                     that._model.splice(ii, 1);
-                    that._parent.notifyChanged(that._path, undefined, item, 'remove', { $index: ii, $value: item, $id: item, source: that._parent.getPropertyPath(that._path), instance: that._parent }, false);
+                    that._parent.notifyChanged(that._path, undefined, item, 'remove', { method: true, change: true, $index: ii, $value: item, $id: item, instance: that._parent }, false);
                     that.notifyCountChanged();
                 }
             };
             return SimpleTypeList;
         }(SimpleCompositionList));
         Observable.SimpleTypeList = SimpleTypeList;
-        var DataList = (function (_super) {
+        var DataList = /** @class */ (function (_super) {
             __extends(DataList, _super);
-            function DataList(schema, parent, path, value, arrayParent, locale) {
-                var _this = _super.call(this, schema, parent, path, value, arrayParent, locale, false) || this;
+            function DataList(schema, parent, path, value, arrayParent, locale, parentSelected) {
+                var _this = _super.call(this, schema, parent, path, value, arrayParent, locale, false, parentSelected) || this;
                 var that = _this;
                 that._createNewItem(false, true);
                 return _this;
@@ -13930,10 +14632,31 @@ var Phoenix;
                 //let o = _su.init(that._schemaItems, that._rootSchema, null, { $create: true });
                 var o = { $create: true };
                 that._new = new Data(that._schemaItems, that._parent, that._path + '.$new', o, null, true, that._locale, null);
-                //Ok
-                that._new.notifyChanged('', undefined, o, 'propchange', { source: that._parent.getPropertyPath(that._path + '.$new'), instance: that._new }, false);
-                that._new.notifyStateChanged('', {});
+                that._new.notifyChanged('', undefined, o, 'propchange', { instance: that._new, checkChildren: true }, false);
+                that._new.notifyStateChanged('', { checkChildren: true });
             };
+            Object.defineProperty(DataList.prototype, "filter", {
+                get: function () {
+                    var that = this;
+                    var sFilter = that.$filter();
+                    if (!sFilter)
+                        return null;
+                    return JSON.parse(sFilter);
+                },
+                set: function (value) {
+                    var that = this;
+                    var sFilter = (value ? JSON.stringify(value) : '');
+                    var cFilter = that.$filter() || '';
+                    if (sFilter === cFilter)
+                        return;
+                    if (that.parent.execSyncAction(that.getJSONPatchPath() + '.$filter', sFilter, sFilter)) {
+                        return;
+                    }
+                    that.$filter(sFilter);
+                },
+                enumerable: true,
+                configurable: true
+            });
             DataList.prototype._createNewItem = function (init, define) {
                 var that = this;
                 if (define) {
@@ -13949,9 +14672,9 @@ var Phoenix;
                             if (!obj._new)
                                 obj._initNew();
                             obj._new._setModel(value, true);
-                            //OK 
-                            obj._new.notifyChanged('', undefined, value, 'propchange', { source: obj._parent.getPropertyPath(that._path + '.$new'), instance: obj._new });
-                            obj._new.notifyStateChanged('', {});
+                            //OK TODO $new
+                            obj._new.notifyChanged('', undefined, value, 'propchange', { instance: obj._new });
+                            obj._new.notifyStateChanged('', { checkChildren: true });
                         },
                         enumerable: true
                     });
@@ -13989,7 +14712,7 @@ var Phoenix;
                     return;
                 if (!that._new.validate())
                     return;
-                var model = that._new._getModel(false);
+                var model = that._new._getModel(false, true);
                 if (that._schemaItems.primaryKey) {
                     var keys = _su.pkFields(that._schemaItems.primaryKey);
                     var pkValue = _su.extractPkValue(model, keys);
@@ -14051,10 +14774,11 @@ var Phoenix;
                     that._items.splice(start, deleteCount, ii);
                 that.frozen = ofv;
                 that._map[ii.$id] = ii;
-                if (ii.$select)
-                    that.pushSelected(ii, true);
-                that._parent.notifyChanged(that._path, undefined, item, 'add', { $index: isPush ? that._items.length - 1 : start, $id: ii.$id, $value: ii, source: that._parent.getPropertyPath(that._path), instance: that._parent }, false);
-                ii.notifyStateChanged('', {});
+                if (ii.$select) {
+                    that.pushSelected(ii, true, true);
+                }
+                that._parent.notifyChanged(that._path, undefined, item, 'add', { method: true, change: true, $index: isPush ? that._items.length - 1 : start, $id: ii.$id, $value: ii, source: that._parent.getPropertyPath(that._path), instance: that._parent }, false);
+                ii.notifyStateChanged('', { checkChildren: true });
             };
             DataList.prototype.remove = function (item) {
                 var that = this;
@@ -14065,27 +14789,29 @@ var Phoenix;
                 that.frozen = true;
                 var ii = that._items.indexOf(item);
                 var id = item.$id;
-                that._beforeRemoveItem(item);
                 if (ii >= 0) {
                     removed = item.model();
                     notify = true;
                     that._items.splice(ii, 1);
                     that._model.splice(ii, 1);
-                    that.removeSelected(item, true);
+                    if (!ofv)
+                        that.frozen = ofv;
+                    that.removeSelected(item, true, false);
+                    that.frozen = true;
                     item.destroy();
                 }
                 that.frozen = ofv;
                 delete that._map[id];
                 if (notify) {
-                    var path = (that._path ? that._path + '.' : '') + '$item';
-                    that._parent.notifyChanged(that._path, undefined, item, 'remove', { $index: ii, $value: removed, $id: id, source: that._parent.getPropertyPath(that._path), instance: that._parent }, false);
+                    that._parent.notifyChanged(that._path, undefined, item, 'remove', { mmethod: true, change: true, $index: ii, $value: removed, $id: id, instance: that._parent }, false);
+                    var path = (that._path ? that._path + '.' : '') + '$item'; // ???
                     that._parent.notifyStateChanged(path, {}); ///????
                 }
             };
             return DataList;
         }(CompositionList));
         Observable.DataList = DataList;
-        var Data = (function () {
+        var Data = /** @class */ (function () {
             function Data(schema, parent, path, value, arrayParent, frozen, locale, datasets, transform, designMode) {
                 var that = this;
                 that._rootParent = parent ? parent._rootParent : that;
@@ -14127,11 +14853,11 @@ var Phoenix;
                 if (that === that._rootParent) {
                     that._rootParent.$create = value ? (value.$create || false) : false;
                 }
-                that._setModel(value, false);
+                that._setModel(value, true);
                 that.frozen = false;
                 if (!that._parent) {
                     that.notifyChanged('*', undefined, value, 'propchange', { source: '' }, false);
-                    that.notifyStateChanged('*', {});
+                    that.notifyStateChanged('*', { checkChildren: true });
                 }
                 _rules.execInitRules(that);
             }
@@ -14142,11 +14868,41 @@ var Phoenix;
                 enumerable: true,
                 configurable: true
             });
-            Data.prototype.getPropertyPath = function (propertyName) {
+            Object.defineProperty(Data.prototype, "owner", {
+                get: function () {
+                    var that = this;
+                    return that._arrayParent ? that._arrayParent : that._parent;
+                },
+                enumerable: true,
+                configurable: true
+            });
+            Data.prototype.getJSONPatchPath = function (propertyName) {
+                var that = this;
+                if (!that.parent)
+                    return propertyName;
+                if (that._arrayParent) {
+                    return that._arrayParent.getJSONPatchPath(that._model.id + (propertyName ? '.' + propertyName : ''));
+                }
+                else {
+                    return that.parent.getJSONPatchPath(propertyName ? propertyName + '.' + that._path : that._path);
+                }
+            };
+            Data.prototype.getPropertyPath = function (propertyName, treePath) {
                 var that = this;
                 if (propertyName === undefined)
                     return that._fullPath;
-                return that._fullPath ? (that._fullPath + '.' + propertyName) : propertyName;
+                var cp = that._fullPath;
+                if (treePath && that._fullPath) {
+                    var segments = that._fullPath.split('.');
+                    var len = segments.length - 1;
+                    while (len > 0 && segments[len - 1] === treePath && segments[len] === '$selected') {
+                        segments.pop();
+                        segments.pop();
+                        len = len - 2;
+                    }
+                    cp = segments.join('.');
+                }
+                return cp ? (cp + '.' + propertyName) : propertyName;
             };
             Data.prototype.saveModel = function () {
                 var that = this;
@@ -14182,7 +14938,7 @@ var Phoenix;
                 that.frozen = false;
                 if (!that._parent) {
                     that.notifyChanged('*', undefined, value, 'propchange', { sourve: '' }, false);
-                    that.notifyStateChanged('*', {});
+                    that.notifyStateChanged('*', { checkChildren: true });
                 }
             };
             Data.prototype.update = function (value) {
@@ -14202,6 +14958,7 @@ var Phoenix;
                         that[name] = value[name];
                     }
                     else if (_su.isSimpleList(ss, rs)) {
+                        that[name] = value[name];
                     }
                     else if (_su.isList(ss, rs)) {
                         that[name] = value[name];
@@ -14218,7 +14975,7 @@ var Phoenix;
                         return that.onRefresh(options);
                     else {
                         return new _utils.Promise(function (resolve, reject) {
-                            _du.loadMainData({ datasets: that.datasets, transform: that.transform }, false).then(function (data) {
+                            _du.loadMainData({ datasets: that.datasets, transform: that.transform, context: that._parent.model(true) }, false).then(function (data) {
                                 that.update(data);
                                 resolve();
                             }).catch(function (ex) {
@@ -14331,7 +15088,7 @@ var Phoenix;
                     return;
                 var path = that.getPropertyPath(propertyName);
                 if (root.callStack.indexOf(path) >= 0) {
-                    _utils.logRule(root.callStack.length, 'Recursive rule detected: property: ' + path + ' - last rule canceled.', path);
+                    _utils.logRule(root.callStack.length, 'Recursive rule detected: property: ' + path + ' - last rule canceled.', path, '');
                     return true;
                 }
                 return false;
@@ -14352,12 +15109,13 @@ var Phoenix;
                 },
                 set: function (value) {
                     var that = this;
-                    if (that.internalSetSelected(value, true)) {
+                    if (that.internalSetSelected(value)) {
                         if (that._arrayParent) {
                             if (that._selected)
-                                that._arrayParent.pushSelected(that, true);
+                                that._arrayParent.pushSelected(that, true, true);
                             else
-                                that._arrayParent.removeSelected(that, true);
+                                that._arrayParent.removeSelected(that, true, true);
+                            that.notifyChanged('$select', !value, value, 'propchange', { source: that.getPropertyPath('$select'), instance: that }, true);
                         }
                     }
                 },
@@ -14385,7 +15143,7 @@ var Phoenix;
                 var res = false;
                 if (!expandingProperty)
                     return res;
-                var list = that[expandingProperty];
+                var list = _utils.getValue(that, expandingProperty);
                 if (list) {
                     list.$expand = !list.$expand;
                     res = list.$expand;
@@ -14394,7 +15152,8 @@ var Phoenix;
             };
             Data.prototype.enumVisibleChildren = function (expandingProperty, level, root, cb) {
                 var that = this;
-                var list = that[expandingProperty];
+                var list = _utils.getValue(that, expandingProperty);
+                ;
                 if (list && (list.$expand || root)) {
                     list._items.forEach(function (child) {
                         cb(child, level + 1);
@@ -14402,22 +15161,112 @@ var Phoenix;
                     });
                 }
             };
-            Data.prototype.internalSetSelected = function (value, notify) {
+            Data.prototype.internalSetSelected = function (value) {
                 var that = this;
                 if (that._selected !== value) {
                     that._selected = value;
-                    if (notify)
-                        that.notifyChanged('$select', !that._selected, value, 'propchange', { source: that.getPropertyPath('$select'), instance: that }, true);
                     return true;
                 }
                 return false;
             };
-            Data.prototype.$index = function (value) {
+            Object.defineProperty(Data.prototype, "$index", {
+                get: function () {
+                    var that = this;
+                    if (that._arrayParent) {
+                        return Math.max(that._arrayParent.indexOf(that), 0) + 1;
+                    }
+                    return 0;
+                },
+                enumerable: true,
+                configurable: true
+            });
+            Data.prototype.getJsonPachDelta = function (options) {
                 var that = this;
-                if (that._arrayParent) {
-                    return Math.max(that._arrayParent.indexOf(that), 0) + 1;
+                var mData = that.model(false);
+                var delta = _jp.compare(that._origModel, mData, options);
+                if (!delta || !delta.length)
+                    return null;
+                that._origModel = mData;
+                return delta;
+            };
+            Data.prototype.applyJsonPachDelta = function (delta) {
+                var that = this;
+                if (delta && delta.length) {
+                    that._updating = true;
+                    try {
+                        delta.forEach(function (item) {
+                            var parent = _dutils.getJSONPatchParent(item.path, that);
+                            if (parent.type === JSONJPATCH_METHOD)
+                                return;
+                            var p = parent.value;
+                            if (p.isArray && parent.type === JSONJPATCH_PROPERTY) {
+                                if (item.op === 'add') {
+                                    p.push(item.value);
+                                }
+                                else if (item.op === 'remove') {
+                                    var item_1 = p.find('id', _dutils._segment2Id(parent.lastSegment));
+                                    if (item_1)
+                                        p.remove(item_1);
+                                }
+                                else if (item.op === 'sort') {
+                                    p.sortByKey(item.value, 'id');
+                                }
+                            }
+                            else {
+                                if (parent.type === JSONJPATCH_ERRORS) {
+                                    if (parent.lastSegment === '$errors') {
+                                        if (!item.value) {
+                                            p.clearErrors(true);
+                                        }
+                                        else {
+                                            Object.keys(item.value).forEach(function (name) {
+                                                var error = p.$errors[name];
+                                                if (error) {
+                                                    error.clear(item.op === 'remove');
+                                                    if (item.op !== 'remove')
+                                                        error.addErrors(item.value[name]);
+                                                }
+                                            });
+                                        }
+                                    }
+                                    else {
+                                        if (p.isArray && !parent.lastSegment) {
+                                            if (item.op === 'add')
+                                                p.addErrors([item.value]);
+                                        }
+                                        else {
+                                            var error = p[parent.lastSegment];
+                                            if (error) {
+                                                if (item.op === 'remove')
+                                                    error.clear(true);
+                                                else {
+                                                    error.addErrors(item.value);
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                else if (parent.type === JSONJPATCH_STATES) {
+                                    if (item.op === 'remove')
+                                        p.$states[parent.lastSegment] = undefined;
+                                    else
+                                        p.$states[parent.lastSegment] = item.value;
+                                }
+                                else {
+                                    if (item.op === 'remove')
+                                        p[parent.lastSegment] = undefined;
+                                    else
+                                        p[parent.lastSegment] = item.value;
+                                }
+                            }
+                        });
+                    }
+                    finally {
+                        var mData = that.model(false);
+                        that._origModel = mData;
+                        that._updating = false;
+                    }
                 }
-                return 0;
             };
             Data.prototype.$save = function () {
                 var that = this;
@@ -14439,11 +15288,11 @@ var Phoenix;
                             that.addError('Primary key is missing. Check schema.');
                             return _utils.Promise.reject(null);
                         }
-                        var keys = _su.pkFields(that._schema.primaryKey);
-                        var pkValue = _su.extractPkValue(mData_1, keys);
-                        ds.$entityId = _su.entityId(pkValue);
                         var delta = void 0;
                         if (_application.useJSONPatch) {
+                            var keys = _su.pkFields(that._schema.primaryKey);
+                            var pkValue = _su.extractPkValue(mData_1, keys);
+                            ds.$params.$entityId = _su.entityId(pkValue);
                             delta = _jp.compare(that._origModel, mData_1, { useId: true });
                             if (!delta || !delta.length)
                                 return _utils.Promise.resolve(mData_1);
@@ -14458,6 +15307,7 @@ var Phoenix;
                     }
                     return new _utils.Promise(function (resolve, reject) {
                         _du.datasetAsPromise(ds, mData_1).then(function (data) {
+                            that.$create = false;
                             resolve();
                         }).catch(function (ex) {
                             that.addAjaxException(ex);
@@ -14507,33 +15357,40 @@ var Phoenix;
             };
             Data.prototype.setValue = function (path, value, params) {
                 var that = this;
-                var v = that, segments = path.split('.'), cpath = [], propertyName = segments.pop();
-                for (var i = 0, len = segments.length; i < len; i++) {
+                var v = that, segments = path.split('.');
+                var ii = params ? segments.lastIndexOf('$item') : -1;
+                var jj = params ? segments.lastIndexOf('$selected') : -1;
+                if (ii > 0) {
+                    if (jj > 0 && jj > ii)
+                        v = params[segments.slice(0, jj + 1).join('.')];
+                    else
+                        v = params[segments.slice(0, ii + 1).join('.')];
+                }
+                else if (jj > 0) {
+                    v = params[segments.slice(0, jj + 1).join('.')];
+                }
+                for (var i = Math.max(Math.max(ii + 1, jj + 1), 0), len = segments.length; i < len; i++) {
                     if (!v)
                         break;
-                    var s = segments[i];
-                    cpath.push(s);
-                    if (s.charAt(0) === '$')
-                        v = _dutils._resolveSegment(s, cpath.join('.'), v, params);
+                    if (i === len - 1)
+                        v[segments[i]] = value;
                     else
-                        v = v[s];
-                }
-                if (v) {
-                    if (propertyName.charAt(0) === '$' && !_su.isMetaProp(propertyName)) {
-                        cpath.push(propertyName);
-                        _dutils._resolveSegment(propertyName, cpath.join('.'), v, params, value, true);
-                    }
-                    else
-                        v[propertyName] = value;
+                        v = v[segments[i]];
                 }
             };
-            Data.prototype._getModel = function (original) {
+            Data.prototype._getModel = function (original, copyUx) {
                 var that = this;
                 if (original)
                     return that._model;
                 var rootModel = that.getRootModel();
                 var rootSchema = rootModel ? rootModel._schema : that._schema;
-                return _su.copyModel(that._schema, that._model, rootSchema);
+                return _su.copyModel(that._schema, that._model, rootSchema, copyUx);
+            };
+            Data.prototype.schemaModel = function (copyStates) {
+                var that = this;
+                var rootModel = that.getRootModel();
+                var rootSchema = rootModel ? rootModel._schema : that._schema;
+                return _su.copyModel(that._schema, that._model, rootSchema, true, copyStates);
             };
             Data.prototype.model = function (original) {
                 return this._getModel(original);
@@ -14548,25 +15405,24 @@ var Phoenix;
                 var that = this;
                 if (!path)
                     return { value: that, parentIsNull: false };
-                var v = that, segments = path.split('.'), propertyName = segments.pop(), cpath = [];
-                for (var i = 0, len = segments.length; i < len; i++) {
+                var v = that, segments = path.split('.');
+                var ii = params ? segments.lastIndexOf('$item') : -1;
+                var jj = params ? segments.lastIndexOf('$selected') : -1;
+                if (ii > 0) {
+                    if (jj > 0 && jj > ii)
+                        v = params[segments.slice(0, jj + 1).join('.')];
+                    else
+                        v = params[segments.slice(0, ii + 1).join('.')];
+                }
+                else if (jj > 0) {
+                    v = params[segments.slice(0, jj + 1).join('.')];
+                }
+                for (var i = Math.max(Math.max(ii + 1, jj + 1), 0), len = segments.length; i < len; i++) {
                     if (!v)
                         break;
-                    var s = segments[i];
-                    cpath.push(s);
-                    if (s.charAt(0) === '$')
-                        v = _dutils._resolveSegment(s, cpath.join('.'), v, params);
-                    else
-                        v = v[s];
+                    v = v[segments[i]];
                 }
-                if (v) {
-                    if (propertyName && propertyName.charAt(0) === '$' && !_su.isMetaProp(propertyName)) {
-                        cpath.push(propertyName);
-                        return { value: _dutils._resolveSegment(propertyName, cpath.join('.'), v, params), parentIsNull: false };
-                    }
-                    return { value: propertyName ? v[propertyName] : v, parentIsNull: false };
-                }
-                return { value: undefined, parentIsNull: false };
+                return { value: v, parentIsNull: false };
             };
             Data.prototype.getValue = function (path, params) {
                 return this.getValueInfo(path, params).value;
@@ -14578,53 +15434,45 @@ var Phoenix;
             //TODO states for $index
             Data.prototype.getState = function (path, params) {
                 var that = this;
-                var segments = path.split('.'), propertyName = segments.pop(), opropertyName = propertyName, cs = that, ps, res = {}, cpath = [], islink = false;
-                var len = segments.length - 1;
+                if (!path)
+                    return { value: that, parentIsNull: false };
+                var cs = that, segments = path.split('.'), propertyName = segments.pop(), opropertyName = propertyName, ps, res = {}, cpath = [], islink = false;
+                var ll = segments.length - 1;
                 var isMeta = _su.isMetaProp(propertyName);
                 if (isMeta) {
                     var ms = _su.getSchema(path, that._schema, that._rootParent._schema, false);
                     if (ms && ms.$stateProperty)
                         propertyName = ms.$stateProperty;
                 }
-                for (var i = 0; i <= len; i++) {
+                var ii = params ? segments.lastIndexOf('$item') : -1;
+                var jj = params ? segments.lastIndexOf('$selected') : -1;
+                if (ii > 0) {
+                    if (jj > 0 && jj > ii)
+                        cs = params[segments.slice(0, jj + 1).join('.')];
+                    else
+                        cs = params[segments.slice(0, ii + 1).join('.')];
+                }
+                else if (jj > 0) {
+                    cs = params[segments.slice(0, jj + 1).join('.')];
+                }
+                for (var i = Math.max(Math.max(ii + 1, jj + 1), 0), len = segments.length; i < len; i++) {
                     var s = segments[i];
                     var ignoreState = false;
-                    cpath.push(s);
-                    if (_su.arrayProps.indexOf(s) >= 0) {
-                        //xxxxxxx
-                        //TODO : params for $item
-                        if (s === '$selected') {
-                            cs = cs[s];
-                            ignoreState = true;
-                        }
-                        else if (s === '$new') {
-                            cs = cs[s];
-                            ignoreState = true;
-                        }
-                        else if (s === '$item') {
-                            cs = _dutils._resolveSegment(s, cpath.join('.'), cs, params);
-                            ignoreState = true;
-                        }
-                        else
-                            cs = cs[s];
-                    }
-                    else if (i === len) {
+                    if (i === ll) {
                         if (s === '$links') {
                             islink = true;
                             break;
                         }
                     }
-                    if (!ignoreState) {
-                        if (!cs) {
-                            ps = null;
-                        }
-                        else {
-                            ps = cs.$states[s] ? cs.$states[s].state() : null;
-                            cs = cs[s];
-                        }
-                    }
-                    else
+                    cs = cs[s];
+                    if (!cs) {
                         ps = null;
+                    }
+                    else {
+                        ps = cs.$states && cs.$states[s] ? cs.$states[s].state() : null;
+                        //not ok
+                        //cs = cs[s];
+                    }
                     if (!cs || cs.isNull || cs.isUndefined) {
                         res.isDisabled = true;
                     }
@@ -14673,7 +15521,7 @@ var Phoenix;
                 value = value || {};
                 var icreate = value.$create !== undefined ? value.$create : (that._parent ? that._parent.$create : false);
                 if (value) {
-                    value = _su.init(that._schema, that._rootParent._schema, null, value, icreate);
+                    value = _su.init(that._schema, that._rootParent._schema, null, value, icreate, { select: that._schema === that._rootParent._schema });
                     that.$create = value.$create;
                     delete value.$create;
                 }
@@ -14733,19 +15581,23 @@ var Phoenix;
                 var ofv = that.frozen;
                 that.frozen = true;
                 if (!that._children[propertyName])
-                    that._children[propertyName] = new Data(that._schema.properties[propertyName], that, propertyName, value, null, false, that._locale, null);
+                    that._children[propertyName] = new Data(that._schema.properties[propertyName], that, propertyName, value, null, true, that._locale, null);
                 else
-                    that._children[propertyName]._setModel(value, false);
+                    that._children[propertyName]._setModel(value, true);
                 that.frozen = ofv;
             };
             Data.prototype._setListChild = function (propertyName, oldvalue, value) {
                 var that = this;
                 var ofv = that.frozen;
                 that.frozen = true;
-                if (!that._children[propertyName])
-                    that._children[propertyName] = new DataList(that._schema.properties[propertyName], that, propertyName, value, null, that._locale);
+                if (!that._children[propertyName]) {
+                    var pa = null;
+                    if (that._arrayParent && that._arrayParent.schema.children === propertyName)
+                        pa = that._arrayParent;
+                    that._children[propertyName] = new DataList(that._schema.properties[propertyName], that, propertyName, value, null, that._locale, pa);
+                }
                 else
-                    that._children[propertyName]._setModel(value, false);
+                    that._children[propertyName]._setModel(value, true);
                 that.frozen = ofv;
             };
             Data.prototype._setSimpleListChild = function (propertyName, oldvalue, value) {
@@ -14753,9 +15605,9 @@ var Phoenix;
                 var ofv = that.frozen;
                 that.frozen = true;
                 if (!that._children[propertyName])
-                    that._children[propertyName] = new SimpleTypeList(that._schema.properties[propertyName], that, propertyName, value, null, that._locale, false);
+                    that._children[propertyName] = new SimpleTypeList(that._schema.properties[propertyName], that, propertyName, value, null, that._locale, false, null);
                 else
-                    that._children[propertyName]._setModel(value, false);
+                    that._children[propertyName]._setModel(value, true);
                 that.frozen = ofv;
             };
             Data.prototype._setQueryListChild = function (propertyName, value, pageSize, page, totalCount) {
@@ -14766,8 +15618,8 @@ var Phoenix;
                     that._children[propertyName].destroy();
                 that._children[propertyName] = new QueryList(that._schema, that._schema.properties[propertyName], that, propertyName, value, pageSize, page, totalCount, null, that._locale);
                 that.frozen = ofv;
-                that.notifyChanged(propertyName, null, value, 'propchange', { source: that.getPropertyPath(propertyName), instance: that }, true);
-                that.notifyStateChanged(propertyName, {});
+                that.notifyChanged(propertyName, null, value, 'propchange', { instance: that }, true);
+                that.notifyStateChanged(propertyName, { checkChildren: true });
             };
             Data.prototype._initFromSchema = function (schema) {
                 var that = this;
@@ -14866,7 +15718,7 @@ var Phoenix;
             };
             Data.prototype.addError = function (message) {
                 var that = this;
-                var errors = [{ severity: 'error', message: message }];
+                var errors = [{ severity: 'error', message: message, id: _utils.allocUuid() }];
                 that.addErrors(errors);
             };
             Data.prototype.rmvError = function (message) {
@@ -14883,7 +15735,7 @@ var Phoenix;
                 else if (that._parent)
                     that._parent.addErrors(errors);
             };
-            Data.prototype._beforeChange = function (propertyName, schema, oldValue, value, forceContinue) {
+            Data.prototype._beforeChange = function (thisObject, propertyName, schema, oldValue, value, forceContinue) {
                 var that = this;
                 var res = { continue: true, value: value };
                 if (_su.isNumber(schema) && !isNaN(value) && value !== null && value !== undefined) {
@@ -14893,27 +15745,32 @@ var Phoenix;
                             res.continue = false;
                     }
                 }
+                if (res.continue && schema.ux && schema.emitChanging)
+                    res.continue = thisObject.notifyBeforeChanged(propertyName, oldValue, value, {});
                 return res;
             };
             Data.prototype.notifyStateChanged = function (stateName, params) {
                 var that = this;
                 if (that.frozen || (that._arrayParent && that._arrayParent.frozen))
                     return;
-                if (that._arrayParent) {
-                    var oState = stateName;
-                    stateName = that._arrayParent.updateParams(that, oState, params, '$item');
-                    var item = that._arrayParent.findById(that.$id);
-                    if (item === that) {
-                        if (that._arrayParent.$selected === that) {
-                            stateName = that._arrayParent.updateParams(that, oState, params, '$selected');
-                            if (that._parent)
-                                that._parent.notifyStateChanged(stateName ? (that._path + '.' + stateName) : that._path, params);
+                if (that !== that._rootParent) {
+                    params.fromChildren = true;
+                    var list = that._getPaths(params);
+                    list.forEach(function (path, index) {
+                        var cn = path;
+                        if (stateName) {
+                            if (cn)
+                                cn = cn + '.' + stateName;
+                            else
+                                cn = stateName;
                         }
-                    }
+                        params.change = (index === 0);
+                        that._rootParent.notifyStateChanged(cn, params);
+                    });
                 }
-                if (that._parent)
-                    that._parent.notifyStateChanged(stateName ? (that._path + '.' + stateName) : that._path, params);
                 else {
+                    if (!params.fromChildren)
+                        params.change = true;
                     _utils.logModule('proxydata') && _utils.log('State changed: ' + that._extractPropName(stateName || '', params), 'proxydata');
                     if (that.onstatechanged)
                         that.onstatechanged(stateName, params);
@@ -14953,41 +15810,183 @@ var Phoenix;
                 });
                 return !error;
             };
+            Data.prototype.notifyBeforeChanged = function (propertyName, oldValue, value, params) {
+                var that = this;
+                if (that.frozen || (that._arrayParent && that._arrayParent.frozen))
+                    return;
+                if (that !== that._rootParent) {
+                    params.fromChildren = true;
+                    var list = that._getPaths(params);
+                    var res_4 = true;
+                    list.forEach(function (path, index) {
+                        var cn = path;
+                        if (propertyName) {
+                            if (cn)
+                                cn = cn + '.' + propertyName;
+                            else
+                                cn = propertyName;
+                        }
+                        params.change = (index === 0);
+                        res_4 = res_4 && that._rootParent.notifyBeforeChanged(cn, oldValue, value, params);
+                    });
+                }
+                else {
+                    if (!params.fromChildren)
+                        params.change = true;
+                    params.continue = true;
+                    if (that.onchange && params.change)
+                        that.onchange(propertyName, oldValue, value, 'beforeChange', params);
+                    return params.continue;
+                }
+            };
+            Data.prototype._getSelectedParentArray = function (avanced) {
+                var that = this;
+                var current = that;
+                var res = that._arrayParent;
+                var cpath = that._arrayParent.path + '.$item';
+                while (true) {
+                    if (res.schema.children && res.schema.children === res.path && res.parent._arrayParent) {
+                        res = res.parent._arrayParent;
+                        cpath = res.path + '.$item.' + cpath;
+                    }
+                    else
+                        break;
+                }
+                if (avanced)
+                    return { path: cpath, value: res };
+                return res;
+            };
+            Data.prototype._getPaths = function (params) {
+                var that = this;
+                if (that._arrayParent) {
+                    var paArray_1 = that._getSelectedParentArray(true);
+                    var pa_1 = paArray_1.value;
+                    var res_5 = pa_1.parent._getPaths(params);
+                    var sel_1 = null;
+                    if (pa_1.$selected === that) {
+                        sel_1 = [];
+                        res_5.forEach(function (path, index) {
+                            if (path.indexOf('.$selected.') > 0 || path.indexOf('.$item.') < 0) {
+                                var p = (path ? path + '.' : '') + pa_1.path + '.$selected';
+                                sel_1.push(p);
+                                params[p] = that;
+                            }
+                        });
+                    }
+                    res_5.forEach(function (path, index) {
+                        res_5[index] = (path ? path + '.' : '') + paArray_1.path;
+                        params[res_5[index]] = that;
+                    });
+                    if (!sel_1)
+                        return res_5;
+                    return res_5.concat(sel_1);
+                }
+                else {
+                    if (!that.parent) {
+                        return [''];
+                    }
+                    var res_6 = that.parent._getPaths(params);
+                    res_6.forEach(function (path, index) {
+                        res_6[index] = path ? path + '.' + that._path : that._path;
+                    });
+                    return res_6;
+                }
+            };
             Data.prototype.notifyChanged = function (propertyName, oldValue, value, op, params, validate) {
                 var that = this;
                 if (that.frozen || (that._arrayParent && that._arrayParent.frozen))
                     return;
-                if (that._arrayParent) {
-                    if (op === 'propchange' && propertyName) {
-                        var item = that._arrayParent.findById(that.$id);
-                        if (item === that) {
-                            var oid = item.$id;
-                            if (params.$oid)
-                                oid = params.$oid;
+                if (that !== that._rootParent) {
+                    params.fromChildren = false;
+                    var list = that._getPaths(params);
+                    list.forEach(function (path, index) {
+                        var cn = path;
+                        if (propertyName) {
+                            if (cn)
+                                cn = cn + '.' + propertyName;
                             else
-                                params.$oid = item.$id;
-                            that._parent.notifyChanged(that._path, oldValue, value, 'upd', { $id: item.$id, property: propertyName, $oid: oid }, validate);
-                            if (that._arrayParent.$selected === that)
-                                that._parent.notifyChanged(that._path + '.$selected', oldValue, value, 'upd', { $id: item.$id, property: propertyName, $oid: oid }, validate);
+                                cn = propertyName;
                         }
-                    }
-                    propertyName = that._arrayParent.updateParams(that, propertyName, params);
-                }
-                if (that._parent) {
-                    that._parent.notifyChanged(propertyName ? (that._path + '.' + propertyName) : that._path, oldValue, value, op, params, validate);
+                        params.change = (index === 0);
+                        that._rootParent.notifyChanged(cn, oldValue, value, op, params, validate);
+                    });
                 }
                 else {
+                    if (!params.fromChildren)
+                        params.change = true;
                     _utils.logModule('proxydata') && _utils.log('Changed: ' + that._extractPropName(propertyName || '', params) + ', operation = ' + op, 'proxydata');
                     if (that.onchange)
                         that.onchange(propertyName, oldValue, value, op, params);
-                    if (validate && that._validators && that.hasValidators()) {
+                    if (!that._updating && validate && that._validators && params.change && that.hasValidators()) {
                         that._execValidators(that._validators, propertyName, 'propchanged', params);
                     }
                     //Execute validation rules 
-                    if (params.instance && params.source && params.source === propertyName) {
-                        _rules.execPropChangeRules(that, params, { validations: true, propagations: true });
+                    if (!that._updating && params.change) {
+                        _rules.execPropChangeRules(that, propertyName, params, { validations: true, propagations: true });
+                        if (that.onsync)
+                            that.onsync(null);
                     }
                 }
+            };
+            Data.prototype.execSyncAction = function (propName, actionParams, params) {
+                var that = this._rootParent;
+                if (that.onsync && (!params || !params.$nosync)) {
+                    var syncParams = that.syncAction(propName, actionParams);
+                    if (syncParams) {
+                        that.onsync(syncParams);
+                        return true;
+                    }
+                }
+                return false;
+            };
+            Data.prototype.syncAction = function (actionName, actionParams) {
+                var that = this;
+                var segments = actionName.split('.');
+                if (segments[segments.length - 1] === '$sort') {
+                    if (_p.fwSyncNames) {
+                        //return { path: '/' + segments.join('/'), params: actionParams};    
+                        var sortSegments = actionParams.split('.');
+                        var sortValue_1 = [];
+                        sortSegments.forEach(function (item, index) {
+                            item = item.trim();
+                            var a = item.split(' ');
+                            var ci = { field: a[0], direction: 1 };
+                            if (a.length === 2 && a[1] === 'desc')
+                                ci.direction = -1;
+                            sortValue_1.push(ci);
+                        });
+                        return { op: 'replace', path: '/' + segments.join('/'), params: sortValue_1 };
+                    }
+                    else {
+                        return { op: 'replace', path: '/' + segments.join('/'), params: actionParams };
+                    }
+                }
+                else if (segments[segments.length - 1] === '$filter') {
+                    return { op: actionParams ? 'replace' : 'remove', path: '/' + segments.join('/'), params: actionParams };
+                }
+                else if (segments[segments.length - 1] === '$selected') {
+                    return { op: 'replace', path: '/' + segments.join('/'), params: JSON.parse(actionParams), delayed: true };
+                }
+                var ii = actionName.indexOf('$links.');
+                if (ii < 0)
+                    return null;
+                var root = '';
+                if (ii > 0) {
+                    root = actionName.substr(0, ii - 1);
+                }
+                var link = actionName.substr(ii + '$links.'.length);
+                var schema = that.getSchema(root);
+                if (schema.links && schema.links[link] && schema.links[link].ux)
+                    return null;
+                if (!root && link === 'save') {
+                    if (!that.validate(true))
+                        return null;
+                }
+                if (schema.links && schema.links[link] && schema.links[link].data) {
+                    actionParams = schema.links[link].data;
+                }
+                var after = root + '.$links.after' + link.charAt(0).toUpperCase() + link.substring(1);
+                return { path: '/' + segments.join('/'), params: actionParams, after: after };
             };
             Data.prototype._destroyObject = function (obj, pn) {
                 var o = obj[pn];
@@ -14997,6 +15996,41 @@ var Phoenix;
                         delete o[name];
                     });
                 }
+            };
+            Data.prototype.hasErrors = function () {
+                var that = this;
+                var res = false;
+                if (res)
+                    return res;
+                var props = Object.keys(that.$errors);
+                for (var _i = 0, props_1 = props; _i < props_1.length; _i++) {
+                    var p = props_1[_i];
+                    if (that.$errors[p].hasErrors()) {
+                        res = true;
+                        break;
+                    }
+                }
+                props = Object.keys(that._schema.properties || {});
+                var rs = that._rootParent._schema;
+                for (var _a = 0, props_2 = props; _a < props_2.length; _a++) {
+                    var p = props_2[_a];
+                    var ss = that._schema.properties[p];
+                    if (!_su.inModel(ss, rs))
+                        continue;
+                    if (_su.isCompositionRef(ss, rs)) {
+                        res = that[p].hasErrors();
+                    }
+                    else if (_su.isCompositionList(ss, rs, false)) {
+                        var list = that[p];
+                        list.forEach(function (item) {
+                            if (!res)
+                                res = item.hasErrors();
+                        });
+                    }
+                    if (res)
+                        break;
+                }
+                return res;
             };
             Data.prototype.destroy = function () {
                 var that = this;
@@ -15010,6 +16044,7 @@ var Phoenix;
                 that._schema = null;
                 that.onRefresh = null;
                 that.onchange = null;
+                that.onsync = null;
                 that.onstatechanged = null;
                 that._rootParent = null;
             };
@@ -15018,6 +16053,55 @@ var Phoenix;
         Observable.Data = Data;
         Observable.ObservableUtils = _dutils;
     })(Observable = Phoenix.Observable || (Phoenix.Observable = {}));
+})(Phoenix || (Phoenix = {}));
+/// <reference path="./proxy.data.ts" />
+var Phoenix;
+(function (Phoenix) {
+    var serversync;
+    (function (serversync) {
+        var _p = Phoenix, _observable = Phoenix.Observable, _su = _observable.SchemaUtils, _du = _observable.DataUtils, _dsPlugin = _p.DatasetPlugin, _locale = Phoenix.locale, _ulocale = Phoenix.ulocale, _utils = Phoenix.utils;
+        function update(model, actions, form, success, after) {
+            try {
+                var delta_1 = model.getJsonPachDelta({ useId: true });
+                if (actions && actions.length) {
+                    delta_1 = delta_1 || [];
+                    actions.forEach(function (action) {
+                        delta_1.push({ op: action.op || 'add', path: action.path, value: action.params });
+                    });
+                }
+                if (!delta_1) {
+                    try {
+                        success(null);
+                    }
+                    finally {
+                        after();
+                    }
+                    return;
+                }
+                var dataset = form.syncDataSet();
+                dataset.name = 'patch';
+                dataset.$params.$method = 'PATCH';
+                var result_1 = {};
+                _dsPlugin.executeDatasets([dataset], delta_1, result_1, [], function (sended, ex) {
+                    try {
+                        if (!ex) {
+                            success(result_1.patch);
+                        }
+                        else {
+                            model.addAjaxException(ex);
+                        }
+                    }
+                    finally {
+                        after();
+                    }
+                });
+            }
+            catch (ex) {
+                after();
+            }
+        }
+        serversync.update = update;
+    })(serversync = Phoenix.serversync || (Phoenix.serversync = {}));
 })(Phoenix || (Phoenix = {}));
 /// <reference path="../../core/modules/locale.ts" />
 /// <reference path="../../core/core.ts" />
@@ -15036,6 +16120,8 @@ var Phoenix;
             if (event === 'propchanged' || isValidate) {
                 if (!params.name)
                     return res;
+                if (params.method)
+                    return true;
                 var pn = _su.lastSegment(params.name, null);
                 if (_su.arrayProps.indexOf(pn) >= 0)
                     return res;
@@ -15059,7 +16145,7 @@ var Phoenix;
                             res = false;
                     }
                 }
-                if (base.$errors[pn])
+                if (base.$errors && base.$errors[pn])
                     base.$errors[pn].addErrors(errors);
             }
             return res;
@@ -15073,7 +16159,7 @@ var Phoenix;
     var ui;
     (function (ui) {
         var _ui = ui, _utils = Phoenix.utils;
-        var FormManager = (function () {
+        var FormManager = /** @class */ (function () {
             function FormManager() {
                 this._forms = {};
                 this._inAction = false;
@@ -15124,12 +16210,13 @@ var Phoenix;
 /// <reference path="./schema.data.ts" />
 /// <reference path="./proxy.data.ts" />
 /// <reference path="./formmanager.ts" />
+/// <reference path="./server-sync.ts" />
 var Phoenix;
 (function (Phoenix) {
     var ui;
     (function (ui) {
-        var _p = Phoenix, _ui = _p.ui, _utils = _p.utils, _build = _p.build, _link = _p.link, _dom = _p.dom, _layoutUtils = _p.layoutUtils, _customData = _p.customData, _preferences = _p.preferences, _sutils = _p.Observable.SchemaUtils, _outils = _p.Observable.ObservableUtils, _ulocale = _p.ulocale;
-        var Form = (function (_super) {
+        var _p = Phoenix, _ui = _p.ui, _utils = _p.utils, _build = _p.build, _link = _p.link, _dom = _p.dom, _layoutUtils = _p.layoutUtils, _customData = _p.customData, _preferences = _p.preferences, _sutils = _p.Observable.SchemaUtils, _outils = _p.Observable.ObservableUtils, _serversync = Phoenix.serversync, _ulocale = _p.ulocale;
+        var Form = /** @class */ (function (_super) {
             __extends(Form, _super);
             function Form(layoutData, options, ldata, schema, locale, preferences) {
                 var _this = _super.call(this, layoutData, options, ldata, schema, locale, preferences) || this;
@@ -15151,6 +16238,10 @@ var Phoenix;
                     return null;
                 };
                 var that = _this;
+                that._resizeHnd = function (event) {
+                    that._resizeControls();
+                    return true;
+                };
                 var ctx = _link.context();
                 if (ctx.$url.$showRules)
                     _utils.showRules(true);
@@ -15180,8 +16271,13 @@ var Phoenix;
                     that._settingsName = options.storageName;
                     that._localSettings = true;
                 }
+                var isSync = ((options && options.jsonSync) || (that.syncDataSet() !== null));
+                if (isSync)
+                    that.onsync = Phoenix.serversync.update;
                 that.setData(ldata);
                 that.$model.onchange = that._modelChanged.bind(that);
+                if (isSync)
+                    that.$model.onsync = that._synModel.bind(that);
                 that.$model.onstatechanged = that._stateChanged.bind(that);
                 that._bindStates = {};
                 that._bindTitles = {};
@@ -15237,19 +16333,52 @@ var Phoenix;
                 that._afterCreate();
                 return _this;
             }
-            Form.prototype.addChildForm = function (aForm) {
+            Form.prototype.addChildForm = function (aForm, parentId) {
                 var that = this;
                 that._childrenForms = that._childrenForms || [];
-                that._childrenForms.push(aForm);
+                that._childrenForms.push({ form: aForm, parentId: parentId });
                 aForm._parentForm = that;
             };
             Form.prototype.removeChildForm = function (aForm) {
                 var that = this;
                 if (that._childrenForms) {
-                    var ii = that._childrenForms.indexOf(aForm);
-                    if (ii >= 0)
-                        that._childrenForms.splice(ii, 1);
+                    var ii = that._childrenForms.length;
+                    while (ii--) {
+                        var item = that._childrenForms[ii];
+                        if (item.form === aForm) {
+                            that._childrenForms.splice(ii, 1);
+                            break;
+                        }
+                    }
                 }
+            };
+            Form.prototype.closeInlineForms = function (where) {
+                var that = this;
+                var layout = that.getLayoutByName(where);
+                if (layout && that._childrenForms) {
+                    var ii = that._childrenForms.length;
+                    while (ii--) {
+                        var item = that._childrenForms[ii];
+                        if (item.parentId === layout.$id) {
+                            that._childrenForms.splice(ii, 1);
+                            item.form._parentForm = null;
+                            item.form.close();
+                        }
+                    }
+                }
+            };
+            Form.prototype.hasInlineForms = function (where) {
+                var that = this;
+                var layout = that.getLayoutByName(where);
+                if (layout && that._childrenForms) {
+                    var ii = that._childrenForms.length;
+                    while (ii--) {
+                        var item = that._childrenForms[ii];
+                        if (item.parentId === layout.$id)
+                            return item.form;
+                    }
+                }
+                return null;
             };
             Form.prototype._isInDelayedAction = function () {
                 if (this.formManager)
@@ -15267,6 +16396,15 @@ var Phoenix;
                 options = options || {};
                 options.form = true;
                 return options;
+            };
+            Form.prototype.syncDataSet = function () {
+                var that = this;
+                var datasets = that.data.datasets ? Object.keys(that.data.datasets) : [];
+                if (datasets.length === 1 && that.data.datasets[datasets[0]].$type === 'sync') {
+                    var res = _utils.copy(that.data.datasets[datasets[0]]);
+                    return res;
+                }
+                return null;
             };
             Form.prototype._getFormLData = function () {
                 return this.$model;
@@ -15294,7 +16432,8 @@ var Phoenix;
             Form.prototype.setData = function (ldata) {
                 var that = this;
                 ldata = ldata || {};
-                that.$data = _sutils.init(that.$schema, that.$schema, null, ldata, ldata.$create);
+                //that.$data = _sutils.init(that.$schema, that.$schema, null, ldata, ldata.$create, { select: true });
+                that.$data = ldata;
                 if (that.options.beforeSetModel) {
                     that.options.beforeSetModel(that.$data, that);
                 }
@@ -15312,20 +16451,39 @@ var Phoenix;
             Form.prototype.processing = function (value) {
                 var that = this;
                 that._inProcessing = value;
+                _dom.processing(value, 100);
             };
-            Form.prototype.controlByField = function (name) {
+            Form.prototype.controlByField = function (fieldName) {
                 var that = this;
-                return that._findControlByField(name);
+                return that._findControlByField(fieldName);
             };
-            Form.prototype._findControlByField = function (name) {
+            Form.prototype.controlByName = function (name, includeNotCreated) {
+                var that = this;
+                return that._findControlByName(name, includeNotCreated);
+            };
+            Form.prototype._findControlByField = function (fieldName) {
                 var that = this;
                 var list = [];
                 Object.keys(that.controls).forEach(function (cn) {
                     var c = that.controls[cn];
-                    if (c && c.$bind === name) {
+                    if (c && c.$bind === fieldName) {
                         list.push(c);
                     }
                 });
+                return list.length ? list : null;
+            };
+            Form.prototype._findControlByName = function (name, includeNotCreated) {
+                var that = this;
+                var list = [];
+                Object.keys(that.controls).forEach(function (cn) {
+                    var c = that.controls[cn];
+                    if (c && c.name === name) {
+                        list.push(c);
+                    }
+                });
+                if (includeNotCreated && !list.length && that.namedMapFields[name]) {
+                    list.push(that.namedMapFields[name]);
+                }
                 return list.length ? list : null;
             };
             //todo: remove use that._preferences 
@@ -15402,7 +16560,7 @@ var Phoenix;
                 var that = this;
                 var style = (error.severity == 'success' ? 'success' : ((error.severity == 'warning') ? 'warning' : 'danger'));
                 var c = show ? '' : 'bs-none ';
-                var html = ['<div data-error="true" class="' + c + ' alert alert-' + style + ' alert-dismissible fade in">'];
+                var html = [_utils.format('<div id="{0}_error" data-error="true" class="' + c + ' alert alert-' + style + ' alert-dismissible fade show">', error.id)];
                 html.push('<button type="button" data-error-close="true" class="close" aria-label="Close">');
                 html.push('<span data-error-close="true" aria-hidden="true">&times;</span>');
                 html.push('</button>');
@@ -15537,6 +16695,17 @@ var Phoenix;
                     cd++;
                 }
             };
+            Form.prototype._afterLayoutAdded = function (layout) {
+                var that = this;
+                _layoutUtils.enumSubLayouts(layout, function (item) {
+                    if (item.$fields && item.$title && item.$title.value) {
+                        var e = that.$element.get(0);
+                        var titleElement = _dom.find(e, item.$id + '_title');
+                        if (titleElement)
+                            Phoenix.layoutUtils.updateLayoutTitle(titleElement, item, that.$model, that.$locale);
+                    }
+                });
+            };
             Form.prototype.changed = function (propName, ov, nv, op, params) {
                 var that = this;
                 if (params.targetId === 'layout-titles') {
@@ -15547,7 +16716,7 @@ var Phoenix;
                                 var titleElement = _dom.find(e_1, layoutId + '_title');
                                 if (titleElement) {
                                     var l = that.getLayoutById(layoutId);
-                                    if (l && l.$title.value)
+                                    if (l && l.$title && l.$title.value)
                                         _layoutUtils.updateLayoutTitle(titleElement, l, that.$model, that.$locale);
                                 }
                             });
@@ -15570,7 +16739,7 @@ var Phoenix;
             Form.prototype.stateChanged = function (propName, params) {
                 var that = this;
                 if (params.targetId === 'layout-state') {
-                    if (propName === "isHidden" && params.property) {
+                    if (propName === 'isHidden' && params.property) {
                         var state_1 = that.$model.getState(params.property, {});
                         var l = that._bindStates[params.property];
                         if (l)
@@ -15657,16 +16826,19 @@ var Phoenix;
                     that._listenerChanged = false;
                 }
             };
-            Form.prototype._match = function (p, cb) {
+            Form.prototype._match = function (p, cb, params) {
                 var that = this;
                 var match = p.join('.'), match2 = match + '.';
                 if (that._listenersByName) {
                     that._listenersByName.forEach(function (name) {
-                        if (name == match) {
+                        if (name === match) {
                             cb(name, true, false, false);
                         }
-                        else if (name === '*' || (name.indexOf(match2) == 0)) {
+                        else if (match === '*' || (match.indexOf(name + '.') === 0)) {
                             cb(name, false, true, false);
+                        }
+                        else if (params.checkChildren && name.indexOf(match2) === 0) {
+                            cb(name, false, false, true);
                         }
                     });
                 }
@@ -15676,11 +16848,15 @@ var Phoenix;
                 var layout = that.getLayoutByName(opts.where);
                 if (layout && ui.OpenInlineForm)
                     ui.OpenInlineForm(layout.$id, opts.name, opts.meta, opts.controller, opts.data, opts.locale, function (childForm) {
-                        that.addChildForm(childForm);
+                        that.addChildForm(childForm, layout.$id);
                     });
             };
             Form.prototype.execAction = function (propName, actionParams, params) {
-                this._modelChanged(propName, null, null, 'execute', params, actionParams);
+                var that = this;
+                // Find Link in schema
+                if (that.$model.execSyncAction(propName, actionParams, params))
+                    return;
+                that._modelChanged(propName, null, null, 'execute', params, actionParams);
             };
             Form.prototype.close = function () {
                 var that = this;
@@ -15693,14 +16869,74 @@ var Phoenix;
             Form.prototype.broadcast = function (eventName, params) {
                 this.formManager.broadcast(eventName, params);
             };
+            Form.prototype._sendData = function () {
+                var that = this;
+                that._inSync = true;
+                that.processing(true);
+                var ca = null;
+                if (that._actions && that._actions.length)
+                    ca = that._actions;
+                that._actions = null;
+                that.onsync(that.$model, ca, that, function (delta) {
+                    if (delta && delta.length) {
+                        that.$model.applyJsonPachDelta(delta);
+                    }
+                }, function () {
+                    that.processing(false);
+                    that._inSync = false;
+                    if (ca) {
+                        ca.forEach(function (action) {
+                            if (action && action.after) {
+                                that.execAction(action.after, {}, { $nosync: true });
+                            }
+                        });
+                    }
+                });
+            };
+            Form.prototype._synModel = function (action) {
+                var that = this;
+                if (that._inSync)
+                    return;
+                if (that.onsync) {
+                    if (that._syncTimeOut) {
+                        clearTimeout(that._syncTimeOut);
+                    }
+                    if (action) {
+                        var delayed = action.delayed;
+                        delete action.delayed;
+                        that._actions = that._actions || [];
+                        var oi = that._actions.findIndex(function (ii) { return ii.path === action.path && ii.op === action.op; });
+                        if (oi >= 0)
+                            that._actions.splice(oi, 1);
+                        that._actions.push(action);
+                        if (delayed) {
+                            setTimeout(function () {
+                                that._sendData();
+                            }, 10);
+                        }
+                        else {
+                            that._sendData();
+                        }
+                    }
+                    else {
+                        setTimeout(function () {
+                            that._sendData();
+                        }, 10);
+                    }
+                }
+            };
             Form.prototype._modelChanged = function (propName, ov, nv, op, params, actionParams) {
                 var that = this;
                 var p = propName.split('.');
                 that._rebuildListeners();
                 //update controls
                 params = params || {};
-                if (op !== "execute") {
+                params.oldValue = ov;
+                params.newValue = nv;
+                if (op !== "execute" && op !== "beforeChange") {
                     that._match(p, function (name, exact, parent, child) {
+                        if (op !== 'propchange' && !exact)
+                            return;
                         params.propName = name;
                         if (exact) {
                             that._enumListener(name, function (item) {
@@ -15714,11 +16950,19 @@ var Phoenix;
                             that._enumListener(name, function (item) {
                                 if (item.target.changed) {
                                     params.targetId = item.id;
-                                    item.target.changed(propName, ov, that.getValue(name), op, params);
+                                    item.target.changed(propName, ov, nv, op, params);
                                 }
                             });
                         }
-                    });
+                        else if (child) {
+                            that._enumListener(name, function (item) {
+                                if (item.target.changed) {
+                                    params.targetId = item.id;
+                                    item.target.changed(name, ov, that.getValue(name), op, params);
+                                }
+                            });
+                        }
+                    }, params);
                 }
                 that.afterchanged(propName, op, params, actionParams);
                 //update controls
@@ -15726,6 +16970,7 @@ var Phoenix;
             Form.prototype.afterchanged = function (propName, op, params, actionParams) {
                 var that = this;
                 if (that.onaction) {
+                    //if (that.inAction || that._inProcessing) return;
                     if (that.inAction)
                         return;
                     that.inAction = true;
@@ -15743,7 +16988,7 @@ var Phoenix;
                 if (that.onaction)
                     that.onaction({ operation: 'init' }, that.$model, that);
             };
-            Form.prototype._stateChanged = function (propName) {
+            Form.prototype._stateChanged = function (propName, params) {
                 var that = this;
                 var p = propName.split('.'), stateName, propertyName;
                 if (_sutils.statesAndErrors.indexOf(p[p.length - 1]) >= 0) {
@@ -15764,7 +17009,15 @@ var Phoenix;
                                 item.target.stateChanged(null, { targetId: item.id, property: propertyName });
                         });
                     }
-                });
+                    else if (child) {
+                        that._enumListener(name, function (item) {
+                            if (item.target.stateChanged) {
+                                params.targetId = item.id;
+                                item.target.stateChanged(null, { targetId: item.id, property: propertyName });
+                            }
+                        });
+                    }
+                }, params);
             };
             Form.prototype.destroy = function () {
                 var that = this;
@@ -15774,6 +17027,8 @@ var Phoenix;
                 that._bindTitles = null;
                 that._bindAccordion = null;
                 that.module = null;
+                that.onsync = null;
+                that.onaction = null;
                 that._listeners = {};
                 that._listenersByName = [];
                 that._loadNestedControllers = null;
@@ -15781,7 +17036,7 @@ var Phoenix;
                     that._parentForm.removeChildForm(that);
                 if (that._childrenForms) {
                     var children = that._childrenForms.slice();
-                    children.forEach(function (item) { return item.destroy(); });
+                    children.forEach(function (item) { return item.form.destroy(); });
                     that._childrenForms = null;
                 }
                 if (that.$model) {
@@ -15812,7 +17067,7 @@ var Phoenix;
                         else
                             break;
                     }
-                    t = (t == root) ? null : t.parentNode;
+                    t = (t === root) ? null : t.parentNode;
                 }
                 return id ? id : null;
             };
@@ -15832,12 +17087,13 @@ var Phoenix;
                 $e.off('focusin');
                 $e.off('focusout');
                 $e.off('click');
+                $e.off('dblclick');
                 $e.off('keydown');
                 $e.off('keyup');
                 $e.off('keypress');
                 $e.off('mousedown');
                 $e.off('paste');
-                $(window).off('global-phoenix-resize');
+                $(window).off('global-phoenix-resize', that._resizeHnd);
                 _super.prototype._removeBaseEvents.call(this);
             };
             Form.prototype._freeze = function (e) {
@@ -15910,6 +17166,14 @@ var Phoenix;
                         });
                     }
                 });
+                that.$element.on('dblclick', function (event) {
+                    if (that._inProcessing)
+                        return that._freeze(event);
+                    var control = that._event2Field(event);
+                    if (control && control.dblclick) {
+                        control.dblclick(event);
+                    }
+                });
                 that.$element.on('click', function (event) {
                     if (that._inProcessing)
                         return that._freeze(event);
@@ -15943,9 +17207,17 @@ var Phoenix;
                             var close_1 = target.getAttribute('data-error-close');
                             if (close_1) {
                                 var elem = _dom.findByAttribute(event.target, that.$element.get(0), "data-error");
-                                if (elem)
-                                    _dom.remove(elem);
-                                that.openErrors();
+                                if (elem) {
+                                    if (elem.id) {
+                                        //{0}_error"
+                                        var errorId = elem.id.substr(0, elem.id.length - 6);
+                                        that.$model.$errors.$.rmvErrorById(errorId);
+                                    }
+                                    else {
+                                        _dom.remove(elem);
+                                        that.openErrors();
+                                    }
+                                }
                                 return that._freeze(event);
                             }
                             else if (target.getAttribute('data-form-detail-close')) {
@@ -16018,27 +17290,38 @@ var Phoenix;
                         return control.mousedown(event);
                     return true;
                 });
-                $(window).on('global-phoenix-resize', function (event) {
-                    if (that.currentResizeList)
-                        that.currentResizeList.forEach(function (c) { c.resize(); });
-                    return true;
-                });
+                $(window).on('global-phoenix-resize', that._resizeHnd);
                 _super.prototype._addBaseEvents.call(this);
             };
-            Form.prototype.afterAddedInDom = function () {
-                _super.prototype.afterAddedInDom.call(this);
+            Form.prototype._resizeControls = function () {
                 var that = this;
                 if (that.currentResizeList)
                     that.currentResizeList.forEach(function (c) { c.resize(); });
+            };
+            Form.prototype._resizeAndAfterRender = function () {
+                var that = this;
                 if (that.afterRenderList) {
                     that.afterRenderList.forEach(function (c) { c.afterAddedInDom(); });
                     that.afterRenderList = [];
                 }
+                that._resizeControls();
+            };
+            Form.prototype.afterAddedInDom = function () {
+                _super.prototype.afterAddedInDom.call(this);
+                var that = this;
+                that._resizeAndAfterRender();
                 if (that._autofocus && that._autofocus.setFocus) {
-                    _utils.nextTick(function () {
+                    window.setTimeout(function () {
                         that._autofocus.setFocus();
                         that._autofocus = null;
-                    });
+                    }, 200);
+                }
+            };
+            Form.prototype._afterVisibilityChanged = function (options) {
+                _super.prototype._afterVisibilityChanged.call(this, options);
+                var that = this;
+                if (options.inDom && options.resize) {
+                    that._resizeAndAfterRender();
                 }
             };
             return Form;
@@ -16074,7 +17357,7 @@ var Phoenix;
     var _p = Phoenix, _ajax = _p.ajax, _dom = _p.dom, _utils = _p.utils, _autoclose = _p.autoclose, _modal = _p.modal, _pagecontrol = _p.pagecontrol, _application = _p.application, _su = _p.Observable.SchemaUtils, _external = _p.external, _customData = _p.customData;
     var ui;
     (function (ui) {
-        var ModalForm = (function (_super) {
+        var ModalForm = /** @class */ (function (_super) {
             __extends(ModalForm, _super);
             function ModalForm(formOptions, layout, schema, data, locale, preferences) {
                 var _this = _super.call(this, formOptions, locale) || this;
@@ -16135,9 +17418,15 @@ var Phoenix;
             });
         };
         var _preferenceName = function (name, config) {
+            var prefName = '';
             if (name && _application.name)
-                return _application.name + '_form_' + name;
-            return '';
+                prefName = _application.name + '_form_' + name;
+            if (prefName && config && config.current && config.current.preferences) {
+                var prefs = config.current.preferences;
+                if (prefs.excludedForms && prefs.excludedForms.indexOf(prefName) >= 0)
+                    prefName = '';
+            }
+            return prefName;
         }, _loadSchema = function (schema) {
             if (typeof schema === 'object') {
                 return _utils.Promise.resolve($.extend(true, {}, schema));
@@ -16312,6 +17601,7 @@ var Phoenix;
                     height: ac_1.height,
                     minWidth: ac_1.minWidth,
                     minHeight: ac_1.minHeight,
+                    stayOnTop: ac_1.stayOnTop,
                     beforeClose: ac_1.beforeClose,
                     contentRender: function ($p, autoCloseControl, cb) {
                         try {
@@ -16387,7 +17677,7 @@ var Phoenix;
                 return segment.charAt(0).toUpperCase() + segment.slice(1);
             }).join('');
         }
-        var FormController = (function () {
+        var FormController = /** @class */ (function () {
             function FormController() {
             }
             FormController.prototype.isFormController = function () { return true; };
@@ -16431,15 +17721,17 @@ var Phoenix;
         ui.showModalForm = _showModalForm;
         ui.showAutoCloseForm = _showAutoCloseForm;
         ui.OpenForm = _OpenFormExp;
-        ui.OpenInlineForm = function (parentId, layout, schema, contrtoller, formData, locale, after) {
+        ui.OpenInlineForm = function (parentId, layout, schema, controller, formData, locale, after, options) {
             var opts = {
                 name: layout,
                 meta: schema,
-                controller: contrtoller,
+                controller: controller,
                 options: {},
                 formParent: parentId,
                 locale: locale
             };
+            if (options)
+                _utils.merge(options, opts.options);
             _showInlineForm(opts, after, formData);
         };
         _external.formOpenHandler = function (params) {
@@ -16564,8 +17856,12 @@ var Phoenix;
             useDateTimePicker: function () { return $.fn[DATETIME_PICKER_NAME] != null; },
             nativeDate: _dateNative(),
             nativeNumber: _numberNative(),
-            addErrorDiv: function (html) {
-                html.push('<div class="small text-danger bs-none" id="{0}_errors"></div>');
+            addErrorDiv: function (html, noMargin) {
+                if (Phoenix.bootstrap4)
+                    html.push('<div class="invalid-feedback bs-none' + (noMargin ? ' no-y-margin' : '') + '" id="{0}_errors"></div>');
+                else {
+                    html.push('<div class="small text-danger bs-none" id="{0}_errors"></div>');
+                }
             },
             keyPressPassword: function (event, input, options) {
                 var code = event.which;
@@ -16657,7 +17953,7 @@ var Phoenix;
                 if (options.styles)
                     css.push(options.styles);
                 if (options.right)
-                    css.push(' pull-right');
+                    css.push(' float-right');
                 html.push(css.join(' '));
                 html.push('"');
                 _afutils.addContainerId(html, authoring);
@@ -16753,17 +18049,17 @@ var Phoenix;
                 }
                 else {
                     switch (schema.type) {
-                        case "string":
+                        case 'string':
                             if (schema.format) {
                                 switch (schema.format) {
-                                    case "date":
+                                    case 'date':
                                         var dv = _ulocale.shortDate(value || '');
                                         if (options.avanced && options.avanced.transform)
                                             res = _transform(value, dv, options.avanced.transform, item);
                                         else
                                             res = { value: dv, html: false };
                                         break;
-                                    case "date-time":
+                                    case 'date-time':
                                         var tv = _ulocale.shortDateTime(value || '');
                                         if (options.avanced && options.avanced.transform)
                                             res = _transform(value, tv, options.avanced.transform, item);
@@ -16781,7 +18077,7 @@ var Phoenix;
                                     res = { value: value, html: false };
                             }
                             break;
-                        case "number":
+                        case 'number':
                             var ndv = void 0;
                             if (options.state)
                                 ndv = _ulocale.decimal(value || 0, options.state.decimals || 0, (options.useSymbol ? (options.state.symbol || '') : ''));
@@ -16794,8 +18090,8 @@ var Phoenix;
                             else
                                 res = { value: ndv, html: false };
                             break;
-                        case "integer":
-                            var idv = _ulocale.decimal(value || 0, 0, '');
+                        case 'integer':
+                            var idv = _ulocale.integer(value);
                             if (options.avanced && options.avanced.transform)
                                 res = _transform(value, idv, options.avanced.transform, item);
                             else if (options.avanced && options.avanced.icons)
@@ -16803,7 +18099,7 @@ var Phoenix;
                             else
                                 res = { value: idv, html: false };
                             break;
-                        case "boolean":
+                        case 'boolean':
                             if (options.isTotal) {
                                 res = { value: '', html: false };
                                 return res;
@@ -16849,7 +18145,7 @@ var Phoenix;
                 if (!res)
                     res = { value: value, html: false };
                 if (options.html && options.avanced && options.avanced.$link) {
-                    var chtml = ['<a class="bs-cursor-p" data-phoenix-href="link://$link">'];
+                    var chtml = ['<a href="#" class="bs-cursor-p" data-phoenix-href="link://$link">'];
                     chtml.push(res.value);
                     chtml.push('</a>');
                     res.value = chtml.join('');
@@ -16870,7 +18166,11 @@ var Phoenix;
         };
         if (_afutils.useDatePicker()) {
             var tdp = function (lang) {
-                $.fn[DATE_PICKER_NAME].dates[lang] = {
+                var dtJquery = $.fn[DATE_PICKER_NAME];
+                if (Phoenix.bootstrap4) {
+                    dtJquery.DPGlobal.template = dtJquery.DPGlobal.template.replace(/\"table-condensed\"/g, '"table-sm"');
+                }
+                dtJquery.dates[lang] = {
                     days: _locale.date.weekdays,
                     daysShort: _locale.date.weekdaysShort,
                     daysMin: _locale.date.weekdaysMin,
@@ -16883,7 +18183,9 @@ var Phoenix;
                     weekStart: _locale.date.weekStart
                 };
             };
-            tdp(_ulocale.currentLang);
+            _dom.readyHandlers.push(function () {
+                tdp(_ulocale.currentLang);
+            });
             _ulocale.register(tdp);
         }
         if (_afutils.useDateTimePicker()) {
@@ -16906,7 +18208,9 @@ var Phoenix;
                     });
                 }
             };
-            tdp(_ulocale.currentLang);
+            _dom.readyHandlers.push(function () {
+                tdp(_ulocale.currentLang);
+            });
             _ulocale.register(tdp);
         }
         uiutils.utils = _afutils;
@@ -16955,13 +18259,21 @@ var Phoenix;
                 return factory;
             }
         };
-        var AbsField = (function () {
+        var AbsField = /** @class */ (function () {
             function AbsField(fp, options, form) {
                 var that = this;
+                that._isBinded = true;
                 that.config = fp;
                 that.form = form;
+                that.options = options || {};
+                fp.options = fp.options || {};
                 that.parent = that.form.getLayoutById(fp.$parentId);
                 that.$bind = fp.$bind;
+                if (that.$bind === '$none') {
+                    that._isBinded = false;
+                    that._internalValue = fp.options.value;
+                    that._internalState = fp.options.state || {};
+                }
                 if (fp.$name)
                     that.name = fp.$name;
                 that.$display = that.config.$display || that.$bind;
@@ -16972,22 +18284,46 @@ var Phoenix;
                 var isMeta = _sutils.isMeta(that.$bind);
                 if (isMeta)
                     that.$bind = that.getCustomBind();
-                if (that.$bind) {
+                if (that._isBinded && that.$bind) {
                     form.registerListenerFor(that.$bind, that);
                 }
-                if (that.useDisplay) {
+                if (that._isBinded && that.useDisplay) {
                     form.registerListenerFor(that.$display, that);
                 }
                 that._defineProps();
-                that.options = options || {};
                 that.fieldOptions = fp.options || {};
                 that.renderOptions = that.fieldOptions;
-                that.$schema = that.$bind ? form.getSchema(that.$bind) : {};
+                that.$schema = that._isBinded && that.$bind ? form.getSchema(that.$bind) : {};
                 if (that.$schema && that.$schema.type === 'array') {
                     that.$schemaItems = _sutils.expand$Ref(that.$schema.items, that.form.$rootSchema);
                 }
                 that.id = fp.$id;
+                that.title = that.fieldOptions.title ? that.fieldOptions.title : (that.$schema ? that.$schema.title : that.$bind);
             }
+            AbsField.prototype.hide = function (value) {
+                var that = this;
+                if (!that._isBinded)
+                    return;
+                that._internalState.isHidden = true;
+                if (that.stateChanged)
+                    that.stateChanged('isHidden', {});
+            };
+            AbsField.prototype.setInternalValue = function (value, notify) {
+                var that = this;
+                if (that._isBinded)
+                    return;
+                if (that._internalValue !== value) {
+                    var ov = that._internalValue;
+                    that._internalValue = value;
+                    if (that.changed)
+                        that.changed('', ov, value, 'propchange');
+                    if (that.fieldOptions.onChange)
+                        that.fieldOptions.onChange();
+                }
+            };
+            AbsField.prototype.getInternalValue = function () {
+                return this._internalValue;
+            };
             AbsField.prototype.getSettingsName = function (controlName) {
                 var that = this;
                 var a = [that.$bind, controlName];
@@ -17016,6 +18352,8 @@ var Phoenix;
             AbsField.prototype.beforeSaveSettings = function () { return false; };
             AbsField.prototype.savePreferences = function (after) {
                 var that = this;
+                if (!that._isBinded)
+                    return;
                 if (!that.form.supportSettings())
                     return after();
                 if (that.beforeSaveSettings())
@@ -17041,8 +18379,15 @@ var Phoenix;
             AbsField.prototype._state = function () {
                 var that = this;
                 that.state = that.state || {};
-                var state = that.form.getState(that.$bind);
-                that.state.value = that.form.getValue(that.$bind);
+                var state;
+                if (that._isBinded) {
+                    state = that.form.getState(that.$bind);
+                    that.state.value = that.form.getValue(that.$bind);
+                }
+                else {
+                    state = that._internalState;
+                    that.state.value = that._internalValue;
+                }
                 Object.keys(state).forEach(function (pn) { that.state[pn] = state[pn]; });
             };
             AbsField.prototype._defineProps = function () { };
@@ -17061,7 +18406,7 @@ var Phoenix;
             AbsField.prototype.removeEvents = function () { };
             AbsField.prototype.customOptions = function (opts) {
                 var that = this;
-                if (_utils.showRules()) {
+                if (that._isBinded && _utils.showRules()) {
                     var rs_2 = that.form.$rootSchema;
                     var bs_1 = that.form.$schema;
                     var binds = that.getBind();
@@ -17081,6 +18426,8 @@ var Phoenix;
             };
             AbsField.prototype.showRules = function () {
                 var that = this;
+                if (!that._isBinded)
+                    return;
                 var rs = that.form.$rootSchema, rules = [];
                 var bs = that.form.$schema;
                 var binds = that.getBind();
@@ -17137,10 +18484,12 @@ var Phoenix;
                     that.removeEvents();
                     that.$element = null;
                 }
-                if (that.$bind)
-                    that.form.unRegisterListenerFor(that.$bind, that);
-                if (that.useDisplay)
-                    that.form.unRegisterListenerFor(that.$display, that);
+                if (that._isBinded) {
+                    if (that.$bind)
+                        that.form.unRegisterListenerFor(that.$bind, that);
+                    if (that.useDisplay)
+                        that.form.unRegisterListenerFor(that.$display, that);
+                }
             };
             AbsField.prototype.showErrors = function (element, errors) {
                 var that = this;
@@ -17148,7 +18497,10 @@ var Phoenix;
                 var e = _dom.find(element, that.id + '_errors');
                 if (e) {
                     if (hasErrors) {
-                        _dom.text(e, errors[0].message);
+                        var cerror = errors[0].message;
+                        if (that.renderOptions.inline && Phoenix.bootstrap4)
+                            cerror = '  (' + cerror + ')';
+                        _dom.text(e, cerror);
                         _dom.removeClass(e, 'bs-none');
                     }
                     else {
@@ -17183,7 +18535,7 @@ var Phoenix;
             return _utils.format(html.join(''), id);
         }
         ;
-        var Alert = (function (_super) {
+        var Alert = /** @class */ (function (_super) {
             __extends(Alert, _super);
             function Alert(fp, options, form) {
                 var _this = _super.call(this, fp, options, form) || this;
@@ -17286,7 +18638,7 @@ var Phoenix;
             }
             return _utils.format(html.join(''), id);
         }
-        var ComplexBase = (function (_super) {
+        var ComplexBase = /** @class */ (function (_super) {
             __extends(ComplexBase, _super);
             function ComplexBase(fp, options, form) {
                 var _this = _super.call(this, fp, options, form) || this;
@@ -17362,10 +18714,10 @@ var Phoenix;
     (function (formarray) {
         var _p = Phoenix, _customData = _p.customData, _formcomplex = _p.formcomplex, _ui = _p.ui, _utils = _p.utils, _dom = _p.dom, _link = _p.link;
         var GRID_COLUMNS = 4;
-        var ArrayControl = (function (_super) {
+        var ArrayControl = /** @class */ (function (_super) {
             __extends(ArrayControl, _super);
             function ArrayControl() {
-                return _super.apply(this, arguments) || this;
+                return _super !== null && _super.apply(this, arguments) || this;
             }
             ArrayControl.prototype.customOptions = function (options) {
                 var that = this;
@@ -17377,47 +18729,68 @@ var Phoenix;
                     throw 'Item render isn\'t registered. Use customData.register("' + options.item.render + '", controller);';
                 }
             };
+            ArrayControl.prototype._renderContentElement = function (item, index, itemAfter) {
+                if (itemAfter === void 0) { itemAfter = false; }
+                var self = this;
+                var itemParent;
+                var itemCss = [];
+                if (self._layout === 'scroll')
+                    itemCss.push(self._id + '_inScroll');
+                if (self._layout === 'grid' || self._layout === 'column') {
+                    var ci = index % self._columns;
+                    if ((ci === 0 && self._layout === 'grid') || (index === 0 && self._layout === 'column')) {
+                        self._row = $('<div class="row"></div>').get(0);
+                        var bootstrapCol = Math.floor(12 / self._columns);
+                        for (var i = 0; i < self._columns; i++)
+                            _dom.append(self._row, $('<div class="col-sm-' + bootstrapCol + '"></div>').get(0));
+                        _dom.append(self._cp, self._row);
+                    }
+                    itemParent = self._row.childNodes[ci];
+                }
+                else {
+                    itemParent = self._cp;
+                    itemCss.push('bs-inline-block bs-va-top');
+                }
+                if (self.renderOptions.item.style) {
+                    _dom.parseStyle(self.renderOptions.item.style, itemCss);
+                }
+                var itemContainer = $('<div class="' + itemCss.join(' ') + '"></div>').get(0);
+                if (itemAfter)
+                    self._parentItemAddedInDom = itemContainer;
+                else {
+                    if (!item && self._render.lastRender)
+                        self._render.lastRender(itemContainer, item, self._id);
+                    else
+                        self._render.render(itemContainer, item, self._map, self.state.value.get(index));
+                }
+                _dom.append(itemParent, itemContainer);
+            };
+            ArrayControl.prototype.beforeRenderContent = function () {
+                var self = this;
+                self._render && self._render.beforeRenderContent && self._render.beforeRenderContent(self);
+            };
             // Create content
             ArrayControl.prototype.renderContent = function (parent) {
                 var that = this, columns = 0, scrollLeft = null, scrollRight = null;
+                _dom.empty(parent);
+                that._parent = parent;
                 that._id = _utils.allocID();
                 that._map = {};
                 that._layout = 'inline';
                 if (that.renderOptions && that.renderOptions.layout)
                     that._layout = that.renderOptions.layout.type;
-                var cp = document.createDocumentFragment();
+                that._cp = document.createDocumentFragment();
                 if (that._layout === 'grid' || that._layout === 'column')
-                    columns = Math.max(Math.min(that.renderOptions.layout.columns || GRID_COLUMNS, 12), 1);
-                var row = null;
+                    that._columns = Math.max(Math.min(that.renderOptions.layout.columns || GRID_COLUMNS, 12), 1);
                 var m = that.state.value.model(true);
+                that._localModel = m;
+                that.beforeRenderContent();
                 m && m.forEach(function (item, index) {
-                    var itemParent;
-                    var itemCss = [];
-                    if (that._layout === 'scroll')
-                        itemCss.push(that._id + '_inScroll');
-                    if (that._layout === 'grid' || that._layout === 'column') {
-                        var ci = index % columns;
-                        if ((ci === 0 && that._layout === 'grid') || (index === 0 && that._layout === 'column')) {
-                            row = $('<div class="row"></div>').get(0);
-                            var bootstrapCol = Math.floor(12 / columns);
-                            for (var i = 0; i < columns; i++)
-                                _dom.append(row, $('<div class="col-sm-' + bootstrapCol + '"></div>').get(0));
-                            _dom.append(cp, row);
-                        }
-                        itemParent = row.childNodes[ci];
-                    }
-                    else {
-                        itemParent = cp;
-                        itemCss.push('bs-inline-block');
-                    }
-                    if (that.renderOptions.item.style) {
-                        _dom.parseStyle(that.renderOptions.item.style, itemCss);
-                    }
-                    var itemContainer = $('<div class="' + itemCss.join(' ') + '"></div>').get(0);
-                    that._render.render(itemContainer, item, that._map);
-                    _dom.append(itemParent, itemContainer);
+                    that._renderContentElement(item, index);
                 });
-                _dom.empty(parent);
+                if (that._render.lastRender)
+                    that._renderContentElement(null, m && m.length);
+                that._renderContentElement(null, m && m.length + 1, true);
                 if ((that._layout === 'grid' || that._layout === 'column') && !_dom.hasClass(parent, 'container-fluid'))
                     _dom.addClass(parent, 'container-fluid');
                 if (that._layout === 'scroll') {
@@ -17426,11 +18799,11 @@ var Phoenix;
                     _dom.append(scrollContainer, $(_utils.format('<div id="{0}_right" class="{0}_move array-control-move array-control-goRight"><span class="{1}"></span></div>', that._id, _dom.iconClass('chevron-right'))).get(0));
                     var container = $(_utils.format('<div id="{0}_container"></div>', that._id)).get(0);
                     _dom.append(scrollContainer, container);
-                    _dom.append(container, cp);
+                    _dom.append(container, that._cp);
                     _dom.append(parent, scrollContainer);
                 }
                 else
-                    _dom.append(parent, cp);
+                    _dom.append(parent, that._cp);
             };
             ArrayControl.prototype.destroy = function () {
                 var that = this;
@@ -17451,54 +18824,75 @@ var Phoenix;
             ArrayControl.prototype.click = function (event) {
                 var that = this;
                 if (that._render.click)
-                    that._render.click(that.$element.get(0), event, that._map);
+                    that._render.click(that.$element.get(0), event, that._map, that.state.value, that.form);
+            };
+            ArrayControl.prototype.afterAddedInDom = function () {
+                var self = this;
+                if (self._render.afterAddedInDomRender)
+                    self._render.afterAddedInDomRender(self._parentItemAddedInDom, self._id);
             };
             ArrayControl.prototype.resize = function () {
                 var self = this;
                 var width = 0, height = 0, maxWidth = 0;
-                if (self._layout !== 'scroll')
+                if (self._layout === 'scroll') {
+                    self._nOverflow = $(_utils.format('#{0}_overflow', self._id));
+                    self._nCtrlLeft = $(_utils.format('#{0}_left', self._id));
+                    self._nCtrlRight = $(_utils.format('#{0}_right', self._id));
+                    self._nContainer = $(_utils.format('#{0}_container', self._id));
+                    self._nInScroll = $(_utils.format('.{0}_inScroll', self._id));
+                    self._nCtrls = $(_utils.format('.{0}_move', self._id));
+                    self._nInScroll.each(function () {
+                        width += $(this).outerWidth();
+                        if ($(this).height() > height)
+                            height = $(this).height();
+                        if ($(this).outerWidth() > maxWidth)
+                            maxWidth = $(this).outerWidth();
+                    });
+                    width = Math.round(width);
+                    height = Math.round(height);
+                    self._nContainer.css('width', width + "px");
+                    self._nContainer.css('height', (height + 10) + "px");
+                    var heightMoveCtrl = self._nCtrls.height();
+                    self._nCtrls.css('padding-top', Math.round(height / 2 - heightMoveCtrl / 2));
+                    self._nCtrls.css('padding-bottom', Math.round(height / 2 - heightMoveCtrl / 2));
+                    var paddingBorder = 10;
+                    var paddingCenter = 20;
+                    self._nCtrlLeft.css('padding-left', paddingBorder);
+                    self._nCtrlLeft.css('padding-right', paddingCenter);
+                    self._nCtrlRight.css('padding-left', paddingCenter);
+                    self._nCtrlRight.css('padding-right', paddingBorder);
+                    self._nCtrlRight.css('left', Math.round(self._nOverflow.outerWidth() - (paddingCenter + paddingBorder + self._nCtrls.width() + 3)));
+                    self._setMoveCtrls();
+                    self._moveDelta = 0;
+                    self._nCtrlLeft.mouseenter(function () {
+                        self._moveDelta = -5;
+                        self._activeMove();
+                    });
+                    self._nCtrlLeft.mouseleave(function () {
+                        self._moveDelta = 0;
+                    });
+                    self._nCtrlRight.mouseenter(function () {
+                        self._moveDelta = 5;
+                        self._activeMove();
+                    });
+                    self._nCtrlRight.mouseleave(function () {
+                        self._moveDelta = 0;
+                    });
+                }
+                if (self._render.afterResize)
+                    self._render.afterResize(self._id, self.state.value, self.form);
+            };
+            ArrayControl.prototype.changed = function (propName, ov, nv, op) {
+                _super.prototype.changed.call(this, propName, ov, nv, op);
+                var self = this;
+                /*var m = self.state.value.model(true);
+                if (m === self._localModel)
                     return;
-                self._nOverflow = $(_utils.format('#{0}_overflow', self._id));
-                self._nCtrlLeft = $(_utils.format('#{0}_left', self._id));
-                self._nCtrlRight = $(_utils.format('#{0}_right', self._id));
-                self._nContainer = $(_utils.format('#{0}_container', self._id));
-                self._nInScroll = $(_utils.format('.{0}_inScroll', self._id));
-                self._nCtrls = $(_utils.format('.{0}_move', self._id));
-                self._nInScroll.each(function () {
-                    width += $(this).outerWidth();
-                    if ($(this).height() > height)
-                        height = $(this).height();
-                    if ($(this).outerWidth() > maxWidth)
-                        maxWidth = $(this).outerWidth();
-                });
-                self._nContainer.css('width', width + "px");
-                self._nContainer.css('height', (height + 10) + "px");
-                var heightMoveCtrl = self._nCtrls.height();
-                self._nCtrls.css('padding-top', height / 2 - heightMoveCtrl / 2);
-                self._nCtrls.css('padding-bottom', height / 2 - heightMoveCtrl / 2);
-                var paddingBorder = 10;
-                var paddingCenter = 20;
-                self._nCtrlLeft.css('padding-left', paddingBorder);
-                self._nCtrlLeft.css('padding-right', paddingCenter);
-                self._nCtrlRight.css('padding-left', paddingCenter);
-                self._nCtrlRight.css('padding-right', paddingBorder);
-                self._nCtrlRight.css('left', self._nOverflow.outerWidth() - (paddingCenter + paddingBorder + self._nCtrls.width() + 3));
-                self._setMoveCtrls();
-                self._moveDelta = 0;
-                self._nCtrlLeft.mouseenter(function () {
-                    self._moveDelta = -5;
-                    self._activeMove();
-                });
-                self._nCtrlLeft.mouseleave(function () {
-                    self._moveDelta = 0;
-                });
-                self._nCtrlRight.mouseenter(function () {
-                    self._moveDelta = 5;
-                    self._activeMove();
-                });
-                self._nCtrlRight.mouseleave(function () {
-                    self._moveDelta = 0;
-                });
+                self._localModel = m;*/
+                setTimeout(function () {
+                    self.afterAddedInDom();
+                    self.resize();
+                }, 50);
             };
             ArrayControl.prototype._activeMove = function () {
                 var self = this;
@@ -17546,7 +18940,8 @@ var Phoenix;
         var _addDesign = function (id, options, authoring, html) {
             if (authoring)
                 html.push(' draggable="true"');
-            html.push(' data-render="{0}"');
+            if (authoring)
+                html.push(' data-render="{0}"');
         }, _addSortIndicator = function (th, asc) {
             var lc = _dom.icon(asc ? 'caret-up' : 'caret-down');
             _dom.addClass(lc, 'bs-basictable-sort');
@@ -17693,17 +19088,42 @@ var Phoenix;
                 if (css)
                     th.className = css.join(' ');
                 var cth = document.createElement('div');
-                cth.className = 'bs-column-header';
+                var headerCss = ['bs-column-header'];
+                if (options.header && options.header.align)
+                    headerCss.push(options.header.align);
+                cth.className = headerCss.join(' ');
                 var p = cth;
-                if (options.headerLines && options.headerLines && options.headerLines > 1) {
+                if (options.headerLines) {
+                    console.log('headerLines is obsolete. use instead header.rows');
+                    options.header = options.header = {};
+                    options.header.rows = options.headerLines;
+                }
+                if (options.header && options.header.rows && options.header.rows > 1) {
                     var tt = document.createElement('div');
-                    tt.className = 'bs-header-rows-parent row-' + options.headerLines;
+                    headerCss = ['bs-header-rows-parent row-' + options.header.rows];
+                    tt.className = headerCss.join(' ');
                     p = document.createElement('div');
-                    p.className = 'bs-header-rows';
+                    headerCss = ['bs-header-rows'];
+                    p.className = headerCss.join(' ');
                     tt.appendChild(p);
                     cth.appendChild(tt);
                 }
-                _dom.append(p, document.createTextNode(_ulocale.tt((col.isLink ? '' : col.title) || String.fromCharCode(160), locale)));
+                if (options.selecting && options.selecting.multiselect && options.selecting.selectAll && _su.isSelectField(col.$bind)) {
+                    var v = _uiutils.utils.displayValue(false, col.schema, locale, {
+                        html: true, selectable: true, editable: true, isTotal: false, check: true,
+                        avanced: col.options || {}, tableOptions: options, state: {}
+                    }, null, col.$bind);
+                    if (v.html) {
+                        var $c = $(v.value);
+                        _dom.append(p, $c.get(0));
+                    }
+                    else {
+                        _dom.append(p, document.createTextNode(v.value));
+                    }
+                }
+                else {
+                    _dom.append(p, document.createTextNode(_ulocale.tt((col.isLink ? '' : col.title) || String.fromCharCode(160), locale)));
+                }
                 if (options.allowColumnResize && _isPixel(col.options.width)) {
                     var re = document.createElement('div');
                     re.className = 'bs-col-resize';
@@ -17782,7 +19202,8 @@ var Phoenix;
                         _dom.removeClass(ctr, 'bs-row-selected');
                 });
             }
-        }, _createRow = function (id, index, level, row, columns, options, authoring, locale, isOdd, isFrozen, isTotal) {
+        }, _createRow = function (id, index, level, row, columns, options, authoring, locale, isOdd, isFrozen, isTotal, totalOptions) {
+            var _bootstrap4 = Phoenix.bootstrap4;
             var tr = document.createElement('tr');
             tr.id = row.$id + (isFrozen ? '_frozen' : '');
             var rcss = ['bs-table-row'];
@@ -17802,6 +19223,15 @@ var Phoenix;
             }
             columns.forEach(function (col, colIndex) {
                 var td = document.createElement('td');
+                if (totalOptions) {
+                    if (colIndex === 0) {
+                        col = columns.find(function (c) { return c.$bind === totalOptions.columnField; });
+                        td.colSpan = totalOptions.colspan;
+                    }
+                    else if (colIndex < totalOptions.colspan) {
+                        return;
+                    }
+                }
                 var appendSpace = false;
                 if (index === 0 && options.headerIsHidden && !options._useColGrp) {
                     if (col.options.width)
@@ -17812,6 +19242,10 @@ var Phoenix;
                 var css = [];
                 if (col.options._expandItem)
                     css.push('bs-cursor-d');
+                var state = row.getRelativeState(col.$bind);
+                if (state.style) {
+                    _dom.parseStyle(state.style, css);
+                }
                 var align = col.options.align;
                 if (col.schema) {
                     var isNumber = _su.isNumber(col.schema);
@@ -17827,10 +19261,12 @@ var Phoenix;
                 }
                 if (align)
                     css.push(_uiutils.utils.align2Css(align));
+                if (col.isLink && !isTotal && col.options.button) {
+                    css.push('bs-td-button');
+                }
                 if (css.length)
                     td.className = css.join(' ');
                 _dom.attr(td, 'colId', col.$bind);
-                var state = row.getRelativeState(col.$bind);
                 if (!state.isHidden) {
                     if (col.isLink) {
                         if (!isTotal) {
@@ -17841,8 +19277,12 @@ var Phoenix;
                                 btn.type = 'button';
                                 if (state.isDisabled)
                                     btn.disabled = true;
-                                var sizeCss = col.options.size === 'normal' ? '' : ' btn-' + (options.size || 'sm');
-                                btn.className = 'bs-button btn btn-' + (col.options.type || 'link') + sizeCss + (state.isDisabled ? ' disabled' : '');
+                                var sz = col.options.size || (_bootstrap4 ? 'normal' : 'sm');
+                                var sizeCss = sz === 'normal' ? '' : ' btn-' + sz;
+                                var cc = (col.options.type || 'link');
+                                if (_bootstrap4 && cc === 'default')
+                                    cc = _dom.bootstrapStyles(true).secondary;
+                                btn.className = 'bs-button btn btn-' + cc + sizeCss + (state.isDisabled ? ' disabled' : '');
                                 if (col.options.icon) {
                                     span = document.createElement('span');
                                     span.className = _dom.iconClass(col.options.icon);
@@ -17913,17 +19353,30 @@ var Phoenix;
                 if (cb)
                     cb(row.value, rowIndex, level);
                 var isOdd = rowIndex % 2 === 1;
-                _dom.append(frag, _createRow(id, rowIndex, level, row.value, columns, options, authoring, locale, isOdd, isFrozen, isTotal));
+                _dom.append(frag, _createRow(id, rowIndex, level, row.value, columns, options, authoring, locale, isOdd, isFrozen, isTotal, null));
             });
             return frag;
-        }, _createRows = function (id, rows, columns, options, authoring, locale, isFrozen, isTotal, cb) {
+        }, _createRows = function (id, rows, columns, options, authoring, locale, isFrozen, isTotal, cb, totalField) {
+            var totalOptions = null;
+            if (totalField) {
+                var colspan = 0;
+                for (var i = 0; i < columns.length; i++) {
+                    var c = columns[i];
+                    if (_su.isNumber(c.schema))
+                        break;
+                    colspan++;
+                }
+                if (colspan > 1) {
+                    totalOptions = { colspan: colspan, columnField: totalField };
+                }
+            }
             var frag = document.createDocumentFragment();
             rows && rows.forEach(function (row, rowIndex, level) {
                 level = level || 0;
                 if (cb)
                     cb(row, rowIndex, level);
                 var isOdd = rowIndex % 2 === 1;
-                _dom.append(frag, _createRow(id, rowIndex, level, row, columns, options, authoring, locale, isOdd, isFrozen, isTotal));
+                _dom.append(frag, _createRow(id, rowIndex, level, row, columns, options, authoring, locale, isOdd, isFrozen, isTotal, totalOptions));
             }, options.expandingProperty);
             return frag;
         }, _canUseColGroups = function (options, columns) {
@@ -17956,6 +19409,9 @@ var Phoenix;
             var css = ['table', 'bs-control'];
             if (isHeader || isFooter) {
                 css.push('table-header');
+                if (isFooter && options.total && options.total.light) {
+                    css.push('light');
+                }
             }
             if (!isHeader && !isFooter && (options._useStripedCss && options.striped)) {
                 css.push('table-striped');
@@ -18162,6 +19618,8 @@ var Phoenix;
             html.push('<div id="{0}_focus" class="');
             html.push(css.join(' '));
             html.push('"');
+            if (!authoring)
+                html.push(' data-render="{0}"');
             if (options.selecting && (options.selecting.cell || options.selecting.row)) {
                 html.push(' tabindex="0" ');
             }
@@ -18191,6 +19649,7 @@ var Phoenix;
                         style.push("height: " + parseInt(options.height + '', 10) + 'px');
                     }
                     else if (options.minHeight && options.bottom) {
+                        // calculate height  onresize && afterrender
                     }
                     else if (!options.minHeight) {
                         throw "To support scrolling vertical, the grid must have an explicit height/min-height.";
@@ -18208,7 +19667,7 @@ var Phoenix;
                 html.push('</div>'); // {0}_frozen_scroll
                 html.push('</div>'); // 0}_frozen_header_parent
                 if (vscrolling && options.total && options.total.property) {
-                    html.push('<div id="{0}_table_frozen_footer" class="bs-table-header">');
+                    html.push('<div id="{0}_table_frozen_footer" class="bs-table-header' + (options.total.light ? ' light' : '') + '">');
                     _createTable(html, options, false, true, true);
                     html.push('</div>'); //bs-table-header
                 }
@@ -18241,6 +19700,7 @@ var Phoenix;
                     style.push("height: " + parseInt(options.height + '', 10) + 'px');
                 }
                 else if (options.minHeight && options.bottom) {
+                    // calculate height  onresize && afterrender
                 }
                 else if (!options.minHeight) {
                     throw "To support scrolling vertical, the grid must have an explicit height/min-height.";
@@ -18255,7 +19715,7 @@ var Phoenix;
             if (vscrolling) {
                 html.push('</div>'); //bs-table-content-scroll
                 if (options.total && options.total.property) {
-                    html.push('<div id="{0}_table_footer" class="bs-table-header" style="padding-right:');
+                    html.push('<div id="{0}_table_footer" class="bs-table-header' + (options.total.light ? ' light' : '') + '" style="padding-right:');
                     html.push(_dom.scrollbar());
                     html.push('px;">');
                     html.push('<div id="{0}_table_footer_content" class="bs-table-header-content">');
@@ -18330,7 +19790,7 @@ var Phoenix;
             else {
                 input.selectedIndex = ii;
             }
-            return { input: input, parent: input, td: parent, isInputElement: true, canSelect: false, schema: col.schema };
+            return { input: input, parent: input, td: parent, combo: null, isInputElement: true, canSelect: false, schema: col.schema };
         }, _createInplaceLookup = function (svalue, value, state, parent, cell, col, opts) {
             var pp = document.createElement("div");
             pp.className = 'bs-inplace-parent bs-edit-border ';
@@ -18356,6 +19816,8 @@ var Phoenix;
                 icon.className = _dom.iconClass(opts.after.icon);
                 _dom.append(addon, icon);
                 _dom.append(cp, addon);
+                if (opts.id)
+                    addon.id = opts.id + '_after';
             }
             _setRowSize(input, parent, true);
             _dom.empty(parent);
@@ -18369,7 +19831,9 @@ var Phoenix;
                 else
                     input.value = _ulocale.isoDatePart(value || '');
             }
-            return { input: input, parent: pp, td: parent, isInputElement: true, canSelect: true, schema: col.schema };
+            else
+                input.value = svalue;
+            return { input: input, parent: pp, td: parent, isInputElement: true, canSelect: true, schema: col.schema, combo: null };
         }, _updateEvenOdd = function (pr) {
             if (pr.childNodes.length) {
                 var isOdd = false;
@@ -18389,7 +19853,7 @@ var Phoenix;
                 return _createSelectInplaceEdit(svalue, value, state, parent, cell, col, opts);
             }
             else if (_su.isBoolean(col.schema)) {
-                return { input: null, parent: null, td: parent, isInputElement: false, canSelect: false, schema: col.schema };
+                return { input: null, parent: null, td: parent, isInputElement: false, canSelect: false, schema: col.schema, combo: null };
             }
             else if (opts.after || opts.before) {
                 return _createInplaceLookup(svalue, value, state, parent, cell, col, opts);
@@ -18421,7 +19885,7 @@ var Phoenix;
             }
             else
                 input.value = svalue;
-            return { input: input, parent: input, td: parent, isInputElement: true, canSelect: true, schema: col.schema, decimals: state.decimals };
+            return { input: input, parent: input, td: parent, isInputElement: true, canSelect: true, schema: col.schema, decimals: state.decimals, combo: null };
         };
         var _gridUtil = {
             createCols: _createCols,
@@ -18482,9 +19946,11 @@ var Phoenix;
                 return true;
             return false;
         };
+        formgrid.gridlookup = null;
         formgrid.glbGridFilter = null;
         formgrid.glbGridSettings = null;
-        var BasicGrid = (function (_super) {
+        formgrid.glbMongoFilter2Filter = null;
+        var BasicGrid = /** @class */ (function (_super) {
             __extends(BasicGrid, _super);
             function BasicGrid(fp, options, form) {
                 var _this = _super.call(this, fp, options, form) || this;
@@ -18501,7 +19967,7 @@ var Phoenix;
                 };
                 var that = _this;
                 if (that.fieldOptions.striped === undefined) {
-                    that.fieldOptions.striped = Phoenix.bootstrap4 ? false : true;
+                    that.fieldOptions.striped = true;
                 }
                 that._view = [];
                 that._viewMap = {};
@@ -18510,7 +19976,6 @@ var Phoenix;
                     that._settingsName = that.getSettingsName('basicgrid');
                     that._settings = form.getFieldSettings(that._settingsName);
                 }
-                form.registerListenerFor(that.$bind + ".$item", that);
                 if (that._settings) {
                     var origColumns = that.fieldOptions.columns || [];
                     var newColumns = that._settings.columns || [];
@@ -18535,6 +20000,7 @@ var Phoenix;
                 }
                 if (that.fieldOptions && that.fieldOptions.total && that.fieldOptions.total.property) {
                     that._totalProperty = that.fieldOptions.total.property;
+                    that._totalField = that.fieldOptions.total.field;
                     form.registerListenerFor(that._totalProperty, that);
                 }
                 that._state();
@@ -18543,6 +20009,7 @@ var Phoenix;
                 that._initOrigColumns(that.fieldOptions);
                 that._initCols(that.fieldOptions);
                 that._details = [];
+                that._onselectItemHandler = that._onselectItem.bind(that);
                 return _this;
             }
             BasicGrid.prototype._initOrigColumns = function (opts) {
@@ -18594,10 +20061,26 @@ var Phoenix;
                 var nv = _sutils.text2Value(value, col.schema, state);
                 var ov = item.getValue(col.$bind);
                 if (nv !== ov) {
+                    //
                     item.setValue(col.$bind, nv);
                     return true;
                 }
                 return false;
+            };
+            BasicGrid.prototype.setFocus = function (focusParams) {
+                var that = this;
+                var state = that.form.getState(that.$bind);
+                if (state.isDisabled || state.isHidden)
+                    return;
+                if (that.inplace && that.inplace.input && that.inplace.isInputElement) {
+                    var input = that.inplace.input;
+                    input.focus();
+                }
+                else if (that.$element) {
+                    var f = _dom.query(that.$element.get(0), '[tabindex="0"]');
+                    if (f)
+                        f.focus();
+                }
             };
             BasicGrid.prototype._inplaceEditAcceptKeys = function (key) {
                 var that = this;
@@ -18652,8 +20135,15 @@ var Phoenix;
                 var state = cell.item.getState(cell.col.$bind);
                 var s = _sutils.value2Text(value, cell.col.schema, state);
                 td.tabIndex = -1;
-                var opts = { nativeNumber: false, nativeDate: false, type: 'text', after: null };
-                if (_sutils.isDate(cell.col.schema)) {
+                var opts = { nativeNumber: false, nativeDate: false, type: 'text', after: null, id: null };
+                if (cell.col.$lookup) {
+                    // ---> START LOOKUP
+                    opts.after = { icon: 'chevron-down' };
+                    opts.id = td.id || _utils.allocID();
+                    td.id = opts.id;
+                    // <--- END LOOKUP
+                }
+                else if (_sutils.isDate(cell.col.schema)) {
                     opts.nativeDate = _uiutils.utils.nativeDate();
                     if (opts.nativeDate) {
                         opts.type = 'date';
@@ -18669,6 +20159,13 @@ var Phoenix;
                         opts.type = 'number';
                 }
                 that.inplace = _gu.createInplaceEdit(s, value, state, td, cell, cell.col, opts);
+                // ---> START LOOKUP
+                if (cell.col.$lookup) {
+                    that.inplace.id = opts.id;
+                    that.inplace.col = cell.col;
+                    that._createGridPopup();
+                }
+                // <--- END LOOKUP
                 that._inplaceEditAddEvents();
                 if (that.inplace.isInputElement) {
                     that.inplace.input.tabIndex = 0;
@@ -18683,29 +20180,54 @@ var Phoenix;
                 }
                 that._onFrozenFocusScroll(td, cell.col);
             };
+            BasicGrid.prototype._destroyInplaceEdit = function () {
+                var that = this;
+                if (that.inplace) {
+                    if (that.inplace.combo) {
+                        that.inplace.combo.destroy();
+                        that.inplace.combo = null;
+                    }
+                    that.inplace = null;
+                }
+            };
             BasicGrid.prototype._inplaceEditRemove = function (isFocusOut, isDestroy) {
                 var that = this;
                 if (that.inplace && !isDestroy) {
-                    var td = that.inplace.td;
+                    var td_1 = that.inplace.td;
                     if (isFocusOut) {
-                        td.tabIndex = 0;
+                        td_1.tabIndex = 0;
                     }
-                    var cell = that._td2value(td);
+                    var cell_1 = that._td2value(td_1);
                     that._inplaceEditRemoveEvents();
                     if (that.inplace.parent)
                         _dom.remove(that.inplace.parent);
-                    _dom.removeClass(td, 'focused');
+                    _dom.removeClass(td_1, 'focused');
                     var updValue = that.inplace.input ? true : false;
                     if (updValue) {
-                        var s = that._inplaceEditGetValue(cell);
-                        that.inplace = null;
-                        if (!cell.item)
+                        var s = that._inplaceEditGetValue(cell_1);
+                        that._destroyInplaceEdit();
+                        if (!cell_1.item)
                             return;
-                        if (!that._inplaceEditValue2Model(s + '', cell.item, cell.col))
-                            that._modifyCell(cell.item, cell.col.$bind, td);
+                        // ---> START LOOKUP
+                        if (cell_1.col.$lookup) {
+                            var ov = cell_1.item.getValue(cell_1.col.$bind);
+                            if (s !== ov) {
+                                return that._findValue(s, cell_1, function (ldata) {
+                                    that._setRemoteValue(cell_1.col, cell_1.item, ldata);
+                                    // maybe not
+                                    that._modifyCell(cell_1.item, cell_1.col.$bind, td_1);
+                                });
+                            }
+                            else {
+                                // maybe not
+                                that._modifyCell(cell_1.item, cell_1.col.$bind, td_1);
+                            }
+                        }
+                        else if (!that._inplaceEditValue2Model(s + '', cell_1.item, cell_1.col))
+                            that._modifyCell(cell_1.item, cell_1.col.$bind, td_1);
                     }
                 }
-                that.inplace = null;
+                that._destroyInplaceEdit();
             };
             BasicGrid.prototype._inplaceEditModel2Control = function (item, field, td) {
                 var that = this;
@@ -18743,6 +20265,7 @@ var Phoenix;
                             that._rsFrozenTimer = null;
                         }
                         that.syncMasterScroll(null);
+                        //that._rsFrozenTimer = window.setTimeout(function () {}, 50);
                     }
                 }
             };
@@ -18760,6 +20283,8 @@ var Phoenix;
                     that._deltaHScrollContent = hasFrozenColumns ? _dom.find(e, that.id + '_frozen_scroll_delta') : null;
                     if (that._scrollableMaster && that._scrollableHeaderOfMaster)
                         $(that._scrollableMaster).on('scroll', that.syncHeaderAndFrozenScroll.bind(that));
+                    //if (that._scrollableFrozenContent && (that.fieldOptions.editing || (that.fieldOptions.selecting && that.fieldOptions.selecting.cell)))
+                    //    $(that._scrollableFrozenContent).on('scroll', that.syncMasterScroll.bind(that));
                 }
                 if (((opts.allowColumnResize || opts.allowColumnMove) && !opts.headerIsHidden) || opts.rowMove) {
                     var drag_2 = _drag.dragManager.addDrag([that.$element.get(0)]);
@@ -18996,7 +20521,8 @@ var Phoenix;
                     if (point.x > p.left && point.x < (p.left + drag.data.multiSelTarget.offsetWidth) &&
                         point.y > p.top && point.y < (p.top + drag.data.multiSelTarget.offsetHeight)) {
                         var opts = that.renderOptions;
-                        drag.data.item.select(true, opts.selecting && opts.selecting.row && opts.selecting.multiselect, that.state.value, opts.expandingProperty, opts.expanding && opts.expanding.selectChildren);
+                        if (that.state.value)
+                            drag.data.item.select(true, opts.selecting && opts.selecting.row && opts.selecting.multiselect, that.state.value, opts.expandingProperty, opts.expanding && opts.expanding.selectChildren);
                     }
                 }
             };
@@ -19093,11 +20619,15 @@ var Phoenix;
                     });
                     that.frozenColumns = null;
                 }
-                that.form.unRegisterListenerFor(that.$bind + ".$item", that);
                 if (that._totalProperty) {
                     that.form.unRegisterListenerFor(that._totalProperty, that);
                 }
                 that._inplaceEditRemove(false, true);
+                that._onselectItemHandler = null;
+                if (that._eventBus) {
+                    that._eventBus.destroy();
+                    that._eventBus = null;
+                }
                 if (that._pager) {
                     that._pager.destroy();
                     that._pager = null;
@@ -19122,7 +20652,8 @@ var Phoenix;
             };
             BasicGrid.prototype._moveToPage = function (page) {
                 var that = this;
-                that.state.value.currentPage(page);
+                if (that.state.value)
+                    that.state.value.currentPage(page);
             };
             BasicGrid.prototype._onselectPage = function (page) {
                 var that = this;
@@ -19167,6 +20698,8 @@ var Phoenix;
                 var selectedItems = [];
                 var opts = that.renderOptions;
                 var list = that.state.value;
+                if (!list)
+                    return;
                 list.enumSelectedItems(opts.expandingProperty, function (ii) {
                     selectedItems.push(ii);
                 });
@@ -19259,6 +20792,8 @@ var Phoenix;
                 _super.prototype._state.call(this);
                 var that = this;
                 var opts = that.fieldOptions;
+                if (!that.state.value)
+                    return;
                 if (that.state.value.isQueryable()) {
                     // create pager
                     var options = $.extend({ size: "default", selectPage: that._onselectPage.bind(that) }, opts.pager || {});
@@ -19343,6 +20878,8 @@ var Phoenix;
                             return;
                         }
                     }
+                    if (c.options.$lookup)
+                        c.$lookup = that.form.getLookupForSchema(that.$bind + '.' + c.$bind, c.options.$lookup);
                     if (that._mapCols[c.$bind]) {
                         console.log('Duplicate column name  : ' + col.$bind);
                         return;
@@ -19385,18 +20922,16 @@ var Phoenix;
                 if (that._ignoreNotifications)
                     return false;
                 switch (op) {
-                    case 'set':
                     case 'propchange':
-                        if (propName === params.propName) {
+                        if (propName === that._totalProperty) {
                             that._renderTotalRows();
                         }
-                        break;
-                    case 'upd':
-                        if (propName === params.propName) {
+                        else {
                             var totals = that.form.getValue(that._totalProperty);
-                            var item = params && params.$oid ? totals.findById(params.$oid) : null;
+                            var instPath = _sutils.parsePath(that._totalProperty, propName, '');
+                            var item = params[instPath];
                             if (item) {
-                                var prop = params.property;
+                                var prop = propName.substr(instPath.length + 1);
                                 that._modifyFooterCell(item, prop);
                             }
                         }
@@ -19409,87 +20944,107 @@ var Phoenix;
                     return;
                 if (that._ignoreNotifications)
                     return false;
-                var updOddEven = false, doResize = false, doSelectFirstCell = false;
-                if (that._totalProperty && propName.indexOf(that._totalProperty) === 0) {
-                    if (propName === params.propName)
-                        that._totalChanged(propName, ov, nv, op, params);
+                var pp = propName.substr(that.$bind.length);
+                if (pp.indexOf('.$selected') >= 0)
                     return;
+                var checkVisibility = that.renderOptions.hideWhenNoRows;
+                var forceRender = false;
+                if (params.checkChildren && op === 'propchange' && propName === that.$bind) {
+                    checkVisibility = true;
+                    forceRender = true;
+                    that.state.value = that.form.getValue(that.$bind);
+                }
+                var updOddEven = false, doResize = false, doSelectFirstCell = false;
+                if (that._totalProperty) {
+                    if (propName.indexOf(that._totalProperty) === 0) {
+                        that._totalChanged(propName, ov, nv, op, params);
+                        return;
+                    }
+                    else if (params.checkChildren && op === 'propchange' && propName === that._totalProperty) {
+                        that._totalChanged(that._totalProperty, ov, nv, op, params);
+                    }
+                }
+                if (!that.state.value) {
+                    op = 'none';
                 }
                 switch (op) {
                     case "count":
-                        if (propName === params.propName) {
-                            var t = that.toolBar;
-                            if (t && t.setValue)
-                                t.setValue("count", that.state.value.totalCount());
-                        }
+                        var t = that.toolBar;
+                        if (t && t.setValue)
+                            t.setValue("count", that.state.value.totalCount());
                         break;
                     case "filter":
-                        if (propName === params.propName) {
-                            var t = that.toolBar;
-                            if (t && t.setValue)
-                                t.setValue('filter', that.state.value.filter.title || '');
-                        }
+                        var tb = that.toolBar;
+                        if (tb && tb.setValue)
+                            tb.setValue('filter', that.state.value.filter.title || '');
                         break;
                     case "pagination":
-                        if (propName === params.propName) {
-                            var p = that._pager;
-                            if (p) {
-                                p.props.totalPages = that.state.value.totalPages();
-                                p.props.currentPage = that.state.value.currentPage();
-                            }
+                        var p = that._pager;
+                        if (p) {
+                            p.props.totalPages = that.state.value.totalPages();
+                            p.props.currentPage = that.state.value.currentPage();
                         }
                         break;
                     case 'sorting':
-                        if (propName === params.propName) {
-                            that._updateSorting();
-                        }
+                        that._updateSorting();
                         break;
-                    case 'set':
                     case 'propchange':
-                        if (propName === params.propName) {
+                        if (propName === that.$bind) {
                             that._renderRows(true, '', null, false);
                             doResize = true;
                             doSelectFirstCell = true;
+                            checkVisibility = true;
                         }
-                        break;
-                    case 'add':
-                        if (propName === params.propName) {
-                            that._createRow(params.$value);
-                            doResize = true;
-                            updOddEven = true;
-                        }
-                        break;
-                    case 'remove':
-                        if (propName === params.propName) {
-                            that._removeRow(params.$id);
-                            updOddEven = true;
-                        }
-                        break;
-                    case 'upd':
-                        if (propName === params.propName) {
-                            //console.log('Grid update propName = ' + propName + ', params.property = ' + params.property + ', params.$oid = ' + params.$oid);
-                            var item = params && params.$oid ? that._findById(params.$oid) : null;
+                        else {
+                            var prop = propName;
+                            var instPath = _sutils.parsePath(that.$bind, prop, that.renderOptions.expandingProperty);
+                            var item = params[instPath];
                             if (item) {
-                                var opts = that.renderOptions;
-                                var prop = params.property;
-                                if (opts.expandingProperty)
-                                    prop = _sutils.removeExpand(prop, opts.expandingProperty);
-                                that._modifyCell(item, prop);
-                                if (_sutils.isSelectField(prop)) {
-                                    if (!opts.noRowSelectedIndicator)
+                                var cp = propName.substr(instPath.length + 1);
+                                if (!cp)
+                                    return;
+                                that._modifyCell(item, cp);
+                                if (_sutils.isSelectField(cp)) {
+                                    if (!that.renderOptions.noRowSelectedIndicator)
                                         _gu.setRowsSelected(item.$id, item.$select, that.fieldOptions, that.$element.get(0));
                                     that._updateMultiselectSummary(false);
                                 }
                             }
                         }
                         break;
+                    case 'add':
+                        that._createRow(params.$value);
+                        doResize = true;
+                        updOddEven = true;
+                        checkVisibility = true;
+                        break;
+                    case 'remove':
+                        var opts = that.renderOptions;
+                        if (opts.expandingProperty) {
+                            that._renderRows(true, '', null, false);
+                            doResize = true;
+                        }
+                        else {
+                            that._removeRow(params.$id);
+                            updOddEven = true;
+                        }
+                        checkVisibility = true;
+                        break;
+                }
+                if (checkVisibility) {
+                    var nv_1 = that._isHidden();
+                    var oldValue = _dom.hasClass(that.$element.get(0), 'bs-none');
+                    if (nv_1 !== oldValue) {
+                        that.setHidden(that.$element.get(0));
+                        doResize = true;
+                    }
                 }
                 if (updOddEven)
                     that._updOddEven();
                 if (doResize)
                     that.resize();
                 if (doSelectFirstCell)
-                    that._selectFirstCell('model');
+                    that._selectFirstCell('model', null);
             };
             BasicGrid.prototype._modifyTD = function (item, field, td) {
                 var that = this;
@@ -19584,15 +21139,22 @@ var Phoenix;
                 that._findCellAndModify(item, tr, field);
             };
             BasicGrid.prototype._rootElement = function () {
-                return this.$element.get(0);
+                return this.$element ? this.$element.get(0) : null;
             };
             BasicGrid.prototype._gridParentFocus = function () {
                 var that = this;
-                return _dom.find(that.$element.get(0), that.id + '_focus');
+                return that.$element ? _dom.find(that.$element.get(0), that.id + '_focus') : null;
             };
             BasicGrid.prototype._setErrors = function (grid, element) {
                 var that = this;
                 var errors = that.state.errors;
+                if (element && Phoenix.bootstrap4) {
+                    var errorClass = 'is-invalid';
+                    if (errors && errors.length)
+                        _dom.addClass(element, errorClass);
+                    else
+                        _dom.removeClass(element, errorClass);
+                }
                 that.showErrors(element, errors);
             };
             BasicGrid.prototype._setTableFocus = function (value) {
@@ -19620,7 +21182,7 @@ var Phoenix;
                         var c = that._cell(that.selectedCell, true);
                         if (!c) {
                             that.selectedCell = null;
-                            that._selectFirstCell('focusin');
+                            that._selectFirstCell('focusin', null);
                             if (that.selectedCell)
                                 c = that._cell(that.selectedCell, true);
                         }
@@ -19652,6 +21214,9 @@ var Phoenix;
             };
             BasicGrid.prototype.keypress = function (event) {
                 var that = this;
+                var focusParent = this._gridParentFocus();
+                if (!_dom.isChildOf(focusParent, event.target))
+                    return;
                 if (that.selectedCell) {
                     if (that.inplace && _dom.isChildOf(that.inplace.td, event.target)) {
                         var cell = that._td2value(that.inplace.td);
@@ -19680,13 +21245,19 @@ var Phoenix;
             };
             BasicGrid.prototype.keydown = function ($event) {
                 var that = this, key = $event.which || $event.keyCode;
-                var preventDefault = false;
-                if (withModifier($event, key))
+                var focusParent = this._gridParentFocus();
+                if (!_dom.isChildOf(focusParent, $event.target))
                     return;
+                var preventDefault = false;
                 if (that.inplace && _dom.isChildOf(that.inplace.td, $event.target)) {
                     if (!that._inplaceEditAcceptKeys(key))
                         return;
-                    if (_sutils.isNumber(that.inplace.schema)) {
+                    if (that.inplace.combo && (key === _dom.keys.VK_F4 || (key === _dom.keys.VK_DOWN && $event.ctrlKey))) {
+                        // ---> START LOOKUP
+                        that._toggleGridLookup();
+                        // <--- END LOOKUP  
+                    }
+                    else if (_sutils.isNumber(that.inplace.schema)) {
                         if (_uiutils.utils.keyDownNumber($event, that.inplace.input, { decimalSep: _locale.number.decimal, thousandSep: _locale.number.thousand, places: that.inplace.decimals, schema: that.inplace.schema }) === false)
                             return;
                     }
@@ -19695,6 +21266,8 @@ var Phoenix;
                             return;
                     }
                 }
+                if (withModifier($event, key))
+                    return;
                 if (that.fieldOptions.selecting && that.fieldOptions.selecting.cell) {
                     switch (key) {
                         case _dom.keys.VK_TAB:
@@ -19709,6 +21282,150 @@ var Phoenix;
                     }
                 }
                 preventDefault && $event.preventDefault() && $event.stopPropagation();
+            };
+            // ---> START LOOKUP
+            BasicGrid.prototype._toggleGridLookup = function () {
+                var that = this;
+                if (!that.inplace || !that.inplace.combo)
+                    return;
+                if (that.inplace.combo.opened)
+                    formgrid.gridlookup.closeGridLookup(that.inplace, that._eventBus, 'combo');
+                else
+                    that._openGridLookup();
+            };
+            BasicGrid.prototype._createGridPopup = function () {
+                var that = this;
+                if (!that._eventBus)
+                    that._eventBus = new Phoenix.serial.SingleEventBus(50);
+                var input = that.inplace.input;
+                var parent = that.$element.get(0);
+                that.inplace.combo = formgrid.gridlookup.checkGridPopup(that, that.inplace.col.$lookup, input, parent);
+            };
+            BasicGrid.prototype._searchText = function () {
+                var that = this;
+                if (that.inplace && that.inplace.combo) {
+                    var col = that.inplace.col;
+                    var cell = that._td2cell(that.inplace.td);
+                    if (cell) {
+                        var item = that._findById(cell.row);
+                        if (item) {
+                            var cv = item.getValue(col.$bind, null) || '';
+                            var nv = that.inplace.input.value || '';
+                            if (nv !== cv)
+                                return nv;
+                        }
+                    }
+                }
+                return '';
+            };
+            BasicGrid.prototype._getSource = function (cell, options) {
+                var that = this;
+                options.fieldName = cell.col.$lookup.mapping[cell.col.$bind];
+                options.paginated = true;
+                return _sutils.executeLookup(cell.col.$lookup, cell.item, options);
+            };
+            BasicGrid.prototype._findValue = function (search, cell, after) {
+                var that = this;
+                if (!search && search === '') {
+                    that._eventBus.push(null, function (ldata) { after(null); }, true);
+                    return;
+                }
+                var opts = { search: search, select: false, findFirst: true, find: false, paginated: that.renderOptions.paginated };
+                that._eventBus.push(that._getSource(cell, opts), function (ldata) {
+                    ldata = that._filterResult(ldata, opts);
+                    if (ldata && ldata.value && ldata.value.length)
+                        after(ldata.value[0]);
+                    else
+                        after(null);
+                }, true);
+            };
+            BasicGrid.prototype._filterResult = function (ldata, opts) {
+                var that = this;
+                if (ldata && Array.isArray(ldata)) {
+                    ldata = { value: ldata };
+                }
+                else if (ldata && ldata.documents) {
+                    ldata.value = ldata.documents;
+                    delete ldata.documents;
+                }
+                return ldata;
+            };
+            BasicGrid.prototype._setRemoteValue = function (col, item, ldata) {
+                var that = this;
+                var mapping = Object.keys(col.$lookup.mapping);
+                var base = _sutils.extractBase(col.$bind);
+                var empty = [], changed = false;
+                mapping.forEach(function (key) {
+                    if (!col.$lookup.mapping[key]) {
+                        empty.push(key);
+                    }
+                    else {
+                        var ov = item.getValue(base + key, null) || '';
+                        var nv = ldata ? ldata[col.$lookup.mapping[key]] || '' : '';
+                        if (nv !== ov) {
+                            item.setValue(base + key, nv, null);
+                            changed = true;
+                        }
+                    }
+                });
+                if (changed)
+                    empty.forEach(function (key) {
+                        item.setValue(base + key, col.$lookup.mapping[key]);
+                    });
+            };
+            BasicGrid.prototype._onselectItem = function (value) {
+                var that = this;
+                if (that.inplace && that.inplace.combo) {
+                    var col_1 = that.inplace.col;
+                    var cell = that._td2cell(that.inplace.td);
+                    if (cell) {
+                        var item_2 = that._findById(cell.row);
+                        if (item_2) {
+                            that._eventBus.push(value, function (ldata) {
+                                that._setRemoteValue(col_1, item_2, ldata);
+                            }, true);
+                        }
+                    }
+                }
+            };
+            BasicGrid.prototype._openGridLookup = function () {
+                var that = this;
+                if (!that.inplace.combo.opened) {
+                    formgrid.gridlookup.openGridLookup(that.inplace, {
+                        lookup: that.inplace.col.$lookup,
+                        parentControl: that,
+                        formControl: that.form,
+                        display: that.inplace.col.$bind,
+                        bind: that.inplace.col.$bind,
+                        align: that.inplace.id,
+                        openerId: that.inplace.id + '_after',
+                        searchText: that._searchText(),
+                        onselect: that._onselectItemHandler,
+                        lookupColumns: that.inplace.col.options.lookupColumns ? that.inplace.col.options.lookupColumns : undefined,
+                        propertyName: 'combo'
+                    });
+                }
+            };
+            BasicGrid.prototype.checkFocus = function (focusParams) {
+                var that = this;
+                _utils.nextTick(function () {
+                    var ae = window.document.activeElement;
+                    if (!ae || !that.targetInControl(ae)) {
+                        that.focusOut(null);
+                        that.focused = false;
+                    }
+                });
+            };
+            // <--- END LOOKUP    
+            BasicGrid.prototype.focusInControl = function (activeFocusElement) {
+                var that = this;
+                var focusParent = that._gridParentFocus();
+                var p = _dom.isChildOf(focusParent, activeFocusElement);
+                // ---> START LOOKUP
+                if (!p && that.inplace && that.inplace.combo && that.inplace.combo.opened)
+                    return that.inplace.combo.focusInCombo(activeFocusElement);
+                // <--- END LOOKUP 
+                return p;
             };
             BasicGrid.prototype._tr2rowId = function (tr, col) {
                 var id = tr.id;
@@ -19744,6 +21461,9 @@ var Phoenix;
             };
             BasicGrid.prototype.mousedown = function (event) {
                 var that = this;
+                var focusParent = this._gridParentFocus();
+                if (!_dom.isChildOf(focusParent, event.target))
+                    return true;
                 var td = _dom.parentByTag(that.$element.get(0), event.target, 'td');
                 if (td) {
                     var opts = that.renderOptions;
@@ -19769,8 +21489,24 @@ var Phoenix;
                 childrens.forEach(function (child) { that._removeRow(child.value.$id); });
                 that._updOddEven();
             };
+            BasicGrid.prototype.dblclick = function (event) {
+                var that = this;
+                var opts = that.renderOptions;
+                if (!opts.doubleClick)
+                    return;
+                var td = _dom.parentByTag(that.$element.get(0), event.target, 'td');
+                if (td) {
+                    var cell = that._td2cell(td);
+                    if (cell) {
+                        var item = that._findById(cell.row);
+                        that.form.execAction(that.$bind + '.$links.' + opts.doubleClick, item);
+                    }
+                }
+            };
             BasicGrid.prototype.click = function (event) {
                 var that = this;
+                if (!that.state.value)
+                    return;
                 var opts = that.renderOptions;
                 var td = _dom.parentByTag(that.$element.get(0), event.target, 'td');
                 if (td) {
@@ -19792,6 +21528,16 @@ var Phoenix;
                                     that.form.execAction(that.$bind + '.$item.' + linkName, item);
                             }
                             else if (c) {
+                                if (that.inplace && that.inplace.input && that.inplace.td === td) {
+                                    // ---> START LOOKUP
+                                    if (that.inplace.combo) {
+                                        // Click on inplace edit
+                                        if (event.target.id === that.inplace.id + '_after' || event.target.parentNode.id === that.inplace.id + '_after')
+                                            that._toggleGridLookup();
+                                    }
+                                    // <--- END LOOKUP  
+                                    return;
+                                }
                                 if (c.options._expandItem) {
                                     if (_dom.attr(event.target, 'data-clickable') || _dom.attr(event.target.parentNode, 'data-clickable')) {
                                         var state = item.getRelativeState(c.$bind);
@@ -19812,6 +21558,7 @@ var Phoenix;
                                                     that._addRows(item, childrens_1);
                                                 else
                                                     that._removeRows(item, childrens_1);
+                                                //item.notifyChanged(item.$bind, undefined, undefined, 'set', { source: item.getPropertyPath(that.$bind), instance: item }, false);
                                             }
                                             finally {
                                                 that._ignoreNotifications = false;
@@ -19858,17 +21605,63 @@ var Phoenix;
                     var th = _dom.parentByTag(that.$element.get(0), event.target, 'th');
                     if (th) {
                         var cid = _dom.attr(th, 'colid');
-                        if (opts.sorting && cid) {
+                        if (cid) {
                             var col = that._colByField(cid);
                             var ss = col.options.display ? col.options.displaySchema : col.schema;
-                            var fn = col.options.display ? col.options.display : col.$bind;
-                            if (col && ss && _sutils.canSort(ss)) {
+                            if (!ss || !col)
+                                return;
+                            if (_sutils.isSelectField(col.$bind) && opts.selecting && opts.selecting.row && opts.selecting.multiselect && opts.selecting.selectAll) {
+                                var center = _dom.parentByTag(that.$element.get(0), event.target, 'center');
+                                if (center) {
+                                    var check = _dom.query(center, '.bs-bool-edit');
+                                    if (check) {
+                                        var cc = _dom.iconClass('check-square-o', true);
+                                        var nc = _dom.iconClass('square-o', true);
+                                        var isChecked = _dom.hasClass(check, cc);
+                                        if (isChecked) {
+                                            _dom.removeClass(check, cc);
+                                            _dom.addClass(check, nc);
+                                        }
+                                        else {
+                                            _dom.removeClass(check, nc);
+                                            _dom.addClass(check, cc);
+                                        }
+                                        if (!isChecked) {
+                                            var list = that.state.value;
+                                            list.forEach(function (item, index, level) {
+                                                item.select(true, opts.selecting && opts.selecting.row && opts.selecting.multiselect, that.state.value, opts.expandingProperty, false);
+                                            }, opts.expandingProperty, true);
+                                        }
+                                        else {
+                                            var selectedItems = that._getMultiselectdItems();
+                                            selectedItems.forEach(function (item) {
+                                                item.select(false, opts.selecting && opts.selecting.row && opts.selecting.multiselect, that.state.value, opts.expandingProperty, false);
+                                            });
+                                        }
+                                    }
+                                }
+                            }
+                            else if (opts.sorting && _sutils.canSort(ss)) {
+                                var fn = ss.orderBy ? ss.orderBy : (col.options.display ? col.options.display : col.$bind);
                                 var no = fn;
                                 var oldob = that.state.value.$orderby();
                                 if (oldob === fn) {
-                                    no = fn + ' desc';
+                                    var items = fn.split(',');
+                                    no = items.map(function (item) {
+                                        item = item.trim();
+                                        var a = item.split(' ');
+                                        if (a.length === 1)
+                                            a.push('desc');
+                                        else
+                                            a[1] = a[1] === 'desc' ? 'asc' : 'desc';
+                                        return a.join(' ');
+                                    }).join(',');
                                 }
-                                that.state.value.$orderby(no);
+                                if (that.state.value.isQueryable())
+                                    that.state.value.$orderby(no);
+                                else if (that.state.value) {
+                                    that.form.execAction(that.state.value.getJSONPatchPath() + '.$sort', no);
+                                }
                             }
                         }
                     }
@@ -19906,8 +21699,8 @@ var Phoenix;
                             that._inpaceEditShow(coord.td, false);
                         }
                         else {
+                            coord.td.tabIndex = 0;
                             if (that.focused || mousedown) {
-                                coord.td.tabIndex = 0;
                                 coord.td.focus();
                             }
                         }
@@ -19928,6 +21721,8 @@ var Phoenix;
                     return false;
                 var c = that._colByField(cell.col);
                 if (c) {
+                    if (c.options && c.options.selecting === false)
+                        return false;
                     var item = that._findById(cell.row);
                     if (item) {
                         var st = item.getState(c.$bind);
@@ -19941,6 +21736,8 @@ var Phoenix;
                 if (!that.fieldOptions.editing || !that.fieldOptions.selecting || !that.fieldOptions.selecting.cell)
                     return false;
                 var c = that._colByField(cell.col);
+                if (c.options && c.options.editing === false)
+                    return false;
                 if (c.isLink)
                     return false;
                 if (c.options._expandItem)
@@ -19951,6 +21748,8 @@ var Phoenix;
             };
             BasicGrid.prototype._selectRow = function (id) {
                 var that = this, opts = that.renderOptions;
+                if (!that.state.value)
+                    return;
                 var multiselect = opts.selecting && opts.selecting.row && opts.selecting.multiselect;
                 var item = that._findById(id);
                 if (item)
@@ -19958,8 +21757,15 @@ var Phoenix;
             };
             BasicGrid.prototype._selectCell = function (cell, target, mousedown) {
                 var that = this;
-                if (!that.canSelect(cell))
+                if (!that.canSelect(cell)) {
+                    if (mousedown) {
+                        var old_1 = that.selectedCell;
+                        if (old_1 && old_1.row === cell.row)
+                            return false;
+                        return that._selectFirstCell('mouseDown', cell.row);
+                    }
                     return false;
+                }
                 var old = that.selectedCell;
                 var canEdit = that.canEdit(cell);
                 if (canEdit)
@@ -19978,7 +21784,7 @@ var Phoenix;
                 }
                 return true;
             };
-            BasicGrid.prototype._selectFirstCell = function (source) {
+            BasicGrid.prototype._selectFirstCell = function (source, rowId) {
                 var that = this;
                 var opts = that.fieldOptions;
                 if (!opts.selecting || !opts.selecting.cell)
@@ -19990,10 +21796,15 @@ var Phoenix;
                 var allCols = that.frozenColumns.concat(that.columns);
                 for (var i = 0, len = allCols.length; i < len; i++) {
                     var c = allCols[i];
-                    if (opts.allowFrozenColumns && c.options.frozen)
-                        pr = _dom.find(that.$element.get(0), that.id + '_frozen_rows');
-                    var tr = pr.firstChild;
-                    var rid = that._tr2rowId(tr, c);
+                    var rid = void 0;
+                    if (rowId)
+                        rid = rowId;
+                    else {
+                        if (opts.allowFrozenColumns && c.options.frozen)
+                            pr = _dom.find(that.$element.get(0), that.id + '_frozen_rows');
+                        var tr = pr.firstChild;
+                        rid = that._tr2rowId(tr, c);
+                    }
                     cell = { col: c.$bind, row: rid };
                     if (that.canSelect(cell))
                         break;
@@ -20022,12 +21833,12 @@ var Phoenix;
             BasicGrid.prototype._moveUpSelectedCell = function (count) {
                 var that = this;
                 if (!that.selectedCell)
-                    return that._selectFirstCell('keydown');
+                    return that._selectFirstCell('keydown', null);
                 var col = that._colByField(that.selectedCell.col);
                 var pos = that._cell(that.selectedCell, true);
                 if (!pos) {
                     that.selectedCell = null;
-                    return that._selectFirstCell('keydown');
+                    return that._selectFirstCell('keydown', null);
                 }
                 var nri = Math.max(pos.rIndex - count, 0);
                 if (nri != pos.rIndex) {
@@ -20064,6 +21875,10 @@ var Phoenix;
                 var opts = that.renderOptions;
                 var vscroll = opts.scrolling && opts.scrolling.vertical;
                 if (!vscroll)
+                    return;
+                if (!that.$element)
+                    console.log('Invalid resize call');
+                if (!that._scrollableMaster)
                     return;
                 var pos = _dom.position(that._scrollableMaster, null);
                 if (opts.bottom) {
@@ -20145,11 +21960,11 @@ var Phoenix;
             BasicGrid.prototype._moveDownSelectedCell = function (count) {
                 var that = this;
                 if (!that.selectedCell)
-                    return that._selectFirstCell('keydown');
+                    return that._selectFirstCell('keydown', null);
                 var pos = that._cell(that.selectedCell, true);
                 if (!pos) {
                     that.selectedCell = null;
-                    return that._selectFirstCell('keydown');
+                    return that._selectFirstCell('keydown', null);
                 }
                 var col = that._colByField(that.selectedCell.col);
                 var pr = that._findtBody(col);
@@ -20165,7 +21980,7 @@ var Phoenix;
                 if (!that.fieldOptions.selecting || !that.fieldOptions.selecting.cell)
                     return false;
                 if (!that.selectedCell)
-                    return that._selectFirstCell('keydown');
+                    return that._selectFirstCell('keydown', null);
                 var allCols = that.frozenColumns.concat(that.columns).map(function (col) { return col.$bind; });
                 ;
                 var si = allCols.indexOf(that.selectedCell.col);
@@ -20196,7 +22011,7 @@ var Phoenix;
                 if (!that.fieldOptions.selecting || !that.fieldOptions.selecting.cell)
                     return false;
                 if (!that.selectedCell)
-                    return that._selectFirstCell('keydown');
+                    return that._selectFirstCell('keydown', null);
                 var allCols = that.frozenColumns.concat(that.columns).map(function (col) { return col.$bind; });
                 ;
                 var si = allCols.indexOf(that.selectedCell.col);
@@ -20231,7 +22046,7 @@ var Phoenix;
                     that.setHidden(element);
                     that._setErrors(grid, element);
                     if (!inRender)
-                        that._selectFirstCell('model');
+                        that._selectFirstCell('model', null);
                     that._renderToolbar();
                     if (that._pager) {
                         var $pp = $(_dom.find(element, that.id + '_pagination'));
@@ -20240,7 +22055,20 @@ var Phoenix;
                 }
             };
             BasicGrid.prototype.afterAddedInDom = function () {
-                this._selectFirstCell('model');
+                this._selectFirstCell('model', null);
+            };
+            BasicGrid.prototype._isHidden = function () {
+                var that = this;
+                return (that.state.isHidden || !that.state.value || (that.renderOptions.hideWhenNoRows && !that.state.value.length));
+            };
+            BasicGrid.prototype.setHidden = function (element) {
+                if (!element)
+                    return;
+                var that = this;
+                if (that._isHidden())
+                    _dom.addClass(element, "bs-none");
+                else
+                    _dom.removeClass(element, "bs-none");
             };
             BasicGrid.prototype.stateChanged = function (propName, params) {
                 var that = this;
@@ -20267,13 +22095,19 @@ var Phoenix;
                         that._setErrors(grid, element);
                     }
                 }
+                if (!propName || (propName === 'orderBy')) {
+                    that._updateSorting();
+                }
             };
             BasicGrid.prototype.stopProppagation = function (event) {
                 var that = this;
                 var target = event.target;
                 var e = that.$element.get(0);
+                var focusParent = this._gridParentFocus();
+                if (!_dom.isChildOf(focusParent, event.target))
+                    return;
                 while (target) {
-                    if (target == e)
+                    if (target === e)
                         return;
                     if (target.href) {
                         event.preventDefault();
@@ -20292,6 +22126,8 @@ var Phoenix;
             };
             BasicGrid.prototype._findById = function (id) {
                 var that = this;
+                if (!that.state.value)
+                    return null;
                 if (that._useView) {
                     var item = that._viewMap[id];
                     return item ? item.value : null;
@@ -20300,6 +22136,8 @@ var Phoenix;
             };
             BasicGrid.prototype._findByIdEx = function (id) {
                 var that = this;
+                if (!that.state.value)
+                    return null;
                 var res = { index: -1, level: 0, value: null };
                 if (that._useView) {
                     var ii = that._viewMap[id];
@@ -20319,6 +22157,8 @@ var Phoenix;
             };
             BasicGrid.prototype._findNext = function (id) {
                 var that = this;
+                if (!that.state.value)
+                    return null;
                 if (that._useView) {
                     var ii = that._viewMap[id];
                     if (ii) {
@@ -20339,6 +22179,8 @@ var Phoenix;
             };
             BasicGrid.prototype._findPrev = function (id) {
                 var that = this;
+                if (!that.state.value)
+                    return null;
                 if (that._useView) {
                     var ii = that._viewMap[id];
                     if (ii) {
@@ -20361,19 +22203,22 @@ var Phoenix;
                 var that = this;
                 if (that.$element) {
                     var opts = that.renderOptions;
+                    var use = void 0;
                     if (that._totalProperty) {
                         var totals = that.form.getValue(that._totalProperty);
+                        var doColSpan = !!that._totalField;
                         var pr = void 0, rows = void 0;
                         if (_gu.hasFrozenColumns(that.renderOptions, that.frozenColumns)) {
+                            doColSpan = false;
                             pr = _dom.find(that.$element.get(0), that.id + '_frozen_totals');
                             if (pr) {
-                                rows = _gu.createRows(that.id, totals, that.frozenColumns, opts, that.options.design, that.form.$locale, true, true, null);
+                                rows = _gu.createRows(that.id, totals, that.frozenColumns, opts, that.options.design, that.form.$locale, true, true, null, null);
                                 _dom.empty(pr);
                                 _dom.append(pr, rows);
                             }
                         }
                         pr = _dom.find(that.$element.get(0), that.id + '_totals');
-                        rows = _gu.createRows(that.id, totals, that.columns, opts, that.options.design, that.form.$locale, false, true, null);
+                        rows = _gu.createRows(that.id, totals, that.columns, opts, that.options.design, that.form.$locale, false, true, null, doColSpan ? that._totalField : null);
                         _dom.empty(pr);
                         _dom.append(pr, rows);
                     }
@@ -20397,10 +22242,11 @@ var Phoenix;
                         pr = _dom.find(that.$element.get(0), that.id + '_frozen_rows');
                         if (pr) {
                             if (allRows) {
-                                rows = _gu.createRows(that.id, that.state.value, that.frozenColumns, opts, that.options.design, that.form.$locale, true, false, cb);
+                                rows = that.state.value ? _gu.createRows(that.id, that.state.value, that.frozenColumns, opts, that.options.design, that.form.$locale, true, false, cb, null) : null;
                                 cb = null;
                                 _dom.empty(pr);
-                                _dom.append(pr, rows);
+                                if (rows)
+                                    _dom.append(pr, rows);
                             }
                             else {
                                 rows = _gu.createBulkRows(that.id, values, that.frozenColumns, opts, that.options.design, that.form.$locale, true, false, cb);
@@ -20411,9 +22257,10 @@ var Phoenix;
                     }
                     pr = _dom.find(that.$element.get(0), that.id + '_rows');
                     if (allRows) {
-                        rows = _gu.createRows(that.id, that.state.value, that.columns, opts, that.options.design, that.form.$locale, false, false, cb);
+                        rows = that.state.value ? _gu.createRows(that.id, that.state.value, that.columns, opts, that.options.design, that.form.$locale, false, false, cb, null) : null;
                         _dom.empty(pr);
-                        _dom.append(pr, rows);
+                        if (rows)
+                            _dom.append(pr, rows);
                     }
                     else {
                         rows = _gu.createBulkRows(that.id, values, that.columns, opts, that.options.design, that.form.$locale, false, false, cb);
@@ -20430,7 +22277,7 @@ var Phoenix;
                 that._updateMultiselectSummary(isCreate);
             };
             BasicGrid.prototype.editDetail = function (item) {
-                //not compatible with rozenColumns
+                //not compatible with frozenColumns
                 var that = this, id = item.$id;
                 if (that.$element) {
                     var options = that.renderOptions;
@@ -20477,13 +22324,20 @@ var Phoenix;
                         }
                         fo.path = that.$bind;
                         that._details.push(id);
-                        _ui.OpenForm($(tdetail.firstChild), layout, that.form.$schema, item.model(), that.form.$locale, function (action, model, form) {
-                            switch (action.property) {
-                                case "$links.$updateChanges":
-                                    if (!that.state.value.updateItem(item, model))
-                                        return;
-                                    item.update(model.model());
-                                    that.closeDetail(id);
+                        _ui.OpenForm($(tdetail.firstChild), layout, that.form.$schema, item.schemaModel(true), that.form.$locale, function (action, model, form) {
+                            if (action.operation === 'init') {
+                                that.form.execAction('$links.$beforeEdit', model, model);
+                            }
+                            else {
+                                switch (action.property) {
+                                    case "$links.$updateChanges":
+                                        if (!that.state.value.updateItem(item, model))
+                                            return;
+                                        item.update(model.schemaModel(false));
+                                        that.form.execAction('$links.$afterUpdateChanges', item, item);
+                                        that.closeDetail(id);
+                                        break;
+                                }
                             }
                         }, fo);
                         _dom.after(p, tdetail);
@@ -20628,13 +22482,19 @@ var Phoenix;
                     locale: that.form.$locale
                 };
             };
-            BasicGrid.prototype.getColumnsForFilter = function () {
+            BasicGrid.prototype.getColumnsForFilter = function (mongoFilter) {
                 var that = this;
-                return {
+                var res = {
                     schemaGroups: that._getGroupsFromSchema(),
                     schemaColumns: that.filtrableColumns(),
-                    locale: that.form.$locale
+                    locale: that.form.$locale,
+                    mongoFilter: mongoFilter,
+                    filters: undefined
                 };
+                if (mongoFilter && formgrid.glbMongoFilter2Filter) {
+                    res.filters = formgrid.glbMongoFilter2Filter(that.state.value.filter, that.filtrableColumns());
+                }
+                return res;
             };
             BasicGrid.prototype.getColumnsForFilterExpress = function (fields) {
                 var that = this;
@@ -20669,7 +22529,11 @@ var Phoenix;
             BasicGrid.prototype._updateSorting = function () {
                 var that = this;
                 var opts = that.renderOptions;
+                if (!that.$element)
+                    return;
                 if (opts && opts.sorting && !opts.headerIsHidden) {
+                    if (!that.state.value)
+                        return;
                     var pc = _dom.find(that.$element.get(0), that.id + '_cols');
                     if (pc)
                         _gu.updSorting(opts, pc, that._colByField.bind(that), that.state.value.$orderby());
@@ -20725,12 +22589,12 @@ var Phoenix;
                 if (!opts.headerIsHidden) {
                     var pc = _dom.find(that.$element.get(0), that.id + '_cols');
                     _dom.empty(pc);
-                    _dom.append(pc, _gu.createCols(that.id, that.columns, opts, that.options.design, that.form.$locale, that.state.value.$orderby(), false));
+                    _dom.append(pc, _gu.createCols(that.id, that.columns, opts, that.options.design, that.form.$locale, that.state.value ? that.state.value.$orderby() : null, false));
                     if (_gu.hasFrozenColumns(opts, that.frozenColumns)) {
                         pc = _dom.find(that.$element.get(0), that.id + '_frozen_cols');
                         if (pc) {
                             _dom.empty(pc);
-                            _dom.append(pc, _gu.createCols(that.id, that.frozenColumns, opts, that.options.design, that.form.$locale, that.state.value.$orderby(), true));
+                            _dom.append(pc, _gu.createCols(that.id, that.frozenColumns, opts, that.options.design, that.form.$locale, that.state.value ? that.state.value.$orderby() : null, true));
                         }
                     }
                 }
@@ -20745,7 +22609,8 @@ var Phoenix;
                 var opts = that.renderOptions;
                 if (opts.selecting && opts.selecting.row) {
                     opts.selecting.multiselect = !!!opts.selecting.multiselect;
-                    that.state.value.updateSelecting(opts.selecting.multiselect, opts.expandingProperty);
+                    if (that.state.value)
+                        that.state.value.updateSelecting(opts.selecting.multiselect, opts.expandingProperty);
                     that.savePreferences(function () {
                         that._refreshGrid();
                     });
@@ -20788,7 +22653,7 @@ var Phoenix;
             var html = [];
             _uiutils.utils.fieldWrapper(html, options, authoring, function () {
                 if (options.columns) {
-                    html.push('<div class="no-x-padding ' + (_bootstrap4 ? 'offset-sm-' : 'col-sm-offset-') + options.labelCol + ' col-sm-' + (12 - options.labelCol) + '">');
+                    html.push('<div class="no-x-padding ' + (_bootstrap4 ? 'ml-sm-auto' : 'col-sm-offset-' + options.labelCol) + ' col-sm-' + (12 - options.labelCol) + '">');
                     html.push('<div class="checkbox">');
                 }
                 var block = false;
@@ -20796,17 +22661,33 @@ var Phoenix;
                     block = true;
                     html.push('<div class="checkbox">');
                 }
-                html.push('<label id="{0}_check" class="' + (options.inline ? (_bootstrap4 ? 'form-check-inline no-x-padding' : 'checkbox-inline') : (block ? (_bootstrap4 ? 'form-control-label' : 'control-label') : 'checkbox')) + '">');
-                html.push('<input type="checkbox" id="{0}_input">');
-                if (options.inline) {
-                    if (_bootstrap4)
-                        html.push('&nbsp;');
-                }
-                else
+                if (_bootstrap4) {
+                    html.push('<label id="{0}_check" class="custom-control custom-checkbox">');
+                    html.push('<input type="checkbox" id="{0}_input" class="custom-control-input">');
+                    html.push('<span class="custom-control-indicator" > </span>');
+                    html.push('<span class="custom-control-description"> ');
+                    html.push(_utils.escapeHtml(title || ''));
                     html.push('&nbsp;');
-                html.push(_utils.escapeHtml(title || ''));
-                html.push('</label>');
-                _uiutils.utils.addErrorDiv(html);
+                    html.push('</span>');
+                    _uiutils.utils.addErrorDiv(html, false);
+                    html.push('</label>');
+                }
+                else {
+                    html.push('<label id="{0}_check" class="' + (options.inline ? (_bootstrap4 ? 'form-check-inline no-x-padding' : 'checkbox-inline') : (block ? (_bootstrap4 ? 'form-control-label' : 'control-label') : 'checkbox')) + '">');
+                    html.push('<input type="checkbox" id="{0}_input">');
+                    if (options.inline) {
+                        if (_bootstrap4)
+                            html.push('&nbsp;');
+                    }
+                    else
+                        html.push('&nbsp;');
+                    html.push(_utils.escapeHtml(title || ''));
+                    if (_bootstrap4)
+                        _uiutils.utils.addErrorDiv(html, options.inline);
+                    html.push('</label>');
+                }
+                if (!_bootstrap4)
+                    _uiutils.utils.addErrorDiv(html);
                 if (!options.inline && !options.columns) {
                     html.push('</div>');
                 }
@@ -20818,7 +22699,7 @@ var Phoenix;
             return _utils.format(html.join(''), id);
         }
         ;
-        var Check = (function (_super) {
+        var Check = /** @class */ (function (_super) {
             __extends(Check, _super);
             function Check(fp, options, form) {
                 var _this = _super.call(this, fp, options, form) || this;
@@ -20826,11 +22707,17 @@ var Phoenix;
                 return _this;
             }
             Check.prototype._input = function () {
-                var that = this, e = that.$element.get(0);
+                var that = this;
+                if (!that.$element)
+                    return null;
+                var e = that.$element.get(0);
                 return _dom.find(e, that.id + '_input');
             };
             Check.prototype._check = function () {
-                var that = this, e = that.$element.get(0);
+                var that = this;
+                if (!that.$element)
+                    return null;
+                var e = that.$element.get(0);
                 return _dom.find(e, that.id + '_check');
             };
             Check.prototype.click = function (event) {
@@ -20838,8 +22725,13 @@ var Phoenix;
                 if (event.target != input)
                     return;
                 if (that.state.value != value) {
-                    that.state.value = value;
-                    that.form.setValue(that.$bind, value);
+                    if (that._isBinded) {
+                        that.state.value = value;
+                        that.form.setValue(that.$bind, value);
+                    }
+                    else {
+                        that.setInternalValue(value, true);
+                    }
                 }
             };
             Check.prototype._setDisabled = function (input, element) {
@@ -20854,6 +22746,18 @@ var Phoenix;
                 this._setDisabled(input, element);
             };
             Check.prototype._setMandatory = function (input, element) { };
+            Check.prototype._setErrors = function (element) {
+                var that = this;
+                var errors = that.state.errors;
+                if (element && Phoenix.bootstrap4) {
+                    var errorClass = 'is-invalid';
+                    if (errors && errors.length)
+                        _dom.addClass(element, errorClass);
+                    else
+                        _dom.removeClass(element, errorClass);
+                }
+                that.showErrors(element, errors);
+            };
             Check.prototype._state2UI = function () {
                 var that = this, input = that._input(), element = that.$element ? that.$element.get(0) : null;
                 if (input) {
@@ -20861,18 +22765,19 @@ var Phoenix;
                     that._setDisabled(input, element);
                     that._setReadOnly(input, element);
                     that.setHidden(element);
-                    that.showErrors(element, that.state.errors);
+                    that._setErrors(element);
                 }
             };
             Check.prototype.changed = function (propName, ov, nv, op) {
                 var that = this, input = that._input();
                 if (that.state.value != nv) {
                     that.state.value = nv;
-                    input.checked = that.state.value || false;
+                    if (input)
+                        input.checked = that.state.value || false;
                 }
             };
             Check.prototype.stateChanged = function (propName, params) {
-                var that = this, state = that.form.getState(that.$bind), input = that._input(), element = that.$element ? that.$element.get(0) : null;
+                var that = this, state = that._isBinded ? that.form.getState(that.$bind) : that._internalState, input = that._input(), element = that.$element ? that.$element.get(0) : null;
                 if (state.isHidden !== that.state.isHidden) {
                     that.state.isHidden = state.isHidden;
                     if (input)
@@ -20896,7 +22801,7 @@ var Phoenix;
                 if (!propName || (propName === 'errors')) {
                     if (_eu.errorChanged(that.state.errors, state.errors)) {
                         that.state.errors = state.errors;
-                        that.showErrors(element, that.state.errors);
+                        that._setErrors(element);
                     }
                 }
             };
@@ -20927,14 +22832,13 @@ var Phoenix;
     var formcolumngrid;
     (function (formcolumngrid) {
         var _utils = Phoenix.utils, _ui = Phoenix.ui, _dom = Phoenix.dom, _uiutils = Phoenix.uiutils, _eu = Phoenix.Observable.errorsUtils, _gridrender = Phoenix.gridrender, _gu = _gridrender.GridUtil, _sutils = Phoenix.Observable.SchemaUtils;
-        var ColumnGrid = (function (_super) {
+        var ColumnGrid = /** @class */ (function (_super) {
             __extends(ColumnGrid, _super);
             function ColumnGrid(fp, options, form) {
                 var _this = _super.call(this, fp, options, form) || this;
                 var that = _this;
                 var opts = that.fieldOptions;
                 that._initAllColumns();
-                form.registerListenerFor(that.$bind + ".$item", that);
                 that._state();
                 var fields = opts.columns.header.fields || [];
                 opts.columns.header.fields = that.form.afterSettings(that.$bind, "columngrid", { columns: fields }).columns;
@@ -20945,10 +22849,6 @@ var Phoenix;
                 that._initRows();
                 return _this;
             }
-            ColumnGrid.prototype.destroy = function () {
-                var that = this;
-                that.form.unRegisterListenerFor(that.$bind + ".$item", that);
-            };
             ColumnGrid.prototype._initSchemaRows = function (rows) {
                 var that = this;
                 that.rows = [];
@@ -21036,11 +22936,11 @@ var Phoenix;
             ColumnGrid.prototype.changed = function (propName, ov, nv, op, params) {
                 var that = this;
                 if (op === 'upd') {
-                    var item_1 = params && params.$id ? that.state.value.findById(params.$id) : null;
-                    if (item_1) {
+                    var item_3 = params && params.$id ? that.state.value.findById(params.$id) : null;
+                    if (item_3) {
                         that.rows.forEach(function (row, index) {
                             if (row.name === params.property) {
-                                that._modifyRow(item_1.getValue(row.name), row.schema, index, that.state.value.indexOf(item_1) + 1, { editable: row.canEdit, check: row.check }, item_1, row.name);
+                                that._modifyRow(item_3.getValue(row.name), row.schema, index, that.state.value.indexOf(item_3) + 1, { editable: row.canEdit, check: row.check }, item_3, row.name);
                             }
                         });
                     }
@@ -21052,6 +22952,13 @@ var Phoenix;
             ColumnGrid.prototype._setErrors = function (grid, element) {
                 var that = this;
                 var errors = that.state.errors;
+                if (element && Phoenix.bootstrap4) {
+                    var errorClass = 'is-invalid';
+                    if (errors && errors.length)
+                        _dom.addClass(element, errorClass);
+                    else
+                        _dom.removeClass(element, errorClass);
+                }
                 that.showErrors(element, errors);
             };
             ColumnGrid.prototype.click = function (event) {
@@ -21312,7 +23219,7 @@ var Phoenix;
     var _p = Phoenix, _pagecontrol = _p.pagecontrol, _sutils = _p.Observable.SchemaUtils, _utils = _p.utils, _dom = _p.dom;
     var formdropitems;
     (function (formdropitems) {
-        var DropItems = (function () {
+        var DropItems = /** @class */ (function () {
             function DropItems($parent, $input, options) {
                 this.opened = false;
                 var that = this;
@@ -21385,7 +23292,7 @@ var Phoenix;
                 if (!that.$element)
                     that._renderContent();
                 if (that.currentList) {
-                    var frag_1 = document.createDocumentFragment();
+                    var frag_2 = document.createDocumentFragment();
                     var e = that.$element.get(0);
                     that.currentList.forEach(function (item) {
                         var dId = _sutils.pk2Id(_sutils.extractPkValue(item, that.keys), that.keys);
@@ -21395,10 +23302,10 @@ var Phoenix;
                         else
                             li = $('<li class="dropdown-item" tabindex="-1"><a tabindex="-1" href="#">' + _utils.escapeHtml(item[that.options.display]) + '</a></li>').get(0);
                         li['pk'] = dId;
-                        _dom.append(frag_1, li);
+                        _dom.append(frag_2, li);
                     });
                     _dom.empty(e);
-                    _dom.append(e, frag_1);
+                    _dom.append(e, frag_2);
                 }
             };
             DropItems.prototype._afterHide = function (doFocus) {
@@ -21654,10 +23561,10 @@ var Phoenix;
                 that.$parent = null;
                 that.$element = null;
             };
+            DropItems.itemHeight = 0;
+            DropItems.deltaHeight = 0;
             return DropItems;
         }());
-        DropItems.itemHeight = 0;
-        DropItems.deltaHeight = 0;
         formdropitems.DropItems = DropItems;
     })(formdropitems = Phoenix.formdropitems || (Phoenix.formdropitems = {}));
 })(Phoenix || (Phoenix = {}));
@@ -21675,6 +23582,9 @@ var Phoenix;
             var _bootstrap4 = _p.bootstrap4;
             tagName = tagName || 'input';
             var isTextArea = tagName === "textarea";
+            if (options.readOnly) {
+                tagName = 'div';
+            }
             if (isTextArea) {
                 if (options.before || options.after) {
                     delete options.before;
@@ -21709,13 +23619,16 @@ var Phoenix;
             }
             var inputCss = ['form-control'];
             if (options.size && _bootstrap4)
-                inputCss.push(' form-control-' + options.size);
+                inputCss.push('form-control-' + options.size);
             if (options.inputClass)
                 inputCss.push(options.inputClass);
-            html.push('<' + tagName + ' autocomplete="off" type="' + (options.type || 'text') + '" class="' + inputCss.join(' '));
+            if (options.readOnly) {
+                inputCss.push('bs-read-only');
+            }
+            html.push('<' + tagName + ' autocomplete="off"' + (options.readOnly ? '' : ' type="' + (options.type || 'text') + '"') + ' class="' + inputCss.join(' '));
             html.push('" id="{0}_input"');
             if (isTextArea) {
-                html.push(' rows="' + options.rows || 3 + '"');
+                html.push(' rows="' + (options.rows || 3) + '"');
             }
             if (!options.before && !options.after) {
                 var style = [];
@@ -21723,8 +23636,10 @@ var Phoenix;
                     style.push('max-width: ' + options.maxWidth + ';');
                 if (options.minWidth)
                     style.push('min-width: ' + options.minWidth + ';');
+                if (isTextArea && options.noResize)
+                    style.push('resize: none;');
                 if (style.length)
-                    html.push('  style="' + style.join("") + '"');
+                    html.push('  style="' + style.join('') + '"');
             }
             if (options.maxLength)
                 html.push('  maxLength="' + options.maxLength + '"');
@@ -21747,7 +23662,7 @@ var Phoenix;
             }
             if (options.before || options.after)
                 html.push('</div>');
-            if (isTextArea) {
+            if (isTextArea || options.readOnly) {
                 html.push('</' + tagName + '>');
             }
             _uiutils.utils.addErrorDiv(html);
@@ -21758,6 +23673,10 @@ var Phoenix;
             if (options.titleIsHidden) {
                 options.columns = false;
             }
+            if (options.readOnly) {
+                delete options.after;
+                delete options.before;
+            }
             _uiutils.utils.fieldWrapper(html, options, authoring, function () {
                 var _bootstrap4 = _p.bootstrap4;
                 if (!options.titleIsHidden) {
@@ -21765,7 +23684,7 @@ var Phoenix;
                     var css = ['bs-label'];
                     if (options.columns) {
                         if (_bootstrap4) {
-                            css.push('form-control-label');
+                            css.push('col-form-label');
                         }
                         else {
                             css.push('checkbox-inline bs-cursor-d');
@@ -21795,7 +23714,7 @@ var Phoenix;
             });
             return _utils.format(html.join(''), id);
         };
-        var BaseEdit = (function (_super) {
+        var BaseEdit = /** @class */ (function (_super) {
             __extends(BaseEdit, _super);
             function BaseEdit(fp, options, form) {
                 var _this = _super.call(this, fp, options, form) || this;
@@ -21859,6 +23778,8 @@ var Phoenix;
             };
             BaseEdit.prototype.setFocus = function (focusParams) {
                 var that = this;
+                if (that.renderOptions.readOnly)
+                    return;
                 var state = that.form.getState(that.$bind);
                 if (state.isDisabled || state.isHidden)
                     return;
@@ -21870,22 +23791,40 @@ var Phoenix;
                 return _su.isMoney(this.$schema);
             };
             BaseEdit.prototype._setDisabled = function (input, element) {
+                var that = this;
+                if (that.renderOptions.readOnly)
+                    return;
                 input.disabled = this.state.isDisabled;
             };
             BaseEdit.prototype._setReadOnly = function (input, element) {
+                var that = this;
+                if (that.renderOptions.readOnly)
+                    return;
                 input.readOnly = this.state.isReadOnly;
             };
             BaseEdit.prototype._setErrors = function (input, element) {
                 var that = this;
+                if (that.renderOptions.readOnly)
+                    return;
                 var errors = that.state.errors;
-                if (errors && errors.length)
-                    _dom.addClass(element, "has-error");
-                else
-                    _dom.removeClass(element, "has-error");
+                var errorClass = Phoenix.bootstrap4 ? 'is-invalid' : 'has-error';
+                if (errors && errors.length) {
+                    _dom.addClass(element, errorClass);
+                    if (Phoenix.bootstrap4)
+                        _dom.addClass(input, errorClass);
+                }
+                else {
+                    _dom.removeClass(element, errorClass);
+                    if (Phoenix.bootstrap4)
+                        _dom.removeClass(input, errorClass);
+                }
                 that.showErrors(element, errors);
             };
             BaseEdit.prototype._setMandatory = function (input, element) {
-                var that = this, v = this.state.isMandatory;
+                var that = this;
+                if (that.renderOptions.readOnly)
+                    return;
+                var v = this.state.isMandatory;
                 input.required = v;
                 if (v)
                     _dom.addClass(input, "bs-mandatory");
@@ -21917,6 +23856,8 @@ var Phoenix;
             };
             BaseEdit.prototype._setSymbol = function (e) {
                 var that = this;
+                if (that.renderOptions.readOnly)
+                    return;
                 if (!that._hasSymbol || !e)
                     return;
                 var after = _dom.find(e, that.id + '_after');
@@ -21931,31 +23872,46 @@ var Phoenix;
             };
             BaseEdit.prototype._value2Input = function (input) {
                 var that = this;
-                if (that._isDate()) {
-                    if (_uiutils.utils.useDatePicker())
-                        _uiutils.utils.datePickerSetValue(that.$element, that.state.value);
-                    else {
-                        if (_uiutils.utils.nativeDate()) {
-                            input.value = _ulocale.isoDatePart(that.state.value || '');
-                        }
-                        else
-                            input.value = _ulocale.shortDate(that.state.value || '');
+                if (that.renderOptions.readOnly) {
+                    if (that._isDate()) {
+                        _dom.text(input, _ulocale.shortDate(that.state.value || '') || String.fromCharCode(160));
                     }
-                }
-                else if (that._isDateTime()) {
-                    if (_uiutils.utils.useDateTimePicker())
-                        _uiutils.utils.dateTimePickerSetValue($(_dom.find(that.$element.get(0), that.id + '_group')), that.state.value);
+                    else if (that._isDateTime()) {
+                        _dom.text(input, _ulocale.shortDateTime(that.state.value || '') || String.fromCharCode(160));
+                    }
+                    else if (that._isNumber()) {
+                        _dom.text(input, that._value2Text() || String.fromCharCode(160));
+                    }
                     else
-                        input.value = _ulocale.shortDateTime(that.state.value || '');
+                        _dom.text(input, that._value2Text() || String.fromCharCode(160));
                 }
-                else if (that._isNumber()) {
-                    if (_uiutils.utils.nativeNumber())
-                        input.value = that.state.value || 0;
+                else {
+                    if (that._isDate()) {
+                        if (_uiutils.utils.useDatePicker())
+                            _uiutils.utils.datePickerSetValue(that.$element, that.state.value);
+                        else {
+                            if (_uiutils.utils.nativeDate()) {
+                                input.value = _ulocale.isoDatePart(that.state.value || '');
+                            }
+                            else
+                                input.value = _ulocale.shortDate(that.state.value || '');
+                        }
+                    }
+                    else if (that._isDateTime()) {
+                        if (_uiutils.utils.useDateTimePicker())
+                            _uiutils.utils.dateTimePickerSetValue($(_dom.find(that.$element.get(0), that.id + '_group')), that.state.value);
+                        else
+                            input.value = _ulocale.shortDateTime(that.state.value || '');
+                    }
+                    else if (that._isNumber()) {
+                        if (_uiutils.utils.nativeNumber())
+                            input.value = that.state.value || 0;
+                        else
+                            input.value = that._value2Text();
+                    }
                     else
                         input.value = that._value2Text();
                 }
-                else
-                    input.value = that._value2Text();
             };
             BaseEdit.prototype.changed = function (propName, ov, nv, op) {
                 var that = this;
@@ -22041,7 +23997,7 @@ var Phoenix;
             return BaseEdit;
         }(Phoenix.ui.AbsField));
         formedit.BaseEdit = BaseEdit;
-        var Edit = (function (_super) {
+        var Edit = /** @class */ (function (_super) {
             __extends(Edit, _super);
             function Edit(fp, options, form) {
                 return _super.call(this, fp, options, form) || this;
@@ -22049,6 +24005,8 @@ var Phoenix;
             Edit.prototype.beforeAppend = function () { };
             Edit.prototype.mousedown = function (event) {
                 var that = this;
+                if (that.renderOptions.readOnly)
+                    return;
                 that._doSelect = false;
                 if (!that.$element)
                     return;
@@ -22065,6 +24023,8 @@ var Phoenix;
             };
             Edit.prototype.stopProppagation = function (event) {
                 var that = this;
+                if (that.renderOptions.readOnly)
+                    return;
                 if (that._doSelect) {
                     var input = that._input();
                     _dom.select(input);
@@ -22167,6 +24127,8 @@ var Phoenix;
             };
             Edit.prototype._setEventsDate = function () {
                 var that = this;
+                if (that.renderOptions.readOnly)
+                    return;
                 if (_uiutils.utils.useDatePicker()) {
                     _uiutils.utils.datePickerInitialize(that.$element, { showOnFocus: true }, function (e) {
                         that.focusOut(null);
@@ -22175,11 +24137,15 @@ var Phoenix;
             };
             Edit.prototype._removeEventsDateTime = function () {
                 var that = this;
+                if (that.renderOptions.readOnly)
+                    return;
                 if (_uiutils.utils.useDateTimePicker())
                     _uiutils.utils.dateTimePickerDestroy($(_dom.find(that.$element.get(0), that.id + '_group')));
             };
             Edit.prototype._setEventsDateTime = function () {
                 var that = this;
+                if (that.renderOptions.readOnly)
+                    return;
                 if (_uiutils.utils.useDateTimePicker()) {
                     _uiutils.utils.dateTimePickerInitialize($(_dom.find(that.$element.get(0), that.id + '_group')), {}, function (e) {
                         that.focusOut(null);
@@ -22205,6 +24171,8 @@ var Phoenix;
             };
             Edit.prototype.paste = function (event) {
                 var that = this;
+                if (that.renderOptions.readOnly)
+                    return;
                 var input = that._input();
                 if (that.state.isReadOnly || that.state.isDisabled)
                     return true;
@@ -22244,6 +24212,8 @@ var Phoenix;
             };
             Edit.prototype.keypress = function (event) {
                 var that = this;
+                if (that.renderOptions.readOnly)
+                    return true;
                 if (that.state.isReadOnly || that.state.isDisabled)
                     return true;
                 var input = that._input();
@@ -22265,6 +24235,8 @@ var Phoenix;
             };
             Edit.prototype.keydown = function (event) {
                 var that = this;
+                if (that.renderOptions.readOnly)
+                    return true;
                 if (that.state.isReadOnly || that.state.isDisabled)
                     return true;
                 var input = that._input();
@@ -22331,7 +24303,10 @@ var Phoenix;
                 }
             };
             Edit.prototype.focusOut = function (event) {
-                this._input2Model(true);
+                var that = this;
+                if (that.renderOptions.readOnly)
+                    return;
+                that._input2Model(true);
             };
             Edit.prototype.destroy = function () {
                 _super.prototype.destroy.call(this);
@@ -22369,7 +24344,7 @@ var Phoenix;
                     var css = ['bs-label'];
                     if (options.columns) {
                         if (_bootstrap4)
-                            css.push('form-control-label');
+                            css.push('col-form-label');
                         else
                             css.push('checkbox-inline bs-cursor-d');
                         css.push('bs-lib-col col-sm-' + options.labelCol);
@@ -22421,7 +24396,7 @@ var Phoenix;
             });
             return f;
         };
-        var EnumList = (function (_super) {
+        var EnumList = /** @class */ (function (_super) {
             __extends(EnumList, _super);
             function EnumList(fp, options, form) {
                 var _this = _super.call(this, fp, options, form) || this;
@@ -22449,6 +24424,13 @@ var Phoenix;
             EnumList.prototype._setErrors = function (input, element) {
                 var that = this;
                 var errors = that.state.errors;
+                if (element && Phoenix.bootstrap4) {
+                    var errorClass = 'is-invalid';
+                    if (errors && errors.length)
+                        _dom.addClass(element, errorClass);
+                    else
+                        _dom.removeClass(element, errorClass);
+                }
                 that.showErrors(element, errors);
             };
             EnumList.prototype._setMandatory = function (input, element) {
@@ -22495,11 +24477,11 @@ var Phoenix;
                     return null;
                 if (that.state.filter) {
                     var enums = that.$schemaItems.filters[that.state.filter];
-                    var res_3 = [];
+                    var res_7 = [];
                     enums.forEach(function (en) {
-                        res_3.push(that.$schemaItems.enumNames[that.$schemaItems.enum.indexOf(en)]);
+                        res_7.push(that.$schemaItems.enumNames[that.$schemaItems.enum.indexOf(en)]);
                     });
-                    return res_3;
+                    return res_7;
                 }
                 else
                     return that.$schemaItems.enumNames;
@@ -22564,6 +24546,8 @@ var Phoenix;
                         break;
                     case "propchange":
                         _dom.empty(ii);
+                        if (propName === that.$bind)
+                            that.state.value = that.form.getValue(that.$bind);
                         var ff = _createEnums(that.state.value, that.state.isDisabled, enums, enumsNames);
                         _dom.empty(ii);
                         _dom.append(ii, ff);
@@ -22996,8 +24980,8 @@ var Phoenix;
             else if (event.which == _dom.keys.VK_BACKSPACE) {
                 newVal = unformatMontant(start.substr(0, start.length - 1) + end, opts.decimalSep, opts.thousandSep);
             }
-            var formattedNewVal = formatMontant(newVal, opts.places, opts.decimalSep, opts.thousandSep);
-            input.value = formattedNewVal;
+            var formattedLimitNewVal = limit(newVal, opts.schema.minimum, opts.schema.exclusiveMinimum, opts.schema.maximum, opts.schema.exclusiveMaximum, opts.places, opts.decimalSep, opts.thousandSep);
+            input.value = formattedLimitNewVal;
             // Set caret position
             var charsBefore = unformatMontant(start, opts.decimalSep, opts.thousandSep).length + offsetCaret;
             // Particular cases : near decimal separator
@@ -23019,13 +25003,112 @@ var Phoenix;
     _uiutils.utils.keyDownNumber = _keyDownNumber;
 })(Phoenix || (Phoenix = {}));
 /// <reference path="../../../core/core.ts" />
+/// <reference path="../../../core/modules/locale.ts" />
+/// <reference path="./absfield.control.ts" />
+var Phoenix;
+(function (Phoenix) {
+    var _p = Phoenix, _utils = _p.utils, _ui = _p.ui, _dom = _p.dom, _uiutils = _p.uiutils;
+    var frame;
+    (function (frame) {
+        var _createFrame = function (id, options, authoring) {
+            var html = [];
+            _uiutils.utils.fieldWrapper(html, options, authoring, function () {
+                html.push('<iframe src="' + options.src + '" scrolling="no" width="100%" frameBorder="0" border="0"></iframe>');
+            }, null);
+            return _utils.format(html.join(''), id);
+        };
+        var IFrame = /** @class */ (function (_super) {
+            __extends(IFrame, _super);
+            function IFrame(fp, options, form) {
+                var _this = _super.call(this, fp, options, form) || this;
+                _this._state();
+                return _this;
+            }
+            IFrame.prototype._setDisabled = function (element) {
+            };
+            IFrame.prototype._setReadOnly = function (element) {
+                this._setDisabled(element);
+            };
+            IFrame.prototype._setMandatory = function (element) {
+            };
+            IFrame.prototype._state2UI = function () {
+                var that = this, element = that.$element ? that.$element.get(0) : null;
+                if (element) {
+                    var iframeElement = that._iframe();
+                    iframeElement.src = that.state.value;
+                    that._setDisabled(element);
+                    that._setReadOnly(element);
+                    that.setHidden(element);
+                }
+            };
+            IFrame.prototype.changed = function (propName, ov, nv, op) {
+                var that = this, iframeElement = that._iframe();
+                if (that.state.value !== nv) {
+                    that.state.value = nv;
+                    iframeElement.src = that.state.value;
+                    that._applyIResize();
+                }
+            };
+            IFrame.prototype._applyIResize = function () {
+                var that = this;
+                if (that.$element) {
+                    var anyElement = $(that._iframe());
+                    if (that.state.value && anyElement.iFrameResize)
+                        anyElement.iFrameResize({});
+                }
+            };
+            IFrame.prototype.stateChanged = function (propName, params) {
+                var that = this, state = that.form.getState(that.$bind), element = that.$element ? that.$element.get(0) : null;
+                if (state.isHidden !== that.state.isHidden) {
+                    that.state.isHidden = state.isHidden;
+                    if (element)
+                        that.setHidden(element);
+                }
+                if (state.isDisabled != that.state.isDisabled) {
+                    that.state.isDisabled = state.isDisabled;
+                    if (element)
+                        that._setDisabled(element);
+                }
+                if (state.isReadOnly != that.state.isReadOnly) {
+                    that.state.isReadOnly = state.isReadOnly;
+                    if (element)
+                        that._setReadOnly(element);
+                }
+                if (state.isMandatory != that.state.isMandatory) {
+                    that.state.isMandatory = state.isMandatory;
+                    if (element)
+                        that._setMandatory(element);
+                }
+            };
+            IFrame.prototype._iframe = function () {
+                var that = this, e = that.$element.get(0), img = e ? e.firstChild : null;
+                return img;
+            };
+            IFrame.prototype.render = function ($parent) {
+                var that = this;
+                var opts = that._initOptions(_uiutils.utils.defaultOptions);
+                if (!that.$element) {
+                    that.$element = $(_createFrame(that.id, opts, that.options.design));
+                    that._state2UI();
+                    that.setEvents(opts);
+                    that._applyIResize();
+                }
+                that.appendElement($parent, opts);
+                return that.$element;
+            };
+            return IFrame;
+        }(Phoenix.ui.AbsField));
+        _ui.registerControl(IFrame, "string", false, 'iframe', {});
+    })(frame = Phoenix.frame || (Phoenix.frame = {}));
+})(Phoenix || (Phoenix = {}));
+/// <reference path="../../../core/core.ts" />
 /// <reference path="../../page.control.ts" />
 /// <reference path="../schema.data.ts" />
 /// <reference path="../../page.control.ts" />
 /// <reference path="../modalform.control.ts" />
 var Phoenix;
 (function (Phoenix) {
-    var _p = Phoenix, _utils = _p.utils, _dom = _p.dom, _ui = _p.ui, _autoclose = _p.autoclose, _pagecontrol = _p.pagecontrol, _observable = _p.Observable, _sutils = _observable.SchemaUtils, _locale = _p.locale;
+    var _p = Phoenix, _utils = _p.utils, _dom = _p.dom, _ui = _p.ui, _autoclose = _p.autoclose, _pagecontrol = _p.pagecontrol, _observable = _p.Observable, _data = _p.data, _formgrid = _p.formgrid, _sutils = _observable.SchemaUtils, _locale = _p.locale;
     var gridlookup;
     (function (gridlookup) {
         var mFormLayout = {
@@ -23041,7 +25124,8 @@ var Phoenix;
                         $entity: 'Country',
                         $module: '',
                         $top: 5,
-                        $orderby: ''
+                        $orderby: '',
+                        $searchByFields: undefined
                     }
                 }
             },
@@ -23082,7 +25166,7 @@ var Phoenix;
                 }
             ]
         };
-        var GridItems = (function () {
+        var GridItems = /** @class */ (function () {
             function GridItems($parent, $input, options) {
                 var that = this;
             }
@@ -23095,19 +25179,19 @@ var Phoenix;
                 }
                 else if (action.property === 'form-validate') {
                     if (that._onselect) {
-                        var sel_1 = null;
+                        var sel_2 = null;
                         var docs = model.documents;
                         docs.enumSelectedItems('', function (ii) {
-                            if (!sel_1)
-                                sel_1 = ii;
+                            if (!sel_2)
+                                sel_2 = ii;
                         });
-                        that._onselect(sel_1 ? sel_1.model() : null);
+                        that._onselect(sel_2 ? sel_2.model() : null);
                     }
                     form.autoClose.explicitClose = true;
                     that.hide();
                 }
                 else if (action.property === 'documents') {
-                    if (action.operation === 'set') {
+                    if (action.operation === 'propchange') {
                         var docs = model.documents;
                         if (docs.length)
                             docs.selectItem(true, model.documents.get(0), false, '', false);
@@ -23270,6 +25354,42 @@ var Phoenix;
             return GridItems;
         }());
         gridlookup.GridItems = GridItems;
+        var _gridPopup = {
+            checkGridPopup: function (that, lookup, input, parent) {
+                return new GridItems($(parent), input, {
+                    primaryKey: lookup.primaryKey
+                });
+            },
+            closeGridLookup: function (that, eventBus, propertyName) {
+                if (that[propertyName] && that[propertyName].opened) {
+                    eventBus.push(null, function (ldata) {
+                        if (that[propertyName] && that[propertyName].opened)
+                            that[propertyName].hide();
+                    }, true);
+                }
+            },
+            openGridLookup: function (that, options) {
+                var ds = $.extend(true, {}, options.lookup.data);
+                var opts = {
+                    alignElementId: options.align,
+                    openerId: options.openerId,
+                    lookup: options.lookup,
+                    lookupColumns: options.lookupColumns,
+                    display: options.display,
+                    onselect: options.onselect,
+                    search: options.searchText,
+                };
+                if (ds && ds.$params && ds.$params.$filter)
+                    ds.$params.$filter = _data.replaceFilterVars(ds.$params.$filter, options.formControl.getParentModel(options.bind).model(true));
+                that[options.propertyName].show(ds, options.parentControl, opts);
+            }
+        };
+        gridlookup.utils = {
+            checkGridPopup: _gridPopup.checkGridPopup,
+            closeGridLookup: _gridPopup.closeGridLookup,
+            openGridLookup: _gridPopup.openGridLookup
+        };
+        _formgrid.gridlookup = gridlookup.utils;
     })(gridlookup = Phoenix.gridlookup || (Phoenix.gridlookup = {}));
 })(Phoenix || (Phoenix = {}));
 /// <reference path="../../../core/core.ts" />
@@ -23279,7 +25399,7 @@ var Phoenix;
     var ui;
     (function (ui) {
         var _utils = Phoenix.utils, _ui = ui, _eu = Phoenix.Observable.errorsUtils, _dom = Phoenix.dom, _ulocale = Phoenix.ulocale;
-        var Group = (function (_super) {
+        var Group = /** @class */ (function (_super) {
             __extends(Group, _super);
             function Group(fp, options, form) {
                 var _this = _super.call(this, fp, options, form) || this;
@@ -23340,7 +25460,19 @@ var Phoenix;
                 }
                 that._setDisabled(element);
                 that.setHidden(element);
-                that.showErrors(element, that.state.errors);
+                that._setErrors(element);
+            };
+            Group.prototype._setErrors = function (element) {
+                var that = this;
+                var errors = that.state.errors;
+                if (element && Phoenix.bootstrap4) {
+                    var errorClass = 'is-invalid';
+                    if (errors && errors.length)
+                        _dom.addClass(element, errorClass);
+                    else
+                        _dom.removeClass(element, errorClass);
+                }
+                that.showErrors(element, errors);
             };
             Group.prototype._getDefaultItem = function () {
                 var that = this, element = that.$element ? that.$element.get(0) : null;
@@ -23374,7 +25506,7 @@ var Phoenix;
                 if (!propName || (propName === 'errors')) {
                     if (_eu.errorChanged(that.state.errors, state.errors)) {
                         that.state.errors = state.errors;
-                        that.showErrors(element, that.state.errors);
+                        that._setErrors(element);
                     }
                 }
             };
@@ -23403,7 +25535,7 @@ var Phoenix;
                     var cssLabel = ['bs-label'];
                     if (options.columns) {
                         if (_bootstrap4) {
-                            cssLabel.push('form-control-label');
+                            cssLabel.push('col-form-label');
                         }
                         else {
                             cssLabel.push('checkbox-inline bs-cursor-d');
@@ -23431,7 +25563,7 @@ var Phoenix;
                 var css = ['btn-group'];
                 html.push('<div class="' + css.join(' ') + '">');
                 enums.forEach(function (enumName, index) {
-                    html.push('<button tabindex="-1" type="button" id="{0}_item_' + index + '" class="btn btn-' + _dom.bootstrapStyles().secondary + '"');
+                    html.push('<button tabindex="-1" type="button" id="{0}_item_' + index + '" class="btn btn-' + _dom.bootstrapStyles(true).secondary + '"');
                     if (options.width) {
                         html.push(' style="width:' + options.width + '"');
                     }
@@ -23447,7 +25579,7 @@ var Phoenix;
                 html.push('</div>');
             return _utils.format(html.join(''), id);
         };
-        var BtnGroup = (function (_super) {
+        var BtnGroup = /** @class */ (function (_super) {
             __extends(BtnGroup, _super);
             function BtnGroup(fp, options, form) {
                 var _this = _super.call(this, fp, options, form) || this;
@@ -23456,8 +25588,8 @@ var Phoenix;
             }
             BtnGroup.prototype._state2UI = function () {
                 _super.prototype._state2UI.call(this, function (item) {
-                    _dom.addClass(item, 'btn-primary');
-                    _dom.removeClass(item, 'btn-' + _dom.bootstrapStyles().secondary);
+                    _dom.addClass(item, 'btn-' + _dom.bootstrapStyles(false).primary);
+                    _dom.removeClass(item, 'btn-' + _dom.bootstrapStyles(true).secondary);
                     item.tabIndex = 0;
                 });
             };
@@ -23472,16 +25604,28 @@ var Phoenix;
                             btn.tabIndex = 0;
                             if (that.focused)
                                 btn.focus();
-                            _dom.addClass(btn, 'btn-' + _dom.bootstrapStyles().primary);
-                            _dom.removeClass(btn, 'btn-' + _dom.bootstrapStyles().secondary);
+                            _dom.addClass(btn, 'btn-' + _dom.bootstrapStyles(false).primary);
+                            _dom.removeClass(btn, 'btn-' + _dom.bootstrapStyles(true).secondary);
                         }
                         else {
-                            _dom.addClass(btn, 'btn-' + _dom.bootstrapStyles().secondary);
-                            _dom.removeClass(btn, 'btn-' + _dom.bootstrapStyles().primary);
+                            _dom.addClass(btn, 'btn-' + _dom.bootstrapStyles(true).secondary);
+                            _dom.removeClass(btn, 'btn-' + _dom.bootstrapStyles(false).primary);
                             btn.tabIndex = -1;
                         }
                     });
                 }
+            };
+            BtnGroup.prototype.focusIn = function (event) {
+            };
+            BtnGroup.prototype.focusOut = function (event) {
+            };
+            BtnGroup.prototype.setFocus = function (focusParams) {
+                var that = this;
+                if (that.renderOptions.readOnly)
+                    return;
+                var state = that.form.getState(that.$bind);
+                if (state.isDisabled || state.isHidden)
+                    return;
             };
             BtnGroup.prototype.keydown = function ($event) {
                 var that = this;
@@ -23556,7 +25700,7 @@ var Phoenix;
                 var css = ['bs-label'];
                 if (simulateCols) {
                     if (_bootstrap4)
-                        css.push('form-control-label');
+                        css.push('col-form-label');
                     else
                         css.push('checkbox-inline bs-cursor-d');
                     css.push('col-sm-12 bs-lib-col');
@@ -23580,7 +25724,7 @@ var Phoenix;
             return _utils.format(html.join(''), id);
         }
         ;
-        var Label = (function (_super) {
+        var Label = /** @class */ (function (_super) {
             __extends(Label, _super);
             function Label(fp, options, form) {
                 var _this = _super.call(this, fp, options, form) || this;
@@ -23700,7 +25844,9 @@ var Phoenix;
                 html.push('>');
             }
             html.push('<button type="button"');
-            html.push(' class="bs-button btn btn-' + _dom.bootstrapStyles()[options.type]);
+            html.push(' class="bs-button btn btn-' + _dom.bootstrapStyles(options.type === 'secondary' || options.type === 'default')[options.type]);
+            if (options.classButton)
+                html.push(' ' + options.classButton.join(''));
             if (options.size)
                 html.push(' btn-' + options.size);
             if (!options.inline) {
@@ -23710,7 +25856,7 @@ var Phoenix;
                 html.push(' bs-btn-inline');
                 html.push(' bs-island');
                 if (options.right)
-                    html.push(' pull-right');
+                    html.push(' float-right');
                 if (authoring)
                     html.push(' design');
             }
@@ -23739,7 +25885,7 @@ var Phoenix;
             return _utils.format(html.join(''), id);
         }
         ;
-        var Link = (function (_super) {
+        var Link = /** @class */ (function (_super) {
             __extends(Link, _super);
             function Link(fp, options, form) {
                 var _this = _super.call(this, fp, options, form) || this;
@@ -23748,11 +25894,19 @@ var Phoenix;
             }
             Link.prototype._button = function () {
                 var that = this;
+                if (!that.$element)
+                    return null;
                 return that.renderOptions.inline ? that.$element.get(0) : that.$element.get(0).firstChild;
             };
             Link.prototype.click = function (event) {
                 var that = this;
-                that.form.execAction(that.$bind);
+                if (that._isBinded) {
+                    that.form.execAction(that.$bind);
+                }
+                else {
+                    if (that.fieldOptions.onChange)
+                        that.fieldOptions.onChange();
+                }
             };
             Link.prototype._setDisabled = function (button, element) {
                 var that = this;
@@ -23791,7 +25945,8 @@ var Phoenix;
                 var that = this;
                 var opts = that._initOptions(_uiutils.utils.defaultOptions);
                 if (!that.$element) {
-                    that.$element = $(_createButton(that.id, opts, that.options.design, _ulocale.tt(that.$schema ? that.$schema.title : that.$bind, that.form.$locale)));
+                    //that.$element = $(_createButton(that.id, opts, that.options.design, _ulocale.tt(opts.title ? opts.title : (that.$schema ? that.$schema.title : that.$bind), that.form.$locale)));
+                    that.$element = $(_createButton(that.id, opts, that.options.design, _ulocale.tt(that.title, that.form.$locale)));
                     that._state2UI();
                 }
                 that.appendElement($parent, opts);
@@ -23836,17 +25991,17 @@ var Phoenix;
             if (ldata.value)
                 ldata = ldata.value;
             if (filter) {
-                var res_4 = [];
+                var res_8 = [];
                 var f_1 = _data.compileFilterTree(filter, null, context, null);
                 ldata.forEach(function (item) {
                     if (_data.acceptFilter(f_1, item))
-                        res_4.push(item);
+                        res_8.push(item);
                 });
-                return res_4;
+                return res_8;
             }
             return ldata;
         };
-        var Lookup = (function (_super) {
+        var Lookup = /** @class */ (function (_super) {
             __extends(Lookup, _super);
             function Lookup(fp, options, form) {
                 var _this = _super.call(this, fp, options, form) || this;
@@ -24101,11 +26256,8 @@ var Phoenix;
             };
             Lookup.prototype.focusOut = function (event) {
                 var that = this;
-                if (that.renderOptions.paginated) {
-                    that._closeGridLookup();
-                }
-                else
-                    that._closeGridLookup();
+                _gridlookup.utils.closeGridLookup(that, that.eventBus, 'gc');
+                that._closeMenuLookup();
                 _super.prototype.focusOut.call(this, event);
             };
             Lookup.prototype._triggerEvent = function (event, $event) {
@@ -24131,63 +26283,43 @@ var Phoenix;
             };
             Lookup.prototype._checkGridPopup = function () {
                 var that = this;
-                if (!that.menu) {
-                    var input = that._input();
-                    var $parent = that.$element;
-                    if (that.renderOptions.columns) {
-                        $parent = $(that._colParent());
-                    }
-                    that.gc = new Phoenix.gridlookup.GridItems($parent, input, {
-                        primaryKey: that.$lookup.primaryKey
-                    });
+                var input = that._input();
+                var parent = that.$element.get(0);
+                if (that.renderOptions.columns) {
+                    parent = that._colParent();
                 }
+                that.gc = _gridlookup.utils.checkGridPopup(that, that.$lookup, input, parent);
             };
             Lookup.prototype.focusInControl = function (activeFocusElement) {
                 var that = this;
                 var p = _super.prototype.focusInControl.call(this, activeFocusElement);
-                if (!p) {
-                    if (that.renderOptions.paginated) {
-                        if (that.gc && that.gc.opened) {
-                            return that.gc.focusInCombo(activeFocusElement);
-                        }
-                    }
-                    else {
-                    }
-                }
+                if (!p && that.gc && that.gc.opened)
+                    return that.gc.focusInCombo(activeFocusElement);
                 return p;
-            };
-            Lookup.prototype._closeGridLookup = function () {
-                var that = this;
-                if (that.gc && that.gc.opened) {
-                    that.eventBus.push(null, function (ldata) {
-                        if (that.gc && that.gc.opened)
-                            that.gc.hide();
-                    }, true);
-                }
             };
             Lookup.prototype._openGridLookup = function () {
                 var that = this;
                 if (!that.gc || !that.gc.opened) {
                     that._checkGridPopup();
-                    var ds = $.extend(true, {}, that.$lookup.data);
-                    var opts = {
-                        alignElementId: that.id + '_group',
-                        openerId: that.id + '_after',
+                    _gridlookup.utils.openGridLookup(that, {
                         lookup: that.$lookup,
-                        lookupColumns: that.fieldOptions ? that.fieldOptions.lookupColumns : undefined,
+                        parentControl: that,
+                        formControl: that.form,
                         display: that.$display,
+                        bind: that.$bind,
+                        align: that.id + '_group',
+                        openerId: that.id + '_after',
+                        searchText: that._searchText(),
                         onselect: that.onselectItemHandler,
-                        search: that._searchText(),
-                    };
-                    if (ds && ds.$params && ds.$params.$filter)
-                        ds.$params.$filter = _data.replaceFilterVars(ds.$params.$filter, that.form.getParentModel(that.$bind).model(true));
-                    that.gc.show(ds, that, opts);
+                        lookupColumns: that.fieldOptions ? that.fieldOptions.lookupColumns : undefined,
+                        propertyName: 'gc'
+                    });
                 }
             };
             Lookup.prototype._toggleGridLookup = function () {
                 var that = this;
                 if (that.gc && that.gc.opened) {
-                    that._closeGridLookup();
+                    _gridlookup.utils.closeGridLookup(that, that.eventBus, 'gc');
                 }
                 else if (!that.gc || !that.gc.opened) {
                     that._openGridLookup();
@@ -24311,7 +26443,7 @@ var Phoenix;
                     var css = ['bs-label'];
                     if (options.columns) {
                         if (_bootstrap4) {
-                            css.push('form-control-label');
+                            css.push('col-form-label');
                         }
                         else {
                             css.push('checkbox-inline bs-cursor-d');
@@ -24357,7 +26489,7 @@ var Phoenix;
             }, null);
             return _utils.format(html.join(''), id);
         };
-        var BasePicture = (function (_super) {
+        var BasePicture = /** @class */ (function (_super) {
             __extends(BasePicture, _super);
             function BasePicture(fp, options, form) {
                 var _this = _super.call(this, fp, options, form) || this;
@@ -24433,7 +26565,7 @@ var Phoenix;
             };
             return BasePicture;
         }(Phoenix.ui.AbsField));
-        var Picture = (function (_super) {
+        var Picture = /** @class */ (function (_super) {
             __extends(Picture, _super);
             function Picture(fp, options, form) {
                 var _this = _super.call(this, fp, options, form) || this;
@@ -24449,7 +26581,7 @@ var Phoenix;
                         return;
                     var URL_1 = window.URL || window['webkitURL'];
                     if (URL_1) {
-                        var nv_1 = {
+                        var nv_2 = {
                             id: that.state.value ? that.state.value.id : undefined,
                             fileName: f.name,
                             value: '',
@@ -24459,8 +26591,8 @@ var Phoenix;
                         if (f.type === 'image/svg+xml') {
                             var reader_1 = new FileReader();
                             reader_1.onload = function (e) {
-                                nv_1.value = reader_1.result;
-                                that.form.setValue(that.$bind, nv_1);
+                                nv_2.value = reader_1.result;
+                                that.form.setValue(that.$bind, nv_2);
                                 _dom.processing(false);
                             };
                             _dom.processing(true);
@@ -24487,8 +26619,8 @@ var Phoenix;
                                 canvas_1.height = img_1.height / div;
                                 var ctx = canvas_1.getContext("2d");
                                 ctx.drawImage(img_1, 0, 0, canvas_1.width, canvas_1.height);
-                                nv_1.value = canvas_1.toDataURL();
-                                that.form.setValue(that.$bind, nv_1);
+                                nv_2.value = canvas_1.toDataURL();
+                                that.form.setValue(that.$bind, nv_2);
                                 _dom.processing(false);
                             };
                         }
@@ -24602,7 +26734,7 @@ var Phoenix;
             };
             return Picture;
         }(BasePicture));
-        var ImageUrl = (function (_super) {
+        var ImageUrl = /** @class */ (function (_super) {
             __extends(ImageUrl, _super);
             function ImageUrl(fp, options, form) {
                 var _this = _super.call(this, fp, options, form) || this;
@@ -24652,7 +26784,7 @@ var Phoenix;
                     var css = ['bs-label'];
                     if (options.columns) {
                         if (_bootstrap4) {
-                            css.push('form-control-label');
+                            css.push('col-form-label');
                         }
                         else {
                             css.push('checkbox-inline bs-cursor-d');
@@ -24698,7 +26830,7 @@ var Phoenix;
             }, customize);
             return _utils.format(html.join(''), id);
         };
-        var RadioGroup = (function (_super) {
+        var RadioGroup = /** @class */ (function (_super) {
             __extends(RadioGroup, _super);
             function RadioGroup(fp, options, form) {
                 var _this = _super.call(this, fp, options, form) || this;
@@ -24750,7 +26882,7 @@ var Phoenix;
         var _utils = Phoenix.utils, _ui = ui, _dom = Phoenix.dom, _ulocale = Phoenix.ulocale, _uiutils = Phoenix.uiutils;
         function _createReadOnly(id, options, authoring, title, valuepattern) {
             title = title || '';
-            options.styles = options.styles ? options.styles : 'form-control-static';
+            options.styles = options.styles ? options.styles : (Phoenix.bootstrap4 ? 'form-control-plaintext' : 'form-control-static');
             options = $.extend({ titleIsHidden: false }, options);
             var html = [];
             _uiutils.utils.fieldWrapper(html, options, authoring, function () {
@@ -24759,7 +26891,7 @@ var Phoenix;
             return _utils.format(html.join(''), id);
         }
         ;
-        var ReadOnlyField = (function (_super) {
+        var ReadOnlyField = /** @class */ (function (_super) {
             __extends(ReadOnlyField, _super);
             function ReadOnlyField(fp, options, form) {
                 var _this = _super.call(this, fp, options, form) || this;
@@ -24878,7 +27010,7 @@ var Phoenix;
     var search;
     (function (search) {
         var _p = Phoenix, _formedit = _p.formedit, _dom = _p.dom, locale = _p.locale, _ui = _p.ui;
-        var Search = (function (_super) {
+        var Search = /** @class */ (function (_super) {
             __extends(Search, _super);
             function Search(fp, options, form) {
                 var _this = _super.call(this, fp, options, form) || this;
@@ -24966,7 +27098,7 @@ var Phoenix;
                     var css = ['bs-label'];
                     if (options.columns) {
                         if (_bootstrap4) {
-                            css.push('form-control-label');
+                            css.push('col-form-label');
                         }
                         else {
                             css.push('checkbox-inline bs-cursor-d');
@@ -24989,22 +27121,41 @@ var Phoenix;
                 }
                 if (options.columns)
                     html.push('<div class="no-x-padding col-sm-' + (12 - options.labelCol) + '">');
-                html.push('<select class="form-control');
-                if (options.size && _bootstrap4)
-                    html.push(' form-control-' + options.size);
-                html.push('" id="{0}_input"');
-                var style = [];
-                if (options.maxWidth)
-                    style.push('max-width: ' + options.maxWidth + ';');
-                if (options.minWidth)
-                    style.push('min-width: ' + options.minWidth + ';');
-                if (style.length)
-                    html.push(' style="' + style.join('') + '"');
-                html.push('>');
-                enums.forEach(function (en, index) {
-                    html.push('<option value="' + en + '">' + enumsNames[index] + '</option>');
-                });
-                html.push('</select>');
+                if (options.readOnly) {
+                    html.push('<div class="form-control bs-read-only');
+                    if (_bootstrap4) {
+                        if (options.size)
+                            html.push(' form-control-' + options.size);
+                    }
+                    html.push('" id="{0}_input"');
+                    var style = [];
+                    if (options.maxWidth)
+                        style.push('max-width: ' + options.maxWidth + ';');
+                    if (options.minWidth)
+                        style.push('min-width: ' + options.minWidth + ';');
+                    if (style.length)
+                        html.push(' style="' + style.join('') + '"');
+                    html.push('>');
+                    html.push('</div>');
+                }
+                else {
+                    html.push('<select class="form-control');
+                    if (options.size && _bootstrap4)
+                        html.push(' form-control-' + options.size);
+                    html.push('" id="{0}_input"');
+                    var style = [];
+                    if (options.maxWidth)
+                        style.push('max-width: ' + options.maxWidth + ';');
+                    if (options.minWidth)
+                        style.push('min-width: ' + options.minWidth + ';');
+                    if (style.length)
+                        html.push(' style="' + style.join('') + '"');
+                    html.push('>');
+                    enums.forEach(function (en, index) {
+                        html.push('<option value="' + en + '">' + enumsNames[index] + '</option>');
+                    });
+                    html.push('</select>');
+                }
                 _uiutils.utils.addErrorDiv(html);
                 if (options.columns)
                     html.push('</div>');
@@ -25013,14 +27164,22 @@ var Phoenix;
             });
             return _utils.format(html.join(''), id);
         };
-        var Select = (function (_super) {
+        var Select = /** @class */ (function (_super) {
             __extends(Select, _super);
             function Select(fp, options, form) {
                 return _super.call(this, fp, options, form) || this;
             }
             Select.prototype.fillSelect = function (enums) {
                 var that = this;
+                if (that.renderOptions.readOnly)
+                    return;
                 _uiutils.utils.fillSelect(enums, that._input(), that.$schema);
+            };
+            Select.prototype._setDisabled = function (input, element) {
+                input.disabled = this.state.isDisabled || this.state.isReadOnly;
+            };
+            Select.prototype._setReadOnly = function (input, element) {
+                input.disabled = this.state.isDisabled || this.state.isReadOnly;
             };
             Select.prototype._state2UI = function () {
                 var that = this;
@@ -25081,15 +27240,27 @@ var Phoenix;
             };
             Select.prototype.removeEvents = function () {
                 var that = this;
+                if (that.renderOptions.readOnly)
+                    return;
                 var input = that._input();
                 $(input).off('change');
             };
             Select.prototype._value2Input = function (input) {
                 var that = this;
-                input.selectedIndex = that.state.filter ? that.$schema.filters[that.state.filter].indexOf(that.state.value) : that.$schema.enum.indexOf(that.state.value);
+                if (that.renderOptions.readOnly) {
+                    var enumNames = that.$schema.enumNames || that.$schema.enum;
+                    enumNames = enumNames.map(function (v) { return _ulocale.tt(v + '', that.form.$locale); });
+                    var ii = that.$schema.enum.indexOf(that.state.value);
+                    _dom.text(input, enumNames[ii] || String.fromCharCode(160));
+                }
+                else {
+                    input.selectedIndex = that.state.filter ? that.$schema.filters[that.state.filter].indexOf(that.state.value) : that.$schema.enum.indexOf(that.state.value);
+                }
             };
             Select.prototype.setEvents = function (opts) {
                 var that = this;
+                if (that.renderOptions.readOnly)
+                    return;
                 var input = that._input();
                 $(input).on('change', function (event) {
                     var ii = that._input();
@@ -25123,7 +27294,7 @@ var Phoenix;
                 var css = ['btn-group'];
                 html.push('<div class="' + css.join(' ') + '">');
                 enums.forEach(function (enumName, index) {
-                    html.push('<button tabindex="-1" type="button" id="{0}_item_' + index + '" class="btn btn-' + _dom.bootstrapStyles().secondary + '"');
+                    html.push('<button tabindex="-1" type="button" id="{0}_item_' + index + '" class="btn btn-' + _dom.bootstrapStyles(true).secondary + '"');
                     if (options.width) {
                         html.push(' style="width:' + options.width + '"');
                     }
@@ -25135,7 +27306,7 @@ var Phoenix;
             });
             return _utils.format(html.join(''), id);
         };
-        var WizardSteps = (function (_super) {
+        var WizardSteps = /** @class */ (function (_super) {
             __extends(WizardSteps, _super);
             function WizardSteps(fp, options, form) {
                 var _this = _super.call(this, fp, options, form) || this;
@@ -25145,7 +27316,7 @@ var Phoenix;
             WizardSteps.prototype._state2UI = function () {
                 _super.prototype._state2UI.call(this, function (item) {
                     _dom.addClass(item, 'btn-primary');
-                    _dom.removeClass(item, 'btn-' + _dom.bootstrapStyles().secondary);
+                    _dom.removeClass(item, 'btn-' + _dom.bootstrapStyles(true).secondary);
                     item.tabIndex = 0;
                 });
             };
@@ -25160,12 +27331,12 @@ var Phoenix;
                             btn.tabIndex = 0;
                             if (that.focused)
                                 btn.focus();
-                            _dom.addClass(btn, 'btn-' + _dom.bootstrapStyles().primary);
-                            _dom.removeClass(btn, 'btn-' + _dom.bootstrapStyles().secondary);
+                            _dom.addClass(btn, 'btn-' + _dom.bootstrapStyles(false).primary);
+                            _dom.removeClass(btn, 'btn-' + _dom.bootstrapStyles(true).secondary);
                         }
                         else {
-                            _dom.addClass(btn, 'btn-' + _dom.bootstrapStyles().secondary);
-                            _dom.removeClass(btn, 'btn-' + _dom.bootstrapStyles().primary);
+                            _dom.addClass(btn, 'btn-' + _dom.bootstrapStyles(true).secondary);
+                            _dom.removeClass(btn, 'btn-' + _dom.bootstrapStyles(false).primary);
                             btn.tabIndex = -1;
                         }
                     });
@@ -25207,7 +27378,7 @@ var Phoenix;
                     html.push('<label for="{0}_input" id="{0}_label"');
                     if (options.columns) {
                         if (_bootstrap4) {
-                            css.push('form-control-label');
+                            css.push('col-form-label');
                         }
                         else {
                             css.push('checkbox-inline');
@@ -25240,11 +27411,12 @@ var Phoenix;
         }
         ;
         function _createInput(html, options, title) {
+            var classNameInline = options.inline ? 'tgl-btn-inline' : '';
             html.push('<input class="tgl tgl-light" id="{0}_input" type="checkbox">');
-            html.push('<label class="tgl-btn" for="{0}_input"></label>');
+            html.push(_utils.format('<label class="tgl-btn {0}" for="{1}_input"></label>', classNameInline, '{0}'));
         }
         ;
-        var Toggle = (function (_super) {
+        var Toggle = /** @class */ (function (_super) {
             __extends(Toggle, _super);
             function Toggle(fp, options, form) {
                 var _this = _super.call(this, fp, options, form) || this;
@@ -25252,7 +27424,10 @@ var Phoenix;
                 return _this;
             }
             Toggle.prototype._check = function () {
-                var that = this, e = that.$element.get(0);
+                var that = this;
+                if (!that.$element)
+                    return null;
+                var e = that.$element.get(0);
                 return _dom.find(e, that.id + '_input');
             };
             Toggle.prototype.click = function (event) {
@@ -25260,8 +27435,13 @@ var Phoenix;
                 if (event.target != input)
                     return;
                 if (that.state.value != value) {
-                    that.state.value = value;
-                    that.form.setValue(that.$bind, value);
+                    if (that._isBinded) {
+                        that.state.value = value;
+                        that.form.setValue(that.$bind, value);
+                    }
+                    else {
+                        that.setInternalValue(value, true);
+                    }
                 }
             };
             Toggle.prototype._setDisabled = function (input, element) {
@@ -25293,7 +27473,7 @@ var Phoenix;
                 }
             };
             Toggle.prototype.stateChanged = function (propName, params) {
-                var that = this, state = that.form.getState(that.$bind), input = that._check(), element = that.$element ? that.$element.get(0) : null;
+                var that = this, state = that._isBinded ? that.form.getState(that.$bind) : that._internalState, input = that._check(), element = that.$element ? that.$element.get(0) : null;
                 if (state.isHidden !== that.state.isHidden) {
                     that.state.isHidden = state.isHidden;
                     if (input)
@@ -25321,7 +27501,7 @@ var Phoenix;
                 if (!that.$element) {
                     if (that.$schema.description)
                         opts.description = _ulocale.tt(that.$schema.description, that.form.$locale);
-                    that.$element = $(_createToggle(that.id, opts, that.options.design, _ulocale.tt(that.$schema.title, that.form.$locale)));
+                    that.$element = $(_createToggle(that.id, opts, that.options.design, _ulocale.tt(that.title, that.form.$locale)));
                     that._state2UI();
                 }
                 that.appendElement($parent, opts);
@@ -25332,6 +27512,346 @@ var Phoenix;
         ui.Toggle = Toggle;
         _ui.registerControl(Toggle, "boolean", false, 'toggle', null);
     })(ui = Phoenix.ui || (Phoenix.ui = {}));
+})(Phoenix || (Phoenix = {}));
+/// <reference path="../../../core/core.ts" />
+/// <reference path="../../../core/modules/locale.ts" />
+/// <reference path="./absfield.control.ts" />
+var Phoenix;
+(function (Phoenix) {
+    var _p = Phoenix, _utils = _p.utils, _ui = _p.ui, _dom = _p.dom, _uiutils = _p.uiutils;
+    var wizard;
+    (function (wizard) {
+        var _createStep = function (id, stepNumber, stepCode, stepTilte, stepState, isLast) {
+            var html = [
+                '<div id="{0}_{1}" class="d-inline-block">',
+                '<div class="bs-step bs-cursor-p d-table align-middle bs-cursor-pointer">',
+                '<span data-step-code="{2}" class="bs-step-icon d-table-cell align-middle">',
+                '<span data-step-code="{2}" id="{0}_{1}_icon" class="bs-step-circle text-center d-inline-block' + (stepState === 'A' ? ' active ' + _dom.iconClass('edit') : (stepState === 'V' ? ' validated ' + _dom.iconClass('check') : '')) + '">' + (stepState === 'N' ? stepNumber : '') + '</span>',
+                '</span>',
+                '<span data-step-code="{2}" id="{0}_{1}_title" class="bs-pointer-p bs-step-title d-table-cell align-middle text-nowrap">' + _utils.escapeHtml(stepTilte) + '</span>',
+                '<span id="{0}_{1}_line" class="bs-step-line bs-cursor-d d-table-cell align-middle' + (isLast ? ' bs-none' : '') + '"><span class="bs-step-line-content"></span></span>',
+                '</div>',
+                '</div>'
+            ];
+            return $(_utils.format(html.join(''), id, stepNumber, stepCode)).get(0);
+        }, _createContainer = function (id, authoring) {
+            var html = [];
+            _uiutils.utils.fieldWrapper(html, {}, authoring, function () {
+                html.push('<div class="bs-step-root">');
+                html.push('<span data-action="prev" id="{0}_prev" class="bs-cursor-p bs-arrow-parent d-inline-block align-middle bs-none">');
+                html.push('<span data-action="prev" class="bs-step-arrow text-center d-inline-block ' + _dom.iconClass('arrow-left') + '"></span>');
+                html.push('</span>');
+                html.push('<div class="bs-step-parent-parent" id="{0}_root"><div class="bs-step-parent invisible" id="{0}_parent"></div></div>');
+                html.push('<span data-action="next" id="{0}_next" class="bs-cursor-p bs-arrow-parent d-inline-block align-middle bs-none">');
+                html.push('<span data-action="next" class="bs-step-arrow text-center d-inline-block ' + _dom.iconClass('arrow-right') + '"></span>');
+                html.push('</span>');
+                html.push('</div>');
+            });
+            return $(_utils.format(html.join(''), id)).get(0);
+        };
+        var Steppers = /** @class */ (function (_super) {
+            __extends(Steppers, _super);
+            function Steppers(fp, options, form) {
+                var _this = _super.call(this, fp, options, form) || this;
+                _this._state();
+                _this._init();
+                return _this;
+            }
+            Steppers.prototype._createSteps = function () {
+                var that = this;
+                var e = that.$element.get(0);
+                var parent = _dom.find(e, that.id + '_parent');
+                var lastIndex = that._steps.length - 1;
+                that._steps.forEach(function (step, stepIndex) {
+                    parent.appendChild(_createStep(that.id, stepIndex + 1, step.code, step.libelle, step.status, stepIndex && stepIndex === lastIndex));
+                });
+            };
+            Steppers.prototype._measure = function (width) {
+                var that = this;
+                that._measured = true;
+                var e = that.$element.get(0);
+                var parent = _dom.find(e, that.id + '_parent');
+                var lastIndex = that._steps.length - 1;
+                that._hlineWidth = 0;
+                that._steps.forEach(function (step, stepIndex) {
+                    var child = parent.childNodes[stepIndex];
+                    var p = _dom.position(child, parent);
+                    step.width = p.width;
+                    var label = _dom.find(child, that.id + '_' + (stepIndex + 1) + '_title');
+                    _dom.addClass(label, 'bs-none');
+                    p = _dom.position(child, parent);
+                    step.widthNoCaption = p.width;
+                    _dom.removeClass(label, 'bs-none');
+                    if (stepIndex === 0) {
+                        var hline = _dom.find(child, that.id + '_' + (stepIndex + 1) + '_line');
+                        p = _dom.position(hline, parent);
+                        that._hlineWidth = p.width;
+                    }
+                });
+                that._resizeTo(width);
+                _dom.removeClass(parent, 'invisible');
+            };
+            Steppers.prototype._init = function () {
+                var that = this;
+                that._steps = [];
+                var valueFound = false;
+                for (var i = 0; i < that.$schema.enum.length; i++) {
+                    var state = 'V';
+                    if (valueFound) {
+                        state = 'N';
+                    }
+                    else {
+                        if (that.state.value === that.$schema.enum[i]) {
+                            valueFound = true;
+                            state = 'A';
+                        }
+                    }
+                    that._steps.push({
+                        code: that.$schema.enum[i],
+                        libelle: that.$schema.enumNames[i],
+                        status: state,
+                        width: 0,
+                        widthNoCaption: 0
+                    });
+                }
+            };
+            Steppers.prototype.click = function (event) {
+                var that = this;
+                var code;
+                var action = _dom.attr(event.target, 'data-action');
+                if (action === 'next') {
+                    var oi = that.$schema.enum.indexOf(that.state.value);
+                    if (oi >= 0 && (oi + 1) < that.$schema.enum.length)
+                        code = that.$schema.enum[oi + 1];
+                }
+                else if (action === 'prev') {
+                    var oi = that.$schema.enum.indexOf(that.state.value);
+                    if (oi > 0)
+                        code = that.$schema.enum[oi - 1];
+                }
+                else
+                    code = _dom.attr(event.target, 'data-step-code');
+                if (code) {
+                    if (that.renderOptions.step === 1) {
+                        var cv = that.state.value;
+                        var oi = that.$schema.enum.indexOf(that.state.value);
+                        if (oi >= 0) {
+                            var ni = that.$schema.enum.indexOf(code);
+                            if (ni) {
+                                if (ni > oi)
+                                    code = that.$schema.enum[oi + 1];
+                            }
+                        }
+                        else
+                            code = that.state.value;
+                    }
+                    that.form.setValue(that.$bind, code);
+                }
+            };
+            Steppers.prototype.changed = function (propName, ov, nv, op) {
+                var that = this;
+                that.state.value = nv;
+                var valueFound = false;
+                if (that._steps && that._steps.length) {
+                    for (var i = 0; i < that._steps.length; i++) {
+                        var step = that._steps[i];
+                        var state = 'V';
+                        if (valueFound) {
+                            state = 'N';
+                        }
+                        else {
+                            if (that.state.value === step.code) {
+                                valueFound = true;
+                                state = 'A';
+                            }
+                        }
+                        if (step.status !== state) {
+                            step.status = state;
+                            var icon = _dom.find(that.$element.get(0), that.id + '_' + (i + 1) + '_icon');
+                            var css = ['bs-step-circle text-center d-inline-block'];
+                            var isIcon = true;
+                            if (state === 'A') {
+                                isIcon = true;
+                                css.push(_dom.iconClass('edit'));
+                                css.push('active');
+                            }
+                            else if (state === 'V') {
+                                isIcon = true;
+                                css.push(_dom.iconClass('check'));
+                                css.push('validated');
+                            }
+                            else {
+                                isIcon = false;
+                            }
+                            icon.className = css.join(' ');
+                            _dom.text(icon, isIcon ? '' : ((i + 1) + ''));
+                        }
+                    }
+                }
+                that.resize();
+            };
+            Steppers.prototype._resizeTo = function (width) {
+                var that = this;
+                var e = that.$element.get(0);
+                var parent = _dom.find(e, that.id + '_parent');
+                var totalWidth = 0;
+                var mediumWidth = 0;
+                var minWidth = 0;
+                var stepCount = that._steps.length;
+                that._steps.forEach(function (step, stepIndex) {
+                    totalWidth += step.width;
+                    switch (step.status) {
+                        case 'A':
+                            mediumWidth += step.width;
+                            minWidth += step.width;
+                            break;
+                        case 'V':
+                            var nextStep = that._steps[stepIndex + 1];
+                            if (nextStep && nextStep.status === 'A')
+                                mediumWidth += step.width;
+                            else
+                                mediumWidth += step.widthNoCaption;
+                            minWidth += step.widthNoCaption;
+                            break;
+                        case 'N':
+                            var prevStep = that._steps[stepIndex - 1];
+                            if (prevStep && prevStep.status === 'A')
+                                mediumWidth += step.width;
+                            else
+                                mediumWidth += step.widthNoCaption;
+                            minWidth += step.widthNoCaption;
+                            break;
+                    }
+                });
+                var total = 0;
+                var showAll = false;
+                var medium = false;
+                var min = false;
+                if (totalWidth <= width) {
+                    showAll = true;
+                    total = width - totalWidth;
+                }
+                else if (mediumWidth <= width) {
+                    showAll = true;
+                    medium = true;
+                    total = width - mediumWidth;
+                }
+                else if (minWidth <= width) {
+                    showAll = true;
+                    min = true;
+                    total = width - minWidth;
+                }
+                if (showAll) {
+                    var hLines = that._steps.length > 1 ? that._steps.length - 1 : 1;
+                    var hLinesWidth = Math.floor(total / hLines) + that._hlineWidth;
+                    var lines = _dom.queryAll(parent, '.bs-step-line');
+                    for (var i = 0, len = lines.length; i < len; i++) {
+                        var cl = lines[i];
+                        if (!_dom.hasClass(cl, 'bs-none')) {
+                            cl.style.width = hLinesWidth + 'px';
+                        }
+                    }
+                    that._steps.forEach(function (step, stepIndex) {
+                        var child = parent.childNodes[stepIndex];
+                        var label = _dom.find(child, that.id + '_' + (stepIndex + 1) + '_title');
+                        if (stepIndex && stepIndex === stepCount - 1) {
+                            var hline = _dom.find(child, that.id + '_' + (stepIndex + 1) + '_line');
+                            if (!_dom.hasClass(hline, 'bs-none'))
+                                _dom.addClass(hline, 'bs-none');
+                        }
+                        if (medium) {
+                            switch (step.status) {
+                                case 'A':
+                                    _dom.removeClass(label, 'bs-none');
+                                    break;
+                                case 'V':
+                                    var nextStep = that._steps[stepIndex + 1];
+                                    if (nextStep && nextStep.status === 'A')
+                                        _dom.removeClass(label, 'bs-none');
+                                    else if (!_dom.hasClass(label, 'bs-none'))
+                                        _dom.addClass(label, 'bs-none');
+                                    break;
+                                case 'N':
+                                    var prevStep = that._steps[stepIndex - 1];
+                                    if (prevStep && prevStep.status === 'A') {
+                                        _dom.removeClass(label, 'bs-none');
+                                    }
+                                    else if (!_dom.hasClass(label, 'bs-none'))
+                                        _dom.addClass(label, 'bs-none');
+                                    break;
+                            }
+                        }
+                        else if (min) {
+                            if (step.status === 'A')
+                                _dom.removeClass(label, 'bs-none');
+                            else if (!_dom.hasClass(label, 'bs-none'))
+                                _dom.addClass(label, 'bs-none');
+                        }
+                        else {
+                            _dom.removeClass(label, 'bs-none');
+                        }
+                        _dom.removeClass(child, 'bs-none');
+                    });
+                }
+                else {
+                    that._steps.forEach(function (step, stepIndex) {
+                        var child = parent.childNodes[stepIndex];
+                        var label = _dom.find(child, that.id + '_' + (stepIndex + 1) + '_title');
+                        if (step.status === 'A') {
+                            var hline = _dom.find(child, that.id + '_' + (stepIndex + 1) + '_line');
+                            if (stepIndex === stepCount - 1)
+                                _dom.removeClass(hline, 'bs-none');
+                            hline.style.width = Math.max(0, width - step.width + that._hlineWidth) + 'px';
+                            _dom.removeClass(label, 'bs-none');
+                            _dom.removeClass(child, 'bs-none');
+                        }
+                        else if (!_dom.hasClass(child, 'bs-none'))
+                            _dom.addClass(child, 'bs-none');
+                    });
+                }
+            };
+            Steppers.prototype.resize = function () {
+                var that = this;
+                var e = that.$element.get(0);
+                var rootParent = _dom.find(e, that.id + '_root');
+                var parent = _dom.find(e, that.id + '_parent');
+                var ci = that.$schema.enum.indexOf(that.state.value);
+                var nextVisible = ci + 1 < that.$schema.enum.length;
+                var prevVisible = ci > 0;
+                var next = _dom.find(e, that.id + '_next');
+                var prev = _dom.find(e, that.id + '_prev');
+                if (nextVisible)
+                    _dom.removeClass(next, 'bs-none');
+                else if (!_dom.hasClass(next, 'bs-none'))
+                    _dom.addClass(next, 'bs-none');
+                if (prevVisible)
+                    _dom.removeClass(prev, 'bs-none');
+                else if (!_dom.hasClass(prev, 'bs-none'))
+                    _dom.addClass(prev, 'bs-none');
+                var width = _dom.position(rootParent, null).width;
+                if (!that._measured) {
+                    window.setTimeout(function () {
+                        that._measure(width);
+                    }, 10);
+                }
+                else {
+                    that._resizeTo(width);
+                }
+            };
+            Steppers.prototype.render = function ($parent) {
+                var that = this;
+                var opts = that._initOptions(_uiutils.utils.defaultOptions);
+                if (!that.$element) {
+                    that.$element = $(_createContainer(that.id, that.options.design));
+                    that._createSteps();
+                }
+                that.appendElement($parent, opts);
+                return that.$element;
+            };
+            return Steppers;
+        }(Phoenix.ui.AbsField));
+        _ui.registerControl(Steppers, "*", true, "steppers");
+    })(wizard = Phoenix.wizard || (Phoenix.wizard = {}));
 })(Phoenix || (Phoenix = {}));
 /// <reference path="../../core/core.ts" />
 /// <reference path="./schema.data.ts" />
@@ -25566,7 +28086,7 @@ var Phoenix;
             html.push('</div>');
             return html.join('');
         };
-        var ImageMenuItem = (function () {
+        var ImageMenuItem = /** @class */ (function () {
             function ImageMenuItem(data, options) {
                 var that = this;
                 that.$id = _utils.allocID();
@@ -25637,7 +28157,7 @@ var Phoenix;
     var data;
     (function (data) {
         var _p = Phoenix, _data = _p.data, _utils = _p.utils;
-        var OdataEnumManager = (function () {
+        var OdataEnumManager = /** @class */ (function () {
             function OdataEnumManager(moduleName, entity, enumTypeField, enumCodeField, enumTitleField, enumOrderByField, fields) {
                 var that = this;
                 that._enums = {};
@@ -25766,7 +28286,7 @@ var Phoenix;
 /// <reference path="../core/core-refs.ts" />
 var Phoenix;
 (function (Phoenix) {
-    var _p = Phoenix, _application = Phoenix.application, _external = Phoenix.external, _ajax = Phoenix.ajax;
+    var _p = Phoenix, _application = Phoenix.application, _external = Phoenix.external, _ajax = Phoenix.ajax, _utils = Phoenix.utils;
     var _defRuleLoader = function (names) {
         var cfg = _application.configuration;
         if (cfg && cfg.rules && cfg.rules.odataEntity) {
@@ -25778,7 +28298,7 @@ var Phoenix;
             });
         }
         else
-            return Promise.resolve([]);
+            return _utils.Promise.resolve([]);
     };
     _external.ruleLoaderHandler = _defRuleLoader;
 })(Phoenix || (Phoenix = {}));
@@ -25922,12 +28442,60 @@ var Phoenix;
         _data.registerDataProvider("form-meta", _execLoadSchema);
     })(Data = Phoenix.Data || (Phoenix.Data = {}));
 })(Phoenix || (Phoenix = {}));
+/// <reference path="../core/core-refs.ts" />
+var Phoenix;
+(function (Phoenix) {
+    var iframe;
+    (function (iframe) {
+        var _p = Phoenix, _dom = _p.dom, _utils = _p.utils, _locale = _p.locale;
+        var IFrame = /** @class */ (function () {
+            function IFrame(options) {
+                var that = this, defOptions = {
+                    src: 'https://www.google.com'
+                };
+                that._options = $.extend(defOptions, options || {});
+            }
+            IFrame.prototype._setEvents = function () {
+                var that = this;
+                if (that.$element) {
+                    var anyElement = that.$element;
+                    if (anyElement.iFrameResize)
+                        anyElement.iFrameResize(that._options);
+                }
+            };
+            IFrame.prototype._removeEvents = function () {
+            };
+            IFrame.prototype.render = function ($parent) {
+                var that = this;
+                if (!that.$element) {
+                    that.$element = $('<iframe src="' + that._options.src + '" scrolling="no" width="100%" frameBorder="0" border="0"></iframe>');
+                    that._setEvents();
+                }
+                if ($parent) {
+                    if (that._options.replaceParent)
+                        $parent.replaceWith(that.$element);
+                    else
+                        $parent.append(that.$element);
+                }
+            };
+            IFrame.prototype.destroy = function () {
+                var that = this;
+                that._removeEvents();
+                that.$element = null;
+                that._options = null;
+            };
+            return IFrame;
+        }());
+        iframe.IFrame = IFrame;
+        ;
+    })(iframe = Phoenix.iframe || (Phoenix.iframe = {}));
+})(Phoenix || (Phoenix = {}));
 var Phoenix;
 (function (Phoenix) {
     var ui;
     (function (ui) {
         var _ulocale = Phoenix.ulocale, _utils = Phoenix.utils, _ajax = Phoenix.ajax, _dom = Phoenix.dom, _link = Phoenix.link;
-        var RenderFiltreExpress = (function () {
+        var RenderFiltreExpress = /** @class */ (function () {
             function RenderFiltreExpress(fields, callback, options) {
                 var that = this;
                 that._fieldList = fields || [];
@@ -26034,25 +28602,25 @@ var Phoenix;
             };
             return RenderFiltreExpress;
         }());
-        var RenderFiltreExpressOne = (function (_super) {
+        var RenderFiltreExpressOne = /** @class */ (function (_super) {
             __extends(RenderFiltreExpressOne, _super);
             function RenderFiltreExpressOne(fields, callback, options) {
                 var _this = _super.call(this, fields, callback, options) || this;
                 var that = _this;
-                var nodeGroup = $("<div class='input-group'></div>");
-                var nodeGroupBtn = $("<div class='input-group-btn'></div>");
-                var txtNodeButton = "<button type='button' ";
-                txtNodeButton += "class='btn btn-default dropdown-toggle' data-toggle='dropdown' ";
-                txtNodeButton += "aria-haspopup='true' aria-expanded='false'></button>";
+                var nodeGroup = $('<div class="input-group"></div>');
+                var nodeGroupBtn = $('<div class="input-group-btn"></div>');
+                var txtNodeButton = '<button type="button" ';
+                txtNodeButton += 'class="bs-button btn btn-' + _dom.bootstrapStyles(true).secondary + ' dropdown-toggle" data-toggle="dropdown" ';
+                txtNodeButton += 'aria-haspopup="true" aria-expanded="false"></button>';
                 var nodeSelectButton = $(txtNodeButton);
-                that._nodeSelectButtonTxt = $("<span>" + FilterExpress.FIELD_SELECT_TEXT_DEFAULT + " </span>");
-                var nodeSelectButtonGlyph = $("<span class='caret'></span>");
-                that._nodeSelectList = $("<ul class='dropdown-menu'></ul>");
+                that._nodeSelectButtonTxt = $('<span>' + FilterExpress.FIELD_SELECT_TEXT_DEFAULT + '</span>');
+                var nodeSelectButtonGlyph = $('<span class="caret"></span>');
+                that._nodeSelectList = $('<ul class="dropdown-menu"></ul>');
                 // Add editNode
-                that._nodeEdit = $("<input type='text' class='form-control' aria-label='...'>");
+                that._nodeEdit = $('<input type="text" class="form-control" aria-label="...">');
                 // Add validateNode
                 var nodeGroupBtnValidate = $("<div class='input-group-btn'></div>");
-                that._nodeValidate = $("<button class='btn btn-default' type='button'><span class='" + _dom.iconClass(FilterExpress.VALIDATE_ICON_DEFAULT) + "'></span> " + FilterExpress.VALIDATE_TEXT_DEFAULT + "</button>");
+                that._nodeValidate = $('<button class="bs-button btn btn-' + _dom.bootstrapStyles(true).secondary + '" type="button"><span class="' + _dom.iconClass(FilterExpress.VALIDATE_ICON_DEFAULT) + '"></span> ' + FilterExpress.VALIDATE_TEXT_DEFAULT + '</button>');
                 // Append nodes to mainNode
                 that._nodeMain.append(nodeGroup);
                 nodeGroup.append(nodeGroupBtn);
@@ -26249,7 +28817,7 @@ var Phoenix;
             };
             return RenderFiltreExpressOne;
         }(RenderFiltreExpress));
-        var RenderFiltreExpressMultiple = (function (_super) {
+        var RenderFiltreExpressMultiple = /** @class */ (function (_super) {
             __extends(RenderFiltreExpressMultiple, _super);
             function RenderFiltreExpressMultiple(fields, callback, options) {
                 var _this = _super.call(this, fields, callback, options) || this;
@@ -26356,7 +28924,7 @@ var Phoenix;
             };
             return RenderFiltreExpressMultiple;
         }(RenderFiltreExpress));
-        var FilterExpress = (function () {
+        var FilterExpress = /** @class */ (function () {
             /*******************************
             ************ METHODS
             *******************************/
@@ -26413,18 +28981,18 @@ var Phoenix;
                 });
                 return fields;
             };
+            // Constants
+            FilterExpress.FIELD_SELECT_TEXT_DEFAULT = "Choix du champ";
+            FilterExpress.VALIDATE_TEXT_DEFAULT = ""; // "Valider"
+            FilterExpress.VALIDATE_ICON_DEFAULT = "search";
+            FilterExpress.FORMAT_STRING = "string";
+            FilterExpress.FORMAT_INTEGER = "integer";
+            FilterExpress.FORMAT_ENUM = "enum";
+            FilterExpress.OP_STRING = "like";
+            FilterExpress.OP_INTEGER = "in";
+            FilterExpress.OP_ENUM = "in";
             return FilterExpress;
         }());
-        // Constants
-        FilterExpress.FIELD_SELECT_TEXT_DEFAULT = "Choix du champ";
-        FilterExpress.VALIDATE_TEXT_DEFAULT = ""; // "Valider"
-        FilterExpress.VALIDATE_ICON_DEFAULT = "search";
-        FilterExpress.FORMAT_STRING = "string";
-        FilterExpress.FORMAT_INTEGER = "integer";
-        FilterExpress.FORMAT_ENUM = "enum";
-        FilterExpress.OP_STRING = "like";
-        FilterExpress.OP_INTEGER = "in";
-        FilterExpress.OP_ENUM = "in";
         ui.FilterExpress = FilterExpress;
     })(ui = Phoenix.ui || (Phoenix.ui = {}));
 })(Phoenix || (Phoenix = {}));
@@ -26434,7 +29002,7 @@ var Phoenix;
     var ui;
     (function (ui) {
         var dsPlugin = Phoenix.DatasetPlugin, _dom = Phoenix.dom;
-        var DsLookup = (function () {
+        var DsLookup = /** @class */ (function () {
             function DsLookup(ds, options) {
                 var that = this;
                 that._init = false;
@@ -26527,7 +29095,7 @@ var Phoenix;
                         }
                         if (data_5.documents) {
                             data_5.documents = data_5.documents.map(function (item) {
-                                return { code: item[that._ds.mapping.code], libelle: item[that._ds.mapping.libelle] };
+                                return { code: item[that._ds.mapping.code], libelle: item[that._ds.mapping.libelle] || item[that._ds.mapping.code] };
                             });
                             that.items = data_5.documents;
                         }
@@ -26584,7 +29152,7 @@ var Phoenix;
         ui.DsLookup = DsLookup;
     })(ui = Phoenix.ui || (Phoenix.ui = {}));
 })(Phoenix || (Phoenix = {}));
-/// <reference path="../../js/core/modules/locale.ts" />
+/// <reference path="../../js/core/core-refs.ts" />
 /// <reference path="../../js/ui/form/form.control.ts" />
 /// <reference path="../../js/ui/form/controls/absfield.control.ts" />
 /// <reference path="./filter-lookup.ts" />
@@ -26592,8 +29160,10 @@ var Phoenix;
 (function (Phoenix) {
     var ui;
     (function (ui) {
-        var _ui = ui, _utils = Phoenix.utils, _uiutils = Phoenix.uiutils, _ulocale = Phoenix.ulocale, _dom = Phoenix.dom, _sutils = Phoenix.Observable.SchemaUtils;
-        var ListeOperateurs = (function () {
+        var _ui = ui, _utils = Phoenix.utils, _filters = Phoenix.filters, _uiutils = Phoenix.uiutils, _locale = Phoenix.locale, _ulocale = Phoenix.ulocale, _dom = Phoenix.dom, _sutils = Phoenix.Observable.SchemaUtils;
+        var OPERATORS = _filters.OPERATORS;
+        var TYPES = _filters.TYPES;
+        var ListeOperateurs = /** @class */ (function () {
             function ListeOperateurs() {
                 this.liste = [];
             }
@@ -26625,7 +29195,7 @@ var Phoenix;
             return ListeOperateurs;
         }());
         ui.ListeOperateurs = ListeOperateurs;
-        var ListeChamps = (function () {
+        var ListeChamps = /** @class */ (function () {
             function ListeChamps() {
                 this.liste = [];
             }
@@ -26652,7 +29222,7 @@ var Phoenix;
             return ListeChamps;
         }());
         ui.ListeChamps = ListeChamps;
-        var Filter = (function () {
+        var Filter = /** @class */ (function () {
             function Filter(id, code, op, values) {
                 var that = this;
                 that.id = id;
@@ -26677,7 +29247,7 @@ var Phoenix;
             return Filter;
         }());
         ui.Filter = Filter;
-        var ListeFilters = (function () {
+        var ListeFilters = /** @class */ (function () {
             function ListeFilters(filters) {
                 this.liste = [];
                 this.filters = filters;
@@ -26726,27 +29296,6 @@ var Phoenix;
             ListeFilters.prototype.getByIndex = function (index) {
                 return this.liste[index];
             };
-            //getCode(values) {
-            //    let id = -1;
-            //    this.liste.forEach(function (filter) {
-            //        let isOK = true;
-            //        if (Array.isArray(values)) {
-            //            values.forEach(function (v, indexV) {
-            //                if (filter.values[indexV] && v != filter.values[indexV]) {
-            //                    isOK = false;
-            //                    return false;
-            //                }
-            //            });
-            //        }
-            //        else if (filter.values[0] != values)
-            //            isOK = false;
-            //        if (isOK) {
-            //            code = filter.code;
-            //            return false;
-            //        }
-            //    });
-            //    return code;
-            //}
             ListeFilters.prototype.gets = function () {
                 return this.liste;
             };
@@ -26783,7 +29332,7 @@ var Phoenix;
             return ListeFilters;
         }());
         ui.ListeFilters = ListeFilters;
-        var ListeTypes = (function () {
+        var ListeTypes = /** @class */ (function () {
             function ListeTypes() {
                 this.liste = [];
             }
@@ -26794,6 +29343,9 @@ var Phoenix;
                     operateurs: operateurs || []
                 });
             };
+            ListeTypes.prototype.get = function (type) {
+                return this.liste.find(function (item) { return item.code == type; });
+            };
             ListeTypes.prototype.addOperateur = function (codeType, codeOp) {
                 this.liste.find(function (item) { return item.code == codeType; }).operateurs.push(codeOp);
             };
@@ -26803,7 +29355,7 @@ var Phoenix;
             return ListeTypes;
         }());
         ui.ListeTypes = ListeTypes;
-        var FilterListView = (function () {
+        var FilterListView = /** @class */ (function () {
             function FilterListView(listeChamps, listeFilters, listeOperateurs, callBack, options, filter) {
                 this.listeChamps = listeChamps;
                 this.listeFilters = listeFilters;
@@ -26833,7 +29385,7 @@ var Phoenix;
                     },
                     links: {
                         validate: {
-                            title: "Valider",
+                            title: _locale.ui.Validate,
                             isHidden: that.options.btnValidate != true
                         }
                     }
@@ -26866,7 +29418,7 @@ var Phoenix;
                                 }
                             ],
                             $title: {
-                                value: "Filtres sélectionnés",
+                                value: _locale.ui.selectedFilters,
                                 size: 5,
                                 style: ""
                             }
@@ -26908,7 +29460,7 @@ var Phoenix;
             };
             return FilterListView;
         }());
-        var ValueModel = (function () {
+        var ValueModel = /** @class */ (function () {
             function ValueModel(type, op, options) {
                 this.valueModel = null;
                 var that = this;
@@ -26922,13 +29474,13 @@ var Phoenix;
                 var options = that.addDefaultOptions(that.options);
                 if (that.op.isBinary)
                     return new ModelTwoVal(options);
-                else if (that.op.code === "vide" || that.op.code === "nvide")
+                else if (that.op.code === OPERATORS.empty || that.op.code === OPERATORS.nempty)
                     return new ModelVideVal(options);
                 else if (that.type === "enum")
                     return new ModelEnumVal(options);
                 else if (that.type === "lookup")
                     return new ModelLookupVal(options);
-                else if ((that.op.code === "in" || that.op.code === "nin") && that.type != "decimal" && that.type != "money" && that.type != "date")
+                else if ((that.op.code === OPERATORS.in || that.op.code === OPERATORS.nin) && that.type != "decimal" && that.type != "money" && that.type != "date" && that.type != "date-time")
                     return new ModelMultiVal(options);
                 else
                     return new ModelOneVal(options);
@@ -26953,8 +29505,18 @@ var Phoenix;
                         options.format = "money";
                         break;
                     case "date":
-                        options.type = "string",
-                            options.format = "date";
+                        options.type = "string";
+                        options.format = "date";
+                        options.title = "Date";
+                        break;
+                    case "time":
+                        options.type = "string";
+                        options.format = "time";
+                        options.title = "Time";
+                        break;
+                    case "date-time":
+                        options.type = "string";
+                        options.format = "date-time";
                         options.title = "Date";
                         break;
                     default:
@@ -26993,7 +29555,7 @@ var Phoenix;
             };
             return ValueModel;
         }());
-        var ModelVal = (function () {
+        var ModelVal = /** @class */ (function () {
             function ModelVal(options) {
             }
             ModelVal.prototype.init = function (after) {
@@ -27014,7 +29576,7 @@ var Phoenix;
             ModelVal.prototype.setValuesByFilter = function (data) { };
             return ModelVal;
         }());
-        var ModelVideVal = (function (_super) {
+        var ModelVideVal = /** @class */ (function (_super) {
             __extends(ModelVideVal, _super);
             function ModelVideVal(options) {
                 return _super.call(this, options) || this;
@@ -27024,7 +29586,7 @@ var Phoenix;
             };
             return ModelVideVal;
         }(ModelVal));
-        var ModelOneVal = (function (_super) {
+        var ModelOneVal = /** @class */ (function (_super) {
             __extends(ModelOneVal, _super);
             function ModelOneVal(options) {
                 var _this = _super.call(this, options) || this;
@@ -27074,7 +29636,7 @@ var Phoenix;
             };
             return ModelOneVal;
         }(ModelVal));
-        var ModelTwoVal = (function (_super) {
+        var ModelTwoVal = /** @class */ (function (_super) {
             __extends(ModelTwoVal, _super);
             function ModelTwoVal(options) {
                 var _this = _super.call(this, options) || this;
@@ -27147,7 +29709,7 @@ var Phoenix;
             };
             return ModelTwoVal;
         }(ModelVal));
-        var ModelMultiVal = (function (_super) {
+        var ModelMultiVal = /** @class */ (function (_super) {
             __extends(ModelMultiVal, _super);
             function ModelMultiVal(options) {
                 var _this = _super.call(this, options) || this;
@@ -27187,11 +29749,16 @@ var Phoenix;
                 if (that.data.value == null)
                     return null;
                 var vals = that.data.value.split(";");
+                var vs = [];
                 if (that.options.type == "number")
-                    vals = vals.map(function (item) {
-                        return parseInt(item, 10);
+                    vals.forEach(function (item) {
+                        var v = parseInt(item, 10);
+                        if (!isNaN(v))
+                            vs.push(v);
                     });
-                return vals;
+                else
+                    vs = vals;
+                return vs;
             };
             ModelMultiVal.prototype.setValues = function (data) {
                 var that = this;
@@ -27217,7 +29784,7 @@ var Phoenix;
             };
             return ModelMultiVal;
         }(ModelVal));
-        var ModelEnumVal = (function (_super) {
+        var ModelEnumVal = /** @class */ (function (_super) {
             __extends(ModelEnumVal, _super);
             function ModelEnumVal(options) {
                 var _this = _super.call(this, options) || this;
@@ -27298,7 +29865,7 @@ var Phoenix;
             };
             return ModelEnumVal;
         }(ModelVal));
-        var ModelLookupVal = (function (_super) {
+        var ModelLookupVal = /** @class */ (function (_super) {
             __extends(ModelLookupVal, _super);
             function ModelLookupVal(options) {
                 var _this = _super.call(this, options) || this;
@@ -27363,7 +29930,7 @@ var Phoenix;
             };
             return ModelLookupVal;
         }(ModelVal));
-        var FilterEditView = (function () {
+        var FilterEditView = /** @class */ (function () {
             function FilterEditView(champ, listeFilters, listeOperateurs, listeTypes, callBack, filter, options) {
                 this.champ = champ;
                 this.filter = filter;
@@ -27494,7 +30061,7 @@ var Phoenix;
                     properties: {},
                     links: {
                         add: {
-                            title: "Ajouter"
+                            title: _locale.ui.Add
                         }
                     }
                 };
@@ -27561,7 +30128,7 @@ var Phoenix;
             };
             return FilterEditView;
         }());
-        var RenderModel1 = (function () {
+        var RenderModel1 = /** @class */ (function () {
             function RenderModel1(listeChamps, listeChampsArbre, listeFilters, listeOperateurs, listeTypes, options) {
                 this.listeChamps = listeChamps;
                 this.listeChampsArbre = listeChampsArbre;
@@ -27696,10 +30263,10 @@ var Phoenix;
             RenderModel1.prototype.valideFilters = function () { };
             return RenderModel1;
         }());
-        var RenderModel2 = (function (_super) {
+        var RenderModel2 = /** @class */ (function (_super) {
             __extends(RenderModel2, _super);
             function RenderModel2(listeChamps, listeChampsArbre, listeFilters, listeOperateurs, listeTypes, options, callback) {
-                var _this;
+                var _this = this;
                 var defaultOptions = {
                     btnValidate: true
                 };
@@ -27709,13 +30276,14 @@ var Phoenix;
             }
             RenderModel2.prototype.createContainer = function () {
                 var that = this;
+                var _bootstrap4 = Phoenix.bootstrap4;
                 var _html = [
                     '<div class="row">',
-                    '<div class="col-sm-12 filter-list">',
+                    '<div class="col' + (_bootstrap4 ? '' : '-xs') + '-12 filter-list">',
                     '</div>',
                     '</div>',
                     '<div class="row">',
-                    '<div class="col-xs-12">',
+                    '<div class="col' + (_bootstrap4 ? '' : '-xs') + '-12">',
                     '<h5 class="bs-block-title" data-ignore="true">' + (that.options.title || "Filtre") + '</h5>',
                     '</div>',
                     '</div>',
@@ -27738,7 +30306,7 @@ var Phoenix;
             };
             return RenderModel2;
         }(RenderModel1));
-        var TagView = (function (_super) {
+        var TagView = /** @class */ (function (_super) {
             __extends(TagView, _super);
             function TagView(fp, options, form) {
                 var _this = _super.call(this, fp, options, form) || this;
@@ -27848,7 +30416,7 @@ var Phoenix;
             return TagView;
         }(ui.AbsField));
         _ui.registerControl(TagView, "array", false, 'tagview');
-        var CheckBoxList = (function () {
+        var CheckBoxList = /** @class */ (function () {
             function CheckBoxList(options) {
                 var that = this;
                 that.options = options || {};
@@ -27950,6 +30518,7 @@ var Phoenix;
             };
             CheckBoxList.prototype.renderElements = function (elements, values, options) {
                 var that = this;
+                var _bootstrap4 = Phoenix.bootstrap4;
                 var f = document.createDocumentFragment();
                 if (!elements.length) {
                     var e = $('<center><div class="bs-lv-nodata">Aucun résultat trouvé ...</div></center>').get(0);
@@ -27958,7 +30527,7 @@ var Phoenix;
                 else {
                     options = options || {};
                     //let e: HTMLElement = $('<div tabindex="0" class="bs-checkboxlist-list checkbox-inline"><div class="bs-checkboxlist-list-check"><a><center><span class="' + _dom.iconClass('square-o') + '"></span></center></a></div><div class="bs-checkboxlist-list-title"></div></div>').get(0);
-                    var e_2 = $('<div tabindex="0" class="bs-checkboxlist-list col-lg-6 col-xs-12 checkbox-inline"><div class="bs-checkboxlist-list-check"><a><span class="' + _dom.iconClass('square-o') + '"></span></a></div><div class="bs-checkboxlist-list-title"></div></div>').get(0);
+                    var e_2 = $('<div tabindex="0" class="bs-checkboxlist-list col-lg-6 col' + (_bootstrap4 ? '' : '-xs') + '-12 checkbox-inline"><div class="bs-checkboxlist-list-check"><a><span class="' + _dom.iconClass('square-o') + '"></span></a></div><div class="bs-checkboxlist-list-title"></div></div>').get(0);
                     elements.forEach(function (en, index) {
                         var ii = e_2.cloneNode(true);
                         if (options.disabled) {
@@ -28010,7 +30579,7 @@ var Phoenix;
             return CheckBoxList;
         }());
         ui.CheckBoxList = CheckBoxList;
-        var LookupList = (function (_super) {
+        var LookupList = /** @class */ (function (_super) {
             __extends(LookupList, _super);
             function LookupList(fp, options, form) {
                 var _this = _super.call(this, fp, options, form) || this;
@@ -28071,7 +30640,7 @@ var Phoenix;
                             "type": "search",
                             "right": false
                         }];
-                    options = $.extend({ selectToolElement: that._onSelectToolElement.bind(that) });
+                    options = $.extend(true, {}, { selectToolElement: that._onSelectToolElement.bind(that) });
                     that._toolbar = new _ui.ToolBar(toolElements, options);
                     var container = _dom.query(that.$element.get(0), "#" + id + "_toolbar");
                     if (!container)
@@ -28176,7 +30745,7 @@ var Phoenix;
             return LookupList;
         }(ui.AbsField));
         _ui.registerControl(LookupList, "array", false, 'lookup-list', null);
-        var ComposantFilter = (function (_super) {
+        var ComposantFilter = /** @class */ (function (_super) {
             __extends(ComposantFilter, _super);
             function ComposantFilter(fp, options, form) {
                 var _this = _super.call(this, fp, options, form) || this;
@@ -28209,37 +30778,26 @@ var Phoenix;
                 var that = this;
                 // reporter sur un fichier json les labels
                 that.listeOperateurs = new ListeOperateurs();
-                that.listeOperateurs.add("in", "égal à", false, { symbol: "=" });
-                that.listeOperateurs.add("nin", "différent de", false, { symbol: "!=" });
-                that.listeOperateurs.add("gt", "supérieur à", false, { symbol: ">" });
-                that.listeOperateurs.add("ge", "supérieur ou égal à", false, { symbol: ">=" });
-                that.listeOperateurs.add("lt", "inférieur à", false, { symbol: "<" });
-                that.listeOperateurs.add("le", "inférieur ou égal à", false, { symbol: "<=" });
-                that.listeOperateurs.add("between", "entre", true, { symbol: "entre" });
-                that.listeOperateurs.add("nbetween", "pas entre", true, { symbol: "pas entre" });
-                that.listeOperateurs.add("like", "contient", false, { symbol: "contient" });
-                that.listeOperateurs.add("nlike", "ne contient pas", false, { symbol: "ne contient pas" });
-                that.listeOperateurs.add("vide", "vide", false, { symbol: "est vide" });
-                that.listeOperateurs.add("nvide", "pas vide", false, { symbol: "n'est pas vide" });
+                Object.keys(OPERATORS).forEach(function (key) {
+                    var op = _locale.operators[key];
+                    that.listeOperateurs.add(key, op.title, op.binary, { symbol: op.symbol });
+                });
                 that.listeTypes = new ListeTypes();
-                that.listeTypes.addType("decimal", "Décimal", ["in", "nin", "gt", "ge", "lt", "le", "between", "nbetween", "vide", "nvide"]);
-                that.listeTypes.addType("money", "Money", ["in", "nin", "gt", "ge", "lt", "le", "between", "nbetween", "vide", "nvide"]);
-                that.listeTypes.addType("integer", "Entier", ["in", "nin", "gt", "ge", "lt", "le", "between", "nbetween", "vide", "nvide"]);
-                that.listeTypes.addType("date", "Date", ["in", "nin", "gt", "ge", "lt", "le", "between", "nbetween", "vide", "nvide"]);
-                that.listeTypes.addType("string", "Chaîne de caractères", ["in", "nin", "like", "nlike", "vide", "nvide"]);
-                that.listeTypes.addType("enum", "Enum", ["in", "nin", "vide", "nvide"]);
-                that.listeTypes.addType("lookup", "Lookup", ["in", "nin", "vide", "nvide"]);
-                that.listeTypes.addType("boolean", "Booléen", ["in", "nin", "vide", "nvide"]);
+                Object.keys(TYPES).forEach(function (key) {
+                    var ctype = _locale.types[key];
+                    that.listeTypes.addType(key, ctype.title, ctype.operators);
+                });
                 that._updateData();
             };
             ComposantFilter.prototype._updateData = function () {
                 var that = this;
                 that.listeChamps = new ListeChamps();
+                var lookups = that.state.value && that.state.value.lookups ? that.state.value.lookups._model : {};
                 var champs = that.state.value && that.state.value.champs ? that.state.value.champs : [];
                 champs.forEach(function (item) {
                     var options = {};
                     if (item.lookup) {
-                        options["lookupSchema"] = _sutils.getLookup(that.$bind, item.lookup, that.$schema, that.form.$rootSchema);
+                        options["lookupSchema"] = lookups[item.lookup] || _sutils.getLookup(that.$bind, item.lookup, that.$schema, that.form.$rootSchema);
                         options["lookup"] = item.lookup;
                         options["format"] = "lookup";
                     }
@@ -28249,14 +30807,15 @@ var Phoenix;
                         options["format"] = "enum";
                     }
                     else if (item.type === "boolean") {
-                        options["enum"] = [{ code: "true", libelle: "Vrai" }, { code: "false", libelle: "Faux" }];
+                        options["enum"] = [{ code: true, libelle: _locale.ui.true }, { code: false, libelle: _locale.ui.false }];
                         options["format"] = "enum";
                     }
                     else {
                         options["decimals"] = item.decimals;
-                        options["format"] = item.format || null;
+                        options["format"] = item.format && that.listeTypes.get(item.format) ? item.format : null;
                     }
-                    that.listeChamps.add(item.code, item.libelle, item.type, options);
+                    if (item.type && that.listeTypes.get(item.type))
+                        that.listeChamps.add(item.code, item.libelle, item.type, options);
                 });
                 var filters = that.state.value && that.state.value.filters ? that.state.value.filters : [];
                 that.listeFilters = new ListeFilters(filters);
@@ -28277,6 +30836,11 @@ var Phoenix;
                 if (!that.listeChampsArbre)
                     that.listeChampsArbre = that.listeChamps.gets().map(function (item) {
                         return { name: item.code, title: item.libelle };
+                    });
+                else
+                    that.listeChampsArbre.forEach(function (item) {
+                        if (item.items && !item.items.length)
+                            delete item.items;
                     });
             };
             ComposantFilter.prototype.refresh = function () {
@@ -28319,12 +30883,14 @@ var Phoenix;
     })(ui = Phoenix.ui || (Phoenix.ui = {}));
 })(Phoenix || (Phoenix = {}));
 /// <reference path="../../js/core/core.ts" />
+/// <reference path="../../js/core/modules/filters.ts" />
 /// <reference path="../../js/ui/form/modalform.control.ts" />
 var Phoenix;
 (function (Phoenix) {
     var ui;
     (function (ui) {
-        var _ui = ui;
+        var _ui = ui, _filters = Phoenix.filters, _locale = Phoenix.locale;
+        var OPERATORS = _filters.OPERATORS;
         var _addField2 = function (fieldList, code, libelle, type, options) {
             options = options || {};
             var champ = {
@@ -28344,6 +30910,155 @@ var Phoenix;
             options["enum"] = enums;
             options["enumName"] = enumName;
             _addField2(fieldList, code, libelle, type, options);
+        }, _buildMDBFilter = function (filter, fields) {
+        }, _escaperegex = function (value) {
+            return value.replace(/[\\^$*+?.()|[\]{}]/g, '\\$&');
+        }, _unescaperegex = function (value) {
+            return value.replace(/\\\$/g, "$").replace(/\\\?/g, "?").replace(/\\\*/g, "*")
+                .replace(/\\\+/g, "+").replace(/\\\./g, ".").replace(/\\\^/g, "^")
+                .replace(/\\\[/g, "[").replace(/\\\]/g, "]").replace(/\\\{/g, "{")
+                .replace(/\\\}/g, "}").replace(/\\\(/g, "(").replace(/\\\)/g, ")").replace(/\\\|/g, "|");
+        }, _removeFilterExpress = function (filter, expressFilters, fields) {
+            return filter;
+        }, _addFilterExpress = function (filter, expressFilters, filterExpress) {
+            return expressFilters;
+        }, _toMongoDbFilter2Filter = function (filter, fields) {
+            if (!filter)
+                return null;
+            if (filter && filter.$and) {
+                var filters_1 = [];
+                filter.$and.forEach(function (item) {
+                    var a = Object.keys(item);
+                    var fieldName = a[0];
+                    var field = fields.find(function (fieldName) { return item.code == fieldName; });
+                    item = item[fieldName];
+                    var ii = { op: '', values: [], code: fieldName };
+                    if (typeof item === 'object') {
+                        var hasNot = false;
+                        if (item.$not) {
+                            hasNot = true;
+                            item = item.$not;
+                        }
+                        if (item.$gte != undefined && item.$lte != undefined) {
+                            // between or n between
+                            ii.op = hasNot ? OPERATORS.nbetween : OPERATORS.between;
+                            ii.values.push(item.$gte);
+                            ii.values.push(item.$lte);
+                        }
+                        else if (item.$in) {
+                            ii.op = OPERATORS.in;
+                            ii.values = item;
+                        }
+                        else if (item.$nin) {
+                            ii.op = OPERATORS.nin;
+                            ii.values = item;
+                        }
+                        else if (item.$ne) {
+                            ii.op = OPERATORS.nin;
+                            ii.values.push(item.$ne);
+                        }
+                        else if (item.$gt) {
+                            ii.op = OPERATORS.gt;
+                            ii.values.push(item.$gt);
+                        }
+                        else if (item.$gte) {
+                            ii.op = OPERATORS.ge;
+                            ii.values.push(item.$gte);
+                        }
+                        else if (item.$lt) {
+                            ii.op = OPERATORS.lt;
+                            ii.values.push(item.$lt);
+                        }
+                        else if (item.$lte) {
+                            ii.op = OPERATORS.le;
+                            ii.values.push(item.$lte);
+                        }
+                        else if (item.$exists != undefined) {
+                            ii.op = item.$exists ? OPERATORS.nempty : OPERATORS.empty;
+                        }
+                        else if (item.$regex) {
+                            ii.op = hasNot ? OPERATORS.nlike : OPERATORS.like;
+                            ii.values.push(_unescaperegex(item.$regex));
+                        }
+                        else {
+                            ii = null;
+                        }
+                    }
+                    else {
+                        ii.values.push(item);
+                    }
+                    if (ii)
+                        filters_1.push(ii);
+                });
+                if (filters_1 && filters_1.length)
+                    return filters_1;
+            }
+            return null;
+        }, _toMongoDbFilter = function (fields, filters) {
+            if (!fields || !filters)
+                return null;
+            var oFilters = [];
+            //filters
+            filters.forEach(function (filter) {
+                var field = fields.find(function (item) { return item.code == filter.code; });
+                var cf = {}, val = null;
+                var values = filter.values.map(function (item) {
+                    if (item.code !== undefined)
+                        return item.code;
+                    return item;
+                });
+                switch (filter.op) {
+                    case OPERATORS.between:
+                        val = { $gte: values[0], $lte: values[1] };
+                        break;
+                    case OPERATORS.nbetween:
+                        val = { $not: { $gte: values[0], $lte: values[1] } };
+                        break;
+                    case OPERATORS.in:
+                        if (values.length > 1)
+                            val = { $in: values };
+                        else
+                            val = values[0];
+                        break;
+                    case OPERATORS.nin:
+                        if (values.length > 1)
+                            val = { $nin: values };
+                        else
+                            val = { $ne: values[0] };
+                        break;
+                    case OPERATORS.gt:
+                        val = { $gt: values[0] };
+                        break;
+                    case OPERATORS.ge:
+                        val = { $gte: values[0] };
+                        break;
+                    case OPERATORS.lt:
+                        val = { $lt: values[0] };
+                        break;
+                    case OPERATORS.le:
+                        val = { $lte: values[0] };
+                        break;
+                    case OPERATORS.like:
+                        val = { $regex: _escaperegex(values[0]), $options: 'i' };
+                        break;
+                    case OPERATORS.nlike:
+                        val = { $not: { $regex: _escaperegex(values[0]), $options: 'i' } };
+                        break;
+                    case OPERATORS.empty:
+                        val = { $exists: false };
+                        break;
+                    case OPERATORS.nempty:
+                        val = { $exists: true };
+                        break;
+                }
+                if (val !== null && val !== undefined) {
+                    cf[filter.code] = val;
+                    oFilters.push(cf);
+                }
+            });
+            if (oFilters.length)
+                return { $and: oFilters.map(function (item) { return item; }) };
+            return null;
         }, _toPhenix = function (champs, filters) {
             if (!champs || !filters)
                 return null;
@@ -28362,15 +31077,15 @@ var Phoenix;
             };
             var constructeFilter = function (filter) {
                 var champ = champs.find(function (item) { return item.code == filter.code; });
-                var op = filter.op == "in" ? "eq" : filter.op;
-                op = op == "nin" ? "ne" : op;
+                var op = filter.op == OPERATORS.in ? "eq" : filter.op;
+                op = op == OPERATORS.nin ? "ne" : op;
                 var values = filter.values.map(function (item) {
-                    if (item.code)
+                    if (item.code !== undefined)
                         return item.code;
                     return item;
                 });
-                if (op == "between" || op == "nbetween") {
-                    if (op == "between")
+                if (op == OPERATORS.between || op == OPERATORS.nbetween) {
+                    if (op == OPERATORS.between)
                         return between(filter.code, champ.type, values[0], values[1]);
                     else
                         return { $op: "not", $right: between(filter.code, champ.type, values[0], values[1]) };
@@ -28379,16 +31094,16 @@ var Phoenix;
                     values = values.map(function (item) {
                         var value = null;
                         switch (op) {
-                            case "like":
+                            case OPERATORS.like:
                                 value = like(filter.code, champ.type, item);
                                 break;
-                            case "nlike":
+                            case OPERATORS.nlike:
                                 value = { $op: "not", $right: like(filter.code, champ.type, item) };
                                 break;
-                            case "vide":
+                            case OPERATORS.empty:
                                 value = { $left: filter.code, $op: "eq", $right: { type: "string", value: '' } };
                                 break;
-                            case "nvide":
+                            case OPERATORS.nempty:
                                 value = { $left: filter.code, $op: "ne", $right: { type: "string", value: '' } };
                                 break;
                             default:
@@ -28400,9 +31115,9 @@ var Phoenix;
                 }
                 function between(code, type, value1, value2) {
                     return {
-                        $left: { $left: code, $op: "ge", $right: { type: type, value: value1 } },
+                        $left: { $left: code, $op: OPERATORS.ge, $right: { type: type, value: value1 } },
                         $op: "and",
-                        $right: { $left: code, $op: "le", $right: { type: type, value: value2 } }
+                        $right: { $left: code, $op: OPERATORS.le, $right: { type: type, value: value2 } }
                     };
                 }
                 function like(code, type, value) {
@@ -28428,9 +31143,9 @@ var Phoenix;
                     }
                 });
                 var format = (item.lib || item.code) + " " + getSymbol(item.op);
-                if (item.op === "vide" || item.op === "nvide")
+                if (item.op === OPERATORS.empty || item.op === OPERATORS.nempty)
                     format += " vide";
-                else if (item.op === "between" || item.op === "nbetween")
+                else if (item.op === OPERATORS.between || item.op === OPERATORS.nbetween)
                     format += " " + item.values[0] + " et " + item.values[1];
                 else {
                     if (item.getValueNames)
@@ -28443,48 +31158,7 @@ var Phoenix;
                 tooltip.push(format);
             });
             function getSymbol(op) {
-                var symb;
-                switch (op) {
-                    case "in":
-                        symb = "=";
-                        break;
-                    case "nin":
-                        symb = "!=";
-                        break;
-                    case "like":
-                        symb = "contient";
-                        break;
-                    case "nlike":
-                        symb = "ne contient pas";
-                        break;
-                    case "vide":
-                        symb = "est";
-                        break;
-                    case "nvide":
-                        symb = "n'est pas";
-                        break;
-                    case "gt":
-                        symb = ">";
-                        break;
-                    case "ge":
-                        symb = ">=";
-                        break;
-                    case "lt":
-                        symb = "<";
-                        break;
-                    case "le":
-                        symb = "<=";
-                        break;
-                    case "between":
-                        symb = "entre";
-                        break;
-                    case "nbetween":
-                        symb = "pas entre";
-                        break;
-                    default:
-                        symb = op;
-                }
-                return symb;
+                return _locale.operators[op].symbol || '';
             }
             return tooltip.join("");
         }, _transformPropsToFilterFormat = function (champs, columns) {
@@ -28506,157 +31180,21 @@ var Phoenix;
                 _ui.filter.addField2(champs, item.name, sc.title, sc.type, { decimals: sc.decimals, enum: sc.enum, format: sc.format });
             });
         };
-        ui.filterData = {
-            filter: {
-                champs: [],
-                filters: [],
-                entree: []
-            }
-        };
-        _ui["glbGridFilter"] = function (params, callback, locale) {
-            if (!params.schemaColumns.length)
-                return;
-            var layout = {
-                "name": "filtre",
-                "$type": "block",
-                "$items": [
-                    {
-                        "$type": "block",
-                        "$items": [
-                            {
-                                "$bind": "filter",
-                                "$widget": "filter",
-                                "options": {
-                                    "renderModel": "model1"
-                                }
-                            }
-                        ]
-                    }
-                ],
-                "form": true
-            };
-            var model = {
-                "type": "object",
-                "properties": {
-                    "filter": {
-                        "type": "object",
-                        "title": "Filtre",
-                        "properties": {
-                            "champs": {
-                                "type": "array",
-                                "items": {
-                                    "type": "object",
-                                    "properties": {
-                                        "code": { "type": "string" },
-                                        "libelle": { "type": "string" },
-                                        "type": { "type": "string" },
-                                        "format": { "type": "string" },
-                                        "decimals": { "type": "number" },
-                                        "enumName": { "type": "string" },
-                                        "enum": {
-                                            "type": "array",
-                                            "items": {
-                                                "type": "object",
-                                                "properties": {
-                                                    "code": { "type": "string" },
-                                                    "libelle": { "type": "string" }
-                                                }
-                                            }
-                                        },
-                                        "lookup": {
-                                            "type": "string"
-                                        }
-                                    }
-                                }
-                            },
-                            "filters": {
-                                "type": "array",
-                                "items": {
-                                    "type": "object",
-                                    "properties": {
-                                        "code": { "type": "string" },
-                                        "op": { "type": "string" },
-                                        "values": {
-                                            "type": "array",
-                                            "items": {
-                                                "type": "string"
-                                            }
-                                        },
-                                        "values2": {
-                                            "type": "array",
-                                            "items": {
-                                                "type": "object",
-                                                "properties": {
-                                                    "code": {
-                                                        "type": "string"
-                                                    },
-                                                    "lib": {
-                                                        "type": "string"
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            },
-                            "entree": {
-                                "type": "array",
-                                "items": {
-                                    "type": "object",
-                                    "properties": {
-                                        "title": {
-                                            "type": "string"
-                                        },
-                                        "name": {
-                                            "type": "string"
-                                        },
-                                        "items": {
-                                            "type": "array",
-                                            "items": {
-                                                "type": "object",
-                                                "properties": {}
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                },
-                "definitions": {}
-            };
-            if (ui.filterData.filter.champs.length)
-                ui.filterData.filter.champs.splice(0);
-            ui.filter.transformPropsToFilterFormat(ui.filterData.filter.champs, params.schemaColumns);
-            if (ui.filterData.filter.entree)
-                ui.filterData.filter.entree = ui.multiSelectUtils.transformPropsToMultiselectFormat(params.schemaColumns, params.schemaGroups);
-            var opts = { "title": "Filtre", "buttons": [{ "pattern": "validate" }] };
-            _ui.OpenModalForm(opts, layout, model, ui.filterData, locale, function (form, action, model, formControl) {
-                switch (action.property) {
-                    case "validate":
-                        if (!model.validate())
-                            return;
-                        ui.filterData = model.model();
-                        var $filter = null;
-                        if (ui.filterData.filter.filters.length)
-                            $filter = _ui.filter.format.toPhenix(ui.filterData.filter.champs, ui.filterData.filter.filters);
-                        if (callback)
-                            callback({ value: $filter, title: _toTitle(ui.filterData.filter.filters, ui.filterData.filter.champs) });
-                        form.close();
-                        break;
-                }
-            });
-        };
         ui.filter = {
             format: {
                 toPhenix: _toPhenix,
+                toMongoDbFilter: _toMongoDbFilter,
                 toTitle: _toTitle
             },
+            removeMdbFilterExpress: _removeFilterExpress,
+            addMdbFilterExpress: _addFilterExpress,
             addField: _addField,
             addField2: _addField2,
-            transformPropsToFilterFormat: _transformPropsToFilterFormat
+            transformPropsToFilterFormat: _transformPropsToFilterFormat,
+            toTitle: _toTitle,
+            mongoDbFilter2Filter: _toMongoDbFilter2Filter
         };
-        var FilterManager = (function () {
+        var FilterManager = /** @class */ (function () {
             function FilterManager() {
                 this.filterComplex = null;
                 this.filterExpress = null;
@@ -28686,95 +31224,6 @@ var Phoenix;
     var ui;
     (function (ui) {
         var _ui = ui;
-        _ui["glbGridSettings"] = function (params, callback, locale) {
-            var layout = {
-                "name": "settings",
-                "$type": "block",
-                "$items": [
-                    {
-                        "$type": "block",
-                        "$items": [
-                            {
-                                "$bind": "mselect",
-                                "$widget": "multiselectlist",
-                                "options": {
-                                    multiSelect: true
-                                }
-                            }
-                        ]
-                    }
-                ],
-                "form": true
-            };
-            var model = {
-                "type": "object",
-                "properties": {
-                    "mselect": {
-                        "type": "object",
-                        "properties": {
-                            "entree": {
-                                "type": "array",
-                                "items": { "$ref": "#/definitions/elt" }
-                            },
-                            "sortie": {
-                                "type": "array",
-                                "items": {
-                                    "type": "object",
-                                    "properties": {
-                                        "title": {
-                                            "type": "string"
-                                        },
-                                        "name": {
-                                            "type": "string"
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                },
-                "definitions": {
-                    "elt": {
-                        "type": "object",
-                        "properties": {
-                            "title": {
-                                "type": "string"
-                            },
-                            "name": {
-                                "type": "string"
-                            },
-                            "items": {
-                                "type": "array",
-                                "items": { "type": "object", "properties": {} }
-                            }
-                        }
-                    }
-                }
-            };
-            params.options = params.options || {};
-            var ldata = {
-                mselect: {
-                    entree: ui.multiSelectUtils.transformPropsToMultiselectFormat(params.schemaColumns, params.schemaGroups, params.options.columnsLimited),
-                    sortie: ui.multiSelectUtils.transformSelectedColumnsToMultiSelectFormat(params.schemaColumns, params.selectedColumns, params.schemaGroups, params.options.columnsLimited)
-                }
-            };
-            var opts = { "title": params.locale && params.locale.settingsTitle ? params.locale.settingsTitle : "Options", "buttons": [{ "pattern": "validate" }] };
-            _ui.OpenModalForm(opts, layout, model, ldata, locale, function (form, action, model, formControl) {
-                switch (action.property) {
-                    case "validate":
-                        if (!model.validate())
-                            return;
-                        var sortie = model.model().mselect.sortie;
-                        if (sortie <= 0)
-                            return;
-                        var columns = ui.multiSelectUtils.transformMultiSelectColumnsToGridColumnsFormat(sortie);
-                        if (callback)
-                            callback(columns);
-                        form.close();
-                        break;
-                }
-            });
-        };
         var _transformPropsToMultiselectFormat = function (columns, groups, columnsLimited) {
             var gs = groups && groups.items ? groups.items : [];
             var fields = groups && groups.fields ? groups.fields : [];
@@ -28883,7 +31332,7 @@ var Phoenix;
     var ui;
     (function (ui) {
         var _ui = ui, _utils = Phoenix.utils, _ulocale = Phoenix.ulocale, _dom = Phoenix.dom, _sutils = Phoenix.Observable.SchemaUtils;
-        var MultiSelectList = (function () {
+        var MultiSelectList = /** @class */ (function () {
             function MultiSelectList(data, options, callback) {
                 var that = this;
                 var defaultOptions = {
@@ -29378,7 +31827,7 @@ var Phoenix;
             return _utils.format(html.join(''), id);
         }
         ;
-        var PillBox = (function () {
+        var PillBox = /** @class */ (function () {
             function PillBox(data, options, callback) {
                 var that = this;
                 var defaultOptions = {
@@ -29615,7 +32064,7 @@ var Phoenix;
                 return {
                     list: '<ul class="bs-pillbox noborder"></ul>',
                     itemTag: '<li class="bs-pillbox-item bs-pillbox-item-tag" data-drag="move"></li>',
-                    icon: '<span class="icon pull-right ' + _dom.iconClass(that._options.removeIcon) + ' icon-remove bs-cursor-p" data-event="click" data-action="remove"></span>',
+                    icon: '<span class="icon float-right ' + _dom.iconClass(that._options.removeIcon) + ' icon-remove bs-cursor-p" data-event="click" data-action="remove"></span>',
                     itemInput: '<li class="bs-pillbox-item bs-pillbox-item-edit"><input autocomplete="off" autofocus="true" placeholder="..." data-event="keyup" data-action="add,remove" /></li>'
                 };
             };
@@ -29768,8 +32217,10 @@ var Phoenix;
                 function renderTag(nodes, frag) {
                     nodes.forEach(function (node) {
                         var n = that._getItem(that._nodes, node[that._name]);
-                        n.filter = false;
-                        _dom.append(frag, n.component);
+                        if (n) {
+                            n.filter = false;
+                            _dom.append(frag, n.component);
+                        }
                     });
                 }
             };
@@ -29807,7 +32258,7 @@ var Phoenix;
     var ui;
     (function (ui) {
         var _ui = ui, _utils = Phoenix.utils, _uiutils = Phoenix.uiutils, _ulocale = Phoenix.ulocale, _dom = Phoenix.dom, _uiutils = Phoenix.uiutils, _sutils = Phoenix.Observable.SchemaUtils;
-        var ComposantMultiSelect = (function (_super) {
+        var ComposantMultiSelect = /** @class */ (function (_super) {
             __extends(ComposantMultiSelect, _super);
             function ComposantMultiSelect(fp, options, form) {
                 var _this = _super.call(this, fp, options, form) || this;
@@ -29819,9 +32270,16 @@ var Phoenix;
                         lib: "title"
                     },
                     multiSelect: true,
-                    pillBox: true
+                    pillBox: true,
+                    renderModel: "top",
+                    maxHeight: "300px"
                 };
                 var entree = that.state.value.model().entree || [];
+                entree = entree.map(function (v) {
+                    if (v.items && !v.items.length)
+                        delete v.items;
+                    return v;
+                });
                 that._sortie = that.state.value.sortie || [];
                 that._options = $.extend(true, optionsParDefaut, that.renderOptions);
                 that._name = that._options.mapping.id;
@@ -29918,6 +32376,11 @@ var Phoenix;
                 var that = this;
                 that._sortie = that.state.value.sortie || [];
                 var entree = that.state.value.model().entree || [];
+                entree = entree.map(function (v) {
+                    if (v.items && !v.items.length)
+                        delete v.items;
+                    return v;
+                });
                 var sortie = that.state.value.model().sortie || [];
                 if (that.multiSelectList) {
                     that.multiSelectList.items = entree;
@@ -29929,7 +32392,71 @@ var Phoenix;
                 }
             };
             ComposantMultiSelect.prototype._template = function (id) {
-                return _utils.format('<div id="{0}" data-render="{0}"><div id="{0}_pillbox"><h5 class="bs-block-title">Choix de colonnes</h5><div data-id="pillbox"></div></div><div id="{0}_multiselect"><h5 class="bs-block-title">Liste de champs</h5><div data-id="multiselect" style="overflow-y:auto;max-height:300px;border: 1px solid #dddddd;"></div></div></div>', id);
+                var that = this;
+                var html;
+                switch (that._options.renderModel) {
+                    case "left":
+                        html = [
+                            '<div id="{0}" data-render="{0}">',
+                            '<div class="row">',
+                            '<div id="{0}_multiselect" class="col-sm-8">',
+                            '<h5 class="bs-block-title">Choix de colonnes</h5>',
+                            '<div data-id="pillbox"></div>',
+                            '</div>',
+                            '<div id="{0}_pillbox" class="col-sm-4">',
+                            '<h5 class="bs-block-title">Liste de champs</h5>',
+                            '<div data-id="multiselect" style="overflow-y:auto;max-height:' + that._options.maxHeight + ';border: 1px solid #dddddd;"></div>',
+                            '</div>',
+                            '</div>',
+                            '</div>'
+                        ];
+                        break;
+                    case "right":
+                        html = [
+                            '<div id="{0}" data-render="{0}">',
+                            '<div class="row">',
+                            '<div id="{0}_pillbox" class="col-sm-4">',
+                            '<h5 class="bs-block-title">Liste de champs</h5>',
+                            '<div data-id="multiselect" style="overflow-y:auto;max-height:' + that._options.maxHeight + ';border: 1px solid #dddddd;"></div>',
+                            '</div>',
+                            '<div id="{0}_multiselect" class="col-sm-8">',
+                            '<h5 class="bs-block-title">Choix de colonnes</h5>',
+                            '<div data-id="pillbox"></div>',
+                            '</div>',
+                            '</div>',
+                            '</div>'
+                        ];
+                        break;
+                    case "bottom":
+                        html = [
+                            '<div id="{0}" data-render="{0}">',
+                            '<div id="{0}_multiselect">',
+                            '<h5 class="bs-block-title">Liste de champs</h5>',
+                            '<div data-id="multiselect" style="overflow-y:auto;max-height:' + that._options.maxHeight + ';border: 1px solid #dddddd;"></div>',
+                            '</div>',
+                            '<div id="{0}_pillbox">',
+                            '<h5 class="bs-block-title">Choix de colonnes</h5>',
+                            '<div data-id="pillbox"></div>',
+                            '</div>',
+                            '</div>'
+                        ];
+                        break;
+                    default:
+                        // top
+                        html = [
+                            '<div id="{0}" data-render="{0}">',
+                            '<div id="{0}_pillbox">',
+                            '<h5 class="bs-block-title">Choix de colonnes</h5>',
+                            '<div data-id="pillbox"></div>',
+                            '</div>',
+                            '<div id="{0}_multiselect">',
+                            '<h5 class="bs-block-title">Liste de champs</h5>',
+                            '<div data-id="multiselect" style="overflow-y:auto;max-height:' + that._options.maxHeight + ';border: 1px solid #dddddd;"></div>',
+                            '</div>',
+                            '</div>'
+                        ];
+                }
+                return _utils.format(html.join(""), id);
             };
             ComposantMultiSelect.prototype.render = function ($parent) {
                 var that = this;
@@ -29971,14 +32498,37 @@ var Phoenix;
             var that = this;
             var toolName = toolElement.name || toolElement.id;
             if (toolElement.type === 'filter' && Phoenix.formgrid.glbGridFilter) {
-                return Phoenix.formgrid.glbGridFilter(that.getColumnsForFilter(), function (filter) {
-                    that.state.value.filterManager.filterComplex = filter;
-                    that.state.value.filter = that.state.value.filterManager.constructeFilter();
+                var isComposition_1 = !that.state.value.isQuery;
+                return Phoenix.formgrid.glbGridFilter(that.getColumnsForFilter(isComposition_1), function (filter) {
+                    if (isComposition_1) {
+                        if (that.state.value) {
+                            that.state.value.filterManager.filterExpress = null;
+                            that.state.value.filter = filter.value;
+                        }
+                    }
+                    else {
+                        that.state.value.filterManager.filterComplex = filter;
+                        that.state.value.filter = that.state.value.filterManager.constructeFilter();
+                    }
                 });
             }
             else if (toolElement.type === 'filterexpress') {
-                that.state.value.filterManager.filterExpress = toolElement.value;
-                that.state.value.filter = that.state.value.filterManager.constructeFilter();
+                var isComposition = !that.state.value.isQuery;
+                if (isComposition) {
+                    var cfg = that.getColumnsForFilter(isComposition);
+                    var oldFilterExpress = that.state.value.filterManager.filterExpress ? that.state.value.filterManager.filterExpress.value : null;
+                    var filterExpress = toolElement.value.value;
+                    var oldFilter = that.state.value.filter;
+                    if (oldFilter)
+                        oldFilter = _ui.filter.removeMdbFilterExpress(oldFilter, oldFilterExpress, cfg.schemaColumns);
+                    that.state.value.filterManager.filterExpress = toolElement.value;
+                    oldFilter = _ui.filter.addMdbFilterExpress(oldFilter, filterExpress, cfg.schemaColumns);
+                    that.state.value.filter = oldFilter;
+                }
+                else {
+                    that.state.value.filterManager.filterExpress = toolElement.value;
+                    that.state.value.filter = that.state.value.filterManager.constructeFilter();
+                }
             }
             else if (toolElement.type === 'settings' && Phoenix.formgrid.glbGridSettings) {
                 var params = that.getColumnsForSettings();
@@ -30037,13 +32587,254 @@ var Phoenix;
                 });
             }
             if (toolElements.length) {
-                var toptions = { selectToolElement: _onSelectToolElement.bind(grid) };
+                var toptions = { selectToolElement: _onSelectToolElement.bind(grid), composition: !grid.state.value.isQuery };
                 toolbar = new _ui.ToolBar(toolElements, toptions);
             }
             return toolbar;
         }
+        var filterData = {
+            filter: {
+                champs: [],
+                filters: [],
+                entree: []
+            }
+        };
+        function toolBarFilterComplexe(params, callback, locale) {
+            if (!params.schemaColumns.length)
+                return;
+            if (params.filters !== undefined)
+                filterData.filter.filters = params.filters;
+            var layout = {
+                "name": "filtre",
+                "$type": "block",
+                "$items": [
+                    {
+                        "$type": "block",
+                        "$items": [
+                            {
+                                "$bind": "filter",
+                                "$widget": "filter",
+                                "options": {
+                                    "renderModel": "model1"
+                                }
+                            }
+                        ]
+                    }
+                ],
+                "form": true
+            };
+            var model = {
+                "type": "object",
+                "properties": {
+                    "filter": {
+                        "type": "object",
+                        "title": "Filtre",
+                        "properties": {
+                            "champs": {
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "properties": {
+                                        "code": { "type": "string" },
+                                        "libelle": { "type": "string" },
+                                        "type": { "type": "string" },
+                                        "format": { "type": "string" },
+                                        "decimals": { "type": "number" },
+                                        "enumName": { "type": "string" },
+                                        "enum": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object",
+                                                "properties": {
+                                                    "code": { "type": "string" },
+                                                    "libelle": { "type": "string" }
+                                                }
+                                            }
+                                        },
+                                        "lookup": {
+                                            "type": "string"
+                                        }
+                                    }
+                                }
+                            },
+                            "filters": {
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "properties": {
+                                        "code": { "type": "string" },
+                                        "op": { "type": "string" },
+                                        "values": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "string"
+                                            }
+                                        },
+                                        "values2": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object",
+                                                "properties": {
+                                                    "code": {
+                                                        "type": "string"
+                                                    },
+                                                    "lib": {
+                                                        "type": "string"
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            },
+                            "entree": {
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "properties": {
+                                        "title": {
+                                            "type": "string"
+                                        },
+                                        "name": {
+                                            "type": "string"
+                                        },
+                                        "items": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object",
+                                                "properties": {}
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "definitions": {}
+            };
+            if (filterData.filter.champs.length)
+                filterData.filter.champs.splice(0);
+            _ui.filter.transformPropsToFilterFormat(filterData.filter.champs, params.schemaColumns);
+            if (filterData.filter.entree)
+                filterData.filter.entree = _ui.multiSelectUtils.transformPropsToMultiselectFormat(params.schemaColumns, params.schemaGroups);
+            var opts = { "title": "Filtre", "buttons": [{ "pattern": "validate" }] };
+            _ui.OpenModalForm(opts, layout, model, filterData, locale, function (form, action, model, formControl) {
+                switch (action.property) {
+                    case "validate":
+                        if (!model.validate())
+                            return;
+                        filterData = model.model();
+                        var $filter = null;
+                        if (filterData.filter.filters.length) {
+                            if (params.mongoFilter)
+                                $filter = _ui.filter.format.toMongoDbFilter(filterData.filter.champs, filterData.filter.filters);
+                            else
+                                $filter = _ui.filter.format.toPhenix(filterData.filter.champs, filterData.filter.filters);
+                        }
+                        if (callback)
+                            callback({ value: $filter, title: Phoenix.ui.filter.toTitle(filterData.filter.filters, filterData.filter.champs) });
+                        form.close();
+                        break;
+                }
+            });
+        }
+        ;
+        function tooBarSettings(params, callback, locale) {
+            var layout = {
+                "name": "settings",
+                "$type": "block",
+                "$items": [
+                    {
+                        "$type": "block",
+                        "$items": [
+                            {
+                                "$bind": "mselect",
+                                "$widget": "multiselectlist",
+                                "options": {
+                                    multiSelect: true
+                                }
+                            }
+                        ]
+                    }
+                ],
+                "form": true
+            };
+            var model = {
+                "type": "object",
+                "properties": {
+                    "mselect": {
+                        "type": "object",
+                        "properties": {
+                            "entree": {
+                                "type": "array",
+                                "items": { "$ref": "#/definitions/elt" }
+                            },
+                            "sortie": {
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "properties": {
+                                        "title": {
+                                            "type": "string"
+                                        },
+                                        "name": {
+                                            "type": "string"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "definitions": {
+                    "elt": {
+                        "type": "object",
+                        "properties": {
+                            "title": {
+                                "type": "string"
+                            },
+                            "name": {
+                                "type": "string"
+                            },
+                            "items": {
+                                "type": "array",
+                                "items": { "type": "object", "properties": {} }
+                            }
+                        }
+                    }
+                }
+            };
+            params.options = params.options || {};
+            var ldata = {
+                mselect: {
+                    entree: _ui.multiSelectUtils.transformPropsToMultiselectFormat(params.schemaColumns, params.schemaGroups, params.options.columnsLimited),
+                    sortie: _ui.multiSelectUtils.transformSelectedColumnsToMultiSelectFormat(params.schemaColumns, params.selectedColumns, params.schemaGroups, params.options.columnsLimited)
+                }
+            };
+            var opts = { "title": params.locale && params.locale.settingsTitle ? params.locale.settingsTitle : "Options", "buttons": [{ "pattern": "validate" }] };
+            _ui.OpenModalForm(opts, layout, model, ldata, locale, function (form, action, model, formControl) {
+                switch (action.property) {
+                    case "validate":
+                        if (!model.validate())
+                            return;
+                        var sortie = model.model().mselect.sortie;
+                        if (sortie <= 0)
+                            return;
+                        var columns = _ui.multiSelectUtils.transformMultiSelectColumnsToGridColumnsFormat(sortie);
+                        if (callback)
+                            callback(columns);
+                        form.close();
+                        break;
+                }
+            });
+        }
+        ;
         _formgrid.toolBarFactory = toolBarFactoryHandler;
         _formgrid.toolBarRender = toolbarRenderHandler;
+        _formgrid.glbGridFilter = toolBarFilterComplexe;
+        _formgrid.glbGridSettings = tooBarSettings;
+        _formgrid.glbMongoFilter2Filter = _ui.filter.mongoDbFilter2Filter;
     })(gridHandlers = Phoenix.gridHandlers || (Phoenix.gridHandlers = {}));
 })(Phoenix || (Phoenix = {}));
 /// <reference path="../../js/core/core.ts" />
@@ -30053,52 +32844,39 @@ var Phoenix;
     var ui;
     (function (ui) {
         var _dom = Phoenix.dom, _ui = ui, _utils = Phoenix.utils, _locale = Phoenix.locale, _uiutils = Phoenix.uiutils, _link = Phoenix.link;
-        var ToolElement = (function () {
+        var ToolElement = /** @class */ (function () {
             function ToolElement(config, options) {
                 var that = this;
+                that.id = _utils.allocID();
                 that.config = config || {};
                 that.options = options || {};
-                that.data = {
-                    value: config.value,
-                    options: config.options
-                };
-                that.props = {};
-                that._defineProps();
             }
-            ToolElement.prototype._defineProps = function () {
-                var that = this, _dp = Phoenix.utils.defineProperty;
-                _dp("value", that);
-                _dp("options", that);
+            ToolElement.prototype.getValue = function () {
+                return this.config.value;
             };
-            ToolElement.prototype._notifyChange = function (propertyName) {
+            ToolElement.prototype.setValue = function (value) {
                 var that = this;
-                switch (propertyName) {
-                    case "value":
-                        that.update();
-                        break;
-                    case "options":
-                        that.updateOptions();
-                        break;
-                }
+                that.config.value = value;
+                that.update();
             };
-            ToolElement.prototype.createElement = function (index, config, data) {
-                return '<div class="bs-toolbar-item">A</div>';
-            };
-            ToolElement.prototype._setEvents = function () { };
-            ToolElement.prototype.update = function () { };
-            ToolElement.prototype.updateOptions = function () {
+            ToolElement.prototype.setOptions = function (value) {
                 var that = this;
-                that.options = $.extend(true, that.options, that.data.options);
+                that.options = $.extend(true, that.options, value);
                 that.updateRender();
             };
-            ToolElement.prototype.updateRender = function () { };
-            ToolElement.prototype.getValue = function () { };
-            ToolElement.prototype.getOptions = function () { };
+            ToolElement.prototype.createElement = function (index, config, data) {
+                return _utils.format('<div data-tool-id="{0}" class="bs-toolbar-item">A</div>', this.id);
+            };
+            ToolElement.prototype.refresh = function () {
+                var that = this;
+                this.update();
+                that.updateRender();
+            };
             ToolElement.prototype.after = function () { };
             ToolElement.prototype.render = function ($parent) {
                 var that = this;
                 if (!that.$element) {
-                    that.$element = $(that.createElement(that.config.id, that.config, that.data.value));
+                    that.$element = $(that.createElement(that.config.id, that.config, that.config.value));
                     that._setEvents();
                 }
                 if ($parent)
@@ -30107,71 +32885,129 @@ var Phoenix;
             };
             ToolElement.prototype.destroy = function () {
                 var that = this;
+                that._removeEvents();
                 that.$element = null;
                 that.options = null;
                 that.config = null;
             };
+            ToolElement.prototype._setEvents = function () { };
+            ToolElement.prototype._removeEvents = function () { };
+            ToolElement.prototype.update = function () { };
+            ToolElement.prototype.updateRender = function () { };
             return ToolElement;
         }());
         ui.ToolElement = ToolElement;
-        var ToolElementButton = (function (_super) {
+        var ToolElementTitle = /** @class */ (function (_super) {
+            __extends(ToolElementTitle, _super);
+            function ToolElementTitle(config, options) {
+                return _super.call(this, config, options) || this;
+            }
+            ToolElementTitle.prototype.createElement = function (index, config, data) {
+                var css = [];
+                if (config.style)
+                    css.push(config.style);
+                var balise = config.widget = config.widget || "h4";
+                var html = [
+                    '<div data-tool-id="{0}" class="bs-toolbar-item">',
+                    '<' + balise + ' class="' + css.join(' ') + '" style="display:inline-block" data-id="title">',
+                    config.value || "",
+                    '</' + balise + '>',
+                    '</div>'
+                ];
+                return _utils.format(html.join(''), this.id);
+            };
+            ToolElementTitle.prototype.update = function () {
+                var that = this;
+                if (!that.$element)
+                    return;
+                var titleElement = _dom.query(that.$element.get(0), that.config.widget + '[data-id="title"]');
+                _dom.text(titleElement, that.config.value);
+            };
+            return ToolElementTitle;
+        }(ToolElement));
+        ui.ToolElementTitle = ToolElementTitle;
+        var ToolElementIcon = /** @class */ (function (_super) {
+            __extends(ToolElementIcon, _super);
+            function ToolElementIcon(config, options) {
+                return _super.call(this, config, options) || this;
+            }
+            ToolElementIcon.prototype.createElement = function (index, config, data) {
+                var css = [];
+                if (config.style)
+                    css.push(config.style);
+                var balise = config.widget = config.widget || "h4";
+                var html = [
+                    '<div data-tool-id="{0}" class="bs-toolbar-item">',
+                    '<span class="' + css.join(' ') + ' ' + (config.value || "") + '"></span>',
+                    '</div>'
+                ];
+                return _utils.format(html.join(''), this.id);
+            };
+            return ToolElementIcon;
+        }(ToolElement));
+        ui.ToolElementIcon = ToolElementIcon;
+        var ToolElementButton = /** @class */ (function (_super) {
             __extends(ToolElementButton, _super);
             function ToolElementButton(config, options) {
                 return _super.call(this, config, options) || this;
             }
             ToolElementButton.prototype.createElement = function (index, config, data) {
-                var css = ["bs-button btn btn-default"];
-                if (config.style)
-                    css.push('btn-' + config.style);
-                if (config.right)
-                    css.push("pull-right");
+                var css = ["bs-button btn"];
+                var style = _dom.bootstrapStyles().secondary;
+                config.style = config.style.trim();
+                if (config.style) {
+                    style = config.style;
+                    style = _dom.bootstrapStyles(true).secondary;
+                    if (style === 'default')
+                        style = _dom.bootstrapStyles(true).secondary;
+                }
+                css.push('btn-' + style);
                 var html = [
-                    '<div class="bs-toolbar-item ' + (config.right ? "pull-right" : "") + '">',
-                    '<button toolClick="' + index + '" type="button" class="' + css.join(" ") + '">',
+                    '<div data-tool-id="{0}" class="bs-toolbar-item">',
+                    '<button id="toolbar-item' + (config.name ? "-" + config.name : "") + '" toolClick="' + index + '" type="button" class="' + css.join(" ") + '">',
                     (config.icon ? '<span class="' + _dom.iconClass(config.icon) + '" toolClick="' + index + '" ></span>' : ''),
                     (config.title ? '&nbsp;' + config.title : ''),
                     '</button>',
                     '</div>'
                 ];
-                return html.join('');
+                return _utils.format(html.join(''), this.id);
             };
             return ToolElementButton;
         }(ToolElement));
         ui.ToolElementButton = ToolElementButton;
-        var ToolElementCount = (function (_super) {
+        var ToolElementCount = /** @class */ (function (_super) {
             __extends(ToolElementCount, _super);
             function ToolElementCount(config, options) {
                 return _super.call(this, config, options) || this;
             }
             ToolElementCount.prototype.createElement = function (index, config, data) {
-                var css = ["label", "label-default", "form-control-static", "bs-toolbar-item", "bs-toolbar-item-count"];
-                if (config.right)
-                    css.push("pull-right");
-                var html = ['<span tool="' + index + '" class="' + css.join(' ') + '">' + data + '</span>'];
-                return html.join('');
+                var css = ['badge-secondary', 'form-control-plaintext', 'bs-toolbar-item', "bs-toolbar-item-count"];
+                var html = ['<span data-tool-id="{0}" tool="' + index + '" class="' + css.join(' ') + '">' + data + '</span>'];
+                return _utils.format(html.join(''), this.id);
             };
             ToolElementCount.prototype.update = function () {
                 var that = this;
                 if (!that.$element)
                     return;
-                _dom.text(that.$element.get(0), that.data.value);
+                _dom.text(that.$element.get(0), that.config.value);
             };
             return ToolElementCount;
         }(ToolElement));
         ui.ToolElementCount = ToolElementCount;
-        var ToolElementDropdownAction = (function (_super) {
+        var ToolElementDropdownAction = /** @class */ (function (_super) {
             __extends(ToolElementDropdownAction, _super);
             function ToolElementDropdownAction(config, options) {
                 return _super.call(this, config, options) || this;
             }
             ToolElementDropdownAction.prototype.createElement = function (index, config, data) {
                 var css = ["bs-toolbar-item dropdown"];
-                if (config.right)
-                    css.push("pull-right");
                 var actionsView = [];
                 // action : {name, events}
                 config.actions && config.actions.forEach(function (action) {
-                    actionsView.push('<li data-id="' + action.code + '"><a href="#" data-id="' + action.code + '">' + (action.lib || action.code) + '</a></li>');
+                    if (Phoenix.bootstrap4)
+                        actionsView.push('<a href="#" class="dropdown-item" data-id="' + action.code + '">' + (action.lib || action.code) + '</a>');
+                    else
+                        actionsView.push('<li data-id="' + action.code + '"><a href="#" data-id="' + action.code + '">' + (action.lib || action.code) + '</a></li>');
                 });
                 var title = [];
                 if (!config.title && !config.icon)
@@ -30181,38 +33017,29 @@ var Phoenix;
                 if (config.title)
                     title.push(' ' + config.title + " ");
                 var html = [
-                    '<div tabindex="' + index + '" class="' + css.join(" ") + '">',
-                    '<button class="btn btn-default dropdown-toogle" id="tooltip-dropdown-' + index + '" type="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">',
-                    title.join(""),
-                    ' <span class="caret"></span>',
+                    '<div  data-tool-id="{0}" tabindex="' + index + '" class="' + css.join(" ") + '">',
+                    '<button class="bs-button btn btn-' + _dom.bootstrapStyles(true).secondary + ' dropdown-toggle" id="tooltip-dropdown-' + index + '" type="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">',
+                    title.join(''),
                     '</button>',
-                    '<ul class="dropdown-menu dropdown-menu-right" aria-labelledby="tooltip-dropdown-' + index + '" data-id="toolCommands">',
-                    actionsView.join(""),
-                    '</ul>',
+                    Phoenix.bootstrap4 ? '<div class="dropdown-menu dropdown-menu-right" aria-labelledby="tooltip-dropdown-' + index + '" data-id="toolCommands">'
+                        : '<ul class="dropdown-menu dropdown-menu-right" aria-labelledby="tooltip-dropdown-' + index + '" data-id="toolCommands">',
+                    actionsView.join(''),
+                    Phoenix.bootstrap4 ? '</div>' : '</ul>',
                     '</div>'
                 ];
-                return html.join('');
+                return _utils.format(html.join(''), this.id);
             };
-            ToolElementDropdownAction.prototype._setEvents = function () {
+            ToolElementDropdownAction.prototype.click = function (event) {
                 var that = this;
-                var listView = _dom.query(that.$element.get(0), "ul[data-id='toolCommands']");
-                if (listView)
-                    listView.addEventListener("click", function (event) {
-                        var target = event.target;
-                        var commandCode = _dom.attr(target, "data-id");
-                        if (commandCode && that.options.callback)
-                            that.options.callback({ id: that.config.id, name: that.config.name, type: that.config.type, value: commandCode, toolData: that.config });
-                        that.after();
-                    }, false);
-            };
-            ToolElementDropdownAction.prototype.after = function () {
-                var that = this;
-                _dom.removeClass(that.$element.get(0), "open");
+                var target = event.target;
+                var commandCode = _dom.attr(target, "data-id");
+                if (commandCode && that.options.callback)
+                    that.options.callback({ id: that.config.id, name: that.config.name, type: that.config.type, value: commandCode, toolData: that.config });
             };
             return ToolElementDropdownAction;
         }(ToolElement));
         ui.ToolElementDropdownAction = ToolElementDropdownAction;
-        var ToolElementSelect = (function (_super) {
+        var ToolElementSelect = /** @class */ (function (_super) {
             __extends(ToolElementSelect, _super);
             function ToolElementSelect(config, options) {
                 var _this = _super.call(this, config, options) || this;
@@ -30226,16 +33053,13 @@ var Phoenix;
             }
             ToolElementSelect.prototype.createElement = function (index, config, data) {
                 var css = ["bs-toolbar-item"];
-                if (config.right)
-                    css.push("pull-right");
                 var actionsView = [];
                 // action : {name, events}
                 config.value.items && config.value.items.forEach(function (action) {
                     actionsView.push('<option value="' + action.code + '" ' + (config.value.default == action.code ? "selected" : "") + '>' + (action.lib || action.code) + '</option>');
                 });
                 var html = [
-                    '<div tabindex="' + index + '" class="' + css.join(" ") + '">',
-                    '<form class="form-horizontal">',
+                    '<div data-tool-id="{0}" tabindex="' + index + '" class="' + css.join(" ") + '">',
                     '<div class="input-group">',
                     '<span class="input-group-addon">',
                     (config.title || ""),
@@ -30244,60 +33068,74 @@ var Phoenix;
                     actionsView.join(""),
                     '</select>',
                     '</div>',
-                    '</form>',
                     '</div>'
                 ];
-                return html.join('');
+                return _utils.format(html.join(''), this.id);
+            };
+            ToolElementSelect.prototype._select = function () {
+                var that = this;
+                if (that.$element) {
+                    var e = that.$element.get(0);
+                    if (e) {
+                        return _dom.query(that.$element.get(0), "select[data-id='toolSelect']");
+                    }
+                }
             };
             ToolElementSelect.prototype.update = function () {
                 var that = this;
                 if (!that.$element)
                     return;
                 var frag = document.createDocumentFragment();
-                that.data.value.items && that.data.value.items.forEach(function (action) {
-                    _dom.append(frag, $('<option value="' + action.code + '" ' + (that.data.value.default == action.code ? "selected" : "") + '>' + (action.lib || action.libelle || action.code) + '</option>').get(0));
+                that.config.value.items && that.config.value.items.forEach(function (action) {
+                    _dom.append(frag, $('<option value="' + action.code + '" ' + (that.config.value.default == action.code ? "selected" : "") + '>' + (action.lib || action.libelle || action.code) + '</option>').get(0));
                 });
-                var selectView = _dom.query(that.$element.get(0), "select[data-id='toolSelect']");
-                _dom.empty(selectView);
-                _dom.append(selectView, frag);
+                var selectView = that._select();
+                if (selectView) {
+                    _dom.empty(selectView);
+                    _dom.append(selectView, frag);
+                }
             };
             ToolElementSelect.prototype._setEvents = function () {
                 var that = this;
-                var selectView = _dom.query(that.$element.get(0), "select[data-id='toolSelect']");
+                var selectView = that._select();
                 if (selectView)
-                    selectView.addEventListener("change", function (event) {
+                    $(selectView).change(function (event) {
                         var target = event.target;
-                        var optionView = event.target.options[target.selectedIndex];
+                        var optionView = target.options[target.selectedIndex];
                         if (that.options.callback)
                             that.options.callback({ id: that.config.id, name: that.config.name, type: that.config.type, value: optionView.value, toolData: that.config });
-                    }, false);
+                    });
+            };
+            ToolElementSelect.prototype._removeEvents = function () {
+                var that = this;
+                var selectView = that._select();
+                if (selectView)
+                    $(selectView).off('change');
             };
             return ToolElementSelect;
         }(ToolElement));
         ui.ToolElementSelect = ToolElementSelect;
-        var ToolElementSearch = (function (_super) {
+        var ToolElementSearch = /** @class */ (function (_super) {
             __extends(ToolElementSearch, _super);
             function ToolElementSearch(config, options) {
                 var _this = _super.call(this, config, options) || this;
-                _this.data.value = "";
+                _this.config.value = "";
                 _this.oldValue = "";
                 return _this;
             }
             ToolElementSearch.prototype.createElement = function (index, config, data) {
                 var css = [];
-                if (config.right)
-                    css.push("pull-right");
                 var html = [
-                    '<div tabindex="' + index + '" class="bs-toolbar-item input-group' + css.join(" ") + '">',
+                    '<div data-tool-id="{0}" tabindex="' + index + '" class="bs-toolbar-item input-group' + css.join(" ") + '">',
                     '<input toolKeyup="' + index + '" type="text" class="form-control" placeholder="' + (config.title || "Recherche") + '" />',
                     '<span class="input-group-btn">',
-                    '<button toolClick="' + index + '" class="bs-button btn btn-default" type="button">',
+                    '<button toolClick="' + index + '" class="bs-button btn btn-' + _dom.bootstrapStyles(true).secondary + '" type="button">',
                     '<span toolClick="' + index + '" class="' + _dom.iconClass(config.icon || "search") + '"> </span>',
                     '</button>',
                     '</span>',
                     '</div>'
                 ];
-                return html.join('');
+                return _utils.format(html.join(''), this.id);
             };
             ToolElementSearch.prototype.update = function () {
                 var that = this;
@@ -30305,7 +33143,7 @@ var Phoenix;
                     return;
                 var input = _dom.query(that.$element.get(0), "input");
                 if (input)
-                    input.value = that.data.value;
+                    input.value = that.config.value;
             };
             ToolElementSearch.prototype.getValue = function () {
                 var that = this;
@@ -30337,8 +33175,8 @@ var Phoenix;
                         isNotBtnSearch = isNotBtnSearch || (event.relatedTarget == null || (event.relatedTarget && event.relatedTarget != btn_1)) && event.explicitOriginalTarget == undefined;
                         if (event.target == input_4 && isNotBtnSearch) {
                             //if (!that._getInputValue() && that.filtering){
-                            that.data.value = " ";
-                            that.props.value = that.oldValue;
+                            that.config.value = " ";
+                            that.setValue(that.oldValue);
                         }
                     }, true);
                 }
@@ -30346,39 +33184,40 @@ var Phoenix;
             return ToolElementSearch;
         }(ToolElement));
         ui.ToolElementSearch = ToolElementSearch;
-        var ToolElementFilterExpress = (function (_super) {
+        var ToolElementFilterExpress = /** @class */ (function (_super) {
             __extends(ToolElementFilterExpress, _super);
             function ToolElementFilterExpress(config, options) {
                 var _this = _super.call(this, config, options) || this;
                 var that = _this;
-                that.data.value = config.fields;
-                that.data.options = config.options;
+                that.config.value = config.fields || that.config.value;
                 that._init();
                 return _this;
             }
             ToolElementFilterExpress.prototype._init = function () {
                 var that = this;
-                var options = that.data.options || {};
+                var options = that.options || {};
                 that.filterExpress = new _ui.FilterExpress(that.config.fields || [], function (filters) {
                     if (that.options.callback) {
-                        var lfilter = filters && filters.length ? _ui.filter.format.toPhenix(that.config.fields, filters) : null;
+                        filters = filters ? (Array.isArray(filters) ? filters : [filters]) : null;
+                        var lfilter = null;
+                        if (filters && filters.length) {
+                            lfilter = that.options.mongoDbFilter ? ui.filter.format.toMongoDbFilter(that.config.fields, filters) : _ui.filter.format.toPhenix(that.config.fields, filters);
+                        }
                         var ltitle = "";
                         if (lfilter)
-                            ltitle = that._format(that.config.fields, filters);
+                            ltitle = that._formatTitle(that.config.fields, filters);
                         that.options.callback({ id: that.config.id, name: that.config.name, type: that.config.type, value: { title: ltitle, value: lfilter }, toolData: that.config });
                     }
                 }, options);
             };
             ToolElementFilterExpress.prototype.createElement = function (index, config, data) {
                 var css = [];
-                if (config.right)
-                    css.push("pull-right");
-                return '<div class="bs-toolbar-item ' + css.join(" ") + '"></div>';
+                return Phoenix.utils.format('<div data-tool-id="{0}" class="bs-toolbar-item ' + css.join(" ") + '"></div>', this.id);
             };
             ToolElementFilterExpress.prototype.render = function ($parent) {
                 var that = this;
                 if (!that.$element) {
-                    that.$element = $(that.createElement(that.config.id, that.config, that.data.value));
+                    that.$element = $(that.createElement(that.config.id, that.config, that.config.value));
                     if (that.filterExpress)
                         that.filterExpress.render(that.$element);
                 }
@@ -30393,36 +33232,36 @@ var Phoenix;
                 if (that.filterExpress)
                     that.filterExpress.render(that.$element);
             };
-            ToolElementFilterExpress.prototype._format = function (fields, filters) {
+            ToolElementFilterExpress.prototype._formatTitle = function (fields, filters) {
                 return ui.filter.format.toTitle(filters, fields);
             };
             ToolElementFilterExpress.prototype.update = function () {
                 var that = this;
                 if (!that.$element)
                     return;
-                that.config.fields = that.data.value || that.config.fields || [];
-                that.filterExpress.fields = that.data.value;
+                that.config.value = that.config.fields || that.config.value || [];
+                that.filterExpress.fields = that.config.value;
             };
             return ToolElementFilterExpress;
         }(ToolElement));
         ui.ToolElementFilterExpress = ToolElementFilterExpress;
-        var ToolElementFilter = (function (_super) {
+        var ToolElementFilter = /** @class */ (function (_super) {
             __extends(ToolElementFilter, _super);
             function ToolElementFilter(config, options) {
                 return _super.call(this, config, options) || this;
             }
             ToolElementFilter.prototype.createElement = function (index, config, data) {
-                var css = ["bs-button btn btn-default"];
+                var css = ["bs-button btn btn-" + _dom.bootstrapStyles(true).secondary];
                 var html = [
-                    '<div class="bs-toolbar-item ' + (config.right ? "pull-right" : "") + '">',
+                    '<div data-tool-id="{0}" class="bs-toolbar-item">',
                     '<button toolClick="' + index + '" type="button" class="' + css.join(" ") + '">',
                     (config.icon ? '<span toolClick="' + index + '" class="' + _dom.iconClass(config.icon) + '"></span>' : ''),
                     (config.title ? '&nbsp;' + config.title : ''),
                     '</button>',
-                    '<span class="bs-toolbar-item-filter form-control-static bs-cursor-h"></span>',
+                    '<span class="bs-toolbar-item-filter ' + (Phoenix.bootstrap4 ? 'form-control-plaintext' : 'form-control-static') + ' bs-cursor-h"></span>',
                     '</div>'
                 ];
-                return html.join('');
+                return _utils.format(html.join(''), this.id);
             };
             ToolElementFilter.prototype.addTooltip = function (data) {
                 var that = this;
@@ -30441,22 +33280,39 @@ var Phoenix;
                 var that = this;
                 if (!that.$element)
                     return;
-                that.addTooltip(that.data.value);
+                that.addTooltip(that.config.value);
             };
             ToolElementFilter.prototype.render = function ($parent) {
                 _super.prototype.render.call(this, $parent);
                 var that = this;
-                that.addTooltip(that.data.value);
+                that.addTooltip(that.config.value);
             };
             return ToolElementFilter;
         }(ToolElement));
         ui.ToolElementFilter = ToolElementFilter;
-        var ToolBar = (function () {
+        var ToolBar = /** @class */ (function () {
             function ToolBar(toolElements, options) {
                 var that = this;
+                that.id = _utils.allocID();
                 that.options = options || {};
-                that.toolElements = toolElements || {};
+                that._map = {};
+                that.toolElements = toolElements || [];
             }
+            ToolBar.prototype._idComponent = function (el) {
+                var that = this;
+                if (!that.$element)
+                    return null;
+                var t = el, root = that.$element.get(0), id;
+                while (t) {
+                    if (!t.getAttribute)
+                        return null;
+                    id = t.getAttribute('data-tool-id');
+                    if (id)
+                        return that._map[id];
+                    t = (t === root) ? null : t.parentNode;
+                }
+                return null;
+            };
             ToolBar.prototype.getToolElement = function (indexOrName) {
                 var e = null;
                 this.toolElements.forEach(function (item, i) {
@@ -30471,7 +33327,7 @@ var Phoenix;
                 var that = this;
                 var te = that.getToolElement(name);
                 if (te)
-                    te.props.value = value;
+                    te.setValue(value);
             };
             ToolBar.prototype.getValue = function (name) {
                 var that = this;
@@ -30480,11 +33336,18 @@ var Phoenix;
                     return te.getValue();
                 return;
             };
+            ToolBar.prototype.refresh = function () {
+                this.toolElements.forEach(function (item) {
+                    var te = item.$component;
+                    if (te)
+                        te.refresh();
+                });
+            };
             ToolBar.prototype.setOptions = function (name, value) {
                 var that = this;
                 var te = that.getToolElement(name);
                 if (te)
-                    te.props.options = value;
+                    te.setOptions(value);
             };
             ToolBar.prototype.getOptions = function (name) {
                 var that = this;
@@ -30499,7 +33362,12 @@ var Phoenix;
                     that.$element.on('click', function (event) {
                         var index = _dom.attr(event.target, "toolClick");
                         if (index !== null)
-                            onToolElement("click", index);
+                            onToolElement('click', index);
+                        else {
+                            var control = that._idComponent(event.target);
+                            if (control && control.click)
+                                control.click(event);
+                        }
                     }).on('keyup', function (event) {
                         if (event.keyCode == 13) {
                             var index = _dom.attr(event.target, "toolKeyup");
@@ -30518,6 +33386,9 @@ var Phoenix;
                     }
                 }
             };
+            ToolBar.prototype._controlById = function (id) {
+                return this._map[id];
+            };
             ToolBar.prototype._removeEvents = function () {
                 var that = this;
                 if (that.$element)
@@ -30525,9 +33396,14 @@ var Phoenix;
             };
             ToolBar.prototype._renderToolElements = function (toolElements) {
                 var that = this;
+                if (!that.$element)
+                    return;
                 if (!toolElements.length)
                     return;
-                var e = _dom.query(that.$element.get(0), "#bs-toolbar");
+                var e = that.$element.get(0);
+                var eLeft = _dom.find(e, that.id + '_left');
+                var eRight = _dom.find(e, that.id + '_right');
+                that._map = {};
                 toolElements.forEach(function (item, index) {
                     item.id = index;
                     var type = item.type;
@@ -30543,6 +33419,7 @@ var Phoenix;
                             item.$component = new ToolElementSearch(item, options);
                             break;
                         case "filterexpress":
+                            options.mongoDbFilter = that.options.composition;
                             item.$component = new ToolElementFilterExpress(item, options);
                             break;
                         case "dropdownaction":
@@ -30551,19 +33428,37 @@ var Phoenix;
                         case "select":
                             item.$component = new ToolElementSelect(item, options);
                             break;
+                        case "title":
+                            item.$component = new ToolElementTitle(item, options);
+                            break;
+                        case "icon":
+                            item.$component = new ToolElementIcon(item, options);
+                            break;
                         default:
                             item.style = item.style || item.type;
                             item.$component = new ToolElementButton(item, options);
                             break;
                     }
-                    if (item.$component)
-                        item.$component.render($(e));
+                    if (item.$component) {
+                        that._map[item.$component.id] = item.$component;
+                        var $p = item.right ? $(eRight) : $(eLeft);
+                        item.$component.render($p);
+                    }
                 });
             };
             ToolBar.prototype.render = function ($parent) {
                 var that = this;
+                var _bootstrap4 = Phoenix.bootstrap4;
                 if (!that.$element) {
-                    that.$element = $('<div class="row"><div class="col-xs-12"><div id="bs-toolbar" class="form-inline bs-toolbar"></div></div></div>');
+                    var html = [
+                        '<div class="container-fluid no-x-padding no-x-margin">',
+                        '<div class="bs-island bs-toolbar">',
+                        '<div class="bs-toolbar-left mr-auto form-inline" id="{0}_left"></div>',
+                        '<div class="bs-toolbar-right form-inline" id="{0}_right"></div>',
+                        '</div>',
+                        '</div>'
+                    ];
+                    that.$element = $(_utils.format(html.join(''), that.id));
                     that._renderToolElements(that.toolElements);
                     that._setEvents();
                 }
@@ -30576,7 +33471,6 @@ var Phoenix;
                     }
                     else
                         parent_4.append(that.$element);
-                    _dom.addClass(parent_4, "container-fluid");
                 }
                 return that.$element;
             };
@@ -30585,11 +33479,22 @@ var Phoenix;
                 that._removeEvents();
                 that.$element = null;
                 that.options = null;
+                that.toolElements = null;
+                that._map = null;
+                if (that.toolElements) {
+                    that.toolElements.forEach(function (item) {
+                        if (item.$component) {
+                            item.$component.destroy();
+                            item.$component = null;
+                        }
+                    });
+                    that.toolElements = null;
+                }
             };
             return ToolBar;
         }());
         ui.ToolBar = ToolBar;
-        var ToolbarForm = (function (_super) {
+        var ToolbarForm = /** @class */ (function (_super) {
             __extends(ToolbarForm, _super);
             function ToolbarForm(fp, options, form) {
                 var _this = _super.call(this, fp, options, form) || this;
@@ -30602,11 +33507,18 @@ var Phoenix;
             ToolbarForm.prototype.setValue = function (name, value) {
                 this._toolbar.setValue(name, value);
             };
+            ToolbarForm.prototype.refresh = function () {
+                this._toolbar.refresh();
+            };
             ToolbarForm.prototype.getOptions = function (name) {
                 return this._toolbar.getOptions(name);
             };
             ToolbarForm.prototype.setOptions = function (name, value) {
                 this._toolbar.setOptions(name, value);
+            };
+            ToolbarForm.prototype.changed = function (propName, ov, nv, op) {
+                var that = this;
+                that.refresh();
             };
             ToolbarForm.prototype.destroy = function () {
                 var that = this;
@@ -30614,7 +33526,8 @@ var Phoenix;
             };
             ToolbarForm.prototype.click = function (event) { };
             ToolbarForm.prototype._createContainer = function (id) {
-                return _utils.format('<div id="{0}" data-render="{0}" class="bs-tile"></div>', id);
+                var style = this.renderOptions.style || "";
+                return _utils.format('<div id="{0}" data-render="{0}" class="bs-tile ' + style + '"></div>', id);
             };
             ToolbarForm.prototype._onSelectToolElement = function (toolElement) {
                 var that = this;
@@ -30626,10 +33539,12 @@ var Phoenix;
                 var opts = that._initOptions(_uiutils.utils.defaultOptions);
                 if (!that.$element) {
                     that.$element = $(that._createContainer(that.id));
-                    var toolElements = that.state.value._model.map(function (item) {
-                        var e = { type: item.type, name: item.name, title: item.title };
-                        e = $.extend(true, e, item.data, { options: item.options });
-                        return e;
+                    var toolElements = that.state.value || [];
+                    toolElements.forEach(function (item) {
+                        item = $.extend(true, item, item.data, { options: item.options });
+                        delete item.data;
+                        delete item.options;
+                        return item;
                     });
                     var toptions = { selectToolElement: that._onSelectToolElement.bind(that) };
                     that._toolbar = new _ui.ToolBar(toolElements, toptions);

@@ -1,40 +1,6 @@
 var Phoenix;
 (function (Phoenix) {
     if (angular) {
-        var _utils = Phoenix.utils, _ui = Phoenix.ui;
-        var app = angular.module("phoenix.ui");
-        app.directive('carousel', [function () {
-                return {
-                    scope: {
-                        slides: '='
-                    },
-                    restrict: 'E',
-                    replace: true,
-                    compile: function (tElem, tAttrs) {
-                        return {
-                            pre: function (scope, element, attrs) {
-                                scope.slides = scope.slides || [];
-                                scope.component = new _ui.Carousel({});
-                                scope.component.props.slides = scope.slides;
-                                scope.component.render(element);
-                                scope.$on("$destroy", function () {
-                                    _utils.log('destroy carousel', 'scope');
-                                    if (scope.component)
-                                        scope.component.destroy();
-                                });
-                            },
-                            post: function (scope, element, attrs) {
-                            }
-                        };
-                    }
-                };
-            }]);
-    }
-})(Phoenix || (Phoenix = {}));
-
-var Phoenix;
-(function (Phoenix) {
-    if (angular) {
         var _locale = Phoenix.locale, _ui = Phoenix.ui;
         var app = angular.module("phoenix.ui");
         app.directive('highcharts', [function () {
@@ -525,6 +491,36 @@ var Phoenix;
 var Phoenix;
 (function (Phoenix) {
     if (angular) {
+        var _utils = Phoenix.utils, _iframe = Phoenix.iframe;
+        var app = angular.module("phoenix.ui");
+        app.directive('widgetIframe', [function () {
+                return {
+                    scope: {
+                        module: '='
+                    },
+                    restrict: 'E',
+                    replace: true,
+                    compile: function (tElem, tAttrs) {
+                        return {
+                            pre: function (scope, element, attrs) {
+                                scope.component = new _iframe.IFrame({ replaceParent: true, src: scope.module.props.data.src });
+                                scope.component.render(element);
+                                scope.$on("$destroy", function () {
+                                    _utils.log('destroy iframe', 'scope');
+                                    if (scope.component)
+                                        scope.component.destroy();
+                                });
+                            }
+                        };
+                    }
+                };
+            }]);
+    }
+})(Phoenix || (Phoenix = {}));
+
+var Phoenix;
+(function (Phoenix) {
+    if (angular) {
         var _utils = Phoenix.utils, _ui = Phoenix.ui;
         var app = angular.module("phoenix.ui");
         app.directive('widgetImageMenuItem', [function () {
@@ -550,120 +546,6 @@ var Phoenix;
                             post: function (scope, element, attrs) {
                             }
                         };
-                    }
-                };
-            }]);
-    }
-})(Phoenix || (Phoenix = {}));
-
-var Phoenix;
-(function (Phoenix) {
-    if (angular) {
-        var _utils = Phoenix.utils, app = angular.module("phoenix.ui");
-        app.directive('widgetJson', [function () {
-                return {
-                    scope: {
-                        props: '=',
-                        data: '='
-                    },
-                    restrict: 'E',
-                    replace: true,
-                    template: '<code style="display: block; white-space: pre;">Data = {{data | json}}</code>',
-                    link: function (scope, element, attrs) {
-                        _utils.log('create Json', 'scope');
-                        scope.$on("$destroy", function () {
-                            _utils.log('destroy Json', 'scope');
-                        });
-                    }
-                };
-            }]);
-    }
-})(Phoenix || (Phoenix = {}));
-
-var Phoenix;
-(function (Phoenix) {
-    if (angular) {
-        var _utils = Phoenix.utils, _render = Phoenix.render, _ui = Phoenix.ui;
-        var _onScopeDestroy = function () {
-            var s = this;
-            _utils.log('destroy listview', 'scope');
-            if (s.component)
-                s.component.destroy();
-        };
-        var app = angular.module("phoenix.ui");
-        app.controller('uiWidgetListViewController', ["$scope", function ($scope) { }]);
-        app.directive('widgetListview', ['$compile', function ($compile) {
-                return {
-                    scope: {
-                        module: '=',
-                        props: '=',
-                        data: '=',
-                        phone: '=',
-                        itemclick: "=",
-                        beforeRenderItems: "=",
-                        afterRenderItems: "="
-                    },
-                    bindToController: true,
-                    restrict: 'E',
-                    replace: true,
-                    controller: 'uiWidgetListViewController',
-                    controllerAs: 'module',
-                    link: function (lscope, element, attrs) {
-                        var scope = lscope.$new();
-                        scope.component = new _ui.ListView(scope.module.props, {
-                            replaceParent: true,
-                            context: "angular",
-                            beforeAdd: function (el, refresh) {
-                                _utils.log('compile listview', 'scope');
-                                $compile(el)(scope);
-                            },
-                            clickItem: scope.module.itemclick,
-                            beforeRenderItems: scope.module.beforeRenderItems,
-                            afterRenderItems: scope.module.afterRenderItems,
-                            beforeRemove: function (el) {
-                                var component = scope.component;
-                                var module = scope.module;
-                                scope.component = null;
-                                scope.module = null;
-                                scope.$destroy();
-                                var ns = lscope.$new();
-                                scope.component = null;
-                                ns.component = component;
-                                ns.module = module;
-                                ns.$on("$destroy", _onScopeDestroy.bind(ns));
-                                scope = ns;
-                            }
-                        }, scope.module.module);
-                        scope.component.render(element);
-                        scope.$on("$destroy", _onScopeDestroy.bind(scope));
-                    }
-                };
-            }]);
-        var _renderListViewItem = function (html, type, options, index) {
-            html.push('<listviewitem-' + type + ' item=component.props.items[' + index + ']></listviewitem-' + type + '>');
-        };
-        _render.register("angular", "widget.listview.item", _renderListViewItem);
-    }
-})(Phoenix || (Phoenix = {}));
-
-var Phoenix;
-(function (Phoenix) {
-    if (angular) {
-        var _utils = Phoenix.utils;
-        var app = angular.module("phoenix.ui");
-        app.directive('listviewitemTest', [function () {
-                return {
-                    scope: {
-                        item: '=',
-                        authoring: '='
-                    },
-                    restrict: 'E',
-                    replace: true,
-                    template: '<div><h4>{{::item.title}}</h4><p>{{::item.description}}</p></div>',
-                    link: function (scope, element, attrs) {
-                        scope.$on("$destroy", function () {
-                            _utils.log('destroy listviewitemTest', 'scope');
-                        });
                     }
                 };
             }]);
@@ -719,17 +601,18 @@ var Phoenix;
                         var container = _dom.query(element.get(0), ".bs-map");
                         scope.map = null;
                         scope.config = scope.config || {};
-                        scope.config.type = scope.config.type == "gm" ? scope.config.type : "om";
+                        var type = scope.config.type;
+                        scope.config.type = type == "gm" || type == "gmap" ? "gmap" : "omap";
                         scope.$watch('address', function () {
                             if (!scope.address)
                                 return;
                             if (!scope.map) {
                                 switch (scope.config.type) {
-                                    case "gm":
-                                        scope.map = _ui.googleMaps({}, scope.callback);
+                                    case "gmap":
+                                        scope.map = _ui.createMapService({ type: "gmap" }, scope.callback);
                                         break;
-                                    case "om":
-                                        scope.map = _ui.openStreetMap({}, scope.callback);
+                                    case "omap":
+                                        scope.map = _ui.createMapService({ type: "omap" }, scope.callback);
                                 }
                             }
                             if (scope.map) {
@@ -768,38 +651,6 @@ var Phoenix;
                                 });
                             }
                         };
-                    }
-                };
-            }]);
-    }
-})(Phoenix || (Phoenix = {}));
-
-var Phoenix;
-(function (Phoenix) {
-    if (angular) {
-        var _utils = Phoenix.utils, _ui = Phoenix.ui;
-        var app = angular.module("phoenix.ui");
-        app.directive('planningchart', [function () {
-                return {
-                    scope: {
-                        data: '=',
-                        config: '=',
-                        onLink: '='
-                    },
-                    restrict: 'E',
-                    replace: true,
-                    link: function (scope, element, attrs, data) {
-                        scope.component = new _ui.PlanningChart(data);
-                        scope.component.beforeExecuteLink = scope.onLink;
-                        scope.component.render(element);
-                        scope.$on("$destroy", function () {
-                            _utils.log('destroy planning chart', 'scope');
-                            if (scope.component)
-                                scope.component.destroy();
-                        });
-                        scope.$watch('data', function () {
-                            scope.component.data = scope.data;
-                        });
                     }
                 };
             }]);

@@ -15,6 +15,29 @@ $(function () {
                 "$inline": true,
                 "$items": [{ "$bind": "color", "$widget": "grpbtn" }]
             },
+            {
+				"$type": "accordion",
+				"$widget": "tabs",
+                "$items": [
+					{
+						"$type": "accordion-group",
+						"opened": true,
+						"$name": "grass",
+						"$title": {							
+							"value": "Color {{color}}"
+						},
+						"$items": [{"$type": "block", "$items": [] }]
+					},
+					{
+						"$type": "accordion-group",
+						"$title": {
+							"value": "Detail {{empty}}"
+						},
+						"$items": [{"$type": "block", "$items": [] }]
+					}				
+					
+				]
+            }
 
         ],
         "form": true
@@ -28,6 +51,10 @@ $(function () {
                 "title": "Your prefered color ",
                 "enum": ["red", "green", "yellow"],
                 "enumNames": ["Red", "Green", "Yellow"]
+            },
+            "empty": {
+                "type": "string",
+                "title": "Empty "
             }
 
         }
@@ -35,7 +62,7 @@ $(function () {
     };
 
 
-    var data = { color: 'yellow' };
+    var data = { color: 'yellow', empty: '' };
 
     (function om() {
         Phoenix.ui.OpenForm(

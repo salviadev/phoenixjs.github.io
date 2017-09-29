@@ -72,6 +72,8 @@ var Phoenix;
             "Yes": "Oui",
             "Ok": "Ok",
             "No": "Non",
+            "false": "Faux",
+            "true": "Vrai",
             "Warning": "Avertissement",
             "Info": "Information",
             "Disconnect": "Déconnexion",
@@ -85,6 +87,8 @@ var Phoenix;
             },
             "ApplyDetailChanges": "Appliquer",
             "Selected": "Sel.",
+            "Add": "Ajouter",
+            "selectedFilters": "Filtres sélectionnés",
             "OpenNewTab": "Ouvrir dans un nouvel onglet",
             "Search": "Recherche"
         },
@@ -144,6 +148,33 @@ var Phoenix;
             "weekStart": 1,
             "today": "Aujourd'hui",
             "clear": "Effacer"
+        },
+        "operators": {
+            "in": { "symbol": "=", "title": "égal à", "binary": false },
+            "nin": { "symbol": "!=", "title": "différent de", "binary": false },
+            "gt": { "symbol": ">", "title": "supérieur à", "binary": false },
+            "ge": { "symbol": ">=", "title": "supérieur ou égal à", "binary": false },
+            "lt": { "symbol": "<", "title": "inférieur à", "binary": false },
+            "le": { "symbol": ">", "title": "inférieur ou égal à", "binary": false },
+            "between": { "symbol": "entre", "title": "entre", "binary": true },
+            "nbetween": { "symbol": "pas entre", "title": "pas entre", "binary": true },
+            "like": { "symbol": "contient", "title": "contient", "binary": false },
+            "nlike": { "symbol": "ne contient pas", "title": "ne contient pas", "binary": false },
+            "empty": { "symbol": "vide", "title": "est vide", "binary": false },
+            "nempty": { "symbol": "pas vide", "title": "n'est pas vide", "binary": false }
+        },
+        "types": {
+            "number": { "title": "Nombre", "operators": ["in", "nin", "gt", "ge", "lt", "le", "between", "nbetween", "empty", "nempty"] },
+            "decimal": { "title": "Décimal", "operators": ["in", "nin", "gt", "ge", "lt", "le", "between", "nbetween", "empty", "nempty"] },
+            "money": { "title": "Money", "operators": ["in", "nin", "gt", "ge", "lt", "le", "between", "nbetween", "empty", "nempty"] },
+            "integer": { "title": "Entier", "operators": ["in", "nin", "gt", "ge", "lt", "le", "between", "nbetween", "empty", "nempty"] },
+            "date": { "title": "Date", "operators": ["in", "nin", "gt", "ge", "lt", "le", "between", "nbetween", "empty", "nempty"] },
+            "time": { "title": "Heure", "operators": ["in", "nin", "gt", "ge", "lt", "le", "between", "nbetween", "empty", "nempty"] },
+            "date-time": { "title": "Date at heure", "operators": ["in", "nin", "gt", "ge", "lt", "le", "between", "nbetween", "empty", "nempty"] },
+            "string": { "title": "Chaîne de caractères", "operators": ["in", "nin", "like", "nlike", "empty", "nempty"] },
+            "enum": { "title": "Enum", "operators": ["in", "nin", "empty", "nempty"] },
+            "lookup": { "title": "Lookup", "operators": ["in", "nin", "empty", "nempty"] },
+            "boolean": { "title": "Booléen", "operators": ["in", "nin", "empty", "nempty"] }
         }
     };
     Phoenix.ulocale.translate(fr, "fr");

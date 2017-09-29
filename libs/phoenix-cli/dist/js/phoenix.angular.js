@@ -15,6 +15,18 @@ var Phoenix;
             return msg;
         }
         function setComponentHandlers(scope) {
+            function getName(isForm) {
+                var hash = window.location.hash;
+                var ii = hash.indexOf('?');
+                if (ii >= 0)
+                    hash = hash.substr(0, ii);
+                var segments = hash.split('/');
+                var search = isForm ? '/authoring/forms/' : '/authoring/';
+                ii = hash.indexOf(search);
+                if (ii >= 0)
+                    hash = hash.substr(ii + search.length);
+                return hash;
+            }
             scope.component.saveHandler = function (cd) {
                 var cfg = _application_1.config(_application_1.name);
                 var isCustomizable = _application_1.isCustomizable(scope.isform ? 'forms' : 'pages', cd.name);
@@ -25,7 +37,7 @@ var Phoenix;
                     var sn = scope.isform ? rft.forms : rft.pages;
                     if (!sn)
                         return;
-                    _data_1.rest.put(sn + '/' + cd.name, cd).then(function (ldata) {
+                    _data_1.rest.put(sn + '/' + getName(scope.isform), cd).then(function (ldata) {
                     }, function (reason) {
                         alert(extractMessage(reason));
                     });
@@ -44,15 +56,16 @@ var Phoenix;
             };
             scope.component.createHandler = function (name, cd) {
                 var cfg = _application_1.config(_application_1.name);
+                var pageName = name;
                 if (cfg && cfg.current && cfg.current.pages && cfg.current.forms) {
-                    cd.name = name;
+                    cd.name = name.split('/').pop();
                     var callBackSuccess = function (data) {
                         var ctx = _link_1.context();
-                        var cl = { $page: data.name, $authoring: true };
+                        var cl = { $page: pageName, $authoring: true };
                         _link_1.execLink(cl, ctx, null);
                     }, callBackError = function (reason) {
                         if (reason == "Conflict") {
-                            _utils_1.prompt(_locale_1.layouts.design.ConflictedPageName, cd.name, function (decision) {
+                            _utils_1.prompt(_locale_1.layouts.design.ConflictedPageName, name, function (decision) {
                                 if (!decision)
                                     return;
                                 decision = decision.trim();
@@ -62,21 +75,24 @@ var Phoenix;
                                     alert(_locale_1.layouts.design.InvalidPageName);
                                     return;
                                 }
-                                cd.name = decision;
-                                _ajax_1.post((scope.isform ? cfg.current.forms : cfg.current.pages) + '/' + cd.name, cd).then(callBackSuccess, callBackError);
+                                cd.name = decision.split('/').pop();
+                                pageName = decision;
+                                _ajax_1.post((scope.isform ? cfg.current.forms : cfg.current.pages) + '/' + pageName, cd).then(callBackSuccess, callBackError);
                             });
                         }
                         else
                             alert(extractMessage(reason));
                     };
-                    _ajax_1.post((scope.isform ? cfg.current.forms : cfg.current.pages) + '/' + cd.name, cd).then(callBackSuccess, callBackError);
+                    pageName = name;
+                    _ajax_1.post((scope.isform ? cfg.current.forms : cfg.current.pages) + '/' + pageName, cd).then(callBackSuccess, callBackError);
                 }
             };
             scope.component.openHandler = function (name) {
                 var ctx = _link_1.context(), ll = { $page: name, $authoring: true };
                 _link_1.execLink(ll, ctx, null);
             };
-            scope.component.removeHandler = function (name) {
+            scope.component.removeHandler = function () {
+                var name = getName(scope.isform);
                 var cfg = _application_1.config(_application_1.name);
                 var isCustomizable = _application_1.isCustomizable(scope.isform ? 'forms' : 'pages', name);
                 if (cfg) {
@@ -92,7 +108,7 @@ var Phoenix;
                         }
                         else {
                             var ctx = _link_1.context();
-                            var ll = { $page: "home" };
+                            var ll = { $page: _application_1.homeName };
                             _link_1.execLink(ll, ctx, null);
                         }
                     }, function (reason) {
