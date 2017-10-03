@@ -1994,7 +1994,8 @@ var Phoenix;
                     danger: _bootstrap4 ? 'outline-danger' : 'danger',
                     warning: _bootstrap4 ? 'outline-warning' : 'warning',
                     link: _bootstrap4 ? 'outline-link' : 'link',
-                    dark: _bootstrap4 ? 'outline-dark' : 'default'
+                    dark: _bootstrap4 ? 'outline-dark' : 'default',
+                    binary: _bootstrap4 ? 'outline-binary' : 'important'
                 };
                 return _bootstraOutlinepBtnCache;
             }
@@ -2012,7 +2013,8 @@ var Phoenix;
                     danger: 'danger',
                     warning: 'warning',
                     link: 'link',
-                    dark: 'default'
+                    dark: 'default',
+                    binary: _bootstrap4 ? 'binary' : 'important'
                 };
                 return _bootstrapBtnCache;
             }
@@ -25418,6 +25420,9 @@ var Phoenix;
                 if (that.state.isReadOnly)
                     return;
                 if (target && target.id) {
+                    var href = _dom.attr(target, 'data-phoenix-href') || _dom.attr(target, 'href');
+                    if (href === '#')
+                        event.preventDefault();
                     var prefix = that.id + "_item_";
                     if (target.id.indexOf(prefix) === 0) {
                         var index = parseInt(target.id.substring(prefix.length), 10);
@@ -25531,7 +25536,7 @@ var Phoenix;
                 //add label: 
                 var addDiv = !options.columns && !options.inline;
                 if (!options.titleIsHidden) {
-                    html.push('<label for="{0}_input" id="{0}_label"');
+                    html.push('<label id="{0}_label" for="{0}_grp" ');
                     var cssLabel = ['bs-label'];
                     if (options.columns) {
                         if (_bootstrap4) {
@@ -25561,15 +25566,15 @@ var Phoenix;
                 if (addDiv)
                     html.push('<div>');
                 var css = ['btn-group'];
-                html.push('<div class="' + css.join(' ') + '">');
+                html.push('<div id="{0}_grp" tabindex="0" class="' + css.join(' ') + '">');
                 enums.forEach(function (enumName, index) {
-                    html.push('<button tabindex="-1" type="button" id="{0}_item_' + index + '" class="btn btn-' + _dom.bootstrapStyles(true).secondary + '"');
+                    html.push('<a href="#" tabindex="-1" id="{0}_item_' + index + '" class="btn btn-' + _dom.bootstrapStyles(true).secondary + '"');
                     if (options.width) {
                         html.push(' style="width:' + options.width + '"');
                     }
                     html.push('>');
                     html.push(_utils.escapeHtml(enumsNames[index] || ''));
-                    html.push('</button>');
+                    html.push('</a>');
                 });
                 if (addDiv)
                     html.push('</div>');
@@ -25587,33 +25592,37 @@ var Phoenix;
                 return _this;
             }
             BtnGroup.prototype._state2UI = function () {
+                var that = this;
+                var pclass = that.renderOptions.binary ? Phoenix.dom.bootstrapStyles(false).binary : _dom.bootstrapStyles(false).primary;
                 _super.prototype._state2UI.call(this, function (item) {
-                    _dom.addClass(item, 'btn-' + _dom.bootstrapStyles(false).primary);
+                    _dom.addClass(item, 'btn-' + pclass);
                     _dom.removeClass(item, 'btn-' + _dom.bootstrapStyles(true).secondary);
-                    item.tabIndex = 0;
+                    //item.tabIndex = 0;
                 });
             };
             BtnGroup.prototype.changed = function (propName, ov, nv, op) {
                 var that = this;
+                var pclass = that.renderOptions.binary ? Phoenix.dom.bootstrapStyles(false).binary : _dom.bootstrapStyles(false).primary;
                 if (that.state.value != nv) {
                     that.state.value = nv;
                     if (!that.$element)
                         return;
                     _super.prototype._enumItems.call(this, function (btn, value) {
                         if (that.state.value === value) {
-                            btn.tabIndex = 0;
-                            if (that.focused)
-                                btn.focus();
-                            _dom.addClass(btn, 'btn-' + _dom.bootstrapStyles(false).primary);
+                            _dom.addClass(btn, 'btn-' + pclass);
                             _dom.removeClass(btn, 'btn-' + _dom.bootstrapStyles(true).secondary);
                         }
                         else {
                             _dom.addClass(btn, 'btn-' + _dom.bootstrapStyles(true).secondary);
-                            _dom.removeClass(btn, 'btn-' + _dom.bootstrapStyles(false).primary);
-                            btn.tabIndex = -1;
+                            _dom.removeClass(btn, 'btn-' + pclass);
+                            //btn.tabIndex = -1;
                         }
                     });
                 }
+            };
+            BtnGroup.prototype.mousedown = function (event) {
+                event.preventDefault();
+                this.setFocus();
             };
             BtnGroup.prototype.focusIn = function (event) {
             };
@@ -25626,6 +25635,10 @@ var Phoenix;
                 var state = that.form.getState(that.$bind);
                 if (state.isDisabled || state.isHidden)
                     return;
+                if (!that.$element)
+                    return;
+                var fe = _dom.find(that.$element.get(0), that.id + '_grp');
+                fe.focus();
             };
             BtnGroup.prototype.keydown = function ($event) {
                 var that = this;
@@ -27521,7 +27534,7 @@ var Phoenix;
     var _p = Phoenix, _utils = _p.utils, _ui = _p.ui, _dom = _p.dom, _uiutils = _p.uiutils;
     var wizard;
     (function (wizard) {
-        var _createStep = function (id, stepNumber, stepCode, stepTilte, stepState, isLast) {
+        var _arrowHiddenClass = false ? 'bs-none' : 'invisible', _createStep = function (id, stepNumber, stepCode, stepTilte, stepState, isLast) {
             var html = [
                 '<div id="{0}_{1}" class="d-inline-block">',
                 '<div class="bs-step bs-cursor-p d-table align-middle bs-cursor-pointer">',
@@ -27538,11 +27551,11 @@ var Phoenix;
             var html = [];
             _uiutils.utils.fieldWrapper(html, {}, authoring, function () {
                 html.push('<div class="bs-step-root">');
-                html.push('<span data-action="prev" id="{0}_prev" class="bs-cursor-p bs-arrow-parent d-inline-block align-middle bs-none">');
+                html.push('<span data-action="prev" id="{0}_prev" class="bs-cursor-p bs-arrow-parent d-inline-block align-middle ' + _arrowHiddenClass + '">');
                 html.push('<span data-action="prev" class="bs-step-arrow text-center d-inline-block ' + _dom.iconClass('arrow-left') + '"></span>');
                 html.push('</span>');
                 html.push('<div class="bs-step-parent-parent" id="{0}_root"><div class="bs-step-parent invisible" id="{0}_parent"></div></div>');
-                html.push('<span data-action="next" id="{0}_next" class="bs-cursor-p bs-arrow-parent d-inline-block align-middle bs-none">');
+                html.push('<span data-action="next" id="{0}_next" class="bs-cursor-p bs-arrow-parent d-inline-block align-middle ' + _arrowHiddenClass + '">');
                 html.push('<span data-action="next" class="bs-step-arrow text-center d-inline-block ' + _dom.iconClass('arrow-right') + '"></span>');
                 html.push('</span>');
                 html.push('</div>');
@@ -27821,13 +27834,13 @@ var Phoenix;
                 var next = _dom.find(e, that.id + '_next');
                 var prev = _dom.find(e, that.id + '_prev');
                 if (nextVisible)
-                    _dom.removeClass(next, 'bs-none');
-                else if (!_dom.hasClass(next, 'bs-none'))
-                    _dom.addClass(next, 'bs-none');
+                    _dom.removeClass(next, _arrowHiddenClass);
+                else if (!_dom.hasClass(next, _arrowHiddenClass))
+                    _dom.addClass(next, _arrowHiddenClass);
                 if (prevVisible)
-                    _dom.removeClass(prev, 'bs-none');
-                else if (!_dom.hasClass(prev, 'bs-none'))
-                    _dom.addClass(prev, 'bs-none');
+                    _dom.removeClass(prev, _arrowHiddenClass);
+                else if (!_dom.hasClass(prev, _arrowHiddenClass))
+                    _dom.addClass(prev, _arrowHiddenClass);
                 var width = _dom.position(rootParent, null).width;
                 if (!that._measured) {
                     window.setTimeout(function () {

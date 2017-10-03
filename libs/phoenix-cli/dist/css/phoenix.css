@@ -4729,7 +4729,7 @@ ul.bs-nav-button.bs-right-nav {
 
 .bs-rules {
   cursor: pointer;
-  color: #28a745;
+  color: #5cb85d;
 }
 
 .bs-edit-number {
@@ -4970,7 +4970,7 @@ ul.bs-nav-button.bs-right-nav {
 }
 
 td .bs-bool-edit {
-  color: #007bff;
+  color: #0188d1;
 }
 
 td .bs-bool-edit:hover {
@@ -5655,7 +5655,7 @@ body {
 }
 
 .bs-drag-color-success {
-  color: #28a745;
+  color: #5cb85d;
 }
 
 .bs-va-middle {
@@ -5759,7 +5759,7 @@ body {
 }
 
 .bs-style-callout-success {
-  border-left-color: #28a745;
+  border-left-color: #5cb85d;
 }
 
 .bs-style-callout-danger {
@@ -5767,7 +5767,7 @@ body {
 }
 
 .bs-style-callout-primary {
-  border-left-color: #007bff;
+  border-left-color: #0188d1;
 }
 
 .bs-style-callout-important {

@@ -2418,6 +2418,7 @@ declare namespace Phoenix {
             constructor(fp: any, options: any, form: any);
             _state2UI(): void;
             changed(propName: any, ov: any, nv: any, op: any): void;
+            mousedown(event: any): void;
             focusIn(event: any): void;
             focusOut(event: any): void;
             setFocus(focusParams?: any): void;
