@@ -27,7 +27,6 @@
   --light: #f8f9fa;
   --dark: #343a40;
   --important: #f60;
-  --binary: #D9534F;
   --breakpoint-xs: 0;
   --breakpoint-sm: 576px;
   --breakpoint-md: 768px;
@@ -1748,21 +1747,6 @@ pre code {
   background-color: #ffc59f;
 }
 
-.table-binary,
-.table-binary > th,
-.table-binary > td {
-  background-color: #f4cfce;
-}
-
-.table-hover .table-binary:hover {
-  background-color: #efbbb9;
-}
-
-.table-hover .table-binary:hover > td,
-.table-hover .table-binary:hover > th {
-  background-color: #efbbb9;
-}
-
 .table-active,
 .table-active > th,
 .table-active > td {
@@ -2588,34 +2572,6 @@ fieldset[disabled] a.btn {
   border-color: #cc5200;
 }
 
-.btn-binary {
-  color: #fff;
-  background-color: #D9534F;
-  border-color: #D9534F;
-}
-
-.btn-binary:hover {
-  color: #fff;
-  background-color: #d23430;
-  border-color: #c9302c;
-}
-
-.btn-binary:focus, .btn-binary.focus {
-  box-shadow: 0 0 0 3px rgba(217, 83, 79, 0.5);
-}
-
-.btn-binary.disabled, .btn-binary:disabled {
-  background-color: #D9534F;
-  border-color: #D9534F;
-}
-
-.btn-binary:active, .btn-binary.active,
-.show > .btn-binary.dropdown-toggle {
-  background-color: #d23430;
-  background-image: none;
-  border-color: #c9302c;
-}
-
 .btn-outline-primary {
   color: #0188d1;
   background-color: transparent;
@@ -2875,35 +2831,6 @@ fieldset[disabled] a.btn {
   color: #fff;
   background-color: #f60;
   border-color: #f60;
-}
-
-.btn-outline-binary {
-  color: #D9534F;
-  background-color: transparent;
-  background-image: none;
-  border-color: #D9534F;
-}
-
-.btn-outline-binary:hover {
-  color: #fff;
-  background-color: #D9534F;
-  border-color: #D9534F;
-}
-
-.btn-outline-binary:focus, .btn-outline-binary.focus {
-  box-shadow: 0 0 0 3px rgba(217, 83, 79, 0.5);
-}
-
-.btn-outline-binary.disabled, .btn-outline-binary:disabled {
-  color: #D9534F;
-  background-color: transparent;
-}
-
-.btn-outline-binary:active, .btn-outline-binary.active,
-.show > .btn-outline-binary.dropdown-toggle {
-  color: #fff;
-  background-color: #D9534F;
-  border-color: #D9534F;
 }
 
 .btn-link {
@@ -4610,17 +4537,6 @@ tbody.collapse.show {
   background-color: #cc5200;
 }
 
-.badge-binary {
-  color: #fff;
-  background-color: #D9534F;
-}
-
-.badge-binary[href]:focus, .badge-binary[href]:hover {
-  color: #fff;
-  text-decoration: none;
-  background-color: #c9302c;
-}
-
 .jumbotron {
   padding: 2rem 1rem;
   margin-bottom: 2rem;
@@ -4788,20 +4704,6 @@ tbody.collapse.show {
 
 .alert-important .alert-link {
   color: #522100;
-}
-
-.alert-binary {
-  color: #712b29;
-  background-color: #f7dddc;
-  border-color: #f4cfce;
-}
-
-.alert-binary hr {
-  border-top-color: #efbbb9;
-}
-
-.alert-binary .alert-link {
-  color: #4c1d1b;
 }
 
 @-webkit-keyframes progress-bar-stripes {
@@ -5160,30 +5062,6 @@ button.list-group-item-important.active {
   color: #fff;
   background-color: #853500;
   border-color: #853500;
-}
-
-.list-group-item-binary {
-  color: #712b29;
-  background-color: #f4cfce;
-}
-
-a.list-group-item-binary,
-button.list-group-item-binary {
-  color: #712b29;
-}
-
-a.list-group-item-binary:focus, a.list-group-item-binary:hover,
-button.list-group-item-binary:focus,
-button.list-group-item-binary:hover {
-  color: #712b29;
-  background-color: #efbbb9;
-}
-
-a.list-group-item-binary.active,
-button.list-group-item-binary.active {
-  color: #fff;
-  background-color: #712b29;
-  border-color: #712b29;
 }
 
 .close {
@@ -5939,14 +5817,6 @@ a.bg-important:focus, a.bg-important:hover {
   background-color: #cc5200 !important;
 }
 
-.bg-binary {
-  background-color: #D9534F !important;
-}
-
-a.bg-binary:focus, a.bg-binary:hover {
-  background-color: #c9302c !important;
-}
-
 .bg-white {
   background-color: #fff !important;
 }
@@ -6013,10 +5883,6 @@ a.bg-binary:focus, a.bg-binary:hover {
 
 .border-important {
   border-color: #f60 !important;
-}
-
-.border-binary {
-  border-color: #D9534F !important;
 }
 
 .border-white {
@@ -8585,14 +8451,6 @@ a.text-dark:focus, a.text-dark:hover {
 
 a.text-important:focus, a.text-important:hover {
   color: #cc5200 !important;
-}
-
-.text-binary {
-  color: #D9534F !important;
-}
-
-a.text-binary:focus, a.text-binary:hover {
-  color: #c9302c !important;
 }
 
 .text-muted {

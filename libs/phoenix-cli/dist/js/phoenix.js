@@ -1994,8 +1994,7 @@ var Phoenix;
                     danger: _bootstrap4 ? 'outline-danger' : 'danger',
                     warning: _bootstrap4 ? 'outline-warning' : 'warning',
                     link: _bootstrap4 ? 'outline-link' : 'link',
-                    dark: _bootstrap4 ? 'outline-dark' : 'default',
-                    binary: _bootstrap4 ? 'outline-binary' : 'important'
+                    dark: _bootstrap4 ? 'outline-dark' : 'default'
                 };
                 return _bootstraOutlinepBtnCache;
             }
@@ -2013,8 +2012,7 @@ var Phoenix;
                     danger: 'danger',
                     warning: 'warning',
                     link: 'link',
-                    dark: 'default',
-                    binary: _bootstrap4 ? 'binary' : 'important'
+                    dark: 'default'
                 };
                 return _bootstrapBtnCache;
             }
@@ -4200,6 +4198,34 @@ var Phoenix;
                 lurl = _addTenantId(lurl);
                 return _odata.transport.doPatch(lurl, data, opts);
             },
+            applyFilters: function (documents, search, serchFields, skip, top, orderBy) {
+                var res = [], totalCount = documents.length;
+                if ((search || '') !== '' && serchFields && serchFields.length) {
+                    var fl_1 = serchFields.length;
+                    var ss_2 = search.toLowerCase();
+                    documents.forEach(function (item) {
+                        var contains = false;
+                        for (var i = 0; i < fl_1; i++) {
+                            var ff = serchFields[i];
+                            var cv = (item[ff] || '').toLowerCase();
+                            if (cv.indexOf(ss_2) >= 0) {
+                                contains = true;
+                                break;
+                            }
+                        }
+                        if (contains)
+                            res.push(item);
+                    });
+                    totalCount = res.length;
+                }
+                else
+                    res = documents;
+                skip = skip || 0;
+                var ctop = top || res.length;
+                //res.sort()
+                var docs = res.slice(skip, skip + ctop);
+                return { documents: docs, count: totalCount, dataCount: docs.length, skip: skip, pageSize: top, nodata: docs.length === 0, search: search, orderBy: orderBy };
+            },
             getRessources: function (params, ondata, errors) {
                 var _after = function (cd) {
                     if (ondata)
@@ -4242,9 +4268,21 @@ var Phoenix;
                 var lurl = entity;
                 delete params.$entity;
                 var search = '';
+                var searchFields = [];
+                var skip = params.$skip || 0;
+                var top = params.$top;
+                var orderBy = params.$orderby;
                 if (params.$searchByFieldsValue) {
                     search = params.$searchByFieldsValue;
+                    searchFields = params.$searchByFieldsFields;
                     delete params.$searchByFieldsValue;
+                    delete params.$searchByFieldsFields;
+                }
+                var allData = params.$allData;
+                if (allData) {
+                    delete params.$skip;
+                    delete params.$top;
+                    delete params.$allData;
                 }
                 if (!hasEntityId) {
                     if (_odata.v4) {
@@ -4272,18 +4310,29 @@ var Phoenix;
                         delete ldata['@odata.context'];
                     if (!hasEntityId) {
                         cd.documents = _odata.v4 ? ldata.value : ldata.d.results;
-                        cd.dataCount = cd.documents ? cd.documents.length : 0;
+                        if (allData) {
+                            cd._origData = [];
+                        }
                         cd.documents.forEach(function (v) {
                             delete v.__metadata;
+                            if (allData)
+                                cd._origData.push($.extend(true, {}, v));
                         });
-                        if (cd) {
-                            cd.pageSize = params.$top;
-                            cd.skip = params.$skip || 0;
-                            cd.count = _odata.v4 ? ldata['@odata.count'] : ldata.d.__count;
-                            cd.nodata = cd.dataCount == 0;
-                            cd.uri = _addHostName(lurl);
-                            cd.search = search;
+                        if (allData) {
+                            var fdata = _odata.applyFilters(cd.documents, search, searchFields, skip, top, orderBy);
+                            cd.documents = fdata.documents;
+                            cd.count = fdata.count;
                         }
+                        else {
+                            cd.count = _odata.v4 ? ldata['@odata.count'] : ldata.d.__count;
+                        }
+                        cd.dataCount = cd.documents.length;
+                        cd.pageSize = top;
+                        cd.skip = skip;
+                        cd.nodata = cd.dataCount == 0;
+                        cd.uri = _addHostName(lurl);
+                        cd.search = search;
+                        cd.orderBy = orderBy;
                     }
                     else {
                         cd = ldata;
@@ -4876,14 +4925,17 @@ var Phoenix;
                     }
                 });
                 params.$searchByFieldsValue = params.$searchByFields.value;
-                if ($filter)
-                    $filter = {
-                        $left: $filter,
-                        $op: 'and',
-                        $right: searchFilter_1
-                    };
-                else
-                    $filter = searchFilter_1;
+                params.$searchByFieldsFields = params.$searchByFields.fields;
+                if (!params.$allData) {
+                    if ($filter)
+                        $filter = {
+                            $left: $filter,
+                            $op: 'and',
+                            $right: searchFilter_1
+                        };
+                    else
+                        $filter = searchFilter_1;
+                }
             }
             Object.keys(params).forEach(function (name) {
                 if (name === '$search') {
@@ -4896,12 +4948,12 @@ var Phoenix;
                     res.$entity = _getValue(params.$entity, ctx, false, false);
                 else if (name === '$entityId') {
                     var hasKeyNull_1 = false;
-                    var v = typeof params.$entityId;
-                    if (v === 'object') {
+                    var v_1 = typeof params.$entityId;
+                    if (v_1 === 'object') {
                         if (params.$entityId.value && params.$entityId.type) {
-                            var v_1 = _getValue(params.$entityId, ctx, true, false);
-                            hasKeyNull_1 = _isEntityIdNull(v_1);
-                            res[name] = v_1;
+                            var v_2 = _getValue(params.$entityId, ctx, true, false);
+                            hasKeyNull_1 = _isEntityIdNull(v_2);
+                            res[name] = v_2;
                         }
                         else {
                             var l_1 = [];
@@ -4915,9 +4967,9 @@ var Phoenix;
                         }
                     }
                     else {
-                        var v_2 = _getValue(params[name], ctx, true, false);
-                        hasKeyNull_1 = _isEntityIdNull(v_2);
-                        res[name] = v_2;
+                        var v_3 = _getValue(params[name], ctx, true, false);
+                        hasKeyNull_1 = _isEntityIdNull(v_3);
+                        res[name] = v_3;
                     }
                     if (hasKeyNull_1) {
                         res.$entityIdNull = true;
@@ -4929,8 +4981,10 @@ var Phoenix;
                     res.groupby = params.groupby;
                 else if (name == 'having' && params.having)
                     res.having = params.having;
-                else if (name == '$filter' && params.$filter) {
+                else if (name == '$filter' && params.$filter)
                     return;
+                else if (name == '$searchByFieldsFields') {
+                    res[name] = params[name];
                 }
                 else {
                     if (params[name])
@@ -5460,7 +5514,7 @@ var Phoenix;
                     e = e.lastChild;
                 if (that.visible) {
                     var frag_1 = document.createDocumentFragment();
-                    var p_1 = $(Phoenix.bootstrap4 ? '<li class="page-item"><a class="page-link" href></a><li>' : '<li><a href></a><li>').get(0);
+                    var p_1 = $(Phoenix.bootstrap4 ? '<li class="page-item"><a class="page-link bs-button" href></a><li>' : '<li><a href></a><li>').get(0);
                     var span_1 = document.createElement("span");
                     that.pages.forEach(function (page) {
                         var ii = p_1.cloneNode(true);
@@ -12978,7 +13032,7 @@ var Phoenix;
 (function (Phoenix) {
     var Observable;
     (function (Observable) {
-        var _utils = Phoenix.utils, _dom = Phoenix.dom, _sutils = Observable.SchemaUtils, _dutils = Observable.DataUtils, _dsPlugin = Phoenix.DatasetPlugin;
+        var _utils = Phoenix.utils, _dom = Phoenix.dom, _odata = Phoenix.data.odata, _sutils = Observable.SchemaUtils, _dutils = Observable.DataUtils, _dsPlugin = Phoenix.DatasetPlugin;
         var QueryableDataSource = /** @class */ (function () {
             function QueryableDataSource(dsConfig, model) {
                 if (dsConfig.$type !== 'odata')
@@ -13043,7 +13097,7 @@ var Phoenix;
                         else
                             that._config.$params.$filter = null;
                     }
-                    that.refresh(true);
+                    that.refresh(true, true);
                 },
                 enumerable: true,
                 configurable: true
@@ -13062,7 +13116,7 @@ var Phoenix;
                             value: value
                         };
                         if (that._searchFields)
-                            that.refresh(true);
+                            that.refresh(true, false);
                     }
                 },
                 enumerable: true,
@@ -13075,7 +13129,7 @@ var Phoenix;
                 },
                 set: function (value) {
                     var that = this;
-                    if (value !== that._searchFields) {
+                    if (value.join('$$$') !== that._searchFields.join('$$$')) {
                         var doRefresh = !!that._search;
                         that._search = '';
                         that._searchFields = value;
@@ -13084,7 +13138,7 @@ var Phoenix;
                             value: value
                         };
                         if (doRefresh)
-                            that.refresh(true);
+                            that.refresh(true, false);
                     }
                 },
                 enumerable: true,
@@ -13100,17 +13154,17 @@ var Phoenix;
                     return that._orderby;
                 if (value !== that._orderby) {
                     that._orderby = value;
-                    that.refresh(true);
+                    that.refresh(true, true);
                 }
                 return that._orderby;
             };
-            QueryableDataSource.prototype.refresh = function (resetPagination) {
+            QueryableDataSource.prototype.refresh = function (resetPagination, forceReload) {
                 var that = this;
                 return new _utils.Promise(function (resolve, reject) {
                     if (that.isQuery()) {
                         if (resetPagination)
                             that._currentPage = 0;
-                        that._open().then(function () {
+                        that._open(forceReload).then(function () {
                             that._model.notifyPaginationChanged();
                             that._model.notifySortingChanged();
                             resolve();
@@ -13127,7 +13181,7 @@ var Phoenix;
                         var np = Math.min(page, that.totalPages());
                         if (that._currentPage != np) {
                             that._currentPage = np;
-                            that._open().then(function () {
+                            that._open(false).then(function () {
                                 that._model.notifyPaginationChanged();
                             });
                         }
@@ -13154,7 +13208,7 @@ var Phoenix;
                 return _dutils.isQuery(this._config);
             };
             QueryableDataSource.prototype.open = function () {
-                return this._open();
+                return this._open(true);
             };
             QueryableDataSource.prototype.remove = function (key, etag) {
                 var that = this;
@@ -13190,7 +13244,12 @@ var Phoenix;
                     });
                 });
             };
-            QueryableDataSource.prototype._open = function () {
+            QueryableDataSource.prototype._applyFilters = function () {
+                var that = this;
+                var allData = that._model.allData;
+                return _odata.applyFilters(allData, that._search, that._searchFields, that._skip, that._pageSize, '');
+            };
+            QueryableDataSource.prototype._open = function (forceReload) {
                 var that = this;
                 that._config.name = "data";
                 return new _utils.Promise(function (resolve, reject) {
@@ -13200,8 +13259,10 @@ var Phoenix;
                     if (isQuery) {
                         // update orderby
                         if (that._orderby) {
-                            if (that._config.$params.$orderby !== that._orderby)
+                            if (that._config.$params.$orderby !== that._orderby) {
                                 that._config.$params.$orderby = that._orderby;
+                                forceReload = true;
+                            }
                         }
                         // update pagination
                         if (that._pageSize > 0) {
@@ -13209,14 +13270,23 @@ var Phoenix;
                             that._config.$params.$skip = Math.max(0, that._currentPage - 1) * that._pageSize;
                             if (that._config.$params.$skip == 0)
                                 delete that._config.$params.$skip;
+                            that._skip = that._config.$params.$skip;
                         }
                         else {
                             delete that._config.$params.$top;
                             delete that._config.$params.$skip;
                         }
                     }
-                    ;
-                    _dsPlugin.executeDatasets([that._config], that._model.parent.model(true) || {}, result, {}, function (sended, ex) {
+                    var cfg = that._config;
+                    if (!forceReload && isQuery && that._config.$params.$allData && that._model.allData) {
+                        var ldata = that._applyFilters();
+                        Phoenix.dom.processing(false);
+                        that.initFromData(ldata);
+                        that._model.setModel(ldata.documents);
+                        resolve(ldata);
+                        return;
+                    }
+                    _dsPlugin.executeDatasets([cfg], that._model.parent.model(true) || {}, result, {}, function (sended, ex) {
                         _dom.processing(false);
                         if (!ex) {
                             var ldata = result.data;
@@ -13224,13 +13294,16 @@ var Phoenix;
                             if (isQuery) {
                                 if (that._skip && that._skip >= that._totalCount) {
                                     that._currentPage = 0;
-                                    return that._open().then(function (rdata) {
+                                    return that._open(forceReload).then(function (rdata) {
                                         resolve(rdata);
                                     });
                                 }
                             }
+                            if (isQuery && that._config.$params.$allData) {
+                                that._model.allData = ldata._allData;
+                            }
                             if (that._model) {
-                                that.isQuery() ? that._model.setModel(ldata.documents) : that._model.setModel(ldata);
+                                isQuery ? that._model.setModel(ldata.documents) : that._model.setModel(ldata);
                             }
                             resolve(ldata);
                         }
@@ -14397,7 +14470,7 @@ var Phoenix;
         Observable.DataListBase = DataListBase;
         var QueryList = /** @class */ (function (_super) {
             __extends(QueryList, _super);
-            function QueryList(parentSchema, schema, parent, path, value, pageSize, pageNumber, totalCount, arrayParent, locale) {
+            function QueryList(parentSchema, schema, parent, path, value, pageSize, pageNumber, totalCount, allData, arrayParent, locale) {
                 var _this = _super.call(this, schema, parent, path, value, arrayParent, locale, true, null) || this;
                 var that = _this;
                 var root = that._parent.getRootModel();
@@ -14412,6 +14485,7 @@ var Phoenix;
                 if (!cfg) {
                     throw 'Invalid config! You must define a dataset in form for the property: "' + path + '".';
                 }
+                that.allData = allData;
                 that._main = cfg.$main;
                 that._queryable = true;
                 if (pageSize === undefined) {
@@ -14471,7 +14545,7 @@ var Phoenix;
                 return this._query.totalCount();
             };
             QueryList.prototype.$refresh = function (resetPagination) {
-                return this._query.refresh(resetPagination);
+                return this._query.refresh(resetPagination, true);
             };
             QueryList.prototype.$orderby = function (value) {
                 return this._query.orderBy(value);
@@ -14523,6 +14597,7 @@ var Phoenix;
             };
             QueryList.prototype.destroy = function () {
                 var that = this;
+                that.allData = null;
                 if (that._query) {
                     that._query.destroy();
                     that._query = null;
@@ -15544,13 +15619,13 @@ var Phoenix;
                         value[name] = val;
                     }
                     if (_su.isList(si, rs))
-                        that._setQueryListChild(name, val, value.pageSize, value.pageSize ? (Math.round(value.skip / value.pageSize) + 1) : 0, value.count);
+                        that._setQueryListChild(name, val, value.pageSize, value.pageSize ? (Math.round(value.skip / value.pageSize) + 1) : 0, value.count, value._origData);
                     else
                         that[name] = val;
                     if (!isMeta) {
                         if (value.$states && value.$states[name]) {
-                            var ss_2 = value.$states[name];
-                            Object.keys(ss_2).forEach(function (sn) { that.$states[name][sn] = ss_2[sn]; });
+                            var ss_3 = value.$states[name];
+                            Object.keys(ss_3).forEach(function (sn) { that.$states[name][sn] = ss_3[sn]; });
                         }
                         value.$states[name] = that.$states[name].state();
                     }
@@ -15612,13 +15687,13 @@ var Phoenix;
                     that._children[propertyName]._setModel(value, true);
                 that.frozen = ofv;
             };
-            Data.prototype._setQueryListChild = function (propertyName, value, pageSize, page, totalCount) {
+            Data.prototype._setQueryListChild = function (propertyName, value, pageSize, page, totalCount, allData) {
                 var that = this;
                 var ofv = that.frozen;
                 that.frozen = true;
                 if (that._children[propertyName])
                     that._children[propertyName].destroy();
-                that._children[propertyName] = new QueryList(that._schema, that._schema.properties[propertyName], that, propertyName, value, pageSize, page, totalCount, null, that._locale);
+                that._children[propertyName] = new QueryList(that._schema, that._schema.properties[propertyName], that, propertyName, value, pageSize, page, totalCount, allData, null, that._locale);
                 that.frozen = ofv;
                 that.notifyChanged(propertyName, null, value, 'propchange', { instance: that }, true);
                 that.notifyStateChanged(propertyName, { checkChildren: true });
@@ -25127,7 +25202,8 @@ var Phoenix;
                         $module: '',
                         $top: 5,
                         $orderby: '',
-                        $searchByFields: undefined
+                        $searchByFields: undefined,
+                        $allData: true
                     }
                 }
             },
@@ -25419,13 +25495,14 @@ var Phoenix;
                 var that = this, target = event.target;
                 if (that.state.isReadOnly)
                     return;
-                if (target && target.id) {
+                var cid = target.id ? target.id : target.parentNode.id;
+                if (cid) {
                     var href = _dom.attr(target, 'data-phoenix-href') || _dom.attr(target, 'href');
                     if (href === '#')
                         event.preventDefault();
                     var prefix = that.id + "_item_";
-                    if (target.id.indexOf(prefix) === 0) {
-                        var index = parseInt(target.id.substring(prefix.length), 10);
+                    if (cid.indexOf(prefix) === 0) {
+                        var index = parseInt(cid.substring(prefix.length), 10);
                         var value = that.$schema.enum[index];
                         var oldIndex = that.$schema.enum.indexOf(that.state.value);
                         if (that.renderOptions.wizard && oldIndex >= 0 && index >= 0 && (index - oldIndex > 0)) {
@@ -25565,20 +25642,22 @@ var Phoenix;
                     html.push('<div class="no-x-padding col-sm-' + (12 - options.labelCol) + '">');
                 if (addDiv)
                     html.push('<div>');
-                var css = ['btn-group'];
-                html.push('<div id="{0}_grp" tabindex="0" class="' + css.join(' ') + '">');
+                var css = ['no-y-margin d-inline-flex pagination'];
+                html.push('<ul id="{0}_grp" tabindex="0" class="' + css.join(' ') + '">');
                 enums.forEach(function (enumName, index) {
-                    html.push('<a href="#" tabindex="-1" id="{0}_item_' + index + '" class="btn btn-' + _dom.bootstrapStyles(true).secondary + '"');
+                    html.push('<li id="{0}_item_' + index + '" class="page-item">');
+                    html.push('<a tabindex="-1" href="#" class="page-link bs-nowrap"');
                     if (options.width) {
                         html.push(' style="width:' + options.width + '"');
                     }
                     html.push('>');
                     html.push(_utils.escapeHtml(enumsNames[index] || ''));
                     html.push('</a>');
+                    html.push('</li>');
                 });
+                html.push('</div>');
                 if (addDiv)
                     html.push('</div>');
-                html.push('</div>');
             });
             if (options.columns)
                 html.push('</div>');
@@ -25593,29 +25672,24 @@ var Phoenix;
             }
             BtnGroup.prototype._state2UI = function () {
                 var that = this;
-                var pclass = that.renderOptions.binary ? Phoenix.dom.bootstrapStyles(false).binary : _dom.bootstrapStyles(false).primary;
+                var pclass = that.renderOptions.binary ? 'bactive' : 'active';
                 _super.prototype._state2UI.call(this, function (item) {
-                    _dom.addClass(item, 'btn-' + pclass);
-                    _dom.removeClass(item, 'btn-' + _dom.bootstrapStyles(true).secondary);
-                    //item.tabIndex = 0;
+                    _dom.addClass(item, pclass);
                 });
             };
             BtnGroup.prototype.changed = function (propName, ov, nv, op) {
                 var that = this;
-                var pclass = that.renderOptions.binary ? Phoenix.dom.bootstrapStyles(false).binary : _dom.bootstrapStyles(false).primary;
+                var pclass = that.renderOptions.binary ? 'bactive' : 'active';
                 if (that.state.value != nv) {
                     that.state.value = nv;
                     if (!that.$element)
                         return;
                     _super.prototype._enumItems.call(this, function (btn, value) {
                         if (that.state.value === value) {
-                            _dom.addClass(btn, 'btn-' + pclass);
-                            _dom.removeClass(btn, 'btn-' + _dom.bootstrapStyles(true).secondary);
+                            _dom.addClass(btn, pclass);
                         }
                         else {
-                            _dom.addClass(btn, 'btn-' + _dom.bootstrapStyles(true).secondary);
-                            _dom.removeClass(btn, 'btn-' + pclass);
-                            //btn.tabIndex = -1;
+                            _dom.removeClass(btn, pclass);
                         }
                     });
                 }

@@ -559,6 +559,16 @@ declare namespace Phoenix {
             doPost: (params: any, data: any) => any;
             doPut: (params: any, data: any, etag: any, returnRepresentation: any) => any;
             doPatch: (params: any, data: any, etag: any, returnRepresentation: any) => any;
+            applyFilters: (documents: any, search: string, serchFields: string[], skip: number, top: number, orderBy: string) => {
+                documents: any[];
+                count: number;
+                dataCount: number;
+                skip: number;
+                pageSize: number;
+                nodata: boolean;
+                search: string;
+                orderBy: string;
+            };
             getRessources: (params: any, ondata: any, errors?: any) => any;
         };
     }
@@ -1358,7 +1368,7 @@ declare namespace Phoenix {
             searchFields: string[];
             pageSize(): number;
             orderBy(value?: string): string;
-            refresh(resetPagination: boolean): Promise<void>;
+            refresh(resetPagination: boolean, forceReload: boolean): Promise<void>;
             currentPage(page?: number): number;
             totalPages(): number;
             totalCount(): number;
@@ -1366,7 +1376,8 @@ declare namespace Phoenix {
             isQuery(): boolean;
             open(): any;
             remove(key: any, etag?: string): any;
-            private _open();
+            private _applyFilters();
+            private _open(forceReload);
             save(): void;
         }
     }
@@ -1471,7 +1482,8 @@ declare namespace Phoenix {
         class QueryList extends DataListBase {
             private _query;
             private _main;
-            constructor(parentSchema: any, schema: any, parent: any, path: any, value: any, pageSize: any, pageNumber: any, totalCount: any, arrayParent: any, locale: any);
+            allData: any[];
+            constructor(parentSchema: any, schema: any, parent: any, path: any, value: any, pageSize: any, pageNumber: any, totalCount: any, allData: any[], arrayParent: any, locale: any);
             filter: any;
             readonly searchFields: string[];
             searchField: string[];
@@ -1596,7 +1608,7 @@ declare namespace Phoenix {
             _setRefChild(propertyName: any, oldvalue: any, value: any): void;
             _setListChild(propertyName: any, oldvalue: any, value: any): void;
             _setSimpleListChild(propertyName: any, oldvalue: any, value: any): void;
-            _setQueryListChild(propertyName: any, value: any[], pageSize: number, page: number, totalCount: number): void;
+            _setQueryListChild(propertyName: any, value: any[], pageSize: number, page: number, totalCount: number, allData: any[]): void;
             private _initFromSchema(schema);
             getParentModel(path: string): any;
             addAjaxException(ex: any): void;

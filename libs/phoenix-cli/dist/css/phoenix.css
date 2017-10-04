@@ -14,16 +14,10 @@
   font-feature-settings: 'liga';
 }
 
-button.bs-button > span.mdi {
-  margin-top: -0.5rem;
-  margin-bottom: -0.5rem;
-  font-size: 1.4em;
-}
-
-span.bs-icon-input > span.mdi {
-  margin-top: -0.5rem;
-  margin-bottom: -0.5rem;
-  font-size: 1.4em;
+.bs-button > span.mdi, span.bs-icon-input > span.mdi {
+  margin-top: -1rem;
+  margin-bottom: -0.8rem;
+  font-size: 1.6em;
 }
 
 .mdi-3d-rotation:before {
@@ -4846,6 +4840,12 @@ ul.bs-nav-button.bs-right-nav {
   background: #9FD6AE;
 }
 
+.page-item.bactive .page-link {
+  background-color: #D9534F;
+  border-color: #D9534F;
+  color: #fff;
+}
+
 .bs-enum-list-wrap {
   display: table;
 }
@@ -5305,138 +5305,6 @@ tr.bs-table-row.even {
   padding-right: 0.75rem;
 }
 
-.wizard {
-  background-color: #efefef;
-  text-align: center;
-  overflow: hidden;
-}
-
-.wizard-bar {
-  padding-top: 0.5rem;
-  display: table;
-  width: 100%;
-}
-
-#wizard-test {
-  display: inline;
-  /*visibility: hidden;*/
-}
-
-.wizard .step {
-  display: inline-block;
-  padding-top: 10px;
-  padding-bottom: 10px;
-  position: relative;
-}
-
-.wizard .step > .glyphicon-ok {
-  width: 1.5rem;
-  position: absolute;
-  left: 0;
-  top: 50%;
-  margin-top: -.5em;
-}
-
-.wizard .step > .wizard-separator {
-  width: 1.5rem;
-  position: absolute;
-  right: 0;
-  top: 50%;
-  margin-top: -.5em;
-}
-
-.wizard .step-v {
-  color: #67b767;
-}
-
-.wizard .step-a {
-  color: #efae50;
-}
-
-.wizard .step-na {
-  color: #545353;
-}
-
-.wizard .step:hover {
-  cursor: pointer;
-  background-color: #dedede;
-}
-
-.wizard .step-lib {
-  margin-left: 2.5em;
-  position: relative;
-}
-
-.wizard .step-lib-sep {
-  margin-right: 1.5em;
-}
-
-.wizard .step-circle {
-  position: absolute;
-  width: 1.75rem;
-  height: 1.75rem;
-  border-radius: 50%;
-  color: white;
-  margin-top: -.25rem;
-}
-
-.wizard .step-circle-v {
-  background-color: #67b767;
-}
-
-.wizard .step-circle-a {
-  background-color: #efae50;
-}
-
-.wizard .step-circle-na {
-  background-color: #545353;
-}
-
-.wizard .step-num {
-  position: absolute;
-  top: 10%;
-  left: 30%;
-}
-
-.wizard .step-num > .accession-icon {
-  font-size: 1rem;
-}
-
-.wizard .more-xs {
-  font-size: 1.2rem;
-  cursor: pointer;
-  float: right;
-  top: 0.7rem;
-  right: 1rem;
-}
-
-.wizard .more-xs:hover {
-  color: grey;
-}
-
-.wizard-more {
-  float: right;
-}
-
-.wizard-more .step {
-  display: block !important;
-  padding-top: 5px !important;
-  padding-bottom: 5px !important;
-  border-bottom: 1px solid black;
-}
-
-.wizard-xs .step:hover {
-  background-color: transparent !important;
-}
-
-.wizard-bar > span {
-  display: table-cell;
-}
-
-.wizard-bar > div {
-  display: table-cell;
-}
-
 .bs-toolbar {
   display: flex !important;
 }
@@ -5574,6 +5442,10 @@ body {
 
 .bs-none {
   display: none !important;
+}
+
+.bs-nowrap {
+  white-space: nowrap;
 }
 
 .bs-disabled, .bs-disabled > * {
