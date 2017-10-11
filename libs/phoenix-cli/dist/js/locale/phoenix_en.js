@@ -90,7 +90,8 @@ var Phoenix;
             "Add": "Add",
             "selectedFilters": "Selected filters",
             "OpenNewTab": "Open link in new tab",
-            "Search": "Search"
+            "Search": "Search",
+            "Actions": "Actions"
         },
         "errors": {
             "Title": "Oops! An unknown error has occurred.",

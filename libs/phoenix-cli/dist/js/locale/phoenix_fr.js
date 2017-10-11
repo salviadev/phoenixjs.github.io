@@ -90,7 +90,8 @@ var Phoenix;
             "Add": "Ajouter",
             "selectedFilters": "Filtres sélectionnés",
             "OpenNewTab": "Ouvrir dans un nouvel onglet",
-            "Search": "Recherche"
+            "Search": "Recherche",
+            "Actions": "Actions"
         },
         "errors": {
             "Title": "Oops! Une erreur s'est produite.",

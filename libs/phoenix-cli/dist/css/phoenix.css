@@ -4672,6 +4672,180 @@ ul.bs-nav-button.bs-right-nav {
   color: #FFF;
 }
 
+.bs-field-list-border {
+  border: 1px solid #e9ecef;
+  overflow: auto;
+}
+
+.bs-filter-view .bs-champ-list {
+  padding-top: 15px;
+}
+
+.bs-filter-view .bs-champ-list select {
+  padding: 0;
+  overflow-y: auto;
+}
+
+.bs-filter-view .bs-champ-list option {
+  padding: 5px;
+}
+
+.bs-filter-view .bs-filter-list {
+  padding: 0 20px 0 7px;
+}
+
+.bs-filter-list .btn-primary {
+  background-color: #5a5858;
+}
+
+.bs-filter-list .btn-primary.focus {
+  background-color: #337ab7;
+}
+
+.bs-boxed-tags {
+  padding: 0 2px;
+}
+
+.bs-boxed-tags-item {
+  display: inline-block;
+  margin: 2px 5px 2px 0;
+  border-radius: 4px;
+  padding: 4px 10px;
+  color: white;
+  background-color: #0188d1;
+  position: relative;
+  padding-right: 2.5em;
+}
+
+.bs-boxed-tags-item:active {
+  background-color: red;
+}
+
+.bs-boxed-tags-item > i {
+  margin-left: 5px;
+  cursor: pointer;
+  padding: 2px;
+  position: absolute;
+  right: 0;
+  width: 30px;
+  height: 30px;
+  text-align: center;
+  top: 50%;
+  margin-top: -15px;
+  padding-top: 8px;
+}
+
+.bs-checkboxlist-list-check {
+  font-size: 120%;
+  padding: 2px;
+  vertical-align: middle;
+}
+
+.bs-checkboxlist-list-check, .bs-checkboxlist-list-title {
+  display: inline;
+  padding: 2px 2px 2px 4px;
+  vertical-align: middle;
+}
+
+.bs-checkboxlist-list .bs-checkboxlist-list-title {
+  text-overflow: ellipsis;
+}
+
+.bs-checkboxlist-list.checkbox-inline {
+  margin-left: 0;
+  padding: 0 5px;
+}
+
+.bs-fields-list {
+  overflow: hidden;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  box-shadow: 0 1px 1px rgba(0, 0, 0, 0.075) inset;
+}
+
+.bs-fields-list select {
+  width: 110%;
+}
+
+.bs-treeview {
+  white-space: nowrap;
+}
+
+.bs-treeview span.indent {
+  margin-left: 10px;
+  margin-right: 10px;
+}
+
+.bs-treeview span.icon {
+  width: 12px;
+}
+
+.bs-treeview span.icon.icon-exist {
+  display: inline-block;
+  margin-right: 5px;
+}
+
+.bs-treeview.noborder {
+  border: 0 none;
+  box-shadow: none;
+}
+
+.bs-treeview li.noborder {
+  border: 0 none;
+}
+
+.bs-pillbox {
+  position: relative;
+  padding: 0 2px;
+  border: 1px solid #d5d5d5;
+  font-size: 12px;
+}
+
+.bs-pillbox-item {
+  line-height: 30px;
+  display: inline-block;
+  position: relative;
+}
+
+.bs-pillbox-item-tag {
+  margin: 2px 2px 2px 0;
+  padding: 0 10px;
+  padding-right: 40px;
+  background-color: #0188d1;
+  color: white;
+  border-radius: 4px;
+  cursor: default;
+}
+
+.bs-pillbox-item-tag.focus {
+  background-color: #5a5858;
+}
+
+.bs-pillbox-item-tag:last-child {
+  margin-right: 0;
+}
+
+.bs-pillbox > li > input {
+  border: 1px solid white;
+  display: inline;
+}
+
+.bs-pillbox > li > input:focus {
+  border: 1px solid white;
+  outline: none;
+}
+
+.bs-pillbox-item-tag span.icon.icon-remove {
+  width: 30px;
+  height: 30px;
+  position: absolute;
+  top: 50%;
+  margin-top: -15px;
+  padding-top: 8px;
+  right: 0;
+  text-align: center;
+}
+
 .is-invalid div.invalid-feedback {
   display: block;
 }
@@ -5315,7 +5489,7 @@ tr.bs-table-row.even {
 }
 
 .bs-toolbar-item {
-  display: inline-block;
+  display: flex;
   margin-left: 0px;
   margin-right: 4px;
 }

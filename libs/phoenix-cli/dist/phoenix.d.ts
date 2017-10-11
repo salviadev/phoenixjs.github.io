@@ -1465,6 +1465,7 @@ declare namespace Phoenix {
             protected _fillItems(): void;
             private _updateSelecting(multiSelect, expandingProperty, list, root);
             clearSelection(expandingProperty?: string): void;
+            getSelectedItems(expandingProperty?: string): any[];
             updateSelecting(multiSelect: boolean, expandingProperty: string): void;
             enumSelectedItems(expandingProperty: string, cb: (item: any) => void): void;
             private _enumChildren(expandingProperty, cb);
@@ -2154,7 +2155,7 @@ declare namespace Phoenix {
             private _searchText();
             private _getSource(cell, options);
             private _findValue(search, cell, after);
-            private _filterResult(ldata, opts);
+            private _filterResult(ldata, opts, lookup, bind, display);
             private _setRemoteValue(col, item, ldata);
             private _onselectItem(value);
             private _openGridLookup();
@@ -2993,6 +2994,7 @@ declare namespace Phoenix {
             setOptions(value: any): void;
             protected createElement(index: any, config: any, data: any): any;
             refresh(): void;
+            protected beforeAppend(): void;
             after(): void;
             render($parent: any): any;
             destroy(): void;
@@ -3022,6 +3024,27 @@ declare namespace Phoenix {
         class ToolElementDropdownAction extends ToolElement {
             constructor(config: any, options?: any);
             protected createElement(index: any, config: any, data: any): any;
+            click(event: any): void;
+        }
+        class ToolElementArrayAction extends ToolElement {
+            private _schema;
+            private _form;
+            private _schemaItems;
+            private _selected;
+            private _bind;
+            private _grid;
+            constructor(config: any, options?: any);
+            protected beforeAppend(): void;
+            private _state2Ui();
+            private _updateselected();
+            private _state();
+            private findLinkByBind(bind);
+            private findLinkById(id);
+            changed(propName: string, ov: any, nv: any, op: any, params: any): void;
+            private _createImportantActions(html);
+            private _createMenuActions(html);
+            protected createElement(index: any, config: any, data: any): any;
+            destroy(): void;
             click(event: any): void;
         }
         class ToolElementSelect extends ToolElement {
@@ -3061,10 +3084,17 @@ declare namespace Phoenix {
         class ToolBar {
             id: string;
             private _map;
+            private _schema;
+            private _schemaItems;
+            private _form;
+            private _bind;
             private toolElements;
             private options;
             private $element;
             constructor(toolElements: any, options?: any);
+            readonly form: ui.Form;
+            readonly schema: any;
+            readonly schemaItems: any;
             private _idComponent(el);
             getToolElement(indexOrName: any): any;
             setValue(name: any, value: any): void;
