@@ -1405,6 +1405,7 @@ declare namespace Phoenix {
             protected _selectedUids: string[];
             protected _selectedPks: string[];
             protected _schema: any;
+            $links: any;
             protected _rootSchema: any;
             protected _schemaItems: any;
             protected _items: Data[];
@@ -1767,6 +1768,7 @@ declare namespace Phoenix {
             execAction(propName: string, actionParams?: any, params?: any): void;
             close(): void;
             broadcast(eventName: string, params: any): void;
+            patch(delta: any[]): void;
             private _sendData();
             private _synModel(action);
             private _modelChanged(propName, ov, nv, op, params, actionParams);
@@ -3037,9 +3039,11 @@ declare namespace Phoenix {
             protected beforeAppend(): void;
             private _state2Ui();
             private _updateselected();
+            private _stateOfLink(link);
             private _state();
             private findLinkByBind(bind);
             private findLinkById(id);
+            stateChanged(propName: string, params: any): void;
             changed(propName: string, ov: any, nv: any, op: any, params: any): void;
             private _createImportantActions(html);
             private _createMenuActions(html);

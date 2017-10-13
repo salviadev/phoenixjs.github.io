@@ -4677,19 +4677,21 @@ ul.bs-nav-button.bs-right-nav {
   overflow: auto;
 }
 
-.bs-filter-view .bs-champ-list {
-  padding-top: 15px;
+/*
+.bs-filter-view .bs-champ-list{
+    padding-top: 15px;
+} 
+*/
+/*
+.bs-filter-view .bs-champ-list select{
+    padding: 0;
+    overflow-y: auto;
 }
 
-.bs-filter-view .bs-champ-list select {
-  padding: 0;
-  overflow-y: auto;
-}
-
-.bs-filter-view .bs-champ-list option {
-  padding: 5px;
-}
-
+.bs-filter-view .bs-champ-list option{
+    padding: 5px;
+} 
+*/
 .bs-filter-view .bs-filter-list {
   padding: 0 20px 0 7px;
 }
@@ -4714,25 +4716,10 @@ ul.bs-nav-button.bs-right-nav {
   color: white;
   background-color: #0188d1;
   position: relative;
-  padding-right: 2.5em;
 }
 
 .bs-boxed-tags-item:active {
   background-color: red;
-}
-
-.bs-boxed-tags-item > i {
-  margin-left: 5px;
-  cursor: pointer;
-  padding: 2px;
-  position: absolute;
-  right: 0;
-  width: 30px;
-  height: 30px;
-  text-align: center;
-  top: 50%;
-  margin-top: -15px;
-  padding-top: 8px;
 }
 
 .bs-checkboxlist-list-check {

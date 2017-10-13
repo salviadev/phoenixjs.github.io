@@ -11895,7 +11895,7 @@ var Phoenix;
             lastSegment: function (bind, display) {
                 var segments = bind.split('.');
                 var ls = segments.pop();
-                if (display && display != bind) {
+                if (display && display !== bind) {
                     ls = display.substring(segments.join('.').length);
                 }
                 return ls;
@@ -12865,7 +12865,10 @@ var Phoenix;
             __extends(LinkStates, _super);
             function LinkStates(parent, prop, value) {
                 var _this = _super.call(this, parent, prop, value) || this;
-                _this._init(parent, "$links." + prop, value, _sutils.linksStates);
+                var cp = prop;
+                if (cp.indexOf('.$links') < 0)
+                    cp = '$links.' + prop;
+                _this._init(parent, cp, value, _sutils.linksStates);
                 return _this;
             }
             return LinkStates;
@@ -13900,6 +13903,17 @@ var Phoenix;
                 that._schema = _su.expand$Ref(schema, that._rootSchema);
                 that._schemaItems = _su.expand$Ref(that._schema.items, that._rootSchema);
                 that.frozen = false;
+                that.$links = {};
+                if (that._schema.links) {
+                    var parentModel_1 = that._parent.model(true);
+                    Object.keys(that._schema.links).forEach(function (name) {
+                        var link = $.extend({}, that._schema.links[name]);
+                        var parentPath = path + '.' + name;
+                        parentModel_1.$links = parentModel_1.$links || {};
+                        parentModel_1.$links[parentPath] = $.extend(link, parentModel_1.$links[parentPath] || {});
+                        that.$links[name] = new _observable.LinkStates(that.parent, path + '.$links.' + name, parentModel_1.$links[parentPath]);
+                    });
+                }
                 that._setModel(value, true);
             }
             Object.defineProperty(DataListCore.prototype, "schema", {
@@ -14124,6 +14138,7 @@ var Phoenix;
                 that._arrayParent = null;
                 that._parentSelected = null;
                 that._destroyItems();
+                that.$links = null;
                 that._selectedPks = null;
                 that._model = null;
                 that._schema = null;
@@ -15314,8 +15329,12 @@ var Phoenix;
                     try {
                         delta.forEach(function (item) {
                             var parent = _dutils.getJSONPatchParent(item.path, that);
-                            if (parent.type === JSONJPATCH_METHOD)
-                                return;
+                            if (parent.type === JSONJPATCH_METHOD) {
+                                console.log(item);
+                                console.log(parent);
+                                //TODO
+                            }
+                            ;
                             var p = parent.value;
                             if (p.isArray && parent.type === JSONJPATCH_PROPERTY) {
                                 if (item.op === 'add') {
@@ -15649,6 +15668,7 @@ var Phoenix;
                 var props = Object.keys(that._schema.properties);
                 //for each property set value && state
                 var rs = that._rootParent._schema;
+                that._model.$links = value.$links;
                 props.forEach(function (name) {
                     var si = that._schema.properties[name];
                     if (!_su.inModel(si, rs))
@@ -16986,6 +17006,19 @@ var Phoenix;
             };
             Form.prototype.broadcast = function (eventName, params) {
                 this.formManager.broadcast(eventName, params);
+            };
+            Form.prototype.patch = function (delta) {
+                var that = this;
+                that._inSync = true;
+                that.processing(true);
+                try {
+                    if (delta && delta.length)
+                        that.$model.applyJsonPachDelta(delta);
+                }
+                finally {
+                    that.processing(false);
+                    that._inSync = false;
+                }
             };
             Form.prototype._sendData = function () {
                 var that = this;
@@ -30539,7 +30572,7 @@ var Phoenix;
                 if (tag.selected)
                     _dom.addClass(item, "focus");
                 _dom.attr(item, "data-id", tag.code);
-                item.innerHTML = tag.libelle + ' <i data-id="REMOVE" class="' + _dom.iconClass("remove") + '" ></i>';
+                item.innerHTML = tag.libelle + ' <span data-id="REMOVE" class="' + _dom.iconClass("remove") + '" ></span>';
                 _dom.append(that.$element.get(0), item);
             };
             TagView.prototype.removeTag = function (id) {
@@ -33279,13 +33312,16 @@ var Phoenix;
                 if (value)
                     that._selected = value.getSelectedItems(that._grid.renderOptions.expandingProperty);
             };
+            ToolElementArrayAction.prototype._stateOfLink = function (link) {
+                var that = this;
+                var state = that._form.getState(link.bind);
+                link.state = link.state || {};
+                Object.keys(state).forEach(function (pn) { link.state[pn] = state[pn]; });
+            };
             ToolElementArrayAction.prototype._state = function () {
                 var that = this;
                 that.config.links.forEach(function (link) {
-                    var state;
-                    state = that._form.getState(link.bind);
-                    link.state = link.state || {};
-                    Object.keys(state).forEach(function (pn) { link.state[pn] = state[pn]; });
+                    that._stateOfLink(link);
                 });
             };
             ToolElementArrayAction.prototype.findLinkByBind = function (bind) {
@@ -33304,6 +33340,16 @@ var Phoenix;
                 }
                 return null;
             };
+            ToolElementArrayAction.prototype.stateChanged = function (propName, params) {
+                var that = this;
+                if (propName && params && params.property && params.property.indexOf('.$links') >= 0) {
+                    var link_3 = that.findLinkByBind(params.property);
+                    if (link_3) {
+                        that._stateOfLink(link_3);
+                        that._state2Ui();
+                    }
+                }
+            };
             ToolElementArrayAction.prototype.changed = function (propName, ov, nv, op, params) {
                 var that = this;
                 if (!that.$element)
@@ -33315,6 +33361,8 @@ var Phoenix;
                     return;
                 if (op === 'propchange') {
                     if (propName === that._bind) {
+                        that._updateselected();
+                        that._state2Ui();
                     }
                     else {
                         var prop = propName;
@@ -33403,10 +33451,10 @@ var Phoenix;
                 }
                 var actionId = _dom.attr(target, 'data-action-id');
                 if (actionId) {
-                    var link_3 = that.findLinkById(actionId);
-                    if (link_3) {
-                        if (!link_3.isHidden && !link_3.state.isDisabled && !link_3.state.isHidden)
-                            that._form.execAction(link_3.bind);
+                    var link_4 = that.findLinkById(actionId);
+                    if (link_4) {
+                        if (!link_4.isHidden && !link_4.state.isDisabled && !link_4.state.isHidden)
+                            that._form.execAction(link_4.bind, that._selected);
                     }
                 }
             };
