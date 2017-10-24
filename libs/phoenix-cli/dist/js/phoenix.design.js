@@ -909,7 +909,7 @@ var Phoenix;
                             o.$title.value = model.title;
                             if (!isAccordionGroup) {
                                 o.$title.size = model.titleSize;
-                                o.$title.style = model.titleStyle;
+                                o.$title.$style = model.titleStyle;
                             }
                         }
                         else {
@@ -924,10 +924,10 @@ var Phoenix;
                                     o.$title = o.$title || {};
                                     o.$title.size = model.titleSize;
                                 }
-                                if (!layout.$title.style !== model.titleStyle) {
+                                if (!layout.$title.$style !== model.titleStyle) {
                                     changed = true;
                                     o.$title = o.$title || {};
-                                    o.$title.style = model.titleStyle;
+                                    o.$title.$style = model.titleStyle;
                                 }
                             }
                         }
@@ -1186,7 +1186,7 @@ var Phoenix;
                     name: layout.$name,
                     title: layout.$title && layout.$title.value ? layout.$title.value : '',
                     titleSize: layout.$title && layout.$title.size ? layout.$title.size : 4,
-                    titleStyle: layout.$title && layout.$title.style ? layout.$title.style : '',
+                    titleStyle: layout.$title && layout.$title.$style ? layout.$title.$style : '',
                     childrenFlow: cf,
                     bindPages: layout.$bindPages,
                     colSize: layout.$colSize || 0,

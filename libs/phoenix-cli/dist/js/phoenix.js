@@ -406,7 +406,6 @@ var Phoenix;
 var Phoenix;
 (function (Phoenix) {
     var _p = Phoenix, _utils = _p.utils;
-    Phoenix.fwSyncNames = true;
     var external;
     (function (external) {
         var _defPrefsLoader = function (name) {
@@ -1072,8 +1071,10 @@ var Phoenix;
                 if (opts.headers.contentType)
                     opts.contentType = opts.headers.contentType;
             }
-            if (data)
+            if (data && opts.contentType.indexOf('application/json') >= 0)
                 opts.data = JSON.stringify(data);
+            else
+                opts.data = data;
             return new _promise(function (resolve, reject) {
                 $.ajax(opts).done(function (data, textStatus, jqXHR) {
                     resolve(data);
@@ -2423,7 +2424,9 @@ var Phoenix;
                 if (element.tagName === tag)
                     return element;
                 element = element.parentNode;
-                if (element == root)
+                if (element === root)
+                    break;
+                if (element === document.body)
                     break;
             }
             return null;
@@ -2433,7 +2436,9 @@ var Phoenix;
                 if (value)
                     return element;
                 element = element.parentNode;
-                if (element == root)
+                if (element === root)
+                    break;
+                if (element === document.body)
                     break;
             }
             return null;
@@ -2442,7 +2447,9 @@ var Phoenix;
                 if (_hasClass(element, className))
                     return element;
                 element = element.parentNode;
-                if (element == root)
+                if (element === root)
+                    break;
+                if (element === document.body)
                     break;
             }
             return null;
@@ -4201,14 +4208,15 @@ var Phoenix;
             },
             applyFilters: function (documents, search, serchFields, skip, top, orderBy) {
                 var res = [], totalCount = documents.length;
-                if ((search || '') !== '' && serchFields && serchFields.length) {
+                search = (search || '') + '';
+                if (search && serchFields && serchFields.length) {
                     var fl_1 = serchFields.length;
                     var ss_2 = search.toLowerCase();
                     documents.forEach(function (item) {
                         var contains = false;
                         for (var i = 0; i < fl_1; i++) {
                             var ff = serchFields[i];
-                            var cv = (item[ff] || '').toLowerCase();
+                            var cv = ((item[ff] || '') + '').toLowerCase();
                             if (cv.indexOf(ss_2) >= 0) {
                                 contains = true;
                                 break;
@@ -4818,6 +4826,7 @@ var Phoenix;
             var res = { $url: null, $list: null, $query: null, $method: "GET" };
             res.$method = (params.$method || 'GET').toUpperCase();
             var transactionId, viewId;
+            res.$data = params.$data ? $.extend(true, {}, params.$data) : null;
             if (isSync) {
                 if (!params.$entity)
                     throw 'Invalid sync dataset - $params.$entity';
@@ -4834,7 +4843,7 @@ var Phoenix;
                 else
                     res.$method = 'POST';
                 if (res.$method !== 'POST')
-                    params.$data = null;
+                    res.$data = null;
             }
             res.$url = _utils.execAngularExpression(params.$url, {
                 $url: lurl,
@@ -4843,13 +4852,14 @@ var Phoenix;
                 $mem: _p.$mem,
                 $local: localContext
             });
+            var query = params.$query ? $.extend(true, {}, params.$query) : null;
             if (isSync) {
                 var curl = res.$url.split('/');
                 curl.push(params.$entity);
                 if (viewId && transactionId) {
                     curl.push(viewId);
-                    params.$query = params.$query || {};
-                    params.$query.id = transactionId;
+                    query = query || {};
+                    query.id = transactionId;
                 }
                 res.$url = curl.join('/');
             }
@@ -4858,16 +4868,16 @@ var Phoenix;
             if (params.$cookie)
                 res.$cookie = params.$cookie;
             res.$list = params.$list;
-            if (params.$query) {
+            if (query) {
                 res.$query = {};
-                Object.keys(params.$query).forEach(function (name) {
-                    if (name === '$filter' && params.$query.$filter) {
-                        res.$query.$filter = _parseTree(params.$query.$filter, lurl, context, localContext);
+                Object.keys(query).forEach(function (name) {
+                    if (name === '$filter' && query.$filter) {
+                        res.$query.$filter = _parseTree(query.$filter, lurl, context, localContext);
                         if (!res.$query.$filter)
                             delete res.$query.$filter;
                     }
                     else {
-                        res.$query[name] = _getValue(params.$query[name], {
+                        res.$query[name] = _getValue(query[name], {
                             $url: lurl,
                             $context: context,
                             $data: null,
@@ -4878,8 +4888,8 @@ var Phoenix;
                 });
             }
             if (params.$method !== "GET" && params.$method !== "DELETE") {
-                if (params.$data)
-                    res.$data = _getValue(params.$data, {
+                if (res.$data)
+                    res.$data = _getValue(res.$data, {
                         $url: lurl,
                         $context: context,
                         $data: null,
@@ -5192,11 +5202,15 @@ var Phoenix;
             var params = _parseRestParams(tp, lurl, context, local, true);
             var after = function (localData) {
                 var cd = localData;
+                if (params.$method === 'GET') {
+                    cd.$transactionId = params.$query[params.$transactionId];
+                }
                 if (params.$method === 'POST') {
                     cd = cd.data;
                     var search_1 = {};
                     search_1[params.$transactionId] = localData.id;
                     search_1[params.$viewId] = cd.id;
+                    cd.$transactionId = localData.id;
                     _link.changeSearch(search_1);
                 }
                 if (config.$output)
@@ -5651,12 +5665,12 @@ var Phoenix;
     (function (pagecontrol) {
         var _p = Phoenix, _history = _p.history, _utils = _p.utils, _external = _p.external, _dom = _p.dom, _link = _p.link, _locale = _p.locale, _application = _p.application;
         var _error = [
-            '<div role="alert" class="bs-error alert alert-danger alert-dismissible fade in">',
+            '<div role="alert" class="bs-error alert alert-danger alert-dismissible fade show">',
             '<button aria-label="{0}" data-dismiss="alert" class="close" type="button"><span aria-hidden="true">×</span></button>',
             '<h4 >{1}</h4>',
             '<p>{2}</p>',
             '<p>',
-            '<a class="bs-button btn btn-"' + _dom.bootstrapStyles(false).secondary + ' href="{4}" role="button">{3}</a>',
+            '<a class="bs-button btn btn-' + _dom.bootstrapStyles(false).secondary + '" href="{4}" role="button">{3}</a>',
             '</p>',
             '</div>'
         ];
@@ -9760,18 +9774,13 @@ var Phoenix;
                             delete item.$name;
                         if (item.$inline === false)
                             delete item.$inline;
-                        if (item.$fieldOptions) {
-                            var ckeckKeys = true;
-                            if (item.columns === false)
-                                delete item.columns;
-                            else
-                                ckeckKeys = false;
-                            if (item.titleIsHidden === false)
-                                delete item.titleIsHidden;
-                            else
-                                ckeckKeys = false;
-                            if (ckeckKeys && Object.keys(item.$fieldOptions).length === 0)
-                                delete item.$fieldOptions;
+                        if (item.$fieldsOptions) {
+                            if (item.$fieldsOptions.columns === false)
+                                delete item.$fieldsOptions.columns;
+                            if (item.$fieldsOptions.titleIsHidden === false)
+                                delete item.$fieldsOptions.titleIsHidden;
+                            if (Object.keys(item.$fieldsOptions).length === 0)
+                                delete item.$fieldsOptions;
                         }
                         if (item.datasets && Object.keys(item.datasets).length === 0)
                             delete item.datasets;
@@ -10848,13 +10857,13 @@ var Phoenix;
                             structChanged = true;
                         delete data.$inline;
                     }
-                    if (!_utils.equals(dst.$fieldsOptions, data.$fieldOptions)) {
-                        dst.$fieldsOptions = data.$fieldOptions;
+                    if (!_utils.equals(dst.$fieldsOptions, data.$fieldsOptions)) {
+                        dst.$fieldsOptions = data.$fieldsOptions;
                         propsChanged = true;
                         if (dst.$items.length)
                             structChanged = true;
                     }
-                    delete data.$fieldOptions;
+                    delete data.$fieldsOptions;
                     if ((dst.$refProperty || '') !== (data.$refProperty || '')) {
                         dst.$refProperty = data.$refProperty;
                         structChanged = true;
@@ -11851,8 +11860,13 @@ var Phoenix;
             },
             executeLookup: function (lookup, data, options, ondata) {
                 var ds = lookup.data;
+                if (ds.$params && options.containerId)
+                    ds.$params.containerId = options.containerId;
+                if (ds.$params && options.viewId)
+                    ds.$params.viewId = options.viewId;
                 if (options.paginated && (options.findFirst || options.find)) {
                     ds = $.extend(true, {}, lookup.data);
+                    options.search = (options.search || '') + '';
                     var alldata = ds.$params.$allData;
                     var ff = {
                         $left: "startswith",
@@ -12014,7 +12028,7 @@ var Phoenix;
                 return cs;
             },
             states: ['isHidden', 'isDisabled', 'isReadOnly', 'isMandatory', 'style'],
-            statesAndErrors: ['isHidden', 'isDisabled', 'isReadOnly', 'isMandatory', 'errors', 'filter', 'symbol', 'decimals', 'style', 'orderBy', 'selected', 'filter', 'search'],
+            statesAndErrors: ['isHidden', 'isDisabled', 'isReadOnly', 'isMandatory', 'errors', 'filter', 'symbol', 'decimals', 'style', 'search'],
             linksStates: ['isHidden', 'isDisabled'],
             isLink: function (path) {
                 return (path.split('.').indexOf('$links') >= 0);
@@ -12195,9 +12209,10 @@ var Phoenix;
                         var co_1 = { children: cs.children, select: opts.select };
                         var pitems_2 = _expandRefProp(cs.items, rootSchema);
                         var firstItem_1 = null;
-                        var selectedItems_1 = a.$states ? a.$states[pn] : null;
-                        if (selectedItems_1)
-                            selectedItems_1 = selectedItems_1.selected;
+                        var listStates = a.$states ? a.$states[pn] : null;
+                        var selectedItems_1 = null;
+                        if (listStates && listStates.selected)
+                            selectedItems_1 = JSON.parse('[' + listStates.selected + ']');
                         a[pn].forEach(function (item, index) {
                             if (item.id && selectedItems_1 && selectedItems_1.indexOf(item.id) >= 0) {
                                 item.$select = true;
@@ -12210,8 +12225,12 @@ var Phoenix;
                             }
                             _sutils.init(pitems_2, rootSchema, context, item, iCreate, co_1);
                         });
-                        if (firstItem_1 && !cs.syncSelected && cs.autoSelect !== false)
+                        if (firstItem_1 && !cs.syncSelected && cs.autoSelect !== false) {
                             firstItem_1.$select = true;
+                        }
+                        if (listStates) {
+                            delete listStates.selected;
+                        }
                     }
                     else if (_sutils.isSimpleList(cs, rootSchema)) {
                         //a[pn] = a[pn] || [];
@@ -12843,6 +12862,91 @@ var Phoenix;
         }());
         Observable.BaseState = BaseState;
         ;
+        var ListStates = /** @class */ (function (_super) {
+            __extends(ListStates, _super);
+            function ListStates(parent, prop, value) {
+                var _this = _super.call(this, parent, prop, value) || this;
+                var that = _this;
+                _this._init(parent, prop, value, null);
+                return _this;
+            }
+            ListStates.prototype._init = function (parent, prop, value, list) {
+                var that = this;
+                that._state = value || {};
+                that.name = prop;
+                that.parent = parent;
+            };
+            Object.defineProperty(ListStates.prototype, "columns", {
+                get: function () {
+                    var that = this, array = that.parent[that.name];
+                    return array.columns.join(',');
+                },
+                set: function (value) {
+                    var that = this, array = that.parent[that.name];
+                    var oldVal = array.columns.join(',');
+                    value = value || '';
+                    if (oldVal !== value) {
+                        if (that.parent && that.parent.notifyStateChanged)
+                            that.parent.notifyStateChanged(that.name + '.columns', {});
+                    }
+                },
+                enumerable: true,
+                configurable: true
+            });
+            Object.defineProperty(ListStates.prototype, "selected", {
+                get: function () {
+                    var that = this;
+                    var array = that.parent[that.name];
+                    return array.getSelectedItems().join(',');
+                },
+                set: function (value) {
+                    var that = this;
+                    var array = that.parent[that.name];
+                    var oldValue = array.getSelectedItems().join(',').split(',').sort();
+                    var newValue = (value || '').split(',').sort();
+                    var s = newValue.join(',');
+                    if (oldValue.join(',') !== s) {
+                        array.setSelectedItems(JSON.parse('[' + s + ']'));
+                    }
+                },
+                enumerable: true,
+                configurable: true
+            });
+            Object.defineProperty(ListStates.prototype, "orderBy", {
+                get: function () {
+                    var that = this;
+                    return that._orderBy;
+                },
+                set: function (value) {
+                    var that = this;
+                    if (that._orderBy !== value) {
+                        that._orderBy = value;
+                        if (that.parent && that.parent.notifyStateChanged)
+                            that.parent.notifyStateChanged(that.name + '.orderBy', {});
+                    }
+                },
+                enumerable: true,
+                configurable: true
+            });
+            Object.defineProperty(ListStates.prototype, "filter", {
+                get: function () {
+                    var that = this;
+                    return that._filter;
+                },
+                set: function (value) {
+                    var that = this;
+                    if (that._filter !== value) {
+                        that._filter = value;
+                        if (that.parent && that.parent.notifyStateChanged)
+                            that.parent.notifyStateChanged(that.name + '.filter', {});
+                    }
+                },
+                enumerable: true,
+                configurable: true
+            });
+            return ListStates;
+        }(BaseState));
+        Observable.ListStates = ListStates;
         var DataStates = /** @class */ (function (_super) {
             __extends(DataStates, _super);
             function DataStates(parent, prop, value) {
@@ -13784,7 +13888,11 @@ var Phoenix;
                         defvalue.decimals = 0;
                 }
             }
-            obj.$states[name] = new _observable.DataStates(obj, name, defvalue);
+            if (ss.type === 'array') {
+                obj.$states[name] = new _observable.ListStates(obj, name, defvalue);
+            }
+            else
+                obj.$states[name] = new _observable.DataStates(obj, name, defvalue);
         }, _createErrorProp = function (obj, name, defvalue) {
             var schema = obj.$schema.properties[name];
             var rs = obj.root.$schema;
@@ -13811,6 +13919,9 @@ var Phoenix;
             },
             _resolveJSONPatchSegment: function (segment, value, useId) {
                 if (value.isArray) {
+                    if (segment === '$links') {
+                        return { value: value.$links, useId: useId };
+                    }
                     var id = _dutils._segment2Id(segment);
                     return { value: value.find('id', id), useId: useId };
                 }
@@ -13828,7 +13939,16 @@ var Phoenix;
                 }
                 else if (segment.indexOf('$links') >= 0) {
                     res.type = JSONJPATCH_METHOD;
-                    return res;
+                    var methodName = segments.pop();
+                    var m = methodName.split('.');
+                    if (m.length > 1) {
+                        var arrayPropName = m.shift();
+                        methodName = m.join('.');
+                        var links = segments.pop();
+                        segments.push(arrayPropName);
+                        segments.push(links);
+                    }
+                    segments.push(methodName);
                 }
                 var cv = value;
                 var useId = true;
@@ -13916,6 +14036,48 @@ var Phoenix;
                 }
                 that._setModel(value, true);
             }
+            DataListCore.prototype.selecting = function (value, expandingProperty) {
+                var that = this;
+                if (that._schema.syncSelected) {
+                    if (value) {
+                        that._simulateSelecting = true;
+                        that._savedSelectedUids = that._selectedUids.slice();
+                    }
+                    else {
+                        var toSend = that._selectedPks.slice();
+                        that._selectedUids = [];
+                        that._selectedPks = [];
+                        var map_1 = {};
+                        that._savedSelectedUids.forEach(function (id) {
+                            map_1[id] = true;
+                        });
+                        var keys_1 = null;
+                        if (that._schemaItems.primaryKey) {
+                            keys_1 = _su.pkFields(that._schemaItems.primaryKey);
+                            that.forEach(function (item) {
+                                if (map_1[item.$id]) {
+                                    item.internalSetSelected(true);
+                                    that._selectedUids.push(item.$id);
+                                    if (keys_1)
+                                        that._selectedPks.push(_su.pk2Id(_su.extractPkValue(item, keys_1), keys_1));
+                                }
+                                else
+                                    item.internalSetSelected(false);
+                            }, expandingProperty);
+                            that._savedSelectedUids = null;
+                            that._simulateSelecting = false;
+                            that._parent.execSyncAction(that.getJSONPatchPath() + '.$selected', toSend.join(','));
+                        }
+                    }
+                }
+            };
+            Object.defineProperty(DataListCore.prototype, "simulateSelecting", {
+                get: function () {
+                    return this._simulateSelecting;
+                },
+                enumerable: true,
+                configurable: true
+            });
             Object.defineProperty(DataListCore.prototype, "schema", {
                 get: function () {
                     var that = this;
@@ -13962,7 +14124,7 @@ var Phoenix;
                 else if (that._selected !== value) {
                     var os = that._selected;
                     that._selected = value;
-                    if (notify && that._parent) {
+                    if (notify && that._parent && !that.simulateSelecting) {
                         that._parent.notifyChanged(that._path + '.$selected', os, that._selected, 'propchange', { checkChildren: true, instance: that._parent }, false);
                         that._parent.notifyStateChanged(that._path + '.$selected', { checkChildren: true }); ///????
                     }
@@ -13994,30 +14156,24 @@ var Phoenix;
                         });
                     }
                     that._selected = ns_1;
-                    if (notify && that._parent) {
+                    if (notify && that._parent && !that.simulateSelecting) {
                         that._parent.notifyChanged(that._path + '.$selected', os, that._selected, 'propchange', { checkChildren: true, instance: that._parent }, false);
                         that._parent.notifyStateChanged(that._path + '.$selected', { checkChildren: true });
                     }
                 }
             };
-            DataListCore.prototype.pushSelected = function (item, persistent, notify) {
+            DataListCore.prototype.pushSelected = function (item, notify) {
                 var that = this;
                 var id = item.$id;
                 var ii = that._selectedUids.indexOf(id);
                 if (ii < 0)
                     that._selectedUids.push(id);
-                if (persistent && that._schemaItems.primaryKey) {
+                if (that._schemaItems.primaryKey) {
                     var keys = _su.pkFields(that._schemaItems.primaryKey);
                     id = _su.pk2Id(_su.extractPkValue(item, keys), keys);
                     ii = that._selectedPks.indexOf(id);
-                    if (ii < 0) {
+                    if (ii < 0)
                         that._selectedPks.push(id);
-                        if (notify) {
-                            // send selected
-                            if (that._schema.syncSelected && that.parent.execSyncAction(that.getJSONPatchPath() + '.$selected', JSON.stringify(that._selectedPks))) {
-                            }
-                        }
-                    }
                 }
                 that._setSelected(item, notify);
             };
@@ -14046,26 +14202,20 @@ var Phoenix;
                     }
                 }
             };
-            DataListCore.prototype.removeSelected = function (item, persistent, notifySelectedChanged) {
+            DataListCore.prototype.removeSelected = function (item, notifySelectedChanged) {
                 var that = this;
                 var ii = that._selectedUids.indexOf(item.$id);
                 if (ii >= 0) {
                     that._selectedUids.splice(ii, 1);
                 }
-                if (persistent && that._schemaItems.primaryKey) {
+                if (that._schemaItems.primaryKey) {
                     var keys = _su.pkFields(that._schemaItems.primaryKey);
                     var id = _su.pk2Id(_su.extractPkValue(item, keys), keys);
                     ii = that._selectedPks.indexOf(id);
-                    if (ii >= 0) {
+                    if (ii >= 0)
                         that._selectedPks.splice(ii, 1);
-                        if (notifySelectedChanged) {
-                            // send selected
-                            if (that._schema.syncSelected && that.parent.execSyncAction(that.getJSONPatchPath() + '.$selected', JSON.stringify(that._selectedPks))) {
-                            }
-                        }
-                    }
                 }
-                that._rmvSelected(item, true);
+                that._rmvSelected(item, notifySelectedChanged);
             };
             DataListCore.prototype.notifyChangedProperty = function (operation) {
                 var that = this;
@@ -14264,7 +14414,8 @@ var Phoenix;
                             var pkId = _su.pk2Id(_su.extractPkValue(item, keys), keys);
                             if (that._selectedPks.lastIndexOf(pkId) >= 0) {
                                 if (citem.internalSetSelected(true)) {
-                                    citem.notifyChanged('$select', false, true, 'propchange', { instance: citem }, true);
+                                    if (!that.simulateSelecting)
+                                        citem.notifyChanged('$select', false, true, 'propchange', { instance: citem }, true);
                                 }
                                 addItem = true;
                             }
@@ -14274,7 +14425,7 @@ var Phoenix;
                         else if (citem.$select)
                             addItem = true;
                         if (addItem) {
-                            that.pushSelected(citem, false, false);
+                            that.pushSelected(citem, false);
                         }
                     });
             };
@@ -14284,7 +14435,7 @@ var Phoenix;
                     that._selectedUids.forEach(function (sel) {
                         var ii = that._map[sel];
                         if (ii)
-                            that.pushSelected(ii, true, true);
+                            that.pushSelected(ii, true);
                     });
                 }
                 else {
@@ -14304,7 +14455,7 @@ var Phoenix;
                             var ii = that._map[list[0]];
                             list[0] = null;
                             if (ii)
-                                that.pushSelected(ii, true, true);
+                                that.pushSelected(ii, true);
                         }
                     }
                 }
@@ -14319,20 +14470,40 @@ var Phoenix;
             DataListBase.prototype.clearSelection = function (expandingProperty) {
                 var that = this;
                 that.enumSelectedItems(expandingProperty, function (item) {
-                    that.selectItem(false, item, false, expandingProperty, false);
+                    that.selectItem(false, item, false, expandingProperty, false, false);
                 });
             };
             DataListBase.prototype.getSelectedItems = function (expandingProperty) {
                 var that = this;
                 var res = [];
                 if (that._schemaItems.primaryKey) {
-                    var keys_1 = _su.pkFields(that._schemaItems.primaryKey);
+                    var keys_2 = _su.pkFields(that._schemaItems.primaryKey);
                     that.enumSelectedItems(expandingProperty, function (item) {
-                        var id = _su.pk2Id(_su.extractPkValue(item, keys_1), keys_1);
+                        var id = _su.pk2Id(_su.extractPkValue(item, keys_2), keys_2);
                         res.push(id);
                     });
                 }
                 return res;
+            };
+            DataListBase.prototype.setSelectedItems = function (selected) {
+                var that = this;
+                if (that._schemaItems.primaryKey) {
+                    var keys_3 = _su.pkFields(that._schemaItems.primaryKey);
+                    that.enumSelectedItems('', function (item) {
+                        var id = _su.pk2Id(_su.extractPkValue(item, keys_3), keys_3);
+                        var ii = selected.indexOf(id);
+                        if (ii < 0) {
+                            that.selectItem(false, item, false, '', false, false);
+                        }
+                        else
+                            selected.splice(ii, 1);
+                    });
+                    selected.forEach(function (pk) {
+                        var p = _su.findByPk(pk, keys_3, that._items);
+                        if (p)
+                            that.selectItem(true, p, true, '', false, false);
+                    });
+                }
             };
             DataListBase.prototype.updateSelecting = function (multiSelect, expandingProperty) {
                 this._updateSelecting(multiSelect, expandingProperty, [], true);
@@ -14377,7 +14548,7 @@ var Phoenix;
                     });
                 }
             };
-            DataListBase.prototype.selectItem = function (value, item, multiSelect, expandingProperty, selectChildren) {
+            DataListBase.prototype.selectItem = function (value, item, multiSelect, expandingProperty, selectChildren, externAction) {
                 var that = this;
                 if (!item)
                     return;
@@ -14396,6 +14567,7 @@ var Phoenix;
                             that._enumSelected(expandingProperty, function (parent, ii) {
                                 if (parent && !ii) {
                                     parent._selectedUids = [];
+                                    parent._selectedPks = [];
                                 }
                                 else {
                                     if (ii.internalSetSelected(false)) {
@@ -14408,9 +14580,10 @@ var Phoenix;
                             }
                             var pa = item._arrayParent;
                             if (pa)
-                                pa.pushSelected(item, false, true);
+                                pa.pushSelected(item, true);
                             selList_1.forEach(function (citem) {
-                                citem.item.notifyChanged('$select', !citem.value, citem.value, 'propchange', { instance: citem.item }, true);
+                                if (!that.simulateSelecting)
+                                    citem.item.notifyChanged('$select', !citem.value, citem.value, 'propchange', { instance: citem.item }, true);
                             });
                         }
                     }
@@ -14429,9 +14602,10 @@ var Phoenix;
                             var doNotify = item.internalSetSelected(false, true);
                             var pa = item._arrayParent;
                             if (pa)
-                                that.removeSelected(item, false, true);
+                                that.removeSelected(item, true);
                             if (doNotify) {
-                                item.notifyChanged('$select', true, false, 'propchange', { instance: item }, true);
+                                if (!that.simulateSelecting)
+                                    item.notifyChanged('$select', true, false, 'propchange', { instance: item }, true);
                             }
                         }
                     }
@@ -14472,7 +14646,7 @@ var Phoenix;
                     }
                     var ns = that._items[ndx];
                     if (ns !== sel)
-                        that.selectItem(true, ns, false, '', false);
+                        that.selectItem(true, ns, false, '', false, true);
                 }
             };
             DataListBase.prototype.sortByKey = function (values, key) {
@@ -14908,7 +15082,7 @@ var Phoenix;
                 that.frozen = ofv;
                 that._map[ii.$id] = ii;
                 if (ii.$select) {
-                    that.pushSelected(ii, true, true);
+                    that.pushSelected(ii, true);
                 }
                 that._parent.notifyChanged(that._path, undefined, item, 'add', { method: true, change: true, $index: isPush ? that._items.length - 1 : start, $id: ii.$id, $value: ii, source: that._parent.getPropertyPath(that._path), instance: that._parent }, false);
                 ii.notifyStateChanged('', { checkChildren: true });
@@ -14929,7 +15103,7 @@ var Phoenix;
                     that._model.splice(ii, 1);
                     if (!ofv)
                         that.frozen = ofv;
-                    that.removeSelected(item, true, false);
+                    that.removeSelected(item, false);
                     that.frozen = true;
                     item.destroy();
                 }
@@ -15245,10 +15419,11 @@ var Phoenix;
                     if (that.internalSetSelected(value)) {
                         if (that._arrayParent) {
                             if (that._selected)
-                                that._arrayParent.pushSelected(that, true, true);
+                                that._arrayParent.pushSelected(that, true);
                             else
-                                that._arrayParent.removeSelected(that, true, true);
-                            that.notifyChanged('$select', !value, value, 'propchange', { source: that.getPropertyPath('$select'), instance: that }, true);
+                                that._arrayParent.removeSelected(that, true);
+                            if (!that._arrayParent.simulateSelecting)
+                                that.notifyChanged('$select', !value, value, 'propchange', { source: that.getPropertyPath('$select'), instance: that }, true);
                         }
                     }
                 },
@@ -15259,15 +15434,15 @@ var Phoenix;
                 var that = this;
                 if (multiSelect) {
                     if (that._arrayParent)
-                        that._arrayParent.selectItem(value, that, multiSelect, expandingProperty, selectChildren);
+                        that._arrayParent.selectItem(value, that, multiSelect, expandingProperty, selectChildren, true);
                     return;
                 }
                 if (expandingProperty) {
-                    parentArray.selectItem(value, that, false, expandingProperty, selectChildren);
+                    parentArray.selectItem(value, that, false, expandingProperty, selectChildren, true);
                 }
                 else {
                     if (that._arrayParent) {
-                        that._arrayParent.selectItem(value, that, false, null, false);
+                        that._arrayParent.selectItem(value, that, false, null, false, true);
                     }
                 }
             };
@@ -15330,9 +15505,10 @@ var Phoenix;
                         delta.forEach(function (item) {
                             var parent = _dutils.getJSONPatchParent(item.path, that);
                             if (parent.type === JSONJPATCH_METHOD) {
-                                console.log(item);
-                                console.log(parent);
-                                //TODO
+                                if (parent.value) {
+                                    parent.value[parent.lastSegment] = item.value;
+                                }
+                                return;
                             }
                             ;
                             var p = parent.value;
@@ -15385,9 +15561,9 @@ var Phoenix;
                                 }
                                 else if (parent.type === JSONJPATCH_STATES) {
                                     if (item.op === 'remove')
-                                        p.$states[parent.lastSegment] = undefined;
+                                        p[parent.lastSegment] = undefined;
                                     else
-                                        p.$states[parent.lastSegment] = item.value;
+                                        p[parent.lastSegment] = item.value;
                                 }
                                 else {
                                     if (item.op === 'remove')
@@ -15648,6 +15824,17 @@ var Phoenix;
                 }
                 return $.extend({}, state, res);
             };
+            Data.prototype._setPropErrors = function (propName, value) {
+                var that = this;
+                if (value.$errors && value.$errors[propName] && that.$errors[propName]) {
+                    var errors = value.$errors[propName];
+                    var ne_1 = [];
+                    errors.forEach(function (err) { ne_1.push(err); });
+                    that.$errors[propName].addErrors(ne_1);
+                }
+                if (that.$errors[propName])
+                    value.$errors[propName] = that.$errors[propName].errors();
+            };
             Data.prototype._setModel = function (value, frozen) {
                 var that = this;
                 var ofv = that.frozen;
@@ -15690,15 +15877,9 @@ var Phoenix;
                         }
                         value.$states[name] = that.$states[name].state();
                     }
-                    if (value.$errors && value.$errors[name] && that.$errors[name]) {
-                        var errors = value.$errors[name];
-                        var ne_1 = [];
-                        errors.forEach(function (err) { ne_1.push(err); });
-                        that.$errors[name].addErrors(ne_1);
-                    }
-                    if (that.$errors[name])
-                        value.$errors[name] = that.$errors[name].errors();
+                    that._setPropErrors(name, value);
                 });
+                that._setPropErrors('$', value);
                 //for each link set state
                 if (value.$links) {
                     props = Object.keys(that._schema.links || {});
@@ -16081,29 +16262,13 @@ var Phoenix;
                 var that = this;
                 var segments = actionName.split('.');
                 if (segments[segments.length - 1] === '$sort') {
-                    if (_p.fwSyncNames) {
-                        //return { path: '/' + segments.join('/'), params: actionParams};    
-                        var sortSegments = actionParams.split('.');
-                        var sortValue_1 = [];
-                        sortSegments.forEach(function (item, index) {
-                            item = item.trim();
-                            var a = item.split(' ');
-                            var ci = { field: a[0], direction: 1 };
-                            if (a.length === 2 && a[1] === 'desc')
-                                ci.direction = -1;
-                            sortValue_1.push(ci);
-                        });
-                        return { op: 'replace', path: '/' + segments.join('/'), params: sortValue_1 };
-                    }
-                    else {
-                        return { op: 'replace', path: '/' + segments.join('/'), params: actionParams };
-                    }
+                    return { op: 'replace', path: '/' + segments.join('/'), params: actionParams };
                 }
                 else if (segments[segments.length - 1] === '$filter') {
                     return { op: actionParams ? 'replace' : 'remove', path: '/' + segments.join('/'), params: actionParams };
                 }
                 else if (segments[segments.length - 1] === '$selected') {
-                    return { op: 'replace', path: '/' + segments.join('/'), params: JSON.parse(actionParams), delayed: true };
+                    return { op: 'replace', path: '/' + segments.join('/'), params: actionParams, delayed: true };
                 }
                 var ii = actionName.indexOf('$links.');
                 if (ii < 0)
@@ -16353,7 +16518,7 @@ var Phoenix;
 (function (Phoenix) {
     var ui;
     (function (ui) {
-        var _p = Phoenix, _ui = _p.ui, _utils = _p.utils, _build = _p.build, _link = _p.link, _dom = _p.dom, _layoutUtils = _p.layoutUtils, _customData = _p.customData, _preferences = _p.preferences, _sutils = _p.Observable.SchemaUtils, _outils = _p.Observable.ObservableUtils, _serversync = Phoenix.serversync, _ulocale = _p.ulocale;
+        var _p = Phoenix, _ui = _p.ui, _utils = _p.utils, _build = _p.build, _link = _p.link, _dom = _p.dom, _layoutUtils = _p.layoutUtils, _customData = _p.customData, _preferences = _p.preferences, _sutils = _p.Observable.SchemaUtils, _outils = _p.Observable.ObservableUtils, _ulocale = _p.ulocale;
         var Form = /** @class */ (function (_super) {
             __extends(Form, _super);
             function Form(layoutData, options, ldata, schema, locale, preferences) {
@@ -16376,6 +16541,11 @@ var Phoenix;
                     return null;
                 };
                 var that = _this;
+                if (ldata && ldata.$transactionId) {
+                    that._transactionId = ldata.$transactionId;
+                    that._viewId = ldata.id;
+                    delete ldata.$transactionId;
+                }
                 that._resizeHnd = function (event) {
                     that._resizeControls();
                     return true;
@@ -16534,6 +16704,12 @@ var Phoenix;
                 options = options || {};
                 options.form = true;
                 return options;
+            };
+            Form.prototype.syncTransactionId = function () {
+                return this._transactionId;
+            };
+            Form.prototype.syncViewId = function () {
+                return this._viewId;
             };
             Form.prototype.syncDataSet = function () {
                 var that = this;
@@ -16832,6 +17008,7 @@ var Phoenix;
                     _dom.append(e, $(fdetail('cog', 'data-form-settings', null, cd)).get(0));
                     cd++;
                 }
+                that._showErrors();
             };
             Form.prototype._afterLayoutAdded = function (layout) {
                 var that = this;
@@ -16874,6 +17051,20 @@ var Phoenix;
                     }
                 }
             };
+            Form.prototype._showErrors = function () {
+                var that = this;
+                var err = that.$model.$errors.$;
+                if (!err.hasErrors()) {
+                    that.clearErrors();
+                }
+                else {
+                    var le = err.errors();
+                    for (var i = 0, len = le.length; i < len; i++) {
+                        var ce = le[i];
+                        that.showErrorItem(ce, i == 0);
+                    }
+                }
+            };
             Form.prototype.stateChanged = function (propName, params) {
                 var that = this;
                 if (params.targetId === 'layout-state') {
@@ -16889,17 +17080,7 @@ var Phoenix;
                     }
                 }
                 else if (params.property === '$' && propName === 'errors') {
-                    var err = that.$model.$errors.$;
-                    if (!err.hasErrors()) {
-                        that.clearErrors();
-                    }
-                    else {
-                        var le = err.errors();
-                        for (var i = 0, len = le.length; i < len; i++) {
-                            var ce = le[i];
-                            that.showErrorItem(ce, i == 0);
-                        }
-                    }
+                    that._showErrors();
                 }
             };
             Form.prototype.getSchema = function (path) {
@@ -18552,8 +18733,7 @@ var Phoenix;
                         $parent.append(that.$element);
                 }
             };
-            AbsField.prototype.setEvents = function (opts) {
-            };
+            AbsField.prototype.setEvents = function (opts) { };
             AbsField.prototype.removeEvents = function () { };
             AbsField.prototype.customOptions = function (opts) {
                 var that = this;
@@ -19881,8 +20061,10 @@ var Phoenix;
             }
             html.push('</div>');
             html.push('<center id="{0}_pagination"></center>');
+            html.push('<div id="{0}_bottom"></div>');
             _uiutils.utils.addErrorDiv(html);
             html.push('</div>');
+            //create bottom div
             return _utils.format(html.join(''), id);
         }, _resizeDiv = function (parent, point) {
             var res = document.createElement('div');
@@ -20361,7 +20543,7 @@ var Phoenix;
                             return;
                         // ---> START LOOKUP
                         if (cell_1.col.$lookup) {
-                            var ov = cell_1.item.getValue(cell_1.col.$bind);
+                            var ov = (cell_1.item.getValue(cell_1.col.$bind) || '') + '';
                             if (s !== ov) {
                                 return that._findValue(s, cell_1, function (ldata) {
                                     that._setRemoteValue(cell_1.col, cell_1.item, ldata);
@@ -20672,8 +20854,16 @@ var Phoenix;
                     if (point.x > p.left && point.x < (p.left + drag.data.multiSelTarget.offsetWidth) &&
                         point.y > p.top && point.y < (p.top + drag.data.multiSelTarget.offsetHeight)) {
                         var opts = that.renderOptions;
-                        if (that.state.value)
-                            drag.data.item.select(true, opts.selecting && opts.selecting.row && opts.selecting.multiselect, that.state.value, opts.expandingProperty, opts.expanding && opts.expanding.selectChildren);
+                        if (that.state.value) {
+                            var list = that.state.value;
+                            list.selecting(true, opts.expandingProperty);
+                            try {
+                                drag.data.item.select(true, opts.selecting && opts.selecting.row && opts.selecting.multiselect, that.state.value, opts.expandingProperty, opts.expanding && opts.expanding.selectChildren);
+                            }
+                            finally {
+                                list.selecting(false, opts.expandingProperty);
+                            }
+                        }
                     }
                 }
             };
@@ -20931,7 +21121,8 @@ var Phoenix;
                         _dom.addClass(tt, 'bs-field-group');
                         _dom.removeClass(tt, 'no-x-padding');
                     }
-                    formgrid.toolBarRender($(tt), that.toolBar);
+                    var bt = _dom.find(element, that.id + '_bottom');
+                    formgrid.toolBarRender($(tt), that.toolBar, $(bt));
                 }
             };
             BasicGrid.prototype._createToolbar = function () {
@@ -21473,6 +21664,8 @@ var Phoenix;
                 var that = this;
                 options.fieldName = cell.col.$lookup.mapping[cell.col.$bind];
                 options.paginated = true;
+                options.containerId = that.form.syncTransactionId();
+                options.viewId = that.form.syncViewId();
                 return _sutils.executeLookup(cell.col.$lookup, cell.item, options);
             };
             BasicGrid.prototype._findValue = function (search, cell, after) {
@@ -21521,6 +21714,12 @@ var Phoenix;
                     else {
                         var ov = item.getValue(base + key, null) || '';
                         var nv = ldata ? ldata[col.$lookup.mapping[key]] || '' : '';
+                        if (nv === '') {
+                            if (typeof ov === 'number')
+                                nv = 0;
+                            else if (typeof ov === 'boolean')
+                                nv = false;
+                        }
                         if (nv !== ov) {
                             item.setValue(base + key, nv, null);
                             changed = true;
@@ -21556,6 +21755,8 @@ var Phoenix;
                         formControl: that.form,
                         display: that.inplace.col.$bind,
                         bind: that.inplace.col.$bind,
+                        containerId: that.form.syncTransactionId(),
+                        viewId: that.form.syncViewId(),
                         align: that.inplace.id,
                         openerId: that.inplace.id + '_after',
                         searchText: that._searchText(),
@@ -21743,8 +21944,16 @@ var Phoenix;
                                         var state = item.getRelativeState(c.$bind);
                                         if (!state.isDisabled && !state.isReadOnly && !state.isHidden) {
                                             var ov = item.getValue(c.$bind);
-                                            if (_sutils.isSelectField(c.$bind))
-                                                item.select(!!!ov, opts.selecting && opts.selecting.row && opts.selecting.multiselect, that.state.value, opts.expandingProperty, opts.expanding && opts.expanding.selectChildren);
+                                            if (_sutils.isSelectField(c.$bind)) {
+                                                var list = that.state.value;
+                                                list.selecting(true, opts.expandingProperty);
+                                                try {
+                                                    item.select(!!!ov, opts.selecting && opts.selecting.row && opts.selecting.multiselect, that.state.value, opts.expandingProperty, opts.expanding && opts.expanding.selectChildren);
+                                                }
+                                                finally {
+                                                    list.selecting(false, opts.expandingProperty);
+                                                }
+                                            }
                                             else
                                                 item.setValue(c.$bind, !!!ov);
                                         }
@@ -21785,17 +21994,29 @@ var Phoenix;
                                             _dom.removeClass(check, nc);
                                             _dom.addClass(check, cc);
                                         }
+                                        var list = that.state.value;
                                         if (!isChecked) {
-                                            var list = that.state.value;
-                                            list.forEach(function (item, index, level) {
-                                                item.select(true, opts.selecting && opts.selecting.row && opts.selecting.multiselect, that.state.value, opts.expandingProperty, false);
-                                            }, opts.expandingProperty, true);
+                                            list.selecting(true, opts.expandingProperty);
+                                            try {
+                                                list.forEach(function (item, index, level) {
+                                                    item.select(true, opts.selecting && opts.selecting.row && opts.selecting.multiselect, that.state.value, opts.expandingProperty, false);
+                                                }, opts.expandingProperty, true);
+                                            }
+                                            finally {
+                                                list.selecting(false, opts.expandingProperty);
+                                            }
                                         }
                                         else {
-                                            var selectedItems = that._getMultiselectdItems();
-                                            selectedItems.forEach(function (item) {
-                                                item.select(false, opts.selecting && opts.selecting.row && opts.selecting.multiselect, that.state.value, opts.expandingProperty, false);
-                                            });
+                                            list.selecting(true, opts.expandingProperty);
+                                            try {
+                                                var selectedItems = that._getMultiselectdItems();
+                                                selectedItems.forEach(function (item) {
+                                                    item.select(false, opts.selecting && opts.selecting.row && opts.selecting.multiselect, that.state.value, opts.expandingProperty, false);
+                                                });
+                                            }
+                                            finally {
+                                                list.selecting(false, opts.expandingProperty);
+                                            }
                                         }
                                     }
                                 }
@@ -21833,7 +22054,14 @@ var Phoenix;
                             var itemId = _dom.attr(p, 'data-ms-unselect');
                             var item = that._findById(itemId);
                             if (item) {
-                                item.select(false, opts.selecting && opts.selecting.row && opts.selecting.multiselect, that.state.value, opts.expandingProperty, opts.expanding && opts.expanding.selectChildren);
+                                var list = that.state.value;
+                                list.selecting(true, opts.expandingProperty);
+                                try {
+                                    item.select(false, opts.selecting && opts.selecting.row && opts.selecting.multiselect, that.state.value, opts.expandingProperty, opts.expanding && opts.expanding.selectChildren);
+                                }
+                                finally {
+                                    list.selecting(false, opts.expandingProperty);
+                                }
                             }
                         }
                     }
@@ -21911,8 +22139,16 @@ var Phoenix;
                     return;
                 var multiselect = opts.selecting && opts.selecting.row && opts.selecting.multiselect;
                 var item = that._findById(id);
-                if (item)
-                    item.select(true, multiselect, that.state.value, opts.expandingProperty);
+                if (item) {
+                    var list = that.state.value;
+                    list.selecting(true, opts.expandingProperty);
+                    try {
+                        item.select(true, multiselect, that.state.value, opts.expandingProperty);
+                    }
+                    finally {
+                        list.selecting(false, opts.expandingProperty);
+                    }
+                }
             };
             BasicGrid.prototype._selectCell = function (cell, target, mousedown) {
                 var that = this;
@@ -22768,8 +23004,16 @@ var Phoenix;
                 var opts = that.renderOptions;
                 if (opts.selecting && opts.selecting.row) {
                     opts.selecting.multiselect = !!!opts.selecting.multiselect;
-                    if (that.state.value)
-                        that.state.value.updateSelecting(opts.selecting.multiselect, opts.expandingProperty);
+                    if (that.state.value) {
+                        var list = that.state.value;
+                        list.selecting(true, opts.expandingProperty);
+                        try {
+                            that.state.value.updateSelecting(opts.selecting.multiselect, opts.expandingProperty);
+                        }
+                        finally {
+                            list.selecting(false, opts.expandingProperty);
+                        }
+                    }
                     that.savePreferences(function () {
                         that._refreshGrid();
                     });
@@ -23849,6 +24093,8 @@ var Phoenix;
                             css.push('checkbox-inline bs-cursor-d');
                         }
                         css.push('bs-lib-col col-sm-' + options.labelCol);
+                        if (options.labelLeft)
+                            css.push('text-left');
                     }
                     if (options.inline) {
                         if (_bootstrap4)
@@ -24507,6 +24753,8 @@ var Phoenix;
                         else
                             css.push('checkbox-inline bs-cursor-d');
                         css.push('bs-lib-col col-sm-' + options.labelCol);
+                        if (options.labelLeft)
+                            css.push('text-left');
                     }
                     if (options.inline) {
                         if (_bootstrap4)
@@ -25181,6 +25429,7 @@ var Phoenix;
             function IFrame(fp, options, form) {
                 var _this = _super.call(this, fp, options, form) || this;
                 _this._state();
+                _this._msghandler = _this._onmessage.bind(_this);
                 return _this;
             }
             IFrame.prototype._setDisabled = function (element) {
@@ -25189,6 +25438,17 @@ var Phoenix;
                 this._setDisabled(element);
             };
             IFrame.prototype._setMandatory = function (element) {
+            };
+            IFrame.prototype._onmessage = function (msg) {
+                var that = this;
+                if (!msg.data)
+                    return;
+                if (typeof msg.data === 'string' && msg.data.indexOf('[iFrameSizer]') >= 0) {
+                    return;
+                }
+                if (that.fieldOptions && that.fieldOptions.messages && msg.data.action && that.fieldOptions.messages[msg.data.action]) {
+                    that.form.execAction(that.fieldOptions.messages[msg.data.action], msg.data.action, msg.data);
+                }
             };
             IFrame.prototype._state2UI = function () {
                 var that = this, element = that.$element ? that.$element.get(0) : null;
@@ -25242,6 +25502,18 @@ var Phoenix;
             IFrame.prototype._iframe = function () {
                 var that = this, e = that.$element.get(0), img = e ? e.firstChild : null;
                 return img;
+            };
+            IFrame.prototype.setEvents = function (opts) {
+                var that = this;
+                window.addEventListener('message', that._msghandler);
+            };
+            IFrame.prototype.removeEvents = function () {
+                var that = this;
+                window.removeEventListener('message', that._msghandler);
+            };
+            IFrame.prototype.destroy = function () {
+                _super.prototype.destroy.call(this);
+                this._msghandler = null;
             };
             IFrame.prototype.render = function ($parent) {
                 var that = this;
@@ -25335,7 +25607,7 @@ var Phoenix;
                 if (action.operation === 'init') {
                     var docs = model.documents;
                     if (docs.length)
-                        docs.selectItem(true, model.documents.get(0), false, '', false);
+                        docs.selectItem(true, model.documents.get(0), false, '', false, false);
                 }
                 else if (action.property === 'form-validate') {
                     if (that._onselect) {
@@ -25354,7 +25626,7 @@ var Phoenix;
                     if (action.operation === 'propchange') {
                         var docs = model.documents;
                         if (docs.length)
-                            docs.selectItem(true, model.documents.get(0), false, '', false);
+                            docs.selectItem(true, model.documents.get(0), false, '', false, false);
                     }
                 }
                 else if (action.property === 'documents.$item.$links.selectAndClose') {
@@ -25545,6 +25817,10 @@ var Phoenix;
                 };
                 if (ds && ds.$params && ds.$params.$filter)
                     ds.$params.$filter = _data.replaceFilterVars(ds.$params.$filter, options.formControl.getParentModel(options.bind).model(true));
+                if (options.containerId)
+                    ds.$params.containerId = options.containerId;
+                if (options.viewId)
+                    ds.$params.viewId = options.viewId;
                 that[options.propertyName].show(ds, options.parentControl, opts);
             }
         };
@@ -25709,6 +25985,8 @@ var Phoenix;
                             cssLabel.push('checkbox-inline bs-cursor-d');
                         }
                         cssLabel.push('bs-lib-col col-sm-' + options.labelCol);
+                        if (options.labelLeft)
+                            cssLabel.push('text-left');
                     }
                     else if (options.inline) {
                         if (_bootstrap4)
@@ -25781,8 +26059,10 @@ var Phoenix;
                 }
             };
             BtnGroup.prototype.mousedown = function (event) {
-                event.preventDefault();
-                this.setFocus();
+                var that = this;
+                if (!that.options.design)
+                    event.preventDefault();
+                that.setFocus();
             };
             BtnGroup.prototype.focusIn = function (event) {
             };
@@ -25877,6 +26157,8 @@ var Phoenix;
                     else
                         css.push('checkbox-inline bs-cursor-d');
                     css.push('col-sm-12 bs-lib-col');
+                    if (options.labelLeft)
+                        css.push('text-left');
                 }
                 if (options.inline) {
                     if (_bootstrap4)
@@ -26212,12 +26494,18 @@ var Phoenix;
                 if (_sutils.allData(that.$lookup)) {
                     if (that.$lookup.cache && that.hasCachedData)
                         return _utils.dataAsPromise(that.cachedData);
-                    else
+                    else {
+                        options.containerId = that.form.syncTransactionId();
+                        options.viewId = that.form.syncViewId();
                         return _sutils.executeLookup(that.$lookup, that.form.getParentModel(that.$bind), options);
+                    }
                 }
                 else {
                     options.fieldName = that.$lookup.mapping[that.$display];
                     options.paginated = true;
+                    options.containerId = that.form.syncTransactionId();
+                    options.viewId = that.form.syncViewId();
+                    options.viewId = that.form.syncViewId();
                     return _sutils.executeLookup(that.$lookup, that.form.getParentModel(that.$bind), options);
                 }
             };
@@ -26488,6 +26776,8 @@ var Phoenix;
                         formControl: that.form,
                         display: that.$display,
                         bind: that.$bind,
+                        containerId: that.form.syncTransactionId(),
+                        viewId: that.form.syncViewId(),
                         align: that.id + '_group',
                         openerId: that.id + '_after',
                         searchText: that._searchText(),
@@ -26630,6 +26920,8 @@ var Phoenix;
                             css.push('checkbox-inline bs-cursor-d');
                         }
                         css.push('bs-lib-col col-sm-' + options.labelCol);
+                        if (options.labelLeft)
+                            css.push('text-left');
                     }
                     if (options.inline) {
                         if (_bootstrap4)
@@ -26971,6 +27263,8 @@ var Phoenix;
                             css.push('checkbox-inline bs-cursor-d');
                         }
                         css.push('bs-lib-col col-sm-' + options.labelCol);
+                        if (options.labelLeft)
+                            css.push('text-left');
                     }
                     if (options.inline) {
                         if (_bootstrap4)
@@ -27285,6 +27579,8 @@ var Phoenix;
                             css.push('checkbox-inline bs-cursor-d');
                         }
                         css.push('bs-lib-col col-sm-' + options.labelCol);
+                        if (options.labelLeft)
+                            css.push('text-left');
                     }
                     if (options.inline) {
                         if (_bootstrap4)
@@ -27565,6 +27861,8 @@ var Phoenix;
                             css.push('checkbox-inline');
                         }
                         css.push('bs-lib-col col-sm-' + options.labelCol);
+                        if (options.labelLeft)
+                            css.push('text-left');
                     }
                     if (options.inline) {
                         if (_bootstrap4)
@@ -32724,8 +33022,8 @@ var Phoenix;
             else
                 that.form.execAction(that.$bind + ".$toolbar." + toolName, { toolElement: toolElement, control: that });
         }
-        function toolbarRenderHandler($parent, toolbar) {
-            toolbar.render($parent);
+        function toolbarRenderHandler($parent, toolbar, $parentBottom) {
+            toolbar.render($parent, $parentBottom);
         }
         function toolBarFactoryHandler(grid) {
             var toolbar = null;
@@ -33384,8 +33682,13 @@ var Phoenix;
                 var that = this;
                 that.config.links.forEach(function (link) {
                     if (link.important) {
-                        html.push('<div class="bs-toolbar-item" title="' + _utils.escapeHtml(link.schema.title) + '">');
-                        html.push('<button id="' + link.id + '"  data-action-id="' + link.id + '" class="bs-button btn btn-' + _dom.bootstrapStyles(true)[link.options.type] + '" type="button">');
+                        html.push('<div id="' + link.id + '" class="bs-toolbar-item' + (that.config.right ? ' right' : '') + ' " title="' + _utils.escapeHtml(link.schema.title) + '">');
+                        var outline = false;
+                        if (link.options.outline !== undefined)
+                            outline = link.options.outline;
+                        else if (['default', 'secondary', 'danger'].indexOf(link.options.type) >= 0)
+                            outline = true;
+                        html.push('<button data-action-id="' + link.id + '" class="bs-button btn btn-' + _dom.bootstrapStyles(outline)[link.options.type] + '" type="button">');
                         var hasIcon = false;
                         if (link.options.icon) {
                             hasIcon = true;
@@ -33410,14 +33713,14 @@ var Phoenix;
             ToolElementArrayAction.prototype.createElement = function (index, config, data) {
                 var that = this;
                 var html = [];
-                html.push('<div  data-tool-id="{0}" tabindex="{1}" class="bs-toolbar-item">');
+                html.push('<div  data-tool-id="{0}" tabindex="{1}" class="bs-toolbar-item ' + (that.config.right ? ' right' : '') + (that.config.bottom ? ' bottom' : '') + '">');
                 that._createImportantActions(html);
                 html.push('<div class="dropdown">');
                 html.push('<button id="actions_{0}" title="' + _utils.escapeHtml(config.title) + '" class="bs-button btn btn-' + _dom.bootstrapStyles(true)[config.options.type] + (config.options.caret ? ' dropdown-toggle' : '') + '" id="tooltip-dropdown-{1}" type="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">');
                 if (config.options.icon)
                     html.push('<span class="' + _dom.iconClass(config.options.icon) + '"></span>');
                 if (!config.options.titleIsHidden)
-                    html.push('<span class="d-none d-md-inline-block"> ' + _utils.escapeHtml(config.title) + ' </span>');
+                    html.push('<span class="d-none d-md-inline-block">&nbsp;' + _utils.escapeHtml(config.title) + ' </span>');
                 html.push('</button>');
                 html.push('<div class="dropdown-menu dropdown-menu-right" aria-labelledby="tooltip-dropdown-{1}" data-id="toolCommands">');
                 that._createMenuActions(html);
@@ -33454,7 +33757,7 @@ var Phoenix;
                     var link_4 = that.findLinkById(actionId);
                     if (link_4) {
                         if (!link_4.isHidden && !link_4.state.isDisabled && !link_4.state.isHidden)
-                            that._form.execAction(link_4.bind, that._selected);
+                            that._form.execAction(link_4.bind, link_4.schema.select ? that._selected : null);
                     }
                 }
             };
@@ -33747,18 +34050,19 @@ var Phoenix;
             });
             ToolBar.prototype._idComponent = function (el) {
                 var that = this;
-                if (!that.$element)
+                if (!that.$elementTop)
                     return null;
-                var t = el, root = that.$element.get(0), id;
+                var t = el, root = that.$elementTop.get(0), id;
                 while (t) {
                     if (!t.getAttribute)
                         return null;
                     id = t.getAttribute('data-tool-id');
                     if (id)
                         return that._map[id];
-                    t = (t === root) ? null : t.parentNode;
+                    t = (t === root || t === document.body) ? null : t.parentNode;
                 }
-                return null;
+                if (that.$elementTop)
+                    return null;
             };
             ToolBar.prototype.getToolElement = function (indexOrName) {
                 var e = null;
@@ -33805,8 +34109,8 @@ var Phoenix;
             };
             ToolBar.prototype._setEvents = function () {
                 var that = this;
-                if (that.$element) {
-                    that.$element.on('click', function (event) {
+                if (that.$elementTop) {
+                    that.$elementTop.on('click', function (event) {
                         var index = _dom.attr(event.target, "toolClick");
                         if (index !== null)
                             onToolElement('click', index);
@@ -33832,24 +34136,36 @@ var Phoenix;
                         }
                     }
                 }
+                if (that.$elementBottom) {
+                    that.$elementBottom.on('click', function (event) {
+                        var control = that._idComponent(event.target);
+                        if (control && control.click)
+                            control.click(event);
+                    });
+                }
             };
             ToolBar.prototype._controlById = function (id) {
                 return this._map[id];
             };
             ToolBar.prototype._removeEvents = function () {
                 var that = this;
-                if (that.$element)
-                    that.$element.off('click');
+                if (that.$elementTop)
+                    that.$elementTop.off('click');
+                if (that.$elementBottom)
+                    that.$elementBottom.off('click');
             };
             ToolBar.prototype._renderToolElements = function (toolElements) {
                 var that = this;
-                if (!that.$element)
-                    return;
                 if (!toolElements.length)
                     return;
-                var e = that.$element.get(0);
-                var eLeft = _dom.find(e, that.id + '_left');
-                var eRight = _dom.find(e, that.id + '_right');
+                if (!that.$elementTop)
+                    return;
+                var e = that.$elementTop.get(0);
+                var eLeft = _dom.find(e, that.id + '_top_left');
+                var eRight = _dom.find(e, that.id + '_top_right');
+                var eb = that.$elementBottom ? that.$elementBottom.get(0) : null;
+                var eBottomLeft = eb ? _dom.find(eb, that.id + '_bottom_left') : null;
+                var eBottomRight = eb ? _dom.find(eb, that.id + '_bottom_right') : null;
                 that._map = {};
                 toolElements.forEach(function (item, index) {
                     item.id = index;
@@ -33896,43 +34212,54 @@ var Phoenix;
                     }
                     if (item.$component) {
                         that._map[item.$component.id] = item.$component;
-                        var $p = item.right ? $(eRight) : $(eLeft);
-                        item.$component.render($p);
+                        var $p = item.bottom ? (eb ? (item.right ? $(eBottomRight) : $(eBottomLeft)) : null) : (item.right ? $(eRight) : $(eLeft));
+                        if ($p)
+                            item.$component.render($p);
                     }
                 });
             };
-            ToolBar.prototype.render = function ($parent) {
+            ToolBar.prototype.render = function ($parentTop, $parentBottom) {
                 var that = this;
+                var doRender = false;
                 var _bootstrap4 = Phoenix.bootstrap4;
-                if (!that.$element) {
-                    var html = [
-                        '<div class="container-fluid no-x-padding no-x-margin">',
-                        '<div class="bs-island bs-toolbar">',
-                        '<div class="bs-toolbar-left mr-auto form-inline" id="{0}_left"></div>',
-                        '<div class="bs-toolbar-right form-inline" id="{0}_right"></div>',
-                        '</div>',
-                        '</div>'
-                    ];
-                    that.$element = $(_utils.format(html.join(''), that.id));
+                var html = [
+                    '<div class="container-fluid no-x-padding no-x-margin">',
+                    '<div class="bs-island bs-toolbar">',
+                    '<div class="bs-toolbar-left mr-auto form-inline" id="{0}_{1}_left"></div>',
+                    '<div class="bs-toolbar-right form-inline" id="{0}_{1}_right"></div>',
+                    '</div>',
+                    '</div>'
+                ];
+                if ($parentTop && !that.$elementTop) {
+                    that.$elementTop = $(_utils.format(html.join(''), that.id, 'top'));
+                    doRender = true;
+                }
+                if ($parentBottom && !that.$elementBottom) {
+                    that.$elementBottom = $(_utils.format(html.join(''), that.id, 'bottom'));
+                    doRender = true;
+                }
+                if (doRender) {
                     that._renderToolElements(that.toolElements);
+                    if ($parentTop) {
+                        var parent_4 = $parentTop;
+                        if (that.options.replaceParent) {
+                            parent_4 = $("<div></div>");
+                            parent_4.append(that.$elementTop);
+                            $parentTop.replaceWith(parent_4);
+                        }
+                        else
+                            parent_4.append(that.$elementTop);
+                    }
+                    if ($parentBottom) {
+                        $parentBottom.append(that.$elementBottom);
+                    }
                     that._setEvents();
                 }
-                if ($parent) {
-                    var parent_4 = $parent;
-                    if (that.options.replaceParent) {
-                        parent_4 = $("<div></div>");
-                        parent_4.append(that.$element);
-                        $parent.replaceWith(parent_4);
-                    }
-                    else
-                        parent_4.append(that.$element);
-                }
-                return that.$element;
             };
             ToolBar.prototype.destroy = function () {
                 var that = this;
                 that._removeEvents();
-                that.$element = null;
+                that.$elementTop = null;
                 that.options = null;
                 that.toolElements = null;
                 that._map = null;

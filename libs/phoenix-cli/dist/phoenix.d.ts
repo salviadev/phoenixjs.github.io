@@ -37,7 +37,6 @@ declare namespace Phoenix {
     }
 }
 declare namespace Phoenix {
-    let fwSyncNames: boolean;
     module external {
         var hashHandler: Function;
         var logoutHandler: Function;
@@ -1214,6 +1213,8 @@ declare namespace Phoenix {
                 paginated: boolean;
                 find: boolean;
                 findFirst: boolean;
+                containerId: string;
+                viewId: any;
             }, ondata?: Function) => any;
             remoteSearch: (localSearch: string, lookup: any) => string;
             lastSegment: (bind: string, display: string) => string;
@@ -1307,6 +1308,16 @@ declare namespace Phoenix {
             destroy(): void;
             state(): any;
             protected _init(parent: any, prop: any, value: any, list: any): void;
+        }
+        class ListStates extends BaseState {
+            private _orderBy;
+            private _filter;
+            constructor(parent: any, prop: any, value: any);
+            protected _init(parent: any, prop: any, value: any, list: any): void;
+            columns: string;
+            selected: string;
+            orderBy: string;
+            filter: string;
         }
         class DataStates extends BaseState {
             constructor(parent: any, prop: any, value: any);
@@ -1406,8 +1417,12 @@ declare namespace Phoenix {
             protected _selectedPks: string[];
             protected _schema: any;
             $links: any;
+            $states: any;
             protected _rootSchema: any;
             protected _schemaItems: any;
+            protected _simulateSelecting: boolean;
+            protected _savedSelectedUids: string[];
+            protected _saved: boolean;
             protected _items: Data[];
             protected _model: any[];
             protected _path: string;
@@ -1420,6 +1435,8 @@ declare namespace Phoenix {
             isUndefined: boolean;
             isQuery: boolean;
             constructor(schema: any, parent: any, path: any, value: any, arrayParent: any, locale: any, isQuery: any, parentSelected: DataListCore);
+            selecting(value: any, expandingProperty: any): void;
+            readonly simulateSelecting: boolean;
             readonly schema: any;
             readonly path: string;
             readonly parent: Data;
@@ -1429,12 +1446,12 @@ declare namespace Phoenix {
             getJSONPatchPath(propertyName?: string): string;
             getFullPath(): string;
             private _rmvSelected(value, notify);
-            pushSelected(item: Data, persistent: boolean, notify: boolean): void;
+            pushSelected(item: Data, notify: boolean): void;
             model(original?: boolean): any[];
             schemaModel(): any[];
             private _getModel(original);
             protected _initModelInParent(): void;
-            removeSelected(item: Data, persistent: boolean, notifySelectedChanged: boolean): void;
+            removeSelected(item: Data, notifySelectedChanged: boolean): void;
             protected notifyChangedProperty(operation: string): void;
             addAjaxException(ex: any): void;
             notifyPaginationChanged(): void;
@@ -1467,11 +1484,12 @@ declare namespace Phoenix {
             private _updateSelecting(multiSelect, expandingProperty, list, root);
             clearSelection(expandingProperty?: string): void;
             getSelectedItems(expandingProperty?: string): any[];
+            setSelectedItems(selected: any[]): void;
             updateSelecting(multiSelect: boolean, expandingProperty: string): void;
             enumSelectedItems(expandingProperty: string, cb: (item: any) => void): void;
             private _enumChildren(expandingProperty, cb);
             private _enumSelected(expandingProperty, cb);
-            selectItem(value: boolean, item: any, multiSelect: boolean, expandingProperty: string, selectChildren: boolean): void;
+            selectItem(value: boolean, item: any, multiSelect: boolean, expandingProperty: string, selectChildren: boolean, externAction: boolean): void;
             protected canDoNext(): boolean;
             protected canDoPrev(): boolean;
             moveSelected(value: number, navigate?: boolean): void;
@@ -1606,7 +1624,8 @@ declare namespace Phoenix {
             getValue(path: any, params: any): any;
             getSchema(path: string): any;
             getState(path: any, params: any): any;
-            _setModel(value: any, frozen: any): void;
+            private _setPropErrors(propName, value);
+            private _setModel(value, frozen);
             _setRefChild(propertyName: any, oldvalue: any, value: any): void;
             _setListChild(propertyName: any, oldvalue: any, value: any): void;
             _setSimpleListChild(propertyName: any, oldvalue: any, value: any): void;
@@ -1681,6 +1700,8 @@ declare namespace Phoenix {
         class Form extends ui.BaseLayout {
             private _bindStates;
             private _actions;
+            private _transactionId;
+            private _viewId;
             private _resizeHnd;
             private _bindTitles;
             private _bindAccordion;
@@ -1715,6 +1736,8 @@ declare namespace Phoenix {
             private _isInDelayedAction();
             private _setInDelayedAction(value);
             protected initOptions(options: any): any;
+            syncTransactionId(): string;
+            syncViewId(): string;
             syncDataSet(): any;
             constructor(layoutData: any, options: any, ldata: any, schema: any, locale: any, preferences: any);
             protected _getFormLData(): any;
@@ -1745,6 +1768,7 @@ declare namespace Phoenix {
             protected afterRender($e: JQuery): void;
             protected _afterLayoutAdded(layout: any): void;
             protected changed(propName: string, ov: any, nv: any, op: string, params: any): void;
+            private _showErrors();
             stateChanged(propName: any, params: any): void;
             getSchema(path: string): any;
             getLookupForSchema(path: string, lookupName: string): any;
@@ -2047,7 +2071,7 @@ declare namespace Phoenix {
 declare namespace Phoenix {
     module formgrid {
         var toolBarFactory: (grid: BasicGrid) => any;
-        var toolBarRender: ($parent: JQuery, toolbar: any) => any;
+        var toolBarRender: ($parent: JQuery, toolbar: any, $parentBottom: JQuery) => any;
         var gridlookup: any;
         var glbGridFilter: any;
         var glbGridSettings: any;
@@ -2406,6 +2430,8 @@ declare namespace Phoenix {
                 searchText: string;
                 onselect: any;
                 lookupColumns: any;
+                containerId: any;
+                viewId: any;
                 propertyName: string;
             }) => void;
         };
@@ -3094,7 +3120,8 @@ declare namespace Phoenix {
             private _bind;
             private toolElements;
             private options;
-            private $element;
+            private $elementTop;
+            private $elementBottom;
             constructor(toolElements: any, options?: any);
             readonly form: ui.Form;
             readonly schema: any;
@@ -3110,7 +3137,7 @@ declare namespace Phoenix {
             private _controlById(id);
             private _removeEvents();
             private _renderToolElements(toolElements);
-            render($parent: any): any;
+            render($parentTop: any, $parentBottom?: any): void;
             destroy(): void;
         }
         class ToolbarForm extends AbsField {

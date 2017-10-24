@@ -12,7 +12,7 @@ $(function () {
 			},
 			{
 				"$type": "block",
-				
+
 				"$items": [
 				]
 			},
@@ -29,6 +29,7 @@ $(function () {
 								"multiselect": true,
 								"row": true
 							},
+							"sorting": true,
 							"total": {
 								"property": "total"
 							},
@@ -72,19 +73,19 @@ $(function () {
 										"links": [
 											{
 												"name": "$new",
-												"options":  {
+												"options": {
 													"icon": "plus-circle",
-													"type": "important"
+													"type": "primary"
 												},
 												"important": true
 											},
 											{
 												"name": "$remove",
-												"options":  {
+												"options": {
 													"icon": "trash",
 													"titleIsHidden": true,
 													"type": "danger"
-													
+
 												},
 												"important": true
 											},
@@ -102,6 +103,30 @@ $(function () {
 											},
 											{
 												"name": "spam"
+											}
+										]
+									},
+									{
+										"type": "links",
+										"right": true,
+										"bottom": true,
+										"links": [
+											{
+												"name": "$new",
+												"options": {
+													"icon": "plus-circle",
+													"type": "primary"
+												},
+												"important": true
+											},
+											{
+												"name": "$remove",
+												"options": {
+													"icon": "trash",
+													"type": "danger"
+
+												},
+												"important": true
 											}
 										]
 									}
@@ -122,7 +147,17 @@ $(function () {
 			},
 			{
 				"$type": "block",
+				"$title": {
+					"value": "Actions",
+					"$style": "$spo-h2",
+					"size": 4
+				},
+				"$inline": true,
 				"$items": [
+					{ "$bind": "$links.testdisable" },
+					{ "$bind": "$links.testhidden" },
+					{ "$bind": "$links.changeselected" }
+
 				]
 			}
 
@@ -135,6 +170,8 @@ $(function () {
 			"SWAP": { "title": "SWAP", "type": "boolean" },
 			"Name": { "title": "Nom", "type": "string" },
 			"Offres": {
+				"autoSelect": true,
+				"syncSelected": false,
 				"type": "array",
 				"items": { "$ref": "#/definitions/Item" },
 				"links": {
@@ -143,37 +180,37 @@ $(function () {
 					},
 					"$remove": {
 						"title": "Remove",
-						"select" : {
+						"select": {
 							"multiselect": false
 						}
 					},
 					"move": {
 						"title": "Move",
-						"select" : {
+						"select": {
 							"multiselect": false
 						}
 					},
 					"addstar": {
 						"title": "Add Star",
-						"select" : {
+						"select": {
 							"multiselect": true
 						}
 					},
 					"changelabels": {
 						"title": "Change Labels",
-						"select" : {
+						"select": {
 							"multiselect": true
 						}
 					},
 					"mute": {
 						"title": "Mute",
-						"select" : {
+						"select": {
 							"multiselect": true
 						}
 					},
 					"spam": {
 						"title": "Report as spam",
-						"select" : {
+						"select": {
 							"multiselect": true
 						}
 					}
@@ -189,8 +226,9 @@ $(function () {
 			"Name": { "isMandatory": true }
 		},
 		"links": {
-			"add": { "title": "{{add}}" },
-			"editor": { "title": "Open Column Editor" }
+			"testdisable": { "title": "Toggle \"disable\" for action \"Change Labels\"" },
+			"testhidden": { "title": "Toggle \"hidden\" for action \"Compose\"" },
+			"changeselected": { "title": "Change selected lines" }
 		},
 		"definitions": {
 			"Item": {
@@ -245,7 +283,7 @@ $(function () {
 
 				},
 				"properties": {
-					"id": { "type": "integer", "title": "Id."},
+					"id": { "type": "integer", "title": "Id." },
 					"Type": { "type": "string", title: "Type", "enum": ['oat', 'swap'], "enumNames": ["OAT", "SWAP"], "default": "oat" },
 					"Price": { "type": "number", title: "Price", format: "money", maximum: 100000 },
 					"idCountry": { "type": "integre", title: "Id Code" },
@@ -273,28 +311,31 @@ $(function () {
 		Offres: [
 			{ id: 1, Libelle: "Offre BP", Type: "oat", Imported: false, Date: "2001-05-11", VAT: 9999.253, Selected: false, Price: 9999.77 },
 			{ id: 2, Libelle: "Offre CL", Type: "swap", Imported: true, Date: "2001-05-11", VAT: 33, Selected: true, Price: 102.5 },
-			{ id: 3,Libelle: "Offre CE", Type: "oat", Imported: true, Date: "2001-05-11", VAT: 45.22, Selected: false, Price: 58.22 },
-			{ id: 4,Libelle: "Offre BP", Type: "oat", Imported: false, Date: "2001-05-11", VAT: 9999.253, Selected: false, Price: 9999.77 },
-			{ id: 5,Libelle: "Offre CL", Type: "swap", Imported: true, Date: "2001-05-11", VAT: 33, Selected: true, Price: 102.5 },
-			{ id: 6,Libelle: "Offre CE", Type: "oat", Imported: true, Date: "2001-05-11", VAT: 45.22, Selected: false, Price: 99.22 },
-			{ id: 7,Libelle: "Offre BP", Type: "oat", Imported: false, Date: "2001-05-11", VAT: 9999.253, Selected: false, Price: 9999.77 },
-			{ id: 8,Libelle: "Offre CL", Type: "swap", Imported: true, Date: "2012-05-11", VAT: 33, Selected: true, Price: 102.5 },
-			{ id: 9,Libelle: "Offre CE", Type: "oat", Imported: true, Date: "2001-05-11", VAT: 45.22, Selected: false, Price: 958.77 },
-			{ id: 10,Libelle: "Offre BP", Type: "oat", Imported: false, Date: "2001-05-11", VAT: 9999.253, Selected: false, Price: 9999.77 },
-			{ id: 11,Libelle: "Offre CL", Type: "swap", Imported: true, Date: "2001-05-11", VAT: 33, Selected: true, Price: 102.5 },
-			{ id: 12,Libelle: "Offre CE", Type: "oat", Imported: true, Date: "2001-05-11", VAT: 45.22, Selected: false, Price: 88.88 },
-			{ id: 13,Libelle: "Offre BP", Type: "oat", Imported: false, Date: "2001-05-11", VAT: 9999.253, Selected: false, Price: 9999.77 },
-			{ id: 14,Libelle: "Offre CL", Type: "swap", Imported: true, Date: "2001-05-11", VAT: 33, Selected: true, Price: 102.5 },
-			{ id: 15,Libelle: "Offre CE", Type: "oat", Imported: true, Date: "2001-05-11", VAT: 45.22, Selected: false, Price: 9999.77 },
-			{ id: 16,Libelle: "Offre BP", Type: "oat", Imported: false, Date: "2001-05-11", VAT: 9999.253, Selected: false, Price: 9999.77 },
-			{ id: 17,Libelle: "Offre CL", Type: "swap", Imported: true, Date: "2001-05-11", VAT: 33, Selected: true, Price: 102.5 },
-			{ id: 18,Libelle: "Offre CE", Type: "oat", Imported: true, Date: "2001-05-11", VAT: 45.22, Selected: false, Price: 302.5 }
+			{ id: 3, Libelle: "Offre CE", Type: "oat", Imported: true, Date: "2001-05-11", VAT: 45.22, Selected: false, Price: 58.22 },
+			{ id: 4, Libelle: "Offre BP", Type: "oat", Imported: false, Date: "2001-05-11", VAT: 9999.253, Selected: false, Price: 9999.77 },
+			{ id: 5, Libelle: "Offre CL", Type: "swap", Imported: true, Date: "2001-05-11", VAT: 33, Selected: true, Price: 102.5 },
+			{ id: 6, Libelle: "Offre CE", Type: "oat", Imported: true, Date: "2001-05-11", VAT: 45.22, Selected: false, Price: 99.22 },
+			{ id: 7, Libelle: "Offre BP", Type: "oat", Imported: false, Date: "2001-05-11", VAT: 9999.253, Selected: false, Price: 9999.77 },
+			{ id: 8, Libelle: "Offre CL", Type: "swap", Imported: true, Date: "2012-05-11", VAT: 33, Selected: true, Price: 102.5 },
+			{ id: 9, Libelle: "Offre CE", Type: "oat", Imported: true, Date: "2001-05-11", VAT: 45.22, Selected: false, Price: 958.77 },
+			{ id: 10, Libelle: "Offre BP", Type: "oat", Imported: false, Date: "2001-05-11", VAT: 9999.253, Selected: false, Price: 9999.77 },
+			{ id: 11, Libelle: "Offre CL", Type: "swap", Imported: true, Date: "2001-05-11", VAT: 33, Selected: true, Price: 102.5 },
+			{ id: 12, Libelle: "Offre CE", Type: "oat", Imported: true, Date: "2001-05-11", VAT: 45.22, Selected: false, Price: 88.88 },
+			{ id: 13, Libelle: "Offre BP", Type: "oat", Imported: false, Date: "2001-05-11", VAT: 9999.253, Selected: false, Price: 9999.77 },
+			{ id: 14, Libelle: "Offre CL", Type: "swap", Imported: true, Date: "2001-05-11", VAT: 33, Selected: true, Price: 102.5 },
+			{ id: 15, Libelle: "Offre CE", Type: "oat", Imported: true, Date: "2001-05-11", VAT: 45.22, Selected: false, Price: 9999.77 },
+			{ id: 16, Libelle: "Offre BP", Type: "oat", Imported: false, Date: "2001-05-11", VAT: 9999.253, Selected: false, Price: 9999.77 },
+			{ id: 17, Libelle: "Offre CL", Type: "swap", Imported: true, Date: "2001-05-11", VAT: 33, Selected: true, Price: 102.5 },
+			{ id: 18, Libelle: "Offre CE", Type: "oat", Imported: true, Date: "2001-05-11", VAT: 45.22, Selected: false, Price: 302.5 }
 
 		],
 		total: [
 			{ VAT: 9999.253, caracTA: { Price: 9999.77 } }
 
-		]
+		],
+		$links: { "Offres.move": { isDisabled: true } },
+		$states: { Offres: { selected: '3', orderby: 'type' } },
+		$errors: { "$": [{ severity: "success", "message": "Have a nice day !"}] }
 	};
 
 	(function om() {
@@ -303,7 +344,25 @@ $(function () {
 		Phoenix.ui.OpenForm(
 			$('#form'), layout, schema, data, {},
 			function (action, data, formControl) {
-				console.log(action)
+				console.log(action);
+				switch (action.property) {
+					case "$links.testhidden":
+						var oldValue = data.Offres.$links.$new.isHidden;
+						formControl.patch([{ path: '/$links/Offres.$new/isHidden', op: 'replace', value: !oldValue }])
+						break;
+					case "$links.testdisable":
+						var oldValueDisabled = data.Offres.$links.changelabels.isDisabled;
+						data.Offres.$links.changelabels.isDisabled = !oldValueDisabled;
+						break;
+					case "$links.changeselected":
+						var oldValue = data.Offres.$links.$new.isHidden;
+						formControl.patch([{ path: '/$states/Offres/selected', op: 'replace', value: '1,5,9' }])
+						break;
+					case "Offres.$sort":
+						var oldValue = data.Offres.$links.$new.isHidden;
+						formControl.patch([{ path: '/$states/Offres/orderBy', op: 'replace', value: action.actionParams }])
+						break;
+				}
 			});
 	})();
 

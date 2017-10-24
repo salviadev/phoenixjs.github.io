@@ -15,7 +15,7 @@
 }
 
 .bs-button > span.mdi, span.bs-icon-input > span.mdi {
-  margin-top: -1rem;
+  margin-top: -1.1rem;
   margin-bottom: -0.8rem;
   font-size: 1.6em;
 }
@@ -5409,16 +5409,16 @@ tr.bs-table-row.even {
 }
 
 .bs-step-icon {
-  padding-left: 0.75rem;
-  padding-right: 0.75rem;
+  padding-left: 0.5rem;
+  padding-right: 0.5rem;
 }
 
 .bs-arrow-parent:first-child {
-  padding-left: 0.75rem;
+  padding-left: 0.5rem;
 }
 
 .bs-arrow-parent:last-child {
-  padding-right: 0.75rem;
+  padding-right: 0.5rem;
 }
 
 .bs-step-arrow {
@@ -5434,14 +5434,14 @@ tr.bs-table-row.even {
   width: 2.5rem;
   height: 2.5rem;
   line-height: 2.5rem;
-  background-color: #545353;
+  background-color: #8a8a8a;
   border-radius: 1.25rem;
   color: #fff;
   font-size: 1.3em;
 }
 
 .bs-step-circle.active {
-  background-color: #efae50;
+  background-color: #ff8c3f;
 }
 
 .bs-step-circle.validated {
@@ -5463,7 +5463,7 @@ tr.bs-table-row.even {
 }
 
 .bs-step-title {
-  padding-right: 0.75rem;
+  padding-right: 0.5rem;
 }
 
 .bs-toolbar {
@@ -5479,6 +5479,17 @@ tr.bs-table-row.even {
   display: flex;
   margin-left: 0px;
   margin-right: 4px;
+}
+
+.bs-toolbar-item.right {
+  display: flex;
+  margin-left: 0px;
+  margin-left: 4px;
+  margin-right: 0px;
+}
+
+.bs-toolbar-item.bottom {
+  margin-top: 0.5rem;
 }
 
 .bs-toolbar-item-count {
@@ -5796,7 +5807,7 @@ body {
 }
 
 .bs-style-callout-danger {
-  border-left-color: #dc3545;
+  border-left-color: #d9534f;
 }
 
 .bs-style-callout-primary {

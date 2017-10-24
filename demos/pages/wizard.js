@@ -51,17 +51,17 @@ $(function () {
 								"$inline": true,
 								"$items": [
 									{
+										"$bind": "$links.link2",
+										"options": {
+											"right": true,
+											"type": "default"
+										}
+									},
+									{
 										"$bind": "$links.link1",
 										"options": {
 											"right": true,
 											"type": "success"
-										}
-									},
-									{
-										"$bind": "$links.link2",
-										"options": {
-											"right": true,
-											"type": "important"
 										}
 									}
 								]
