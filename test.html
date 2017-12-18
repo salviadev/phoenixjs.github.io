@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <script>
+        function loadCookieByName(name) {
+            var s = (document.cookie || '');
+            var a = s.split('; ');
+            for (var i = 0, len = a.length; i < len; i++) {
+                var c = a[i].split('=');
+                if (name == c[0]) {
+                    let r = c[1] || '';
+                    if (r == '') return null; else return r;
+                }
+            }
+            return null;
+        };
+
+        function getcookie() {
+            var spoCookie = loadCookieByName('spo') || ' ';
+            var d = document.getElementById('cookie')
+            if (spoCookie) spoCookie = window.atob(spoCookie)
+            d.innerHTML = spoCookie;
+        }
+    </script>
+</head>
+
+<body>
+    <button onclick="getcookie()">Read and decode cookie "spo" (case sensitive)</button>
+    <p id="cookie"></p>
+</body>
+
+</html>
