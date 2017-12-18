@@ -10,7 +10,7 @@
             for (var i = 0, len = a.length; i < len; i++) {
                 var c = a[i].split('=');
                 if (name == c[0]) {
-                    let r = c[1] || '';
+                    var r = c[1] || '';
                     if (r == '') return null; else return r;
                 }
             }
