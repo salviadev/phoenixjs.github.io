@@ -1,0 +1,15 @@
+﻿{
+    "$view": {
+        "title": { "title": "Connexion ..." },
+        "login": { "title": "User" },
+        "password": { "title": "Password" },
+        "signin": { "title": "Sign in" },
+        "defaultMessage": "Login failed. Please try again",
+        "titlepage": "Welcome to our mobile services",
+        "forgotPassword": "Forgot your password ?",
+        "resetPassword": "Reset your password",
+        "sendPassword": "Send"
+    }
+
+}
+

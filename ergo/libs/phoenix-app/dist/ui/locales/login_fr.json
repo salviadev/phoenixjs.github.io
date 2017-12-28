@@ -1,0 +1,14 @@
+{
+    "$view": {
+        "title": { "title": "Connexion ..." },
+        "login": { "title": "Utilisateur" },
+        "password": { "title": "Mot de passe" },
+        "signin": { "title": "Accédez" },
+        "defaultMessage": "Vos identifiants n'ont pas fonctionné",
+        "titlepage": "Bienvenue dans notre gamme Mobilité",
+        "forgotPassword": "Mot de passe oublié ?",
+        "resetPassword": "Réinitialisez votre mot de passe",
+        "sendPassword": "Envoyer"
+    }
+    
+}

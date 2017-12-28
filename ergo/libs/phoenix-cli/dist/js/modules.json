@@ -1,0 +1,37 @@
+{
+	"modules": {
+		"form": {
+			"$moduleTitle": "Form",
+			"form": {
+				"name": "Enter form name",
+				"meta": "Enter meta (schema) for the form",
+				"controller": "Enter registered form controller"
+			}
+		},
+		"tabs": {
+			"$moduleTitle": "Tabs",
+			"$titleIsHidden": true,
+			"data": {
+				"tabs": []
+			}
+		},
+		"IFrame": {
+			"$moduleTitle": "IFrame",
+			"$titleIsHidden": true,
+			"data": {
+				"src": "https://www.google.com"
+			}
+		},
+		"image-menu-item": {
+			"$moduleTitle": "Menu as Image",
+			"$titleIsHidden": true,
+			"data": {
+				"menu": {
+					"link": "Enter link name",
+					"imageSrc": "Enter image path",
+					"title": "Enter link title"
+				}
+			}
+		}
+	}
+}

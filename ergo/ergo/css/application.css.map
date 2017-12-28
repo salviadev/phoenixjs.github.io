@@ -1,0 +1,9 @@
+{
+	"version": 3,
+	"file": "application.css",
+	"sources": [
+		"../../../src/ergo/app.scss"
+	],
+	"names": [],
+	"mappings": "AAAA,AAAA,IAAI,CAAC;EACJ,SAAS,EAAE,IAAI,CAAA,UAAW;CAC1B"
+}

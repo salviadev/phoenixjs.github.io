@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="icon" type="image/png" href="../libs/phoenix-app/dist/img/favicon.png" />
+    <title></title>
+    <link type="text/css" rel="stylesheet" href="../libs/phoenix-cli/dist/css/phoenix.fonts.css" />
+    <link type="text/css" rel="stylesheet" href="../libs/bootstrap-datepicker/dist/css/bootstrap-datepicker.css" />
+
+    <link type="text/css" rel="stylesheet" href="../libs/phoenix-app/dist/css/app.css" />
+    <link type="text/css" rel="stylesheet" href="../libs/phoenix-cli/dist/css/phoenix.css" />
+    <link type="text/css" rel="stylesheet" href="css/application.css" />
+    <script type="text/javascript" src="../libs/jquery/dist/jquery.js"></script>
+    <script type="text/javascript" src="../libs/es6-promise/dist/es6-promise.js"></script>
+    <script type="text/javascript" src="../libs/popper.js/dist/umd/popper.js"></script>
+    <script type="text/javascript" src="../libs/phoenix-cli/dist/bootstrap-theme/js/bootstrap.js"></script>
+    <script type="text/javascript" src="../libs/ismobilejs/isMobile.js"></script>
+    <script type="text/javascript" src="../libs/bootstrap-datepicker/dist/js/bootstrap-datepicker.js"></script>
+    <script type="text/javascript" src="../libs/angular/angular.js"></script>
+    <script type="text/javascript" src="../libs/angular-route/angular-route.js"></script>
+
+    <script type="text/javascript" src="../libs/phoenix-cli/dist/js/phoenix.js"></script>
+    <script type="text/javascript" src="../libs/phoenix-cli/dist/js/phoenix.widgets.js"></script>
+    <script type="text/javascript" src="../libs/phoenix-cli/dist/js/phoenix.angular.js"></script>
+    <script type="text/javascript" src="../libs/phoenix-cli/dist/js/phoenix.widgets.angular.js"></script>
+
+    <script type="text/javascript">
+        (function($p) {
+            $p.build.release = "true" === "true";
+            $p.build.authMode = "admin";
+        })(this.Phoenix);
+    </script>
+
+
+    <script type="text/javascript" src="application.js"></script>
+    <script type="text/javascript" src="../libs/phoenix-app/dist/js/app.js"></script>
+</head>
+
+<body>
+    <div class="bs-content">
+        <header-menu back-button="true" left-menu-button="true" top-menu-button="true" logout-button="true" left-menu-place="menu_left" top-menu-place="menu_top" body-place="bs-page-content"></header-menu>
+        <div id="error_box"></div>
+        <div id="menu_top"></div>
+        <div id="bs-page-content">
+            <div ng-view autoscroll="true"></div>
+        </div>
+    </div>
+    <div id="menu_left"></div>
+</body>
+
+</html>
