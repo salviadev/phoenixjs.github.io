@@ -7990,6 +7990,8 @@ var Phoenix;
             var op = Object.keys(src);
             op.forEach(function (propertyName) {
                 var srcValue = src[propertyName];
+                if (srcValue === undefined)
+                    return;
                 var ps = null;
                 if (schema && !copyUX) {
                     ps = schema.properties[propertyName];
@@ -7998,7 +8000,7 @@ var Phoenix;
                 }
                 if (!ps && propertyName.charAt(0) === '$' || propertyName.charAt(0) === '_') {
                     if (copyStates && propertyName === '$states') {
-                        dst[propertyName] = $.extend(true, {}, src);
+                        dst[propertyName] = $.extend(true, {}, srcValue);
                     }
                     return;
                 }
@@ -14695,7 +14697,7 @@ var Phoenix;
                         defvalue.decimals = 0;
                 }
             }
-            if (ss.type === 'array') {
+            if (ss.type === 'array' && (!ss.items || !ss.items.type || ss.items.type === 'object')) {
                 obj.$states[name] = new _observable.ListStates(obj, name, defvalue);
             }
             else
@@ -17657,6 +17659,30 @@ var Phoenix;
             Form.prototype.syncViewId = function () {
                 return this._viewId;
             };
+            Form.prototype.execLater = function (task) {
+                var that = this;
+                if (that._afterProcessing) {
+                    that._afterProcessing[task.id] = task.hnd;
+                }
+                else
+                    task.hnd();
+            };
+            Form.prototype._processing = function (handler, detach) {
+                var that = this;
+                if (detach)
+                    that._afterProcessing = {};
+                try {
+                    handler();
+                }
+                finally {
+                    if (that._afterProcessing) {
+                        Object.keys(that._afterProcessing).forEach(function (name) {
+                            that._afterProcessing[name]();
+                        });
+                    }
+                    that._afterProcessing = null;
+                }
+            };
             Form.prototype.syncDataSet = function () {
                 var that = this;
                 var datasets = that.data.datasets ? Object.keys(that.data.datasets) : [];
@@ -18166,8 +18192,7 @@ var Phoenix;
                 that._inSync = true;
                 that.processing(true);
                 try {
-                    if (delta && delta.length)
-                        that.$model.applyJsonPachDelta(delta);
+                    that._processing(function () { that.$model.applyJsonPachDelta(delta); }, delta.length > 10);
                 }
                 finally {
                     that.processing(false);
@@ -18184,7 +18209,7 @@ var Phoenix;
                 that._actions = null;
                 that.onsync(that.$model, ca, that, function (delta) {
                     if (delta && delta.length) {
-                        that.$model.applyJsonPachDelta(delta);
+                        that._processing(function () { that.$model.applyJsonPachDelta(delta); }, delta.length > 10);
                     }
                 }, function () {
                     that.processing(false);
@@ -19390,7 +19415,7 @@ var Phoenix;
                     res = { value: '', html: false };
                     return res;
                 }
-                if (options.isTotal && _sutils.isFwField(fieldName)) {
+                if (options.isTotal && (_sutils.isFwField(fieldName) || schema.enum)) {
                     res = { value: '', html: false };
                     return res;
                 }
@@ -21207,7 +21232,7 @@ var Phoenix;
             if (opts.after) {
                 var addon = document.createElement("span");
                 addon.tabIndex = -1;
-                addon.className = 'bs-input-group-addon bs-cursor-d add-on';
+                addon.className = 'bs-input-group-addon bs-cursor-d input-group-append input-group-addon';
                 var icon = document.createElement("span");
                 icon.className = _dom.iconClass(opts.after.icon);
                 _dom.append(addon, icon);
@@ -22497,8 +22522,10 @@ var Phoenix;
                     case 'remove':
                         var opts = that.renderOptions;
                         if (opts.expandingProperty) {
-                            that._renderRows(true, '', null, false);
-                            doResize = true;
+                            that._removeRow(params.$id);
+                            updOddEven = true;
+                            // that._renderRows(true, '', null, false);
+                            // doResize = true;
                         }
                         else {
                             that._removeRow(params.$id);
@@ -22516,7 +22543,7 @@ var Phoenix;
                     }
                 }
                 if (updOddEven)
-                    that._updOddEven();
+                    that._updOddEvenLater();
                 if (doResize)
                     that.resize();
                 if (doSelectFirstCell) {
@@ -22968,8 +22995,15 @@ var Phoenix;
                 var focusParent = that._gridParentFocus();
                 var p = _dom.isChildOf(focusParent, activeFocusElement);
                 // ---> START LOOKUP
-                if (!p && that.inplace && that.inplace.combo && that.inplace.combo.opened)
-                    return that.inplace.combo.focusInCombo(activeFocusElement);
+                if (!p && that.inplace) {
+                    if (that.inplace.combo && that.inplace.combo.opened)
+                        return that.inplace.combo.focusInCombo(activeFocusElement);
+                    if (that.inplace && _sutils.isDate(that.inplace.schema) && _uiutils.utils.useDatePicker()) {
+                        var dp = _dom.query(document.body, '.datepicker');
+                        if (dp && (_dom.isChildOf(dp, activeFocusElement) || activeFocusElement === document.body))
+                            return true;
+                    }
+                }
                 // <--- END LOOKUP 
                 return p;
             };
@@ -23028,12 +23062,12 @@ var Phoenix;
             BasicGrid.prototype._addRows = function (item, childrens) {
                 var that = this;
                 that._renderRows(false, item.$id, childrens, false);
-                that._updOddEven();
+                that._updOddEvenLater();
             };
             BasicGrid.prototype._removeRows = function (item, childrens) {
                 var that = this;
                 childrens.forEach(function (child) { that._removeRow(child.value.$id); });
-                that._updOddEven();
+                that._updOddEvenLater();
             };
             BasicGrid.prototype.dblclick = function (event) {
                 var that = this;
@@ -23467,7 +23501,12 @@ var Phoenix;
             };
             BasicGrid.prototype.resize = function () {
                 var that = this;
-                that._resize();
+                that.form.execLater({
+                    id: that.id + '_resize',
+                    hnd: function () {
+                        that._resize();
+                    }
+                });
             };
             BasicGrid.prototype._updateFrozenColumnsHeight = function () {
                 var that = this;
@@ -24068,6 +24107,15 @@ var Phoenix;
                     }
                 }
             };
+            BasicGrid.prototype._updOddEvenLater = function () {
+                var that = this;
+                that.form.execLater({
+                    id: that.id + '_odd_even',
+                    hnd: function () {
+                        that._updOddEven();
+                    }
+                });
+            };
             BasicGrid.prototype._createRow = function (item) {
                 var that = this;
                 if (that.$element) {
@@ -24320,46 +24368,17 @@ var Phoenix;
             var html = [];
             _uiutils.utils.fieldWrapper(html, options, authoring, function () {
                 if (options.columns) {
-                    html.push('<div class="no-x-padding ' + (_bootstrap4 ? 'ml-sm-auto' : 'col-sm-offset-' + options.labelCol) + ' col-sm-' + (12 - options.labelCol) + '">');
-                    html.push('<div class="checkbox">');
+                    html.push('<div class="no-x-padding ml-sm-auto col-sm-' + (12 - options.labelCol) + '">');
                 }
-                var block = false;
-                if (!options.inline && !options.columns) {
-                    block = true;
-                    html.push('<div class="checkbox">');
-                }
-                if (_bootstrap4) {
-                    html.push('<label id="{0}_check" class="custom-control custom-checkbox">');
-                    html.push('<input type="checkbox" id="{0}_input" class="custom-control-input">');
-                    html.push('<span class="custom-control-indicator" > </span>');
-                    html.push('<span class="custom-control-description"> ');
-                    html.push(_utils.escapeHtml(title || ''));
-                    html.push('&nbsp;');
-                    html.push('</span>');
-                    _uiutils.utils.addErrorDiv(html, false);
-                    html.push('</label>');
-                }
-                else {
-                    html.push('<label id="{0}_check" class="' + (options.inline ? (_bootstrap4 ? 'form-check-inline no-x-padding' : 'checkbox-inline') : (block ? (_bootstrap4 ? 'col-form-label' : 'control-label') : 'checkbox')) + '">');
-                    html.push('<input type="checkbox" id="{0}_input">');
-                    if (options.inline) {
-                        if (_bootstrap4)
-                            html.push('&nbsp;');
-                    }
-                    else
-                        html.push('&nbsp;');
-                    html.push(_utils.escapeHtml(title || ''));
-                    if (_bootstrap4)
-                        _uiutils.utils.addErrorDiv(html, options.inline);
-                    html.push('</label>');
-                }
-                if (!_bootstrap4)
-                    _uiutils.utils.addErrorDiv(html);
-                if (!options.inline && !options.columns) {
-                    html.push('</div>');
-                }
+                html.push('<div id="{0}_check" class="custom-control custom-checkbox">');
+                html.push('<input type="checkbox" id="{0}_input" class="custom-control-input">');
+                html.push('<label class="custom-control-label" for="{0}_input"> ');
+                html.push(_utils.escapeHtml(title || ''));
+                html.push('&nbsp;');
+                html.push('</label>');
+                html.push('</div>');
+                _uiutils.utils.addErrorDiv(html, false);
                 if (options.columns) {
-                    html.push('</div>');
                     html.push('</div>');
                 }
             });
@@ -24918,11 +24937,13 @@ var Phoenix;
                 html.push('>');
             }
             if (options.before) {
-                html.push('<span class="bs-grp-btn input-group-addon">');
+                html.push('<span class="bs-grp-btn input-group-prepend">');
+                html.push('<span class="input-group-text">');
                 if (options.before.icon)
                     html.push('<span class="' + _dom.iconClass(options.before.icon) + '"></span>');
                 else
                     html.push(options.before.value);
+                html.push('</span>');
                 html.push('</span>');
             }
             var inputCss = ['form-control'];
@@ -24957,15 +24978,17 @@ var Phoenix;
             }
             html.push('>');
             if (options.after) {
-                html.push('<span  id="{0}_after" tabindex="-1" class="bs-grp-btn input-group-addon');
+                html.push('<span  id="{0}_after" tabindex="-1" class="bs-grp-btn input-group-append input-group-addon');
                 if (options.after.icon)
                     html.push(' bs-icon-input');
                 html.push('">');
+                html.push('<span class="input-group-text">');
                 if (options.after.icon) {
                     html.push('<span class="' + _dom.iconClass(options.after.icon) + '"></span>');
                 }
                 else
                     html.push(options.after.value);
+                html.push('</span>');
                 html.push('</span>');
             }
             if (options.before || options.after)
@@ -25045,7 +25068,8 @@ var Phoenix;
                 var that = this, e = that.$element ? that.$element.get(0) : null;
                 if (!e)
                     return null;
-                return _dom.find(e, that.id + '_after');
+                var after = _dom.find(e, that.id + '_after');
+                return after ? after.firstChild : null;
             };
             BaseEdit.prototype._colParent = function () {
                 var that = this, e = that.$element.get(0);
@@ -25176,7 +25200,7 @@ var Phoenix;
                     return;
                 if (!that._hasSymbol || !e)
                     return;
-                var after = _dom.find(e, that.id + '_after');
+                var after = that._after();
                 if (after) {
                     if (!that.state.symbol) {
                         _dom.text(after, String.fromCharCode(160));
@@ -26454,6 +26478,10 @@ var Phoenix;
                         anyElement.iFrameResize({});
                 }
             };
+            IFrame.prototype.afterAddedInDom = function () {
+                var that = this;
+                that._applyIResize();
+            };
             IFrame.prototype.stateChanged = function (propName, params) {
                 var that = this, state = that.form.getState(that.$bind), element = that.$element ? that.$element.get(0) : null;
                 if (state.isHidden !== that.state.isHidden) {
@@ -26503,6 +26531,12 @@ var Phoenix;
             };
             IFrame.prototype.removeEvents = function () {
                 var that = this;
+                var iframeElement = that._iframe();
+                if (iframeElement) {
+                    // Refresh iframe
+                    if (iframeElement.iFrameResizer)
+                        iframeElement.iFrameResizer.close();
+                }
                 window.removeEventListener('message', that._msghandler);
             };
             IFrame.prototype.destroy = function () {
@@ -26517,7 +26551,6 @@ var Phoenix;
                     that.$element = $(_createFrame(that.id, opts, that.options.design));
                     that._state2UI();
                     that.setEvents(opts);
-                    that._applyIResize();
                 }
                 that.appendElement($parent, opts);
                 return that.$element;
@@ -28002,7 +28035,7 @@ var Phoenix;
                 if (options.columns)
                     html.push('<div class="no-x-padding col-sm-' + (12 - options.labelCol) + '">');
                 if (options.readOnly) {
-                    html.push('<div class="form-control bs-read-only');
+                    html.push('<div class="bs-mv-container form-control bs-read-only');
                     if (options.size)
                         html.push(' form-control-' + options.size);
                     html.push('" id="{0}_array"');
@@ -28014,10 +28047,11 @@ var Phoenix;
                     if (style.length)
                         html.push(' style="' + style.join('') + '"');
                     html.push('>');
+                    html.push('<input type="text "class="bs-tags-input">');
                     html.push('</div>');
                 }
                 else {
-                    html.push('<div class="form-control');
+                    html.push('<div class="bs-mv-container form-control');
                     if (options.size)
                         html.push(' form-control-' + options.size);
                     html.push('" id="{0}_array"');
@@ -28029,6 +28063,7 @@ var Phoenix;
                     if (style.length)
                         html.push(' style="' + style.join('') + '"');
                     html.push('>');
+                    html.push('<input type="text "class="bs-tags-input">');
                     html.push('</div>');
                 }
                 _uiutils.utils.addErrorDiv(html);
@@ -28438,26 +28473,17 @@ var Phoenix;
             var html = [];
             var customize = null;
             _uiutils.utils.fieldWrapper(html, options, authoring, function () {
-                var _bootstrap4 = Phoenix.bootstrap4;
                 if (!options.titleIsHidden) {
                     html.push('<label for="{0}_input" id="{0}_label"');
                     var css = ['bs-label'];
                     if (options.columns) {
-                        if (_bootstrap4) {
-                            css.push('col-form-label');
-                        }
-                        else {
-                            css.push('checkbox-inline bs-cursor-d');
-                        }
+                        css.push('col-form-label');
                         css.push('bs-lib-col col-sm-' + options.labelCol);
                         if (options.labelLeft)
                             css.push('text-left');
                     }
                     if (options.inline) {
-                        if (_bootstrap4)
-                            css.push('form-check-inline');
-                        else
-                            css.push('checkbox-inline');
+                        css.push('form-check-inline');
                         css.push('bs-cursor-d no-x-padding');
                     }
                     if (css.length)
@@ -28471,20 +28497,14 @@ var Phoenix;
                 }
                 if (options.columns)
                     html.push('<div class="no-x-padding  col-sm-' + (12 - options.labelCol) + '">');
-                var lc = options.inline || options.horizontal ? [_bootstrap4 ? 'form-check-inline no-x-padding' : 'radio-inline'] : [];
+                var inline = options.inline || options.horizontal;
                 enums.forEach(function (enumName, index) {
-                    if (!options.inline && !options.horizontal)
-                        html.push('<div id="{0}_radio" class="radio">');
-                    html.push('<label');
-                    if (lc.length)
-                        html.push(' class="' + lc.join(' ') + '"');
-                    html.push('>');
-                    html.push('<input type="radio" name="{0}_input" id="{0}_item_' + index + '" value="' + enumName + '">');
-                    html.push('&nbsp;');
+                    html.push('<div class="custom-control custom-radio' + (inline ? ' custom-control-inline' : '') + '">');
+                    html.push('<input class="custom-control-input" type="radio" name="{0}_input" id="{0}_item_' + index + '" value="' + enumName + '">');
+                    html.push('<label class="custom-control-label" for="{0}_item_' + index + '">');
                     html.push(_utils.escapeHtml(enumsNames[index] || ''));
                     html.push('</label>');
-                    if (!options.inline && !options.horizontal)
-                        html.push('</div>');
+                    html.push('</div>');
                 });
                 _uiutils.utils.addErrorDiv(html);
                 if (options.columns)
@@ -28531,7 +28551,6 @@ var Phoenix;
             };
             return RadioGroup;
         }(Phoenix.groupctrl.Group));
-        radiogroup.RadioGroup = RadioGroup;
         _ui.registerControl(RadioGroup, "*", true, "radio", null);
     })(radiogroup = Phoenix.radiogroup || (Phoenix.radiogroup = {}));
 })(Phoenix || (Phoenix = {}));
@@ -30361,7 +30380,7 @@ var Phoenix;
                 var that = _this;
                 var _bootstrap4 = Phoenix.bootstrap4;
                 var nodeGroup = $('<div class="input-group"></div>');
-                var nodeGroupBtn = $('<div class="input-group-btn"></div>');
+                var nodeGroupBtn = $('<div class="input-group-prepend"></div>');
                 var txtNodeButton = '<button type="button" ';
                 txtNodeButton += 'class="bs-button btn btn-' + _dom.bootstrapStyles(true).secondary + ' dropdown-toggle" data-toggle="dropdown" ';
                 txtNodeButton += 'aria-haspopup="true" aria-expanded="false"></button>';
@@ -30372,7 +30391,7 @@ var Phoenix;
                 // Add editNode
                 that._nodeEdit = $('<input type="text" class="form-control" aria-label="...">');
                 // Add validateNode
-                var nodeGroupBtnValidate = $("<div class='input-group-btn'></div>");
+                var nodeGroupBtnValidate = $("<div class='input-group-apppend'></div>");
                 that._nodeValidate = $('<button class="bs-button btn btn-' + _dom.bootstrapStyles(true).secondary + '" type="button"><span class="' + _dom.iconClass(FilterExpress.VALIDATE_ICON_DEFAULT) + '"></span> ' + FilterExpress.VALIDATE_TEXT_DEFAULT + '</button>');
                 // Append nodes to mainNode
                 that._nodeMain.append(nodeGroup);
@@ -30581,8 +30600,8 @@ var Phoenix;
                 var _this = _super.call(this, fields, callback, options) || this;
                 var that = _this;
                 var _bootstrap4 = Phoenix.bootstrap4;
-                that.leftTools = $('<div class="input-group-btn"></div>');
-                that.rightTools = $('<div class="input-group-btn"></div>');
+                that.leftTools = $('<div class="input-group-prepend"></div>');
+                that.rightTools = $('<div class="input-group-append"></div>');
                 that._nodeValidate = $("<button class='btn btn-default' type='button'><span class='" + _dom.iconClass(FilterExpress.VALIDATE_ICON_DEFAULT) + "'></span> " + FilterExpress.VALIDATE_TEXT_DEFAULT + "</button>");
                 var nodeSelectBtn = $('<button type="button" class="btn btn-default dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false"><span class="caret"></span>&nbsp;<span class="sr-only">Toggle Dropdown</span></button>');
                 that._nodeSelectList = _bootstrap4 ? $('<div class="dropdown-menu dropdown-menu-left"></div>') : $('<ul class="dropdown-menu dropdown-menu-left"></ul>');
@@ -30618,7 +30637,7 @@ var Phoenix;
             RenderFiltreExpressMultiple.prototype.addField = function (field) {
                 var that = this;
                 field.composant = {
-                    label: $('<span class="input-group-addon" id="sizing-addon2">' + (field.lib || field.libelle || field.code) + '</span>'),
+                    label: $('<span class="input-group-prepend" id="sizing-addon2"><span class="input-group-text">' + (field.lib || field.libelle || field.code) + '</span></span>'),
                     value: that._getEditField(field)
                 };
                 var container = $('<div class="input-group"></div>');
@@ -32709,11 +32728,11 @@ var Phoenix;
                         }
                         else if (item.$in) {
                             ii.op = OPERATORS.in;
-                            ii.values = item;
+                            ii.values = item.$in;
                         }
                         else if (item.$nin) {
                             ii.op = OPERATORS.nin;
-                            ii.values = item;
+                            ii.values = item.$nin;
                         }
                         else if (item.$ne) {
                             ii.op = OPERATORS.nin;
@@ -32747,6 +32766,7 @@ var Phoenix;
                         }
                     }
                     else {
+                        ii.op = OPERATORS.in;
                         ii.values.push(item);
                     }
                     if (ii)
@@ -34334,7 +34354,7 @@ var Phoenix;
                     if (te.type === 'count')
                         te = $.extend({ right: true, value: grid.state.value.totalCount() }, te);
                     else if (te.type === 'filter') {
-                        te = $.extend({ value: grid.state.value.filter || "", icon: 'filter' }, te);
+                        te = $.extend({ value: "", icon: 'filter' }, te);
                         grid.state.value.filterManager = grid.state.value.filterManager || (_ui.filterManagerFactory ? _ui.filterManagerFactory() : null);
                     }
                     else if (te.type === 'multiselect') {
@@ -35071,8 +35091,10 @@ var Phoenix;
                 var html = [
                     '<div data-tool-id="{0}" tabindex="' + index + '" class="' + css.join(" ") + '">',
                     '<div class="input-group">',
-                    '<span class="input-group-addon">',
+                    '<span class="input-group-prepend">',
+                    '<span class="input-group-text">',
                     (config.title || ""),
+                    '</span>',
                     '</span>',
                     '<select class="form-control" data-id="toolSelect">',
                     actionsView.join(""),
@@ -35138,7 +35160,7 @@ var Phoenix;
                 var html = [
                     '<div data-tool-id="{0}" tabindex="' + index + '" class="bs-toolbar-item input-group' + css.join(" ") + '">',
                     '<input toolKeyup="' + index + '" type="text" class="form-control" placeholder="' + (config.title || "Recherche") + '" />',
-                    '<span class="input-group-btn">',
+                    '<span class="input-group-append">',
                     '<button toolClick="' + index + '" class="bs-button btn btn-' + _dom.bootstrapStyles(true).secondary + '" type="button">',
                     '<span toolClick="' + index + '" class="' + _dom.iconClass(config.icon || "search") + '"> </span>',
                     '</button>',

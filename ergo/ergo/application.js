@@ -1,9 +1,35 @@
+var __extends = (this && this.__extends) || (function () {
+    var extendStatics = Object.setPrototypeOf ||
+        ({ __proto__: [] } instanceof Array && function (d, b) { d.__proto__ = b; }) ||
+        function (d, b) { for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p]; };
+    return function (d, b) {
+        extendStatics(d, b);
+        function __() { this.constructor = d; }
+        d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
+    };
+})();
 var Phoenix;
 (function (Phoenix) {
     var _application = Phoenix.application;
     var cfg = { "locales": { "login": { "fr": { "titlePage": "Bienvenue dans le portail ERGO", "title": " " } } }, "header": { "alwaysShow": false, "authLeftMenu": false, "uppercase": true, "align": "center" }, "preferences": {}, "homes": { "ergo": "ergo/titles" }, "authentication": { "autoLogon": { "login": "john", "password": "doe", "force": true } }, "portailName": "ergo" };
     _application.init("ergo", "Portail Wiki Ergo", cfg);
 })(Phoenix || (Phoenix = {}));
+var Ergo;
+(function (Ergo) {
+    var _p = Phoenix, _customData = _p.customData, _dom = _p.dom, _dsPlugin = _p.DatasetPlugin, _link = _p.link, _data = _p.data;
+    var tableauSimple = (function (_super) {
+        __extends(tableauSimple, _super);
+        function tableauSimple() {
+            return _super !== null && _super.apply(this, arguments) || this;
+        }
+        tableauSimple.prototype.beforeSetModel = function (data) {
+        };
+        tableauSimple.prototype.onModelChanged = function (action, model, form) {
+        };
+        return tableauSimple;
+    }(Phoenix.ui.FormController));
+    _customData.register('ergo.tableau-simple.controller', new tableauSimple());
+})(Ergo || (Ergo = {}));
 
 angular.module('ergo').run(['$templateCache', function($templateCache) {
   'use strict';

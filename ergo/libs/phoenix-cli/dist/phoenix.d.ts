@@ -1774,6 +1774,7 @@ declare namespace Phoenix {
 declare namespace Phoenix {
     module ui {
         class Form extends ui.BaseLayout {
+            private _afterProcessing;
             private _bindStates;
             private _actions;
             private _parentModel;
@@ -1815,6 +1816,11 @@ declare namespace Phoenix {
             protected initOptions(options: any): any;
             syncTransactionId(): string;
             syncViewId(): string;
+            execLater(task: {
+                id: string;
+                hnd: any;
+            }): void;
+            private _processing(handler, detach);
             syncDataSet(): any;
             constructor(layoutData: any, options: any, ldata: any, schema: any, locale: any, preferences: any);
             protected _getFormLData(): any;
@@ -2312,6 +2318,7 @@ declare namespace Phoenix {
             private closeDetail(id);
             private _removeRow(id);
             private _updOddEven();
+            private _updOddEvenLater();
             private _createRow(item);
             filtrableColumns(): any[];
             private _getColumnsFromSchema();
@@ -2582,12 +2589,6 @@ declare namespace Phoenix {
 }
 declare namespace Phoenix {
     module radiogroup {
-        class RadioGroup extends groupctrl.Group {
-            constructor(fp: any, options: any, form: any);
-            _state2UI(): void;
-            changed(propName: any, ov: any, nv: any, op: any): void;
-            render($parent: any): JQuery<HTMLElement>;
-        }
     }
 }
 declare namespace Phoenix {
