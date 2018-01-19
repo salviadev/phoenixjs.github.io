@@ -69,6 +69,7 @@ var Phoenix;
         },
         "ui": {
             "Close": "Close",
+            "Abandon": "Abandon",
             "Ok": "Ok",
             "Yes": "Yes",
             "No": "No",

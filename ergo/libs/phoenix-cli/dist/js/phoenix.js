@@ -480,6 +480,7 @@ var Phoenix;
         utils.dataAsPromise = _getDataAsPromise;
         utils.extractAngularVars = _extractAngularValues;
         utils.execAngularExpression = _execAngularExpression;
+        utils.gmapsKey = 'AIzaSyDiKrbrYbAywKceJxGkXMp-g2n0nHKCCQo';
         utils.confirm = function (title, message, success, cancel) {
             if (window.confirm(message))
                 success();
@@ -1702,6 +1703,7 @@ var Phoenix;
         },
         "ui": {
             "Close": "Close",
+            "Abandon": "Abandon",
             "Ok": "Ok",
             "Yes": "Yes",
             "No": "No",
@@ -3364,7 +3366,7 @@ var Phoenix;
                     if (href === '#') {
                         if (!dontStopPropagation) {
                             event.preventDefault();
-                            event.stopPropagation();
+                            // event.stopPropagation();
                         }
                         break;
                     }
@@ -3372,7 +3374,7 @@ var Phoenix;
                     if (customLink) {
                         if (!dontStopPropagation) {
                             event.preventDefault();
-                            event.stopPropagation();
+                            // event.stopPropagation();
                         }
                         return {
                             protocol: customLink,
@@ -6433,13 +6435,17 @@ var Phoenix;
                 var createOpt = { "close": false, "type": "success", name: "create", "title": _locale.ui.Create };
                 return $.extend({}, createOpt, options);
             }
+            else if (options.pattern === "abandon") {
+                var closeOpt = { "close": true, "type": "default", name: "abandon", "title": _locale.ui.Abandon };
+                return $.extend({}, closeOpt, options);
+            }
             return options;
         };
         var _renderButton = function (options, html, locale) {
             //options name, type, icon, title, cancel
             options = _patternButton(options);
             html.push('<button data-action="' + options.name + '" type="button"');
-            html.push(' class="bs-btn-inline float-right bs-button btn btn-' + options.type || 'default');
+            html.push(' class="bs-btn-inline float-right bs-button btn btn-' + _dom.bootstrapStyles(false)[options.type || 'default']);
             html.push('"');
             if (options.close)
                 html.push(' data-dismiss="modal"');
@@ -6460,7 +6466,7 @@ var Phoenix;
                 '		<div class="modal-content">',
                 '		<div class="modal-header">',
                 _bootstrap4 ? '			<h5 class="modal-title" id="{0}_label">{1}</h5>' : '',
-                '			<button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>',
+                options.noClose ? '' : '			<button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>',
                 _bootstrap4 ? '' : '			<h4 class="modal-title" id="{0}_label">{1}</h4>',
                 '		</div>',
                 '		<div class="modal-body" id="{0}_body">',
@@ -6550,9 +6556,11 @@ var Phoenix;
             };
             Modal.prototype.open = function () {
                 var that = this;
-                var opts = { id: that.$id, title: that.options.title || '', buttons: that.options.buttons || [], size: 0 };
+                var opts = { id: that.$id, title: that.options.title || '', buttons: that.options.buttons || [], size: 0, noClose: false };
                 if (that.options.size)
                     opts.size = that.options.size;
+                if (that.options.noClose)
+                    opts.noClose = that.options.noClose;
                 if (!that.$element) {
                     that.$element = $(_createModal(opts, that.$locale));
                     if (that.render)
@@ -7920,6 +7928,8 @@ var Phoenix;
         Observable.SELECTED_FIELD_NAME = '$select';
         Observable.EXPANDED_FIELD_NAME = '$expand';
         var _ulocale = Phoenix.ulocale, _external = Phoenix.external, _application = Phoenix.application, _ajax = Phoenix.ajax, _dom = Phoenix.dom, _link = Phoenix.link, _data = Phoenix.data, _utils = Phoenix.utils, _ulocale = Phoenix.ulocale, _locale = Phoenix.locale, _customData = Phoenix.customData, _localeSchema = Phoenix.locale.schema, _dsPlugin = Phoenix.DatasetPlugin, _fwFields = [Observable.INDEX_FIELD_NAME, Observable.SELECTED_FIELD_NAME, Observable.EXPANDED_FIELD_NAME], _isFwField = function (fieldName) {
+            if (fieldName.indexOf(Observable.EXPANDED_FIELD_NAME) >= 0)
+                return true;
             return _fwFields.indexOf(fieldName) >= 0;
         }, _registerEnumManager = function () {
             var _enumsManager = {};
@@ -8778,6 +8788,48 @@ var Phoenix;
             _extractEnums: function (schema, enums) {
                 return _sutils._internalExtractEnums(schema, schema, enums, []);
             },
+            _fillEnumsFromData: function (schema, rootSchema, data, names) {
+                schema._id = schema._id || _utils.allocID();
+                if (names.indexOf(schema._id) >= 0)
+                    return;
+                names.push(schema._id);
+                Object.keys(schema.properties || {}).forEach(function (pn) {
+                    var cs = schema.properties[pn];
+                    if (cs.$ref && !cs.type)
+                        cs = _expandRefProp(cs, rootSchema);
+                    if (!_sutils.inModel(cs, rootSchema))
+                        return;
+                    if (_sutils.isCompositionRef(cs, rootSchema)) {
+                        _sutils._fillEnumsFromData(cs, rootSchema, data, names);
+                    }
+                    else if (_sutils.isCompositionList(cs, rootSchema, true)) {
+                        _sutils._fillEnumsFromData(_expandRefProp(cs.items, rootSchema), rootSchema, data, names);
+                    }
+                    else {
+                        var parentSchema = schema;
+                        if (_sutils.isSimpleList(cs, rootSchema)) {
+                            cs = _expandRefProp(cs.items, rootSchema);
+                            parentSchema = cs;
+                        }
+                        if (cs.enum && !Array.isArray(cs.enum) && cs.enum.arrayProperty && cs.enum.code && cs.enum.title) {
+                            var cd = _utils.getValue(data, cs.enum.arrayProperty);
+                            var enums_1 = [];
+                            var enumsNames_1 = [];
+                            if (Array.isArray(cd)) {
+                                cd.forEach(function (item) {
+                                    enums_1.push(item[cs.enum.code]);
+                                    enumsNames_1.push(item[cs.enum.title]);
+                                });
+                            }
+                            cs.enum = enums_1;
+                            cs.enumNames = enumsNames_1;
+                        }
+                    }
+                });
+            },
+            fillEnumsFromData: function (schema, data) {
+                _sutils._fillEnumsFromData(schema, schema, data, []);
+            },
             _fillEnums: function (schema, enums) {
                 _sutils._internalFillEnums(schema, schema, enums, []);
             },
@@ -8790,7 +8842,7 @@ var Phoenix;
                 if (schema.lookups)
                     Object.keys(schema.lookups).forEach(function (pn) {
                         var ll = schema.lookups[pn];
-                        if (ll.data.$type == "enum" && ll.data.$enumref) {
+                        if (ll.data.$type == 'enum' && ll.data.$enumref) {
                             var ear = ll.data.$enumref.split('.');
                             var el = ear.length === 2 ? enums[ear[1]] : (enums[schema.enums[ll.data.$enumref].type || "default"]);
                             var en = ear.length === 2 ? ear[0] : ll.data.$enumref;
@@ -10368,7 +10420,7 @@ var Phoenix;
             else
                 css.push('navbar-fixed-top');
             html.push('<div class="' + css.join(' ') + '">');
-            css = ['bs-header-bar no-y-margin no-x-margin no-x-padding  no-y-padding'];
+            css = ['bs-header-bar no-y-margin no-x-margin no-x-padding no-y-padding'];
             if (!_bootstrap4)
                 css.push('navbar navbar-inverse');
             else
@@ -11365,7 +11417,7 @@ var Phoenix;
                     if (_canAddFields(layout)) {
                         if (layout.$inline && (options.design || !layout.$html)) {
                             if (Phoenix.bootstrap4 && _allFieldsRight(layout))
-                                css.push('form-inline d-block bs-inline-container');
+                                css.push('form-inline d-flex flex-row-reverse bs-inline-container');
                             else
                                 css.push('form-inline bs-inline-container');
                         }
@@ -11479,7 +11531,7 @@ var Phoenix;
                         if (_canAddFields(layout)) {
                             if (layout.$inline && (options.design || !layout.$html)) {
                                 if (Phoenix.bootstrap4 && _allFieldsRight(layout))
-                                    css.push('form-inline d-block bs-inline-container');
+                                    css.push('form-inline d-flex flex-row-reverse bs-inline-container');
                                 else
                                     css.push('form-inline bs-inline-container');
                             }
@@ -11520,7 +11572,7 @@ var Phoenix;
                         if (_canAddFields(layout)) {
                             if (layout.$inline && (options.design || !layout.$html)) {
                                 if (Phoenix.bootstrap4 && _allFieldsRight(layout))
-                                    css.push('form-inline d-block bs-inline-container');
+                                    css.push('form-inline d-flex flex-row-reverse bs-inline-container');
                                 else
                                     css.push('form-inline bs-inline-container');
                             }
@@ -15398,6 +15450,9 @@ var Phoenix;
                         list._enumChildren(expandingProperty, cb);
                 });
             };
+            DataListBase.prototype.enumChildren = function (expandingProperty, cb) {
+                this._enumChildren(expandingProperty, cb);
+            };
             DataListBase.prototype._enumSelected = function (expandingProperty, cb) {
                 var that = this;
                 if (!expandingProperty) {
@@ -15997,6 +16052,7 @@ var Phoenix;
                 var ii = that._items.indexOf(item);
                 var id = item.$id;
                 var ns = null;
+                var doDestroy = false;
                 if (ii >= 0) {
                     removed = item.model();
                     notify = true;
@@ -16014,12 +16070,16 @@ var Phoenix;
                         that.frozen = ofv;
                     that.removeSelected(item, false);
                     that.frozen = true;
-                    item.destroy();
+                    doDestroy = true;
                 }
                 that.frozen = ofv;
                 delete that._map[id];
                 if (notify) {
-                    that._parent.notifyChanged(that._path, undefined, item, 'remove', { mmethod: true, change: true, $index: ii, $value: removed, $id: id, instance: that._parent }, false);
+                    that._parent.notifyChanged(that._path, undefined, item, 'remove', { mmethod: true, change: true, $index: ii, $value: item, $id: id, instance: that._parent }, false);
+                    if (doDestroy) {
+                        item.destroy();
+                        doDestroy = false;
+                    }
                     var path = (that._path ? that._path + '.' : '') + '$item'; // ???
                     that._parent.notifyStateChanged(path, {}); ///????
                     if (ns) {
@@ -16027,6 +16087,9 @@ var Phoenix;
                         ns.internalSetSelected(true);
                         ns.notifyChanged('$select', false, true, 'propchange', { instance: ns }, true);
                     }
+                }
+                if (doDestroy) {
+                    item.destroy();
                 }
             };
             return DataList;
@@ -17526,6 +17589,7 @@ var Phoenix;
                 var isSync = ((options && options.jsonSync) || (that.syncDataSet() !== null));
                 if (isSync)
                     that.onsync = Phoenix.serversync.update;
+                _sutils.fillEnumsFromData(that.$schema, ldata);
                 that.setData(ldata);
                 that.$model.onchange = that._modelChanged.bind(that);
                 if (isSync)
@@ -17846,13 +17910,19 @@ var Phoenix;
             };
             Form.prototype._createErrorItem = function (error, show) {
                 var that = this;
-                var style = (error.severity == 'success' ? 'success' : ((error.severity == 'warning') ? 'warning' : 'danger'));
+                var style = (error.severity == 'success' ? 'success' : ((error.severity == 'warning') ? 'info' : 'danger'));
                 var c = show ? '' : 'bs-none ';
                 var html = [_utils.format('<div id="{0}_error" data-error="true" class="' + c + ' alert alert-' + style + ' alert-dismissible fade show">', error.id)];
                 html.push('<button type="button" data-error-close="true" class="close" aria-label="Close">');
                 html.push('<span data-error-close="true" aria-hidden="true">&times;</span>');
                 html.push('</button>');
-                html.push(_utils.escapeHtml(error.message));
+                var cm = error.message.split('\n');
+                var msgLen = cm.length;
+                cm.forEach(function (msg, index) {
+                    if (index > 0)
+                        html.push('<br/>');
+                    html.push(_utils.escapeHtml(msg));
+                });
                 if (error.details && error.details.length) {
                     error.details.forEach(function (err) {
                         if (err.message)
@@ -19220,10 +19290,8 @@ var Phoenix;
             html.push('</div>');
             return { value: html.join(''), html: true };
         }, _afutils = {
-            useDatePicker: function () { return !_afutils.nativeDate() && $.fn[DATE_PICKER_NAME] != null; },
+            useDatePicker: function () { return $.fn[DATE_PICKER_NAME] != null; },
             useDateTimePicker: function () { return $.fn[DATETIME_PICKER_NAME] != null; },
-            nativeDate: _dateNative(),
-            nativeNumber: _numberNative(),
             addErrorDiv: function (html, noMargin) {
                 if (Phoenix.bootstrap4)
                     html.push('<div class="invalid-feedback bs-none' + (noMargin ? ' no-y-margin' : '') + '" id="{0}_errors"></div>');
@@ -19357,7 +19425,10 @@ var Phoenix;
                     $element[DATE_PICKER_NAME]().on('hide', onHide);
             },
             datePickerDestroy: function ($element) {
-                $element[DATE_PICKER_NAME]('destroy');
+                if ($element.data[DATE_PICKER_NAME]) {
+                    _dom.removeClass($element.get(0), 'date');
+                    $element[DATE_PICKER_NAME]('destroy');
+                }
             },
             //date time 
             dateTimePickerSetValue: function ($element, value) {
@@ -19386,17 +19457,16 @@ var Phoenix;
                     $element[DATETIME_PICKER_NAME]().on('hide', onHide);
             },
             dateTimePickerDestroy: function ($element) {
-                $element[DATETIME_PICKER_NAME]('destroy');
+                if ($element.data[DATETIME_PICKER_NAME]) {
+                    _dom.removeClass($element.get(0), 'date');
+                    $element[DATETIME_PICKER_NAME]('destroy');
+                }
             },
             text2value: function (textValue, schema, state) {
                 var that = this;
                 if (_sutils.isDate(schema)) {
-                    if (_afutils.nativeDate())
-                        return textValue;
-                    else {
-                        var pdate = _ulocale.tryParseDate(textValue);
-                        return _ulocale.localeDate2ISO(pdate);
-                    }
+                    var pdate = _ulocale.tryParseDate(textValue);
+                    return _ulocale.localeDate2ISO(pdate);
                 }
                 else if (_sutils.isDateTime(schema)) {
                     var pdate = _ulocale.tryParseDateTime(textValue);
@@ -19756,9 +19826,9 @@ var Phoenix;
                 if (!element)
                     return;
                 if (this.state.isHidden)
-                    _dom.addClass(element, "bs-none");
+                    _dom.addClass(element, 'bs-none');
                 else
-                    _dom.removeClass(element, "bs-none");
+                    _dom.removeClass(element, 'bs-none');
             };
             AbsField.prototype._state = function () {
                 var that = this;
@@ -20144,9 +20214,9 @@ var Phoenix;
                     self._parentItemAddedInDom = itemContainer;
                 else {
                     if (!item && self._render.lastRender)
-                        self._render.lastRender(itemContainer, item, self._id);
+                        self._render.lastRender(itemContainer, item, self._id, index);
                     else
-                        self._render.render(itemContainer, item, self._map, self.state.value.get(index));
+                        self._render.render(itemContainer, item, self._map, self.state.value.get(index), index);
                 }
                 _dom.append(itemParent, itemContainer);
             };
@@ -20474,8 +20544,12 @@ var Phoenix;
                     th.className = css.join(' ');
                 var cth = document.createElement('div');
                 var headerCss = ['bs-column-header'];
-                if (options.header && options.header.align)
-                    headerCss.push(options.header.align);
+                if (options.header) {
+                    if (options.header.align)
+                        headerCss.push(options.header.align);
+                    if (options.header.style)
+                        headerCss.push(options.header.style);
+                }
                 cth.className = headerCss.join(' ');
                 var p = cth;
                 if (options.headerLines) {
@@ -21177,7 +21251,7 @@ var Phoenix;
             }
             svalue = svalue || '';
             if (_su.isNumber(col.schema)) {
-                inplace.input.value = opts.nativeNumber ? value : svalue;
+                inplace.input.value = svalue;
                 return;
             }
             if (_su.isDate(col.schema)) {
@@ -21186,14 +21260,14 @@ var Phoenix;
                     _uiutils.utils.datePickerSetValue($(parent), value);
                 }
                 else
-                    inplace.input.value = opts.nativeDate ? value : svalue;
+                    inplace.input.value = svalue;
                 return;
             }
             inplace.input.value = svalue;
         }, _createSelectInplaceEdit = function (svalue, value, state, parent, cell, col, opts) {
             var input = document.createElement("select");
             input.type = "text";
-            var css = ['bs-inplace-edit bs-edit-border bs-inplace-edit-size'];
+            var css = ['bs-inplace-edit bs-edit-border bs-inplace-edit-size custom-select'];
             input.className = css.join(' ');
             var enums = state.filter ? col.schema.filters[state.filter] || [] : col.schema.enum;
             var ii = enums.indexOf(value);
@@ -21293,16 +21367,10 @@ var Phoenix;
             _dom.addClass(parent, 'focused');
             _dom.append(parent, input);
             if (_su.isDate(col.schema)) {
-                if (opts.nativeDate)
-                    input.value = _ulocale.isoDatePart(value || '');
-                else
-                    input.value = _ulocale.shortDate(value || '');
+                input.value = _ulocale.shortDate(value || '');
             }
             else if (_su.isNumber(col.schema)) {
-                if (opts.nativeNumber)
-                    input.value = value || 0;
-                else
-                    input.value = svalue;
+                input.value = svalue;
             }
             else
                 input.value = svalue;
@@ -21561,7 +21629,7 @@ var Phoenix;
                 var state = cell.item.getState(cell.col.$bind);
                 var s = _sutils.value2Text(value, cell.col.schema, state);
                 td.tabIndex = -1;
-                var opts = { nativeNumber: false, nativeDate: false, type: 'text', after: null, id: null };
+                var opts = { type: 'text', after: null, id: null };
                 if (cell.col.$lookup) {
                     // ---> START LOOKUP
                     opts.after = { icon: 'chevron-down' };
@@ -21570,19 +21638,8 @@ var Phoenix;
                     // <--- END LOOKUP
                 }
                 else if (_sutils.isDate(cell.col.schema)) {
-                    opts.nativeDate = _uiutils.utils.nativeDate();
-                    if (opts.nativeDate) {
-                        opts.type = 'date';
-                    }
-                    else {
-                        if (_uiutils.utils.useDatePicker())
-                            opts.after = { icon: 'calendar' };
-                    }
-                }
-                else if (_sutils.isNumber(cell.col.schema)) {
-                    opts.nativeNumber = _uiutils.utils.nativeNumber();
-                    if (opts.nativeNumber)
-                        opts.type = 'number';
+                    if (_uiutils.utils.useDatePicker())
+                        opts.after = { icon: 'calendar' };
                 }
                 that.inplace = _gu.createInplaceEdit(s, value, state, td, cell, cell.col, opts);
                 // ---> START LOOKUP
@@ -21662,7 +21719,7 @@ var Phoenix;
                 var value = item.getValue(cell.col.$bind);
                 var state = item.getState(cell.col.$bind);
                 var s = _sutils.value2Text(value, cell.col.schema, state);
-                var opts = { nativeNumber: _uiutils.utils.nativeNumber(), nativeDate: _uiutils.utils.nativeDate() };
+                var opts = {};
                 _gu.updateInplaceEdit(that.inplace, s, value, state, td, cell, cell.col, opts);
             };
             BasicGrid.prototype.removeEvents = function () {
@@ -22523,6 +22580,13 @@ var Phoenix;
                         var opts = that.renderOptions;
                         if (opts.expandingProperty) {
                             that._removeRow(params.$id);
+                            if (params.$value) {
+                                var list = params.$value[opts.expandingProperty];
+                                if (list)
+                                    list._enumChildren(opts.expandingProperty, function (item) {
+                                        that._removeRow(item.$id);
+                                    });
+                            }
                             updOddEven = true;
                             // that._renderRows(true, '', null, false);
                             // doResize = true;
@@ -25085,11 +25149,7 @@ var Phoenix;
                     if (_uiutils.utils.useDatePicker())
                         return _ulocale.parseISODate(that.state.value || '') || '';
                     else {
-                        if (_uiutils.utils.nativeDate()) {
-                            return that.state.value || '';
-                        }
-                        else
-                            return _ulocale.shortDate(that.state.value || '');
+                        return _ulocale.shortDate(that.state.value || '');
                     }
                 }
                 if (that._isDateTime()) {
@@ -25101,20 +25161,24 @@ var Phoenix;
                 else
                     return that.state.value || '';
             };
+            BaseEdit.prototype._schemaInput = function () {
+                return this.$schema;
+            };
             BaseEdit.prototype._isPassword = function () {
-                return _su.isPassword(this.$schema);
+                return _su.isPassword(this._schemaInput());
             };
             BaseEdit.prototype._isDate = function () {
-                return _su.isDate(this.$schema);
+                return _su.isDate(this._schemaInput());
             };
             BaseEdit.prototype._isDateTime = function () {
-                return _su.isDateTime(this.$schema);
+                return _su.isDateTime(this._schemaInput());
             };
             BaseEdit.prototype._isMemo = function () {
-                return _su.isText(this.$schema);
+                return _su.isText(this._schemaInput());
             };
             BaseEdit.prototype._isNumber = function () {
-                return _su.isNumber(this.$schema);
+                var schema = this._schemaInput();
+                return !schema.enum && _su.isNumber(schema);
             };
             BaseEdit.prototype.setFocus = function (focusParams) {
                 var that = this;
@@ -25128,7 +25192,7 @@ var Phoenix;
                     input.focus();
             };
             BaseEdit.prototype._isMoney = function () {
-                return _su.isMoney(this.$schema);
+                return _su.isMoney(this._schemaInput());
             };
             BaseEdit.prototype._setDisabled = function (input, element) {
                 var that = this;
@@ -25230,11 +25294,7 @@ var Phoenix;
                         if (_uiutils.utils.useDatePicker())
                             _uiutils.utils.datePickerSetValue(that.$element, that.state.value);
                         else {
-                            if (_uiutils.utils.nativeDate()) {
-                                input.value = _ulocale.isoDatePart(that.state.value || '');
-                            }
-                            else
-                                input.value = _ulocale.shortDate(that.state.value || '');
+                            input.value = _ulocale.shortDate(that.state.value || '');
                         }
                     }
                     else if (that._isDateTime()) {
@@ -25244,21 +25304,20 @@ var Phoenix;
                             input.value = _ulocale.shortDateTime(that.state.value || '');
                     }
                     else if (that._isNumber()) {
-                        if (_uiutils.utils.nativeNumber())
-                            input.value = that.state.value || 0;
-                        else
-                            input.value = that._value2Text();
+                        input.value = that._value2Text();
                     }
                     else
                         input.value = that._value2Text();
                 }
             };
-            BaseEdit.prototype.changed = function (propName, ov, nv, op) {
+            BaseEdit.prototype.changed = function (propName, ov, nv, op, params) {
                 var that = this;
                 if (that.useDisplay && propName === that.$bind)
                     return;
-                if (!that.$element)
+                if (!that.$element) {
+                    that.state.value = nv;
                     return;
+                }
                 var input = that._input();
                 nv = that.form.getValue(that.$display);
                 if (that.state.value != nv) {
@@ -25446,7 +25505,7 @@ var Phoenix;
             Edit.prototype.customOptionsDate = function (options) {
                 var that = this;
                 options.$format = 'date';
-                if (!_uiutils.utils.nativeDate() && _uiutils.utils.useDatePicker()) {
+                if (_uiutils.utils.useDatePicker()) {
                     options.after = { icon: 'calendar' };
                     options.date = true;
                 }
@@ -25465,14 +25524,12 @@ var Phoenix;
             Edit.prototype.customOptionsNumber = function (options, symbol) {
                 var that = this;
                 options.inputClass = "bs-edit-number";
-                if (symbol || _su.hasSymbol(that.$schema)) {
+                var schema = that._schemaInput();
+                if (symbol || _su.hasSymbol(schema)) {
                     options.after = { value: symbol };
                     that._hasSymbol = true;
                 }
-                options.$format = that.$schema.format;
-                if (_uiutils.utils.nativeNumber()) {
-                    options.type = 'number';
-                }
+                options.$format = schema.format;
             };
             Edit.prototype._removeEventsDate = function () {
                 var that = this;
@@ -25530,16 +25587,17 @@ var Phoenix;
                 var input = that._input();
                 if (that.state.isReadOnly || that.state.isDisabled)
                     return true;
+                var schema = that._schemaInput();
                 if (that._isNumber() && !that.$lookup) {
-                    if (_uiutils.utils.doPasteNumber(event, input, { decimalSep: _locale.number.decimal, thousandSep: _locale.number.thousand, places: that.state.decimals, schema: that.$schema }) === false)
+                    if (_uiutils.utils.doPasteNumber(event, input, { decimalSep: _locale.number.decimal, thousandSep: _locale.number.thousand, places: that.state.decimals, schema: schema }) === false)
                         return false;
                 }
                 else if (that._isDate()) {
-                    if (_uiutils.utils.doPasteDate(event, input, { sep: _locale.date.daySep, format: _locale.date.dateShort, schema: that.$schema }) === false)
+                    if (_uiutils.utils.doPasteDate(event, input, { sep: _locale.date.daySep, format: _locale.date.dateShort, schema: schema }) === false)
                         return false;
                 }
                 else if (that._isPassword()) {
-                    if (_uiutils.utils.doPastePassword(event, input, { schema: that.$schema }) === false)
+                    if (_uiutils.utils.doPastePassword(event, input, { schema: schema }) === false)
                         return false;
                 }
                 return true;
@@ -25573,16 +25631,17 @@ var Phoenix;
                 var input = that._input();
                 if (that._ignoreKeys(event, true))
                     return true;
+                var schema = that._schemaInput();
                 if (that._isNumber() && !that.$lookup) {
-                    if (_uiutils.utils.keyPressNumber(event, input, { decimalSep: _locale.number.decimal, thousandSep: _locale.number.thousand, places: that.state.decimals, schema: that.$schema }) === false)
+                    if (_uiutils.utils.keyPressNumber(event, input, { decimalSep: _locale.number.decimal, thousandSep: _locale.number.thousand, places: that.state.decimals, schema: schema }) === false)
                         return false;
                 }
                 else if (that._isDate()) {
-                    if (_uiutils.utils.keyPressDate(event, input, { sep: _locale.date.daySep, format: _locale.date.dateShort, schema: that.$schema }) === false)
+                    if (_uiutils.utils.keyPressDate(event, input, { sep: _locale.date.daySep, format: _locale.date.dateShort, schema: schema }) === false)
                         return false;
                 }
                 else if (that._isPassword()) {
-                    if (_uiutils.utils.keyPressPassword(event, input, { schema: that.$schema }) === false)
+                    if (_uiutils.utils.keyPressPassword(event, input, { schema: schema }) === false)
                         return false;
                 }
                 return true;
@@ -25607,16 +25666,17 @@ var Phoenix;
                     }
                     return true;
                 }
+                var schema = that._schemaInput();
                 if (that._isNumber() && !that.$lookup) {
-                    if (_uiutils.utils.keyDownNumber(event, input, { decimalSep: _locale.number.decimal, thousandSep: _locale.number.thousand, places: that.state.decimals, schema: that.$schema }) === false)
+                    if (_uiutils.utils.keyDownNumber(event, input, { decimalSep: _locale.number.decimal, thousandSep: _locale.number.thousand, places: that.state.decimals, schema: schema }) === false)
                         return false;
                 }
                 else if (that._isDate()) {
-                    if (_uiutils.utils.keyDownDate(event, input, { sep: _locale.date.daySep, format: _locale.date.dateShort, schema: that.$schema }) === false)
+                    if (_uiutils.utils.keyDownDate(event, input, { sep: _locale.date.daySep, format: _locale.date.dateShort, schema: schema }) === false)
                         return false;
                 }
                 else if (that._isPassword()) {
-                    if (_uiutils.utils.keyDownPassword(event, input, { schema: that.$schema }) === false)
+                    if (_uiutils.utils.keyDownPassword(event, input, { schema: schema }) === false)
                         return false;
                 }
                 return true;
@@ -26046,7 +26106,10 @@ var Phoenix;
         if (decimalPart.length < places) {
             decimalPart = formatDecimalPart(decimalPart, places);
         }
-        return entPart + decimalSep + decimalPart;
+        if (places === 0)
+            return entPart;
+        else
+            return entPart + decimalSep + decimalPart;
     }
     function formatDecimalPart(decimalPart, places) {
         var addDecimals = decimalPart.length;
@@ -26117,6 +26180,8 @@ var Phoenix;
         return true;
     }
     function limit(val, min, exclusiveMin, max, exclusiveMax, places, decimalSep, thousandSep) {
+        if (val === '')
+            val = '0';
         var valFloat = parseFloat(val);
         if (exclusiveMin) {
             if (valFloat <= min)
@@ -26559,6 +26624,121 @@ var Phoenix;
         }(Phoenix.ui.AbsField));
         _ui.registerControl(IFrame, "string", false, 'iframe', {});
     })(frame = Phoenix.frame || (Phoenix.frame = {}));
+})(Phoenix || (Phoenix = {}));
+/// <reference path="../../../core/core-refs.ts" />
+/// <reference path="../../../core/modules/locale.ts" />
+/// <reference path="./absfield.control.ts" />
+var Phoenix;
+(function (Phoenix) {
+    var _p = Phoenix, _utils = _p.utils, _ui = _p.ui, _dom = _p.dom, _uiutils = _p.uiutils;
+    var gmapsviewer;
+    (function (gmapsviewer) {
+        var _createFrame = function (id, options, authoring) {
+            var html = [];
+            _uiutils.utils.fieldWrapper(html, options, authoring, function () {
+                options.height = options.height || 450;
+                html.push('<div id="{0}_parent"></div>');
+            }, null);
+            return _utils.format(html.join(''), id);
+        }, _checkIFrameUri = function (value) {
+            return 'https://www.google.com/maps/embed/v1/place?key=' + encodeURIComponent(_utils.gmapsKey) + '&q=' + encodeURIComponent(value);
+        };
+        var GMapsView = /** @class */ (function (_super) {
+            __extends(GMapsView, _super);
+            function GMapsView(fp, options, form) {
+                var _this = _super.call(this, fp, options, form) || this;
+                _this._state();
+                return _this;
+            }
+            GMapsView.prototype._setDisabled = function (element) {
+            };
+            GMapsView.prototype._setReadOnly = function (element) {
+                this._setDisabled(element);
+            };
+            GMapsView.prototype._setMandatory = function (element) {
+            };
+            GMapsView.prototype._state2UI = function () {
+                var that = this, element = that.$element ? that.$element.get(0) : null;
+                if (element) {
+                    that._showaddress();
+                    that._setDisabled(element);
+                    that._setReadOnly(element);
+                    that.setHidden(element);
+                }
+            };
+            GMapsView.prototype._showaddress = function () {
+                var that = this, iframeElement = that._iframe();
+                var e = that.$element ? that.$element.get(0) : null;
+                if (!iframeElement) {
+                    if (that.state.value && e) {
+                        // Create iframe
+                        var parent_3 = _dom.find(e, that.id + '_parent');
+                        var iframeElement_2 = $('<iframe id="' + that.id + '_frame" src="' + _checkIFrameUri(that.state.value) + '" scrolling="no" width="100%" height="' + that.renderOptions.height + '"  frameBorder="0" border="0"></iframe>');
+                        _dom.append(parent_3, iframeElement_2.get(0));
+                    }
+                }
+                else {
+                    if (iframeElement) {
+                        if (that.state.value) {
+                            iframeElement.src = _checkIFrameUri(that.state.value);
+                        }
+                        else {
+                            // Remove iframe 
+                            _dom.remove(iframeElement);
+                        }
+                    }
+                }
+            };
+            GMapsView.prototype.changed = function (propName, ov, nv, op) {
+                var that = this, iframeElement = that._iframe();
+                if (that.state.value !== nv) {
+                    that.state.value = nv;
+                    that._showaddress();
+                }
+            };
+            GMapsView.prototype.stateChanged = function (propName, params) {
+                var that = this, state = that.form.getState(that.$bind), element = that.$element ? that.$element.get(0) : null;
+                if (state.isHidden !== that.state.isHidden) {
+                    that.state.isHidden = state.isHidden;
+                    if (element)
+                        that.setHidden(element);
+                }
+                if (state.isDisabled != that.state.isDisabled) {
+                    that.state.isDisabled = state.isDisabled;
+                    if (element)
+                        that._setDisabled(element);
+                }
+                if (state.isReadOnly != that.state.isReadOnly) {
+                    that.state.isReadOnly = state.isReadOnly;
+                    if (element)
+                        that._setReadOnly(element);
+                }
+                if (state.isMandatory != that.state.isMandatory) {
+                    that.state.isMandatory = state.isMandatory;
+                    if (element)
+                        that._setMandatory(element);
+                }
+            };
+            GMapsView.prototype._iframe = function () {
+                var that = this, e = that.$element.get(0);
+                return e ? _dom.find(e, that.id + '_frame') : null;
+            };
+            GMapsView.prototype.render = function ($parent) {
+                var that = this;
+                var opts = that._initOptions(_uiutils.utils.defaultOptions);
+                if (!that.$element) {
+                    opts.src = that.state.value;
+                    that.$element = $(_createFrame(that.id, opts, that.options.design));
+                    that._state2UI();
+                    that.setEvents(opts);
+                }
+                that.appendElement($parent, opts);
+                return that.$element;
+            };
+            return GMapsView;
+        }(Phoenix.ui.AbsField));
+        _ui.registerControl(GMapsView, "string", false, 'gmapsview', {});
+    })(gmapsviewer = Phoenix.gmapsviewer || (Phoenix.gmapsviewer = {}));
 })(Phoenix || (Phoenix = {}));
 /// <reference path="../../../core/core-refs.ts" />
 /// <reference path="../../page.control.ts" />
@@ -27436,7 +27616,7 @@ var Phoenix;
                 html.push('>');
             }
             html.push('<button type="button"');
-            html.push(' class="bs-button btn btn-' + _dom.bootstrapStyles(options.type === 'secondary' || options.type === 'default')[options.type]);
+            html.push(' class="bs-button btn btn-' + _dom.bootstrapStyles(options.outline || options.type === 'secondary' || options.type === 'default')[options.type]);
             if (options.classButton)
                 html.push(' ' + options.classButton.join(''));
             if (options.size)
@@ -27999,11 +28179,585 @@ var Phoenix;
 /// <reference path="./edit.control.ts" />
 var Phoenix;
 (function (Phoenix) {
+    // TODO  statechanged / select 
+    var multifield;
+    (function (multifield) {
+        var _ui = Phoenix.ui, _utils = Phoenix.utils, _uiutils = Phoenix.uiutils, _dom = Phoenix.dom, _locale = Phoenix.locale, _su = Phoenix.Observable.SchemaUtils, _ulocale = Phoenix.ulocale, _ui = Phoenix.ui;
+        ;
+        var _createSelect = function (html, enums, enumsNames) {
+            html.push('<div class="input-group-prepend" tabindex="-1">');
+            html.push('<button id="{0}_select" class="btn btn-' + _dom.bootstrapStyles(false).info + ' dropdown-toggle" type="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false"></button>');
+            html.push('<div class="dropdown-menu">');
+            enums.forEach(function (value, index) {
+                html.push('<a class="dropdown-item" data-select="' + enums[index] + '" href="#">');
+                html.push(_utils.escapeHtml(enumsNames[index]));
+                html.push('</a>');
+            });
+            html.push('</div>');
+            html.push('</div>');
+        }, _createAfter = function (id, afterDef) {
+            var html = [];
+            html.push('<span  id="{0}_after" tabindex="-1" class="bs-grp-btn input-group-append input-group-addon');
+            if (afterDef.icon)
+                html.push(' bs-icon-input');
+            html.push('">');
+            html.push('<span class="input-group-text">');
+            if (afterDef.icon) {
+                html.push('<span class="' + _dom.iconClass(afterDef.icon) + '"></span>');
+            }
+            else
+                html.push(afterDef.value);
+            html.push('</span>');
+            html.push('</span>');
+            return $(_utils.format(html.join(''), id)).get(0);
+        }, _createMultiselectInput = function (id, options, enums, enumsNames, authoring, title) {
+            title = title || '';
+            options = $.extend({ titleIsHidden: false, placeHolder: false, columns: false, labelCol: 3 }, options);
+            var html = [];
+            if (options.titleIsHidden) {
+                options.columns = false;
+            }
+            options.placeHolder = false;
+            _uiutils.utils.fieldWrapper(html, options, authoring, function () {
+                if (!options.titleIsHidden) {
+                    html.push('<label for="{0}_input" id="{0}_label"');
+                    var css = ['bs-label'];
+                    if (options.columns) {
+                        css.push('col-form-label');
+                        css.push('bs-lib-col col-sm-' + options.labelCol);
+                        if (options.labelLeft)
+                            css.push('text-left');
+                    }
+                    if (options.inline) {
+                        css.push('form-check-inline');
+                        css.push('bs-cursor-d no-x-padding');
+                    }
+                    if (css.length)
+                        html.push(' class="' + css.join(' ') + '"');
+                    html.push('>');
+                    html.push(_utils.escapeHtml(title || '') + (options.inline ? '&nbsp;' : ''));
+                    _uiutils.utils.addTooltipAndRule(html, options);
+                    html.push('</label>');
+                }
+                if (options.columns)
+                    html.push('<div class="no-x-padding col-sm-' + (12 - options.labelCol) + '" id="{0}_colparent">');
+                html.push('<div class="input-group" id="{0}_group"');
+                var style = [];
+                if (options.minWidth)
+                    style.push('min-width: ' + options.minWidth + ';');
+                if (options.maxWidth)
+                    style.push('max-width: ' + options.maxWidth + ';');
+                if (style.length)
+                    html.push('  style="' + style.join("") + '"');
+                html.push('>');
+                _createSelect(html, enums, enumsNames);
+                if (options.readOnly) {
+                    html.push('<div id="{0}_input" class="form-control"></div>');
+                }
+                else {
+                    html.push('<input type="text" id="{0}_input" class="form-control">');
+                }
+                html.push('</div>');
+                _uiutils.utils.addErrorDiv(html);
+                if (options.columns)
+                    html.push('</div>');
+                if (options.titleIsHidden)
+                    _uiutils.utils.addTooltipAndRule(html, options);
+            });
+            return _utils.format(html.join(''), id);
+        };
+        var BaseMultiField = /** @class */ (function (_super) {
+            __extends(BaseMultiField, _super);
+            function BaseMultiField(fp, options, form) {
+                var _this = _super.call(this, fp, options, form) || this;
+                var that = _this;
+                that._state();
+                that._stateOfField();
+                if (that.renderOptions.useBind) {
+                    that.renderOptions.field = that.form.getValue(that.$bind);
+                }
+                if (that.renderOptions.field) {
+                    that.form.registerListenerFor(that.renderOptions.field, that);
+                    that._schemaField = that.form.getSchema(that.renderOptions.field);
+                }
+                else {
+                    that._schemaField = null;
+                }
+                return _this;
+            }
+            BaseMultiField.prototype.destroy = function () {
+                var that = this;
+                that._removePlugins();
+                if (that.renderOptions.field)
+                    that.form.unRegisterListenerFor(that.renderOptions.field, that);
+                _super.prototype.destroy.call(this);
+            };
+            BaseMultiField.prototype._changeField = function (value) {
+                var that = this;
+                if (that.renderOptions.field)
+                    that.form.unRegisterListenerFor(that.renderOptions.field, that);
+                that.renderOptions.field = value;
+                if (that.renderOptions.field) {
+                    that.form.registerListenerFor(that.renderOptions.field, that);
+                    that._schemaField = that.form.getSchema(that.renderOptions.field);
+                }
+                else {
+                    that._schemaField = null;
+                }
+                that._stateOfField();
+                that._afterFieldChanged();
+            };
+            BaseMultiField.prototype._isDate = function () {
+                var that = this;
+                return that._schemaField && _su.isDate(that._schemaField);
+            };
+            BaseMultiField.prototype._isDateTime = function () {
+                var that = this;
+                return that._schemaField && _su.isDateTime(that._schemaField);
+            };
+            BaseMultiField.prototype._isMemo = function () {
+                var that = this;
+                return that._schemaField && _su.isText(that._schemaField);
+            };
+            BaseMultiField.prototype._isNumber = function () {
+                var that = this;
+                return that._schemaField && _su.isNumber(that._schemaField);
+            };
+            BaseMultiField.prototype._schemaInput = function () {
+                return this._schemaField;
+            };
+            BaseMultiField.prototype._afterIcon = function () {
+                var that = this;
+                if (that._isDate()) {
+                    if (that.renderOptions.readOnly)
+                        return null;
+                    if (_uiutils.utils.useDatePicker())
+                        return { icon: 'calendar' };
+                }
+                else if (that._isDateTime()) {
+                    if (that.renderOptions.readOnly)
+                        return true;
+                    if (_uiutils.utils.useDateTimePicker())
+                        return { icon: 'calendar' };
+                }
+                else if (that._isNumber()) {
+                    if (that._stateField.symobol)
+                        return { value: that._stateField.symobol };
+                }
+                return null;
+            };
+            BaseMultiField.prototype._removePlugins = function () {
+                var that = this;
+                if (!that.renderOptions.readOnly && that.$element) {
+                    // Remove plugins
+                    if (_uiutils.utils.useDateTimePicker())
+                        _uiutils.utils.dateTimePickerDestroy($(_dom.find(that.$element.get(0), that.id + '_group')));
+                    if (_uiutils.utils.useDatePicker())
+                        _uiutils.utils.datePickerDestroy(that.$element);
+                }
+            };
+            BaseMultiField.prototype._removeAfter = function () {
+                var that = this;
+                var e = that.$element ? that.$element.get(0) : null;
+                if (e) {
+                    var after = _dom.find(e, that.id + '_after');
+                    if (after)
+                        _dom.remove(after);
+                }
+            };
+            BaseMultiField.prototype._updateType = function () {
+                var that = this;
+                that._removeAfter();
+                var after = that._afterIcon();
+                var input = that._input();
+                var element = that.$element.get(0);
+                if (that._isNumber())
+                    _dom.addClass(input, 'bs-edit-number');
+                else
+                    _dom.removeClass(input, 'bs-edit-number');
+                if (after) {
+                    var afterElement = _createAfter(that.id, after);
+                    _dom.after(input, afterElement);
+                }
+            };
+            BaseMultiField.prototype._setPlugins = function () {
+                var that = this;
+                if (!that.renderOptions.readOnly && that.$element) {
+                    var select_1 = _dom.find(that.$element.get(0), that.id + '_select');
+                    if (that._isDate() && _uiutils.utils.useDatePicker()) {
+                        if (select_1)
+                            _dom.removeClass(select_1, 'btn');
+                        _uiutils.utils.datePickerInitialize(that.$element, { showOnFocus: false }, function (e) {
+                            that.focusOut(null);
+                        });
+                        if (select_1)
+                            _dom.addClass(select_1, 'btn');
+                    }
+                    else if (that._isDateTime() && _uiutils.utils.useDateTimePicker()) {
+                        if (select_1)
+                            _dom.removeClass(select_1, 'btn');
+                        _uiutils.utils.dateTimePickerInitialize($(_dom.find(that.$element.get(0), that.id + '_group')), {}, function (e) {
+                            that.focusOut(null);
+                        });
+                        if (select_1)
+                            _dom.addClass(select_1, 'btn');
+                    }
+                }
+            };
+            BaseMultiField.prototype.focusOut = function (event) {
+                var that = this;
+                if (!that._schemaField || that.renderOptions.readOnly)
+                    return;
+                that._input2Model(true);
+            };
+            BaseMultiField.prototype._text2value = function (textValue) {
+                var that = this;
+                return _uiutils.utils.text2value(textValue, that._schemaInput(), that._stateField);
+            };
+            BaseMultiField.prototype.checkValue = function (value, after) {
+                after(value);
+            };
+            BaseMultiField.prototype._input = function () {
+                var that = this, e = that.$element ? that.$element.get(0) : null;
+                if (!e)
+                    return null;
+                return _dom.find(e, that.id + '_input');
+            };
+            BaseMultiField.prototype._input2Model = function (isFocusOut) {
+                var that = this, input = that._input();
+                var nv = that._text2value(input.value);
+                var schema = that._schemaInput();
+                if (!that._equals(nv)) {
+                    that.checkValue(nv, function (cv) {
+                        if (that.state.value !== cv) {
+                            if (cv === '' && schema.type === "string")
+                                cv = undefined;
+                            that._internalSetValue(cv, isFocusOut);
+                        }
+                        else
+                            that._value2Input(input);
+                    });
+                }
+                else if (that._isNumber() || that._isDate() || that._isDateTime()) {
+                    that._value2Input(input);
+                }
+            };
+            BaseMultiField.prototype.updateModel = function () {
+                var that = this;
+                that.form.setValue(that.renderOptions.field, that._stateField.value);
+            };
+            BaseMultiField.prototype._internalSetValue = function (value, isfocusOut) {
+                var that = this;
+                if (that._searchEventBus) {
+                    that._searchEventBus.push(null, function (ldata) {
+                        that._stateField.value = value;
+                        that.updateModel();
+                    }, isfocusOut);
+                }
+                else {
+                    that._stateField.value = value;
+                    that.updateModel();
+                }
+            };
+            BaseMultiField.prototype._afterFieldChanged = function () {
+                var that = this;
+                that._removePlugins();
+                that._updateType();
+                that._setPlugins();
+                var element = that.$element ? that.$element.get(0) : null;
+                var input = that._input();
+                if (input) {
+                    that._value2Input(input);
+                    /*
+                    that._setDisabled(input, element);
+                    that._setReadOnly(input, element);
+                    that.setHidden(element);
+                    that._setMandatory(input, element);
+                    that._setErrors(input, element);
+                    that._setSymbol(element);
+                    */
+                }
+            };
+            BaseMultiField.prototype._stateOfField = function () {
+                var that = this;
+                that._stateField = that._stateField || {};
+                if (that.renderOptions.field) {
+                    var state_3 = that.form.getState(that.renderOptions.field);
+                    that._stateField.value = that.form.getValue(that.renderOptions.field);
+                    Object.keys(state_3).forEach(function (pn) { that._stateField[pn] = state_3[pn]; });
+                }
+                else {
+                    that._stateField.value = undefined;
+                }
+            };
+            BaseMultiField.prototype.changed = function (propName, ov, nv, op, params) {
+                var that = this;
+                if (propName === that.$bind) {
+                    if (that.state.value !== nv) {
+                        that._changedBind(ov, nv, op, params);
+                        that.state.value = nv;
+                    }
+                }
+                else if (that.renderOptions.field && propName === that.renderOptions.field) {
+                    if (that._stateField.value !== nv) {
+                        that._stateField.value = nv;
+                        that._value2Input(that._input());
+                    }
+                    else if (!that.renderOptions.readOnly && that._schemaField && !that._schemaField.enum) {
+                        var input = that._input();
+                        var av = input.value;
+                        var cv = that._value2Text();
+                        if (av !== cv)
+                            that._value2Input(input);
+                    }
+                }
+            };
+            BaseMultiField.prototype.stateChanged = function (propName, params) {
+                // TODO
+            };
+            BaseMultiField.prototype._changedBind = function (ov, nv, op, params) {
+                this._setSelectValue(nv);
+            };
+            BaseMultiField.prototype._changedField = function (ov, nv, op, params) {
+                // TODO
+            };
+            BaseMultiField.prototype._select = function () {
+                var that = this;
+                if (that.$element) {
+                    return _dom.find(that.$element.get(0), that.id + '_select');
+                }
+                return null;
+            };
+            BaseMultiField.prototype.canEdit = function () {
+                var that = this;
+                var state = that._stateField;
+                return (!state.isHidden && !state.isDisabled && !state.isHidden && !that.renderOptions.readOnly);
+            };
+            BaseMultiField.prototype._setSelectValue = function (value) {
+                var that = this;
+                var select = that._select();
+                if (!select)
+                    return;
+                if (value === undefined || value === null) {
+                    value = '';
+                }
+                else {
+                    var ii = that.$schema.enum.indexOf(value);
+                    value = ii >= 0 ? that.$schema.enumNames[ii] : '';
+                }
+                if (value === '')
+                    value = String.fromCharCode(160);
+                _dom.text(select, value);
+            };
+            BaseMultiField.prototype._ignoreKeys = function (event, keyPress) {
+                if (event.which === _dom.keys.VK_TAB)
+                    return true;
+                if (event.which === _dom.keys.VK_DELETE)
+                    return false;
+                if (!keyPress && (event.which === _dom.keys.VK_BACKSPACE))
+                    return false;
+                if (keyPress) {
+                    if (event.which === 0)
+                        return true;
+                    if (_dom.arrowKeys.indexOf(event.which) >= 0)
+                        return true;
+                    return false;
+                }
+                else {
+                    if (_dom.ignoreKeys.indexOf(event.which) >= 0 || _dom.arrowKeys.indexOf(event.which) >= 0)
+                        return true;
+                }
+                return false;
+            };
+            BaseMultiField.prototype.keypress = function (event) {
+                var that = this;
+                if (!that._schemaField || that.renderOptions.readOnly)
+                    return true;
+                var state = that._stateField;
+                if (state.isReadOnly || state.isDisabled)
+                    return true;
+                var input = that._input();
+                if (that._ignoreKeys(event, true))
+                    return true;
+                var schema = that._schemaInput();
+                if (that._isNumber() && !that.$lookup) {
+                    if (_uiutils.utils.keyPressNumber(event, input, { decimalSep: _locale.number.decimal, thousandSep: _locale.number.thousand, places: that.state.decimals, schema: schema }) === false)
+                        return false;
+                }
+                else if (that._isDate()) {
+                    if (_uiutils.utils.keyPressDate(event, input, { sep: _locale.date.daySep, format: _locale.date.dateShort, schema: schema }) === false)
+                        return false;
+                }
+                return true;
+            };
+            BaseMultiField.prototype._afterEnter = function () {
+                var that = this;
+                that._input2Model(true);
+                if (that.renderOptions && that.renderOptions.after && that.renderOptions.after.$bind) {
+                    that.form.execAction(that.renderOptions.after.$bind, that.state.value);
+                }
+            };
+            BaseMultiField.prototype.keydown = function (event) {
+                var that = this;
+                if (!that._schemaField || that.renderOptions.readOnly)
+                    return true;
+                var state = that._stateField;
+                if (state.isReadOnly || state.isDisabled)
+                    return true;
+                var input = that._input();
+                if (that._ignoreKeys(event, false)) {
+                    if (event.which === _dom.keys.VK_ENTER) {
+                        that._afterEnter();
+                    }
+                    return true;
+                }
+                var schema = that._schemaInput();
+                if (that._isNumber() && !that.$lookup) {
+                    if (_uiutils.utils.keyDownNumber(event, input, { decimalSep: _locale.number.decimal, thousandSep: _locale.number.thousand, places: that.state.decimals, schema: schema }) === false)
+                        return false;
+                }
+                else if (that._isDate()) {
+                    if (_uiutils.utils.keyDownDate(event, input, { sep: _locale.date.daySep, format: _locale.date.dateShort, schema: schema }) === false)
+                        return false;
+                }
+                return true;
+            };
+            BaseMultiField.prototype._equals = function (nv) {
+                var that = this;
+                var schema = that._schemaInput();
+                var res = (that._stateField.value === nv);
+                if (!res && that._stateField.value === undefined) {
+                    if (schema.type === 'string') {
+                        if (nv === '')
+                            return true;
+                    }
+                }
+                return res;
+            };
+            BaseMultiField.prototype._state2UI = function () {
+                // TODO
+                var that = this;
+                if (!that.$element)
+                    return;
+                that._setSelectValue(that.state.value);
+                that._afterFieldChanged();
+            };
+            BaseMultiField.prototype.setFocus = function (focusParams) {
+                var that = this;
+                if (!that.canEdit())
+                    return;
+                var input = that._input();
+                if (input)
+                    input.focus();
+            };
+            BaseMultiField.prototype.click = function (event) {
+                var that = this, target = event.target;
+                var href = _dom.attr(target, 'data-phoenix-href') || _dom.attr(target, 'href');
+                if (href === '#')
+                    event.preventDefault();
+                var selected = _dom.attr(event.target, 'data-select');
+                if (selected) {
+                    that.form.setValue(that.$bind, selected);
+                    if (that.canEdit())
+                        that.setFocus();
+                }
+                if (!that.canEdit())
+                    return;
+            };
+            BaseMultiField.prototype.render = function ($parent) {
+                var that = this;
+                var opts = that._initOptions(_uiutils.utils.defaultOptions);
+                if (!that.$element) {
+                    opts.title = _ulocale.tt(that.$schema.title, that.form.$locale);
+                    if (that.$schema.description)
+                        opts.description = _ulocale.tt(that.$schema.description, that.form.$locale);
+                    var enumNames = that.$schema.enumNames || that.$schema.enum;
+                    enumNames = enumNames.map(function (v) { return _ulocale.tt(v + '', that.form.$locale); });
+                    that.$element = $(_createMultiselectInput(that.id, opts, that.$schema.enum, enumNames, that.options.design, opts.title));
+                    that._state2UI();
+                    that.setEvents(opts);
+                }
+                that.appendElement($parent, opts);
+                return that.$element;
+            };
+            BaseMultiField.prototype._value2Text = function () {
+                var that = this;
+                var textValue = that._stateField.value;
+                var input = that._input();
+                if (that._isNumber())
+                    return _su.value2Text(textValue, that._schemaField, that._stateField);
+                else if (that._isDate()) {
+                    if (_uiutils.utils.useDatePicker())
+                        return _ulocale.parseISODate(textValue || '') || '';
+                    else
+                        return _ulocale.shortDate(textValue || '');
+                }
+                if (that._isDateTime()) {
+                    if (_uiutils.utils.useDateTimePicker())
+                        return _ulocale.parseISODateTime(textValue || '') || '';
+                    else
+                        return _ulocale.shortDateTime(textValue || '');
+                }
+                else
+                    return textValue || '';
+            };
+            BaseMultiField.prototype._value2Input = function (input) {
+                var that = this;
+                var textValue = that._stateField.value;
+                if (that.renderOptions.readOnly) {
+                    if (that._isDate()) {
+                        _dom.text(input, _ulocale.shortDate(textValue || '') || String.fromCharCode(160));
+                    }
+                    else if (that._isDateTime()) {
+                        _dom.text(input, _ulocale.shortDateTime(textValue || '') || String.fromCharCode(160));
+                    }
+                    else if (that._isNumber()) {
+                        _dom.text(input, that._value2Text() || String.fromCharCode(160));
+                    }
+                    else
+                        _dom.text(input, that._value2Text() || String.fromCharCode(160));
+                }
+                else {
+                    if (that._isDate()) {
+                        if (_uiutils.utils.useDatePicker())
+                            _uiutils.utils.datePickerSetValue(that.$element, textValue);
+                        else {
+                            input.value = _ulocale.shortDate(textValue || '');
+                        }
+                    }
+                    else if (that._isDateTime()) {
+                        if (_uiutils.utils.useDateTimePicker())
+                            _uiutils.utils.dateTimePickerSetValue($(_dom.find(that.$element.get(0), that.id + '_group')), textValue);
+                        else
+                            input.value = _ulocale.shortDateTime(textValue || '');
+                    }
+                    else if (that._isNumber()) {
+                        input.value = that._value2Text();
+                    }
+                    else
+                        input.value = that._value2Text();
+                }
+            };
+            return BaseMultiField;
+        }(Phoenix.ui.AbsField));
+        _ui.registerControl(BaseMultiField, '*', true, 'multifield', null);
+    })(multifield = Phoenix.multifield || (Phoenix.multifield = {}));
+})(Phoenix || (Phoenix = {}));
+/// <reference path="../../../core/core-refs.ts" />
+/// <reference path="../../../core/modules/locale.ts" />
+/// <reference path="./absfield.control.ts" />
+/// <reference path="../schema.data.ts" />
+/// <reference path="../errors.data.ts" />
+/// <reference path="./edit.control.ts" />
+var Phoenix;
+(function (Phoenix) {
     var multivalue;
     (function (multivalue) {
         var _ui = Phoenix.ui, _utils = Phoenix.utils, _formedit = Phoenix.formedit, _uiutils = Phoenix.uiutils, _dom = Phoenix.dom, _locale = Phoenix.locale, _su = Phoenix.Observable.SchemaUtils, _ulocale = Phoenix.ulocale, _ui = Phoenix.ui;
         ;
-        var _createMultiselectInput = function (id, options, authoring, title) {
+        var _createTag = function (item, title, isReadOnly) {
+            return $(_utils.format(' <span id="{0}" class="bs-tag badge badge-info">{1}<span data-close-id="{0}" class="bs-tag-close" aria-hidden="true">&times;</span></span>', item.$id, title)).get(0);
+        }, _createMultiselectInput = function (id, options, authoring, title) {
             title = title || '';
             options = $.extend({ titleIsHidden: false, placeHolder: false, columns: false, labelCol: 3 }, options);
             var html = [];
@@ -28047,11 +28801,31 @@ var Phoenix;
                     if (style.length)
                         html.push(' style="' + style.join('') + '"');
                     html.push('>');
-                    html.push('<input type="text "class="bs-tags-input">');
+                    html.push('<input type="text" id="{0}_input" class="bs-tag-input">');
                     html.push('</div>');
                 }
                 else {
+                    if (options.after) {
+                        html.push('<div class="input-group" id="{0}_group"');
+                        var style_1 = [];
+                        if (options.minWidth)
+                            style_1.push('min-width: ' + options.minWidth + ';');
+                        if (options.maxWidth)
+                            style_1.push('max-width: ' + options.maxWidth + ';');
+                        if (style_1.length)
+                            html.push('  style="' + style_1.join("") + '"');
+                        html.push('>');
+                    }
                     html.push('<div class="bs-mv-container form-control');
+                    if (!options.after) {
+                        var style_2 = [];
+                        if (options.minWidth)
+                            style_2.push('min-width: ' + options.minWidth + ';');
+                        if (options.maxWidth)
+                            style_2.push('max-width: ' + options.maxWidth + ';');
+                        if (style_2.length)
+                            html.push('  style="' + style_2.join("") + '"');
+                    }
                     if (options.size)
                         html.push(' form-control-' + options.size);
                     html.push('" id="{0}_array"');
@@ -28063,8 +28837,22 @@ var Phoenix;
                     if (style.length)
                         html.push(' style="' + style.join('') + '"');
                     html.push('>');
-                    html.push('<input type="text "class="bs-tags-input">');
+                    html.push('<input type="text" id="{0}_input" class="bs-tag-input">');
                     html.push('</div>');
+                    if (options.after) {
+                        html.push('<span  id="{0}_after" tabindex="-1" class="bs-grp-btn input-group-append input-group-addon');
+                        if (options.after.icon)
+                            html.push(' bs-icon-input');
+                        html.push('">');
+                        html.push('<span class="input-group-text">');
+                        if (options.after.icon) {
+                            html.push('<span class="' + _dom.iconClass(options.after.icon) + '"></span>');
+                        }
+                        else
+                            html.push(options.after.value);
+                        html.push('</span>');
+                        html.push('</span>');
+                    }
                 }
                 _uiutils.utils.addErrorDiv(html);
                 if (options.columns)
@@ -28077,7 +28865,14 @@ var Phoenix;
         var MultiValue = /** @class */ (function (_super) {
             __extends(MultiValue, _super);
             function MultiValue(fp, options, form) {
-                return _super.call(this, fp, options, form) || this;
+                var _this = this;
+                if (!fp.options || fp.options.field) {
+                    console.log('Invalid multivalue Field options.field is missing');
+                }
+                _this = _super.call(this, fp, options, form) || this;
+                var that = _this;
+                that._schemaInputField = form.getSchema(that.$bind + '.' + fp.options.field);
+                return _this;
             }
             MultiValue.prototype._setDisabled = function (input, element) {
                 input.disabled = this.state.isDisabled || this.state.isReadOnly;
@@ -28085,15 +28880,116 @@ var Phoenix;
             MultiValue.prototype._setReadOnly = function (input, element) {
                 input.disabled = this.state.isDisabled || this.state.isReadOnly;
             };
-            MultiValue.prototype._state2UI = function () {
+            MultiValue.prototype.changed = function (propName, ov, nv, op, params) {
+                var that = this;
+                var forceRender = false;
+                if (!that.$element)
+                    return;
+                var pp = propName.substr(that.$bind.length);
+                if (pp.indexOf('.$selected') >= 0)
+                    return;
+                if (params.checkChildren && op === 'propchange' && propName === that.$bind) {
+                    forceRender = true;
+                    that.state.value = that.form.getValue(that.$bind);
+                }
+                if (!that.state.value) {
+                    op = 'none';
+                }
+                switch (op) {
+                    case 'propchange':
+                        if (propName === that.$bind)
+                            forceRender = true;
+                        break;
+                    case 'add':
+                        that._addTag(params.$value);
+                        break;
+                    case 'remove':
+                        that._removeTag(params.$id);
+                        break;
+                }
+                if (forceRender)
+                    that._renderAllItems();
+            };
+            MultiValue.prototype._removeTag = function (id) {
+                var that = this;
+                var e = _dom.find(that.$element.get(0), id);
+                e && _dom.remove(e);
+            };
+            MultiValue.prototype._addTag = function (item) {
                 var that = this;
                 var input = that._input();
+                var tag = _createTag(item, item[that.renderOptions.field], false);
+                _dom.before(input, tag);
+            };
+            MultiValue.prototype._renderAllItems = function () {
+                var that = this;
+                var input = that._input();
+                var value = this.state.value;
+                var p = input.parentNode;
+                while (p.firstChild !== input)
+                    p.removeChild(p.firstChild);
+                value.forEach(function (item, index, level) {
+                    var tag = _createTag(item, item[that.renderOptions.field], false);
+                    _dom.before(input, tag);
+                });
+            };
+            MultiValue.prototype._state2UI = function () {
+                var that = this;
                 _super.prototype._state2UI.call(this);
+                that._renderAllItems();
             };
             MultiValue.prototype.stateChanged = function (propName, params) {
                 var that = this;
                 var state = that.form.getState(that.$bind);
                 _super.prototype.stateChanged.call(this, propName, params);
+            };
+            MultiValue.prototype.canEdit = function () {
+                var that = this;
+                var state = that.state;
+                return (!state.isHidden && !state.isDisabled && !state.isHidden && !that.renderOptions.readOnly);
+            };
+            MultiValue.prototype.mousedown = function (event) {
+                this.setFocus();
+                return true;
+            };
+            MultiValue.prototype.setFocus = function (focusParams) {
+                var that = this;
+                if (!that.canEdit())
+                    return;
+                var input = that._input();
+                if (input) {
+                    _utils.nextTick(function () {
+                        input.focus();
+                    });
+                }
+            };
+            MultiValue.prototype._input2Model = function (isFocusOut) {
+                var that = this, input = that._input();
+                var nv = that._text2value(input.value).trim() || '';
+                if (nv !== '') {
+                    that.checkValue(nv, function (cv) {
+                        if (nv) {
+                            var m = { $create: true };
+                            m[that.renderOptions.field] = nv;
+                            that.state.value.push(m);
+                        }
+                        input.value = '';
+                    });
+                }
+            };
+            MultiValue.prototype.click = function (event) {
+                var that = this;
+                if (!that.canEdit())
+                    return;
+                var closeId = _dom.attr(event.target, 'data-close-id');
+                if (closeId) {
+                    var list = that.state.value;
+                    var tag = list.findById(closeId);
+                    if (tag)
+                        list.remove(tag);
+                    that.setFocus();
+                    return;
+                }
             };
             MultiValue.prototype.render = function ($parent) {
                 var that = this;
@@ -28111,7 +29007,6 @@ var Phoenix;
             };
             MultiValue.prototype._value2Input = function (input) {
                 var that = this;
-                //that.state.value
             };
             return MultiValue;
         }(Phoenix.formedit.Edit));
@@ -28773,26 +29668,17 @@ var Phoenix;
             }
             options.placeHolder = false;
             _uiutils.utils.fieldWrapper(html, options, authoring, function () {
-                var _bootstrap4 = Phoenix.bootstrap4;
                 if (!options.titleIsHidden) {
                     html.push('<label for="{0}_input" id="{0}_label"');
                     var css = ['bs-label'];
                     if (options.columns) {
-                        if (_bootstrap4) {
-                            css.push('col-form-label');
-                        }
-                        else {
-                            css.push('checkbox-inline bs-cursor-d');
-                        }
+                        css.push('col-form-label');
                         css.push('bs-lib-col col-sm-' + options.labelCol);
                         if (options.labelLeft)
                             css.push('text-left');
                     }
                     if (options.inline) {
-                        if (_bootstrap4)
-                            css.push('form-check-inline');
-                        else
-                            css.push('checkbox-inline');
+                        css.push('form-check-inline');
                         css.push('bs-cursor-d no-x-padding');
                     }
                     if (css.length)
@@ -28806,10 +29692,6 @@ var Phoenix;
                     html.push('<div class="no-x-padding col-sm-' + (12 - options.labelCol) + '">');
                 if (options.readOnly) {
                     html.push('<div class="form-control bs-read-only');
-                    if (_bootstrap4) {
-                        if (options.size)
-                            html.push(' form-control-' + options.size);
-                    }
                     html.push('" id="{0}_input"');
                     var style = [];
                     if (options.maxWidth)
@@ -28822,9 +29704,7 @@ var Phoenix;
                     html.push('</div>');
                 }
                 else {
-                    html.push('<select class="form-control');
-                    if (options.size && _bootstrap4)
-                        html.push(' form-control-' + options.size);
+                    html.push('<select class="form-control custom-select');
                     html.push('" id="{0}_input"');
                     var style = [];
                     if (options.maxWidth)
@@ -29678,6 +30558,7 @@ var Phoenix;
         title = title || _locale.ui.Info;
         var opt = {
             title: title,
+            noClose: true,
             buttons: [
                 {
                     type: "primary",
@@ -29793,6 +30674,7 @@ var Phoenix;
         title = title || _locale.ui.Warning;
         var opt = {
             title: title,
+            noClose: true,
             buttons: [
                 {
                     type: "default",
@@ -33462,13 +34344,13 @@ var Phoenix;
                 that._check(name, isCheck, callback);
                 var item = that._getItem(that._nodes, name);
                 if (item && item.parent) {
-                    var parent_3 = that._getItem(that._data, item.parent[that._name]);
-                    if (!parent_3)
+                    var parent_4 = that._getItem(that._data, item.parent[that._name]);
+                    if (!parent_4)
                         return;
-                    if (isCheck && that._itemsIsSelected(parent_3.items))
-                        that._checkG(parent_3[that._name], isCheck, callback, false);
-                    else if (!isCheck && that._itemsIsUnselected(parent_3.items))
-                        that._checkG(parent_3[that._name], isCheck, callback, false);
+                    if (isCheck && that._itemsIsSelected(parent_4.items))
+                        that._checkG(parent_4[that._name], isCheck, callback, false);
+                    else if (!isCheck && that._itemsIsUnselected(parent_4.items))
+                        that._checkG(parent_4[that._name], isCheck, callback, false);
                 }
             };
             MultiSelectList.prototype._check = function (name, isCheck, callback) {
@@ -33518,13 +34400,13 @@ var Phoenix;
                 var that = this;
                 var item = that._getItem(that._nodes, name);
                 if (item) {
-                    var parent_4 = item.parent;
-                    while (parent_4) {
-                        displayItem(parent_4.items, true);
-                        var gHTML = _dom.query(parent_4.component, ".icon-group");
+                    var parent_5 = item.parent;
+                    while (parent_5) {
+                        displayItem(parent_5.items, true);
+                        var gHTML = _dom.query(parent_5.component, ".icon-group");
                         that._addIcon(gHTML, that._options.collapseIcon, "icon-group bs-cursor-p");
                         _dom.attr(gHTML, "data-action", "collapse");
-                        parent_4 = parent_4.parent;
+                        parent_5 = parent_5.parent;
                     }
                     that._renderItems(that._nodes);
                 }
@@ -34989,7 +35871,7 @@ var Phoenix;
                         var outline = false;
                         if (link.options.outline !== undefined)
                             outline = link.options.outline;
-                        else if (['default', 'secondary', 'danger'].indexOf(link.options.type) >= 0)
+                        else if (['default', 'info', 'secondary', 'danger'].indexOf(link.options.type) >= 0)
                             outline = true;
                         html.push('<button data-action-id="' + link.id + '" class="bs-button btn btn-' + _dom.bootstrapStyles(outline)[link.options.type] + '" type="button">');
                         var hasIcon = false;
@@ -35604,14 +36486,14 @@ var Phoenix;
                 if (doRender) {
                     that._renderToolElements(that.toolElements);
                     if ($parentTop) {
-                        var parent_5 = $parentTop;
+                        var parent_6 = $parentTop;
                         if (that.options.replaceParent) {
-                            parent_5 = $("<div></div>");
-                            parent_5.append(that.$elementTop);
-                            $parentTop.replaceWith(parent_5);
+                            parent_6 = $("<div></div>");
+                            parent_6.append(that.$elementTop);
+                            $parentTop.replaceWith(parent_6);
                         }
                         else
-                            parent_5.append(that.$elementTop);
+                            parent_6.append(that.$elementTop);
                     }
                     if ($parentBottom) {
                         $parentBottom.append(that.$elementBottom);

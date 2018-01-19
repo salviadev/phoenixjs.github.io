@@ -54,6 +54,7 @@ declare namespace Phoenix {
         var dataAsPromise: (localData: any) => Promise<any>;
         var extractAngularVars: (expression: string, map: any[]) => boolean;
         var execAngularExpression: (expression: string, context: any, noExpand?: boolean) => string;
+        var gmapsKey: string;
         var confirm: (title: any, message: any, success: any, cancel?: any) => void;
         var alert: (title: any, message: any, success: any) => void;
         var prompt: (title: string, defaultValue: string, success: (res: string) => void) => void;
@@ -971,6 +972,8 @@ declare namespace Phoenix {
             _isMoney: (schema: any) => boolean;
             _internalExtractEnums: (schema: any, rootSchema: any, enums: any, names: string[]) => void;
             _extractEnums: (schema: any, enums: any) => void;
+            _fillEnumsFromData: (schema: any, rootSchema: any, data: any, names: string[]) => void;
+            fillEnumsFromData: (schema: any, data: any) => void;
             _fillEnums: (schema: any, enums: any) => void;
             _internalFillEnums: (schema: any, rootSchema: any, enums: any, names: any) => void;
             loadEnums(schema: any): any[];
@@ -1559,6 +1562,7 @@ declare namespace Phoenix {
             updateSelecting(multiSelect: boolean, expandingProperty: string): void;
             enumSelectedItems(expandingProperty: string, cb: (item: any) => void): void;
             private _enumChildren(expandingProperty, cb);
+            enumChildren(expandingProperty: string, cb: (item: any) => void): void;
             private _enumSelected(expandingProperty, cb);
             selectItem(value: boolean, item: any, multiSelect: boolean, expandingProperty: string, selectChildren: boolean): void;
             protected canDoNext(): boolean;
@@ -1946,8 +1950,6 @@ declare namespace Phoenix {
         var utils: {
             useDatePicker(): boolean;
             useDateTimePicker(): boolean;
-            nativeDate: () => boolean;
-            nativeNumber: () => boolean;
             addErrorDiv: (html: any, noMargin?: boolean) => void;
             keyPressPassword: (event: JQueryEventObject, input: HTMLInputElement, options: any) => boolean;
             keyPressDate: (event: JQueryEventObject, input: HTMLInputElement, options: any) => boolean;
@@ -2351,6 +2353,7 @@ declare namespace Phoenix {
             protected _after(): HTMLElement;
             protected _colParent(): HTMLElement;
             protected _value2Text(): any;
+            protected _schemaInput(): any;
             protected _isPassword(): boolean;
             protected _isDate(): boolean;
             protected _isDateTime(): boolean;
@@ -2365,7 +2368,7 @@ declare namespace Phoenix {
             protected _state2UI(): void;
             protected _setSymbol(e: any): void;
             protected _value2Input(input: any): void;
-            changed(propName: any, ov: any, nv: any, op: any): void;
+            changed(propName: any, ov: any, nv: any, op: any, params: any): void;
             stateChanged(propName: any, params: any): void;
             destroy(): void;
         }
@@ -2412,6 +2415,10 @@ declare namespace Phoenix {
 }
 declare namespace Phoenix {
     module frame {
+    }
+}
+declare namespace Phoenix {
+    module gmapsviewer {
     }
 }
 declare namespace Phoenix {
@@ -2577,6 +2584,10 @@ declare namespace Phoenix {
             destroy(): void;
             checkFocus(focusParams?: any): void;
         }
+    }
+}
+declare namespace Phoenix {
+    module multifield {
     }
 }
 declare namespace Phoenix {
