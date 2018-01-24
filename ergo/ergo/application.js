@@ -25,6 +25,30 @@ var Ergo;
         tableauSimple.prototype.beforeSetModel = function (data) {
         };
         tableauSimple.prototype.onModelChanged = function (action, model, form) {
+            switch (action.property) {
+                case '$links.$beforeEdit':
+                    action.actionParams.$states.Type.isReadOnly = true;
+                    action.actionParams.$states.Libelle.isReadOnly = true;
+                    break;
+                case '$links.$afterUpdateChanges':
+                    break;
+            }
+        };
+        return tableauSimple;
+    }(Phoenix.ui.FormController));
+    _customData.register('ergo.detail-inside-tab.controller', new tableauSimple());
+})(Ergo || (Ergo = {}));
+var Ergo;
+(function (Ergo) {
+    var _p = Phoenix, _customData = _p.customData, _dom = _p.dom, _dsPlugin = _p.DatasetPlugin, _link = _p.link, _data = _p.data;
+    var tableauSimple = (function (_super) {
+        __extends(tableauSimple, _super);
+        function tableauSimple() {
+            return _super !== null && _super.apply(this, arguments) || this;
+        }
+        tableauSimple.prototype.beforeSetModel = function (data) {
+        };
+        tableauSimple.prototype.onModelChanged = function (action, model, form) {
         };
         return tableauSimple;
     }(Phoenix.ui.FormController));

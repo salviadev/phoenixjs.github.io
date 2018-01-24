@@ -1,1 +1,1 @@
-{"name":"detail-inside-tab","$menus":{"left":"detail"},"$items":[{"$config":{"$titleIsHidden":true,"form":{"name":"ergo/forms/detail-inside-tab","meta":"ergo/metas/detail-inside-tab","controller":"phoenix.empty.controller"},"$type":"form"}}],"$type":"block"}
+{"name":"detail-inside-tab","$menus":{"left":"detail"},"$items":[{"$config":{"$titleIsHidden":false,"$title":"Détails dans les tableaux","form":{"name":"ergo/forms/detail-inside-tab","meta":"ergo/metas/detail-inside-tab","controller":"ergo.detail-inside-tab.controller"},"$type":"form"}}],"$type":"block"}
