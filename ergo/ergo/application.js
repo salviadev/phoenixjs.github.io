@@ -48,6 +48,35 @@ var Ergo;
         }
         tableauSimple.prototype.beforeSetModel = function (data) {
         };
+        tableauSimple.prototype.onModelChanged = function (action, data, form) {
+            var offres = $.extend(true, {}, data);
+            switch (action.property) {
+                case "Offres.$item.$links.remove":
+                    data.Offres.remove(action.actionParams);
+                    break;
+                case "$links.setData":
+                    data.Offres = $.extend(true, {}, offres).Offres;
+                    break;
+                case "$links.addLine":
+                    data.Offres.clearSelection();
+                    data.Offres.push({ $select: true, caracTA: {} });
+                    break;
+            }
+        };
+        return tableauSimple;
+    }(Phoenix.ui.FormController));
+    _customData.register('ergo.master-tab.controller', new tableauSimple());
+})(Ergo || (Ergo = {}));
+var Ergo;
+(function (Ergo) {
+    var _p = Phoenix, _customData = _p.customData, _dom = _p.dom, _dsPlugin = _p.DatasetPlugin, _link = _p.link, _data = _p.data;
+    var tableauSimple = (function (_super) {
+        __extends(tableauSimple, _super);
+        function tableauSimple() {
+            return _super !== null && _super.apply(this, arguments) || this;
+        }
+        tableauSimple.prototype.beforeSetModel = function (data) {
+        };
         tableauSimple.prototype.onModelChanged = function (action, model, form) {
         };
         return tableauSimple;
