@@ -1,0 +1,1 @@
+{"name":"detail-tile","$menus":{"left":"detail"},"$items":[{"$config":{"$titleIsHidden":true,"form":{"name":"ergo/forms/detail-tile","meta":"ergo/metas/detail-tile","controller":"ergo.detail-tile.controller"},"$type":"form"}}],"$type":"block"}
