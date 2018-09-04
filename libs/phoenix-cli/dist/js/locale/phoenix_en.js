@@ -64,11 +64,15 @@ var Phoenix;
             "uniqueColumn": "The column '{0}' must be unique.",
             "uniqueColumns": "Duplicate value for columns '{0}' found.",
             "passwordMismatch": "Password mismatch.",
-            "invalidEmail": "Invalid Email Address",
+            "invalidEmail": "Invalid Email Address.",
+            "invalidChars": "Some characters are invalid.",
+            "invalidPhone": "Invalid Url Address.",
+            "invalidUrl": "Invalid Phone Number.",
             "minLength": "{0} must be at least {1} characters"
         },
         "ui": {
             "Close": "Close",
+            "Abandon": "Abandon",
             "Ok": "Ok",
             "Yes": "Yes",
             "No": "No",
@@ -79,7 +83,7 @@ var Phoenix;
             "Disconnect": "Disconnect",
             "Confirm": "Confirm",
             "Validate": "Validate",
-            "Create": "create",
+            "Create": "Create",
             "password": {
                 "oldPassword": "Old Password",
                 "newPassword": "New Password",
@@ -88,10 +92,15 @@ var Phoenix;
             "ApplyDetailChanges": "Apply",
             "Selected": "Sel.",
             "Add": "Add",
+            "title": "Title",
             "selectedFilters": "Selected filters",
             "OpenNewTab": "Open link in new tab",
             "Search": "Search",
-            "Actions": "Actions"
+            "Actions": "Actions",
+            "FileUpload": "Choose File",
+            "Apply": "Apply",
+            "SaveSuccessful": "Changes saved successfully.",
+            "cancelWarning": "All changes will be lost if you leave this page without saving. Are you sure to continue ?"
         },
         "errors": {
             "Title": "Oops! An unknown error has occurred.",
@@ -106,7 +115,9 @@ var Phoenix;
             "Context": "Context:",
             "error500": "Internal server error",
             "unknownError": "An unknown error has occurred.",
-            "notAuthorized": "Forbidden"
+            "notAuthorized": "Forbidden",
+            "invalidUploadFileName": "Blocked for security reasons!",
+            "invalidUploadFileSize": "File too large!"
         },
         "listView": {
             "search": {
@@ -125,6 +136,7 @@ var Phoenix;
             "thousand": " ",
             "places": 2,
             "symbol": "$",
+            "coef": ["U", "K"],
             "format": "%s %v"
         },
         "charts": {

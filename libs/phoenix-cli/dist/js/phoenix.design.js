@@ -1390,7 +1390,7 @@ var Phoenix;
                                 return;
                             that._sendLayout(model);
                         }
-                    }, {}, function (form) {
+                    }, null, {}, function (form) {
                         that.form = form;
                     });
                 }
@@ -1412,7 +1412,7 @@ var Phoenix;
                                 return;
                             that._updateFields(model);
                         }
-                    }, {}, function (form) {
+                    }, null, {}, function (form) {
                         that.form = form;
                     });
                 }
@@ -1539,7 +1539,8 @@ var Phoenix;
                 var that = this, e = that.$element.get(0);
                 that.$element.on('click', function (event) {
                     var stopEvent = false;
-                    switch (event.target.id) {
+                    var target = event.target;
+                    switch (target.id) {
                         case that.$id + '_save':
                             _ipc.emit('SaveLayout', null);
                             stopEvent = true;
