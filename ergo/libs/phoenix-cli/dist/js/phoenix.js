@@ -371,7 +371,7 @@ var Phoenix;
                     return value && value.length ? value[0] : '';
             }
             return value;
-        }, _execAngularExpression = function (expression, context, noExpand) {
+        }, _execAngularExpression = function (expression, context, noExpand, isHtml) {
             return expression.replace(/\{\{([^{]*)\}\}/g, function (match, p) {
                 var ss = p.split('|');
                 var prop = (ss[0] || '').trim();
@@ -379,7 +379,7 @@ var Phoenix;
                 for (var i = 1, ll = ss.length; i < ll; i++) {
                     val = _execFilter((ss[i] || '').trim(), val);
                 }
-                return val;
+                return isHtml ? _escapeHtml(val) : val;
             });
         }, _dp = function (propertyName, target) {
             var obj = target || this;
@@ -481,12 +481,17 @@ var Phoenix;
         utils.extractAngularVars = _extractAngularValues;
         utils.execAngularExpression = _execAngularExpression;
         utils.gmapsKey = 'AIzaSyDiKrbrYbAywKceJxGkXMp-g2n0nHKCCQo';
+        utils.gGeodecodeKey = 'AIzaSyCkxZGMS_NOflTRHnj6qgmOmT6CENu-3lM';
         utils.confirm = function (title, message, success, cancel) {
             if (window.confirm(message))
                 success();
             else if (cancel) {
                 cancel();
             }
+        };
+        utils.info = function (title, message, type) {
+        };
+        utils.upload = function (options, onsuccess) {
         };
         utils.alert = function (title, message, success) {
             window.alert(message);
@@ -499,6 +504,12 @@ var Phoenix;
         utils.getValue = _getValue;
     })(utils = Phoenix.utils || (Phoenix.utils = {}));
     (function _polyfill() {
+        if (!Math.trunc) {
+            Math.trunc = function (v) {
+                v = +v;
+                return (v - v % 1) || (!isFinite(v) || v === 0 ? v : v < 0 ? -0 : 0);
+            };
+        }
         var arrayProto = Array.prototype;
         if (!arrayProto.find) {
             arrayProto.find = function (predicate, thisArg) {
@@ -783,6 +794,7 @@ var Phoenix;
 (function (Phoenix) {
     var ajax;
     (function (ajax) {
+        ajax.onAjax = null;
         var _utils = Phoenix.utils, _application = Phoenix.application, _customData = Phoenix.customData, _authentication = Phoenix.authentication, _locale = Phoenix.locale;
         var _ajaxInterceptors = {}, _intercept = function (status) {
             var ii = _ajaxInterceptors['s' + status];
@@ -790,19 +802,32 @@ var Phoenix;
                 ii.handlers.forEach(function (v) {
                     v();
                 });
-                return true;
+                return { error: true };
             }
-            return false;
+            return null;
+        }, _logData = function (url, data) {
+            data = data || {};
+            if (navigator.sendBeacon) {
+                navigator.sendBeacon(url, JSON.stringify(data));
+            }
+            else {
+                var client = new XMLHttpRequest();
+                client.open('POST', url, false); // third parameter indicates sync xhr
+                client.setRequestHeader("Content-Type", "text/plain;charset=UTF-8");
+                client.send(JSON.stringify(data));
+            }
+            return _utils.Promise.resolve();
         }, _autologon = function () {
             var appConfig = _application.configuration;
             return (appConfig && appConfig.authentication && appConfig.authentication.autoLogon && appConfig.authentication.autoLogon.force);
-        }, _addAjaxInterceptor = function (status, handler) {
+        }, _addAjaxInterceptor = function (status, handler, emitError) {
             var p = 's' + status;
             if (p === 's401' && _autologon())
                 return;
             var a = _ajaxInterceptors[p] || {
                 disabled: false,
-                handlers: []
+                handlers: [],
+                error: emitError
             };
             a.handlers.push(handler);
             _ajaxInterceptors[p] = a;
@@ -894,6 +919,8 @@ var Phoenix;
             }
             var _promise = _utils.Promise;
             return new _promise(function (resolve, reject) {
+                if (ajax.onAjax)
+                    ajax.onAjax();
                 $.ajax(opts).done(function (data, textStatus, jqXHR) {
                     if (ondata)
                         data = ondata(data);
@@ -911,8 +938,9 @@ var Phoenix;
                         else
                             return resolve(errors[errCode]);
                     }
-                    if (_intercept(jqXHR.status)) {
-                        return resolve({});
+                    var ii = _intercept(jqXHR.status);
+                    if (ii) {
+                        return ii.error ? reject({}) : resolve({});
                     }
                     if (jqXHR.status >= 500 && _locale && _locale.errors) {
                         textStatus = _locale.errors.error500;
@@ -955,14 +983,18 @@ var Phoenix;
             };
             if (options && options.headers) {
                 opts.headers = options.headers;
-                if (opts.headers.contentType)
+                if (options.processData !== undefined)
+                    opts.processData = options.processData;
+                if (opts.headers.contentType !== undefined)
                     opts.contentType = opts.headers.contentType;
             }
-            if (data && opts.contentType.indexOf('application/json') >= 0)
+            if (data && opts.contentType && opts.contentType.indexOf('application/json') >= 0)
                 opts.data = JSON.stringify(data);
             else
                 opts.data = data;
             return new _promise(function (resolve, reject) {
+                if (ajax.onAjax)
+                    ajax.onAjax();
                 $.ajax(opts).done(function (data, textStatus, jqXHR) {
                     resolve(data);
                 }).fail(function (jqXHR, textStatus, errorThrown) {
@@ -1063,6 +1095,8 @@ var Phoenix;
                     });
                 }
                 else {
+                    if (ajax.onAjax)
+                        ajax.onAjax();
                     $.ajax({
                         url: lurl,
                         dataType: 'script',
@@ -1094,6 +1128,8 @@ var Phoenix;
         }, _getScript = function (lurl) {
             var _promise = _utils.Promise;
             return new _promise(function (resolve, reject) {
+                if (ajax.onAjax)
+                    ajax.onAjax();
                 $.ajax({
                     url: lurl,
                     dataType: 'script',
@@ -1203,6 +1239,7 @@ var Phoenix;
         ajax.put = _put;
         ajax.patch = _patch;
         ajax.post = _post;
+        ajax.logData = _logData;
         ajax.remove = _delete;
         ajax.postAndDownload = _postAndDownload;
         ajax.addAuthToUrl = _addAuthToUrl;
@@ -1698,7 +1735,10 @@ var Phoenix;
             "uniqueColumn": "The column '{0}' must be unique.",
             "uniqueColumns": "Duplicate value for columns '{0}' found.",
             "passwordMismatch": "Password mismatch.",
-            "invalidEmail": "Invalid Email Address",
+            "invalidEmail": "Invalid Email Address.",
+            "invalidChars": "Some characters are invalid.",
+            "invalidPhone": "Invalid Url Address.",
+            "invalidUrl": "Invalid Phone Number.",
             "minLength": "{0} must be at least {1} characters"
         },
         "ui": {
@@ -1714,7 +1754,7 @@ var Phoenix;
             "Disconnect": "Disconnect",
             "Confirm": "Confirm",
             "Validate": "Validate",
-            "Create": "create",
+            "Create": "Create",
             "password": {
                 "oldPassword": "Old Password",
                 "newPassword": "New Password",
@@ -1723,10 +1763,15 @@ var Phoenix;
             "ApplyDetailChanges": "Apply",
             "Selected": "Sel.",
             "Add": "Add",
+            "title": "Title",
             "selectedFilters": "Selected filters",
             "OpenNewTab": "Open link in new tab",
             "Search": "Search",
-            "Actions": "Actions"
+            "Actions": "Actions",
+            "FileUpload": "Choose File",
+            "Apply": "Apply",
+            "SaveSuccessful": "Changes saved successfully.",
+            "cancelWarning": "All changes will be lost if you leave this page without saving. Are you sure to continue ?"
         },
         "errors": {
             "Title": "Oops! An unknown error has occurred.",
@@ -1741,7 +1786,9 @@ var Phoenix;
             "Context": "Context:",
             "error500": "Internal server error",
             "unknownError": "An unknown error has occurred.",
-            "notAuthorized": "Forbidden"
+            "notAuthorized": "Forbidden",
+            "invalidUploadFileName": "Blocked for security reasons!",
+            "invalidUploadFileSize": "File too large!"
         },
         "listView": {
             "search": {
@@ -1760,6 +1807,7 @@ var Phoenix;
             "thousand": " ",
             "places": 2,
             "symbol": "$",
+            "coef": ["U", "K"],
             "format": "%s %v"
         },
         "charts": {
@@ -1823,9 +1871,9 @@ var Phoenix;
     (function (external) {
         var _defPrefsLoader = function (name) {
             var promiseClass = _utils.Promise;
-            if (window.localStorage)
+            if (window.sessionStorage)
                 return new promiseClass(function (resolve, reject) {
-                    var d = window.localStorage.getItem('preferences.' + name);
+                    var d = window.sessionStorage.getItem('preferences.' + name);
                     if (d)
                         resolve(JSON.parse(d));
                     else
@@ -1837,12 +1885,12 @@ var Phoenix;
                 });
         }, _defPrefsSaver = function (name, data) {
             var promiseClass = _utils.Promise;
-            if (window.localStorage)
+            if (window.sessionStorage)
                 return new promiseClass(function (resolve, reject) {
                     if (data)
-                        window.localStorage.setItem('preferences.' + name, JSON.stringify(data));
+                        window.sessionStorage.setItem('preferences.' + name, JSON.stringify(data));
                     else
-                        window.localStorage.setItem('preferences.' + name, '');
+                        window.sessionStorage.setItem('preferences.' + name, '');
                     resolve();
                 });
             else
@@ -1864,36 +1912,140 @@ var Phoenix;
     })(external = Phoenix.external || (Phoenix.external = {}));
     var history;
     (function (history) {
-        var _value = [], _locationPrefix = '!', _removeLast = function () {
-            _value.pop();
+        history.supportRefresh = true;
+        history.destroyViewHandler = function (cd) {
+            console.log(cd);
+        };
+        var _value = [], _locationPrefix = '!', _assertValue = function () {
+            var vstr = sessionStorage.getItem('phoenix_history');
+            if (vstr) {
+                _value = JSON.parse(vstr).history;
+            }
+            else
+                _value = [];
+        }, _saveValue = function () {
+            sessionStorage.setItem('phoenix_history', JSON.stringify({ history: _value }));
+        }, _addData = function (cd) {
+            _assertValue();
+            if (_value.length) {
+                var v = _value[_value.length - 1];
+                var doAdd_1 = true;
+                var vas_1 = JSON.stringify(cd);
+                v.data.forEach(function (item) {
+                    if (doAdd_1 && JSON.stringify(item) === vas_1)
+                        doAdd_1 = false;
+                });
+                if (doAdd_1) {
+                    v.data.push(cd);
+                    _saveValue();
+                }
+            }
+        }, _clearLastData = function () {
+            _assertValue();
+            var toDestroy = [];
+            if (_value.length) {
+                var v = _value[_value.length - 1];
+                v.data.forEach(function (ii) { return toDestroy.push(ii); });
+                v.data = [];
+                _saveValue();
+            }
+            if (toDestroy.length) {
+                history.destroyViewHandler(toDestroy);
+            }
+        }, _removeLast = function () {
+            _assertValue();
+            var toDestroy = [];
+            var last = _value.pop();
+            last.data.forEach(function (ii) { return toDestroy.push(ii); });
+            last.data = [];
+            _saveValue();
+            if (toDestroy.length) {
+                history.destroyViewHandler(toDestroy);
+            }
             if (external.historyChangedHandler)
                 external.historyChangedHandler();
+        }, _updateLast = function (oldHash, newHash) {
+            _assertValue();
+            var len = _value.length;
+            var last = len ? _value[len - 1].pageName : '';
+            if (last === oldHash) {
+                _value[len - 1].pageName = newHash;
+                _saveValue();
+            }
         }, _add = function (hash, reset) {
+            if (reset)
+                _clear(true);
+            _assertValue();
             if (reset) {
-                _value = [hash];
+                _value = [{ pageName: hash, data: [] }];
+                _saveValue();
                 if (external.historyChangedHandler)
                     external.historyChangedHandler();
                 return;
             }
             var len = _value.length;
-            var last = len ? _value[len - 1] : '';
-            if (last != hash) {
-                var prev = (len >= 2) ? _value[len - 2] : '';
-                if (hash === prev)
-                    _value.pop();
+            var last = len ? _value[len - 1].pageName : '';
+            if (last !== hash) {
+                var toDestroy_1 = [];
+                var prev = (len >= 2) ? _value[len - 2].pageName : '';
+                if (hash === prev) {
+                    var last_1 = _value.pop();
+                    last_1.data.forEach(function (ii) { return toDestroy_1.push(ii); });
+                    last_1.data = [];
+                }
                 else
-                    _value.push(hash);
+                    _value.push({ pageName: hash, data: [] });
+                _saveValue();
+                if (toDestroy_1.length) {
+                    history.destroyViewHandler(toDestroy_1);
+                }
                 if (external.historyChangedHandler)
                     external.historyChangedHandler();
             }
+        }, _lastPage = function () {
+            _assertValue();
+            if (_value && _value.length > 1) {
+                var res = _value[_value.length - 2].pageName;
+                var i = res.indexOf('?');
+                if (i > 0)
+                    res = res.substr(0, i);
+                i = 1;
+                if (_locationPrefix)
+                    i = i + 1;
+                res = res.substr(i);
+                if (res.charAt(0) === '/')
+                    res = res.substr(1);
+                return res;
+            }
+            return '';
+        }, _clear = function (notify) {
+            _assertValue();
+            var toDestroy = [];
+            if (notify) {
+                _value.forEach(function (item) {
+                    item.data.forEach(function (ii) { return toDestroy.push(ii); });
+                    item.data = [];
+                });
+            }
+            _value = [];
+            _saveValue();
+            if (toDestroy.length) {
+                history.destroyViewHandler(toDestroy);
+            }
         }, _hasBack = function () {
+            _assertValue();
             return _value.length > 1;
         };
         history.removeLast = _removeLast;
         history.add = _add;
         history.hasBack = _hasBack;
         history.value = _value;
+        history.lastPage = _lastPage;
         history.locationPrefix = _locationPrefix;
+        history.clear = _clear;
+        history.updateLast = _updateLast;
+        history.addData = _addData;
+        history.clearLastData = _clearLastData;
     })(history = Phoenix.history || (Phoenix.history = {}));
     var render;
     (function (render) {
@@ -1997,6 +2149,7 @@ var Phoenix;
             'search': 'search',
             'square-o': 'check-box-outline-blank',
             'th': 'apps',
+            'print': 'print',
             'thumb-tack': 'turned-in',
             'times': 'close',
             'times-circle': 'cancel',
@@ -2004,7 +2157,11 @@ var Phoenix;
             'trash': 'delete',
             'user': 'account-box',
             'window-minimize': 'fullscreen-exit',
-            'window-maximize': 'fullscreen' //ok
+            'window-maximize': 'fullscreen',
+            'heart': 'favorite',
+            'map-marker': 'location-on',
+            'paperclip': 'attach-file',
+            'cloud-download': 'cloud-download'
         };
         var _bootstrapBtnCache = null;
         var _bootstraOutlinepBtnCache = null;
@@ -2012,29 +2169,27 @@ var Phoenix;
             if (useOutline) {
                 if (_bootstraOutlinepBtnCache)
                     return _bootstraOutlinepBtnCache;
-                var _bootstrap4 = Phoenix.bootstrap4;
                 _bootstraOutlinepBtnCache = {
-                    primary: _bootstrap4 ? 'outline-primary' : 'primary',
-                    secondary: _bootstrap4 ? 'outline-secondary' : 'default',
-                    default: _bootstrap4 ? 'outline-secondary' : 'default',
-                    important: _bootstrap4 ? 'outline-important' : 'important',
-                    success: _bootstrap4 ? 'outline-success' : 'success',
-                    info: _bootstrap4 ? 'outline-info' : 'info',
-                    danger: _bootstrap4 ? 'outline-danger' : 'danger',
-                    warning: _bootstrap4 ? 'outline-warning' : 'warning',
-                    link: _bootstrap4 ? 'outline-link' : 'link',
-                    dark: _bootstrap4 ? 'outline-dark' : 'default'
+                    primary: 'outline-primary',
+                    secondary: 'outline-secondary',
+                    default: 'outline-secondary',
+                    important: 'outline-important',
+                    success: 'outline-success',
+                    info: 'outline-info',
+                    danger: 'outline-danger',
+                    warning: 'outline-warning',
+                    link: 'outline-link',
+                    dark: 'outline-dark'
                 };
                 return _bootstraOutlinepBtnCache;
             }
             else {
                 if (_bootstrapBtnCache)
                     return _bootstrapBtnCache;
-                var _bootstrap4 = Phoenix.bootstrap4;
                 _bootstrapBtnCache = {
                     primary: 'primary',
-                    secondary: _bootstrap4 ? 'secondary' : 'default',
-                    default: _bootstrap4 ? 'secondary' : 'default',
+                    secondary: 'secondary',
+                    default: 'secondary',
                     important: 'important',
                     success: 'success',
                     info: 'info',
@@ -2134,7 +2289,8 @@ var Phoenix;
             else
                 return (element.className || '').split(' ').indexOf(className) >= 0;
         }, _remove = function (element) {
-            element.parentNode.removeChild(element);
+            if (element.parentNode)
+                element.parentNode.removeChild(element);
         }, _detach = function (element) {
             element.parentNode.removeChild(element);
             return element;
@@ -2433,6 +2589,18 @@ var Phoenix;
             //input.selectionEnd = end;
         }, _getWindow = function (elem) {
             return (elem != null && elem === elem.window) ? elem : elem.nodeType === 9 && elem.defaultView;
+        }, _loadPlan = function (src) {
+            var promiseClass = Phoenix.utils.Promise;
+            return new promiseClass(function (resolve, reject) {
+                var img = new Image();
+                img.onload = function () {
+                    resolve({ width: img.width, height: img.height, src: src });
+                };
+                img.onerror = function () {
+                    resolve({ width: 500, height: 500, src: Phoenix.utils.phoenixPath + '../empty-plan.png' });
+                };
+                img.src = src;
+            });
         }, _offset = function (element) {
             var rect;
             if (element.nodeType != 3) {
@@ -2457,6 +2625,17 @@ var Phoenix;
             tag = tag.toUpperCase();
             while (element) {
                 if (element.tagName === tag)
+                    return element;
+                element = element.parentNode;
+                if (element === root)
+                    break;
+                if (element === document.body)
+                    break;
+            }
+            return null;
+        }, _parentById = function (root, element, id) {
+            while (element) {
+                if (element.id === id)
                     return element;
                 element = element.parentNode;
                 if (element === root)
@@ -2583,6 +2762,7 @@ var Phoenix;
             var _this = this;
             var promiseClass = Phoenix.utils.Promise;
             return new promiseClass(function (resolve, reject) {
+                _processing(true);
                 try {
                     var hnd_1 = function (msg) {
                         var that = _this;
@@ -2596,6 +2776,7 @@ var Phoenix;
                             document.body.removeChild(iframe);
                             if (cb)
                                 cb(msg.data.params);
+                            _processing(false);
                             resolve();
                         }
                     };
@@ -2604,9 +2785,10 @@ var Phoenix;
                         if (iframe) {
                             window.removeEventListener('message', hnd_1);
                             document.body.removeChild(iframe);
+                            _processing(false);
                             reject({ message: 'Timeout' });
                         }
-                    }, 10000);
+                    }, 15000);
                     var frame_1 = document.createElement('iframe');
                     frame_1.style.cssText = "position: absolute; top: -1000px; left -1000px; width: 0px; height: 0px;";
                     frame_1.frameBorder = "0";
@@ -2617,6 +2799,7 @@ var Phoenix;
                     window.addEventListener('message', hnd_1, false);
                 }
                 catch (e) {
+                    _processing(false);
                     reject(e);
                 }
             });
@@ -2697,6 +2880,7 @@ var Phoenix;
         dom.before = _before;
         dom.after = _after;
         dom.parentByTag = _parentByTag;
+        dom.parentById = _parentById;
         dom.parentByAttr = _parentByAttr;
         dom.parentByClass = _parentByCssClass;
         dom.indexOf = _indexOf;
@@ -2740,6 +2924,7 @@ var Phoenix;
         dom.setCookie = _setCookie;
         dom.getCookie = _getCookie;
         dom.iframeAsPromise = _iFrameAsPromise;
+        dom.loadPlan = _loadPlan;
     })(dom = Phoenix.dom || (Phoenix.dom = {}));
     $(document).ready(function () {
         if (dom.readyHandlers.length) {
@@ -2748,15 +2933,18 @@ var Phoenix;
             });
         }
     });
-    /*
-    $(document).unload(function () {
+    window.addEventListener('beforeunload', function (event) {
         if (dom.finalizeHandlers.length) {
-            dom.finalizeHandlers.forEach((hnd) => {
-                hnd();
+            dom.finalizeHandlers.forEach(function (hnd) {
+                try {
+                    hnd();
+                }
+                catch (e) {
+                    console.log();
+                }
             });
         }
     });
-    */
 })(Phoenix || (Phoenix = {}));
 /// <reference path="./utils.ts" />
 /// <reference path="./dom.ts" />
@@ -3055,10 +3243,12 @@ var Phoenix;
             };
             DragElement.prototype.mousedown = function (eventObject) {
                 var that = this;
+                if (!_events.isLeftButton(eventObject)) {
+                    drag_1.dragManager.mouseUp(eventObject);
+                    return false;
+                }
                 that.mouseMoveCount = 0;
                 that.inDragging = false;
-                if (!_events.isLeftButton(eventObject))
-                    return true;
                 if (!that.canStartDrag(eventObject))
                     return true;
                 if (!drag_1.dragManager.setCurrent(that))
@@ -3067,7 +3257,7 @@ var Phoenix;
                 drag_1.dragManager.startMouseMove();
                 if (that.stopEvent)
                     _events.stopEvent(eventObject);
-                return false;
+                return true;
             };
             DragElement.prototype.finalize = function () {
                 var that = this;
@@ -3201,15 +3391,18 @@ var Phoenix;
 (function (Phoenix) {
     var link;
     (function (link_1) {
-        var _p = Phoenix, _utils = _p.utils, _dom = _p.dom, _customData = _p.customData, _device = _p.device, _application = _p.application, _external = _p.external, _authentication = _p.authentication, _history = _p.history;
+        var _p = Phoenix, _utils = _p.utils, _dom = _p.dom, _customData = _p.customData, _device = _p.device, _application = _p.application, _external = _p.external, _authentication = _p.authentication, _locale = _p.locale, _history = _p.history;
         var _customLinkExecutor = [], _obj2Search = function (value) {
             if (!value)
                 return '';
             var a = [];
             Object.keys(value).forEach(function (name) {
-                if (value[name] === null)
+                var cv = value[name];
+                if (cv === null)
                     return;
-                a.push(name + '=' + encodeURIComponent(value[name] || ''));
+                if (typeof cv === 'object')
+                    cv = JSON.stringify(cv);
+                a.push(name + '=' + encodeURIComponent(cv || ''));
             });
             if (a.length > 0)
                 return '?' + a.join('&');
@@ -3419,12 +3612,29 @@ var Phoenix;
                 location.href = lhref;
         }, _parseUrl2Hash = function (value) {
             return '#' + (Phoenix.history.locationPrefix ? Phoenix.history.locationPrefix : '') + value.path + _obj2Search(value.search);
-        }, _changeSearch = function (search) {
+        }, _changeSearch = function (search, replace, checkHistory) {
             var parsedUrl = _parseUrl(window.location.hash, false);
-            _utils.merge(search, parsedUrl.search);
+            var oldSearch = _parseUrl2Hash(parsedUrl);
+            if (replace)
+                parsedUrl.search = search || {};
+            else
+                _utils.merge(search, parsedUrl.search);
             var newHash = _parseUrl2Hash(parsedUrl);
-            _setHash(newHash, true, false, true);
-        }, _setHash = function (newhash, replace, newWindow, noReload) {
+            if (checkHistory) {
+                _history.updateLast(oldSearch, newHash);
+            }
+            _setHash(newHash, true, false, true, false);
+        }, _removeFromSearch = function (toRemove) {
+            var search = _urlSearch(true);
+            toRemove.forEach(function (name) { return delete search[name]; });
+            var parsedUrl = _parseUrl(window.location.hash, false);
+            var oldSearch = _parseUrl2Hash(parsedUrl);
+            parsedUrl.search = search || {};
+            var newHash = _parseUrl2Hash(parsedUrl);
+            _history.updateLast(oldSearch, newHash);
+            _history.clearLastData();
+            _setHash(newHash, true, false, false, false);
+        }, _setHash = function (newhash, replace, newWindow, noReload, clearHistory) {
             if (!newhash || ('' + newhash).charAt(0) !== '#')
                 newhash = '#' + newhash;
             if (_history.locationPrefix && newhash.charAt(1) !== _history.locationPrefix)
@@ -3437,6 +3647,9 @@ var Phoenix;
                 a.click();
                 document.body.removeChild(a);
                 return;
+            }
+            if (clearHistory) {
+                _history.clear(true);
             }
             if (window.location.hash === newhash)
                 return;
@@ -3503,23 +3716,32 @@ var Phoenix;
             var modules = _application.configuration && _application.configuration.application ?
                 _application.configuration.application.modules : null;
             if (clink.$page) {
-                var module = clink.$module ? clink.$module : _application.name;
-                if (modules && modules[module] && _application.licences) {
-                    var mlicence = _application.licences[modules[module]];
-                    if (mlicence && !mlicence.hasLicence) {
-                        if (_external.forbiddenHandler)
-                            return _external.forbiddenHandler();
+                var _after_1 = function () {
+                    if (modules && modules[module_1] && _application.licences) {
+                        var mlicence = _application.licences[modules[module_1]];
+                        if (mlicence && !mlicence.hasLicence) {
+                            if (_external.forbiddenHandler)
+                                return _external.forbiddenHandler();
+                        }
                     }
+                    var hash = _hashLink(clink, context, params);
+                    var nw = (context && context.$target === 'blank');
+                    if (clink.$module) {
+                        if (clink.$module !== _application.name)
+                            return _navigateToModule(hash, clink.$module, _application.name, clink.$replace, nw);
+                    }
+                    _setHash(hash, clink.$replace, nw, false, !clink.$isDetail);
+                    if (clink.$authoring)
+                        _doAuthoring();
+                };
+                var module_1 = clink.$module ? clink.$module : _application.name;
+                if (clink.$checkForChanges && clink.$form && clink.$form.$model.containerHasChanges) {
+                    _utils.confirm(clink.$form.title || _locale.ui.Warning, _locale.ui.cancelWarning, function () {
+                        _after_1();
+                    });
                 }
-                var hash = _hashLink(clink, context, params);
-                var nw = (context && context.$target === 'blank');
-                if (clink.$module) {
-                    if (clink.$module !== _application.name)
-                        return _navigateToModule(hash, clink.$module, _application.name, clink.$replace, nw);
-                }
-                _setHash(hash, clink.$replace, nw, false);
-                if (clink.$authoring)
-                    _doAuthoring();
+                else
+                    _after_1();
             }
             else if (clink.$logout) {
                 if (_external.logoutHandler)
@@ -3573,6 +3795,7 @@ var Phoenix;
         link_1.execLink = _execLink;
         link_1.context = _context;
         link_1.changeSearch = _changeSearch;
+        link_1.removeFromSearch = _removeFromSearch;
     })(link = Phoenix.link || (Phoenix.link = {}));
 })(Phoenix || (Phoenix = {}));
 /// <reference path="./dom.ts" />
@@ -3839,7 +4062,6 @@ var Phoenix;
             var isArray = Array.isArray(obj);
             var newKeys = _objectKeys(obj);
             var oldKeys = _objectKeys(mirror);
-            var changed = false;
             var deleted = false;
             for (var t = oldKeys.length - 1; t >= 0; t--) {
                 var key = oldKeys[t];
@@ -3852,7 +4074,6 @@ var Phoenix;
                     }
                     else {
                         if (oldVal !== newVal) {
-                            changed = true;
                             patches.push({ op: "replace", path: path + "/" + _escapePathComponent(pathKey), value: _deepClone(newVal) });
                         }
                     }
@@ -4128,24 +4349,42 @@ var Phoenix;
                 switch (params.$method) {
                     case 'POST':
                         if (_after) {
-                            return new _utils.Promise(function (resolve, reject) {
-                                _ajax.post(lurl, params.$data, opts).then(function (rdata) {
-                                    rdata = _after(rdata);
-                                    resolve(rdata);
-                                }).catch(function (err) {
-                                    reject(err);
+                            if (params.$noWait) {
+                                _after(null);
+                                return Phoenix.ajax.logData(lurl, params.$data);
+                            }
+                            else {
+                                return new _utils.Promise(function (resolve, reject) {
+                                    _ajax.post(lurl, params.$data, opts).then(function (rdata) {
+                                        rdata = _after(rdata);
+                                        resolve(rdata);
+                                    }).catch(function (err) {
+                                        reject(err);
+                                    });
                                 });
-                            });
+                            }
                         }
                         else {
-                            return _ajax.post(lurl, params.$data, opts);
+                            if (params.$noWait)
+                                return Phoenix.ajax.logData(lurl, params.$data);
+                            else
+                                return _ajax.post(lurl, params.$data, opts);
                         }
                     case 'PUT':
-                        return _ajax.put(lurl, params.$data, opts);
+                        if (params.$noWait)
+                            return Phoenix.ajax.logData(lurl, params.$data);
+                        else
+                            return _ajax.put(lurl, params.$data, opts);
                     case 'PATCH':
-                        return _ajax.patch(lurl, params.$data, opts);
+                        if (params.$noWait)
+                            return Phoenix.ajax.logData(lurl, params.$data);
+                        else
+                            return _ajax.patch(lurl, params.$data, opts);
                     case 'DELETE':
-                        return _ajax.remove(lurl, opts);
+                        if (params.$noWait)
+                            return Phoenix.ajax.logData(lurl, null);
+                        else
+                            return _ajax.remove(lurl, opts);
                     default:
                         if (isDownload) {
                             var frame_2 = _dom.downloadFrame();
@@ -4162,9 +4401,15 @@ var Phoenix;
                             }
                         }
                         else {
-                            return _ajax.get(lurl, opts, function (ldata) {
-                                return _after ? _after(ldata) : ldata;
-                            });
+                            if (params.$noWait) {
+                                if (_after)
+                                    _after(null);
+                                return Phoenix.ajax.logData(lurl, null);
+                            }
+                            else
+                                return _ajax.get(lurl, opts, function (ldata) {
+                                    return _after ? _after(ldata) : ldata;
+                                });
                         }
                 }
             }
@@ -4337,7 +4582,7 @@ var Phoenix;
                 lurl = _addTenantId(lurl);
                 return _odata.transport.doPatch(lurl, data, opts);
             },
-            applyFilters: function (documents, search, serchFields, skip, top, orderBy) {
+            applyFilters: function (documents, search, serchFields, skip, top, orderBy, fullSearch) {
                 var res = [], totalCount = documents.length;
                 search = (search || '') + '';
                 if (search && serchFields && serchFields.length) {
@@ -4395,8 +4640,11 @@ var Phoenix;
                     return cd;
                 };
                 var isRelation = params.$relation;
+                var inlineValue = params.$value;
                 if (isRelation)
                     delete params.$relation;
+                if (inlineValue)
+                    delete params.$value;
                 var hasEntityId = false;
                 var cache = params.$cache;
                 delete params.$cache;
@@ -4437,6 +4685,7 @@ var Phoenix;
                 var lurl = entity;
                 delete params.$entity;
                 var search = '';
+                var fullSearch = false;
                 var searchFields = [];
                 var skip = params.$skip || 0;
                 var top, topIncremented = false;
@@ -4444,8 +4693,10 @@ var Phoenix;
                 if (params.$searchByFieldsValue) {
                     search = params.$searchByFieldsValue;
                     searchFields = params.$searchByFieldsFields;
+                    fullSearch = params.$searchByFieldsFieldsFull;
                     delete params.$searchByFieldsValue;
                     delete params.$searchByFieldsFields;
+                    delete params.$searchByFieldsFieldsFull;
                 }
                 if (!hasEntityId) {
                     if (params.$top)
@@ -4468,12 +4719,13 @@ var Phoenix;
                         delete params.$inlinecount;
                     }
                 }
-                var allData = params.$allData || isRelation;
+                var allData = params.$allData || isRelation || inlineValue;
                 if (allData) {
                     delete params.$skip;
                     delete params.$top;
                     delete params.$allData;
                     delete params.$orderby;
+                    params.$top = 1000;
                 }
                 var opts = _ajax.getDefaultAjaxOptions(config.odata);
                 opts.$errors = errors;
@@ -4489,9 +4741,22 @@ var Phoenix;
                 if (isRelation) {
                     getHandler = function (uri, options, ondata, params) {
                         var rdata = { value: [] };
-                        if (context && context.model) {
-                            rdata.value = context.model.getValue(params.params.relation).model(false) || [];
+                        if (context && context._$model) {
+                            var relation = params.params.relation;
+                            if (relation.charAt(0) === '.')
+                                relation = relation.substring(2);
+                            else if (relation.charAt(0) === '/')
+                                relation = relation.substring(1);
+                            rdata.value = context._$model.getValue(relation).model(false) || [];
                         }
+                        if (ondata)
+                            rdata = ondata(rdata);
+                        return _utils.Promise.resolve(rdata);
+                    };
+                }
+                else if (inlineValue) {
+                    getHandler = function (uri, options, ondata, params) {
+                        var rdata = { value: inlineValue };
                         if (ondata)
                             rdata = ondata(rdata);
                         return _utils.Promise.resolve(rdata);
@@ -4517,7 +4782,7 @@ var Phoenix;
                             cd._hasPrev = skip ? true : false;
                         }
                         if (allData) {
-                            var fdata = _odata.applyFilters(cd.documents, search, searchFields, skip, top, orderBy);
+                            var fdata = _odata.applyFilters(cd.documents, search, searchFields, skip, top, orderBy, fullSearch);
                             cd.documents = fdata.documents;
                             cd.count = fdata.count;
                         }
@@ -4583,7 +4848,7 @@ var Phoenix;
                 return params;
             var func = _customData.get("datasets.transform." + transform);
             if (func)
-                return func($.extend(true, {}, params, context));
+                return func($.extend(true, {}, params), context);
             return params;
         }, _registerDataProvider = function () {
             var _dataProvider = {};
@@ -4637,6 +4902,11 @@ var Phoenix;
                         else
                             value = '\'' + value.replace(/'/g, '\'\'') + '\'';
                     }
+                }
+            }
+            else if (ct && !addQuote && value !== null && value !== undefined) {
+                if (ct === 'number' && typeof value === 'string') {
+                    value = parseFloat(value);
                 }
             }
             return value;
@@ -4730,8 +5000,10 @@ var Phoenix;
             if (typeof value !== 'object')
                 return null;
             if (Array.isArray(value))
-                return;
+                return value;
             var res = {};
+            if (value.type === 'literal')
+                return value.value;
             Object.keys(value).forEach(function (key) {
                 res[key] = _getValue(value[key], context, addQuote, output, false);
             });
@@ -4966,7 +5238,7 @@ var Phoenix;
                 else {
                     if (tree.$nulls === "ignore" && (left.value == null || right.value == null)) {
                         if (tree.$op === "and" || tree.$op === "or") {
-                            if (right.value == null)
+                            if (right.value == null) //keep ==
                                 return { value: left.value, op: left.op };
                             else
                                 return { value: right.value, op: right.op };
@@ -5025,15 +5297,39 @@ var Phoenix;
                 res.$viewId = params.$viewId || 'viewId';
                 if (!res.$viewId)
                     throw 'Invalid sync dataset -$params.$viewId';
+                res.$replaceSearch = params.$replaceSearch;
                 transactionId = lurl[res.$transactionId];
-                viewId = lurl[res.$viewId];
-                if (transactionId && viewId)
+                if (params.$method === 'PATCH') {
+                    viewId = params.viewId;
+                    delete params.viewId;
+                }
+                else {
+                    if (context && context.parentModel) {
+                        viewId = context.parentModel.id;
+                        if (!viewId)
+                            res.$data = {
+                                type: 'literal',
+                                value: context.parentModel.pageParams || {}
+                            };
+                    }
+                    else {
+                        if (params.$modal) {
+                            if (params.$viewIdName)
+                                viewId = Phoenix.$mem[params.$viewIdName];
+                        }
+                        else
+                            viewId = lurl[res.$viewId];
+                    }
+                }
+                if ((transactionId && viewId) || (viewId && params.$method === 'PATCH' && params.$noWait))
                     res.$method = params.$method === 'PATCH' ? 'PATCH' : 'GET';
                 else
                     res.$method = 'POST';
                 if (res.$method !== 'POST')
                     res.$data = null;
             }
+            if (params.$noWait)
+                res.$noWait = true;
             res.$url = params.$url || '';
             res.$url = _utils.execAngularExpression(res.$url, {
                 $url: lurl,
@@ -5046,10 +5342,12 @@ var Phoenix;
             if (isSync) {
                 var curl = res.$url ? res.$url.split('/') : [];
                 curl.push(params.$entity);
-                if (viewId && transactionId) {
+                if (viewId) {
                     curl.push(viewId);
-                    query = query || {};
-                    query.id = transactionId;
+                    if (viewId && transactionId && !params.$noWait) {
+                        query = query || {};
+                        query.id = transactionId;
+                    }
                 }
                 res.$url = curl.join('/');
             }
@@ -5095,7 +5393,6 @@ var Phoenix;
                             $mem: _p.$mem,
                             $local: localContext
                         }, false, false, false);
-                    _getPostValue;
                 }
                 else
                     res.$data = context || {};
@@ -5128,7 +5425,7 @@ var Phoenix;
                 return _getValue(entityId, ctx, false, false, false);
         }, _isEntityIdNull = function (v) {
             return (v === undefined || v === null || v === '' || v === '\'\'');
-        }, _getUrlBaseByType = function (type, addHost) {
+        }, _getUrlBaseByType = function (type, addHost, removeHost) {
             var config = _application.config(_application.name) || {};
             var cfg = config ? config[type] : null;
             var res = '';
@@ -5137,6 +5434,8 @@ var Phoenix;
             }
             if (res && res.indexOf('{') >= 0) {
                 var ctx = _link.context({ cookie: true });
+                if (cfg.$module)
+                    ctx.$module = cfg.$module;
                 res = _utils.formatNames(res, ctx);
             }
             addHost = addHost && res.toLowerCase().indexOf('http') !== 0;
@@ -5145,6 +5444,16 @@ var Phoenix;
                     res = location.protocol + '//' + location.hostname + res;
                 else
                     res = location.protocol + '//' + location.host + res;
+            }
+            removeHost = removeHost && res.toLowerCase().indexOf('http') === 0;
+            if (removeHost) {
+                var search_1 = 'http://';
+                if (res.toLowerCase().indexOf('https') === 0)
+                    search_1 = 'https://';
+                res = res.substr(search_1.length);
+                var segments = res.split('/');
+                segments[0] = '';
+                res = segments.join('/');
             }
             return res;
         }, _parseODataParams = function (params, lurl, context, localContext) {
@@ -5164,32 +5473,55 @@ var Phoenix;
                 var config = _application.config(_application.name) || {};
                 var odataCfg_1 = (params.$type ? config[params.$type] : null) || config.odata || {};
                 var caseSensitive_1 = odataCfg_1.caseSensitive || false;
-                params.$searchByFields.fields.forEach(function (field) {
-                    var cf = field.replace(/\./g, '/');
-                    var cv = '\'' + params.$searchByFields.value.replace(/'/g, '\'\'') + '\'';
-                    if (caseSensitive_1) {
-                        cf = 'tolower(' + cf + ')';
-                        cv = 'tolower(' + cv + ')';
-                    }
-                    var f = {
-                        $left: odataCfg_1.contains || 'contains',
-                        $op: '$func',
-                        $right: cf + ', ' + cv
-                    };
-                    if (!searchFilter_1) {
-                        searchFilter_1 = f;
-                    }
-                    else {
-                        searchFilter_1 = {
-                            $left: searchFilter_1,
-                            $op: 'or',
-                            $right: f
+                var fv = params.$searchByFields.value;
+                var values = params.$searchByFields.fullSearch && fv ? fv.split(' ') : [fv];
+                values = values.filter(function (item) { return item.trim(); });
+                var andFilters_1 = [];
+                values.forEach(function (val, index) {
+                    params.$searchByFields.fields.forEach(function (field) {
+                        var cf = field.replace(/\./g, '/');
+                        var cv = '\'' + val.replace(/'/g, '\'\'') + '\'';
+                        if (caseSensitive_1) {
+                            cf = 'tolower(' + cf + ')';
+                            cv = 'tolower(' + cv + ')';
+                        }
+                        var f = {
+                            $left: odataCfg_1.contains || 'contains',
+                            $op: '$func',
+                            $right: cf + ', ' + cv
                         };
-                    }
+                        if (!searchFilter_1) {
+                            searchFilter_1 = f;
+                        }
+                        else {
+                            searchFilter_1 = {
+                                $left: searchFilter_1,
+                                $op: 'or',
+                                $right: f
+                            };
+                        }
+                    });
+                    andFilters_1.push(searchFilter_1);
+                    searchFilter_1 = null;
                 });
+                if (andFilters_1.length) {
+                    andFilters_1.forEach(function (f) {
+                        if (!searchFilter_1) {
+                            searchFilter_1 = f;
+                        }
+                        else {
+                            searchFilter_1 = {
+                                $left: searchFilter_1,
+                                $op: 'and',
+                                $right: f
+                            };
+                        }
+                    });
+                }
                 params.$searchByFieldsValue = params.$searchByFields.value;
                 params.$searchByFieldsFields = params.$searchByFields.fields;
-                if (!params.$allData) {
+                params.$searchByFieldsFull = params.$searchByFields.fullSearch;
+                if (!params.$allData && searchFilter_1) {
                     if ($filter)
                         $filter = {
                             $left: $filter,
@@ -5294,7 +5626,15 @@ var Phoenix;
                 if (hnd)
                     context = hnd(context, callerObject);
             }
-            if (!config.$main && config.$output) {
+            if (localData && localData.$factory) {
+                var factory = _customData.get(localData.$factory);
+                if (factory) {
+                    return factory(context, callerObject);
+                }
+                else
+                    return _utils.Promise.resolve(null);
+            }
+            else if (!config.$main && config.$output) {
                 localData = config.$data;
                 cd = _outputData(config.$output, {
                     $url: lurl,
@@ -5307,9 +5647,7 @@ var Phoenix;
             else
                 cd = localData;
             cd = _execTransform(config, cd);
-            return new _utils.Promise(function (resolve, reject) {
-                resolve(cd);
-            });
+            return _utils.Promise.resolve(cd);
         }, _execWSchema = function (config, lurl, context, callerObject) {
             var name = config.$params.name;
             return _data.schema.get(name, config.$params.localization, undefined);
@@ -5372,6 +5710,9 @@ var Phoenix;
             }
             if (config.$type === 'relation')
                 params.$relation = true;
+            if (config.$value) {
+                params.$value = config.$value;
+            }
             return _data.odata.getRessources(params, function (localData) {
                 if (method !== 'POST' && localData)
                     localData.$create = false;
@@ -5433,18 +5774,53 @@ var Phoenix;
             var local = callerObject && callerObject.getLocalContext ? callerObject.getLocalContext() : null;
             var tp = _execBeforeTransform(config.$beforeExecute, config.$params, context);
             var params = _parseRestParams(tp, lurl, context, local, true);
+            var method = params.$method;
             var after = function (localData) {
                 var cd = localData;
-                if (params.$method === 'GET') {
-                    cd.$transactionId = params.$query[params.$transactionId];
+                if (!cd)
+                    return;
+                if (method === 'GET') {
+                    if (context.parentModel) {
+                        // same transection id as parent
+                        cd.$transactionId = params.$query[params.$transactionId];
+                    }
+                    else {
+                        cd.$transactionId = params.$query[params.$transactionId];
+                        cd.$viewName = config.$params.$entity;
+                    }
+                    cd.$create = false;
                 }
-                if (params.$method === 'POST') {
+                if (method === 'POST') {
                     cd = cd.data;
-                    var search_1 = {};
-                    search_1[params.$transactionId] = localData.id;
-                    search_1[params.$viewId] = cd.id;
+                    cd.$create = false;
                     cd.$transactionId = localData.id;
-                    _link.changeSearch(search_1);
+                    if (!context.parentModel) {
+                        cd.$viewName = config.$params.$entity;
+                        if (tp.$modal) {
+                        }
+                        else {
+                            var search_2 = {};
+                            search_2[params.$transactionId] = localData.id;
+                            search_2[params.$viewId] = cd.id;
+                            if (params.$replaceSearch) {
+                                if (!Array.isArray(params.$replaceSearch))
+                                    params.$replaceSearch = ['$inline'];
+                                if (Array.isArray(params.$replaceSearch)) {
+                                    var urlSearch_1 = _link.context().$url;
+                                    params.$replaceSearch.forEach(function (name) {
+                                        if (urlSearch_1[name] !== undefined)
+                                            search_2[name] = urlSearch_1[name];
+                                    });
+                                }
+                            }
+                            _link.changeSearch(search_2, params.$replaceSearch, true);
+                        }
+                    }
+                    else {
+                        //context.parentModel 
+                        if (localData.patches && localData.patches.length)
+                            context.parentModel.model.applyJsonPachDelta(localData.patches);
+                    }
                 }
                 if (config.$output)
                     cd = _outputData(config.$output, {
@@ -5456,7 +5832,7 @@ var Phoenix;
                     });
                 return _execTransform(config, cd);
             };
-            if (params.$method === 'DELETE' || params.$method === 'PUT') {
+            if (method === 'DELETE' || method === 'PUT') {
                 after = null;
             }
             return _data.rest.getRessources(params, true, after);
@@ -5491,7 +5867,12 @@ var Phoenix;
                 case 'odata':
                     return _execOData(config, lurl, context, callerObject);
                 case 'relation':
-                    if (context.model)
+                    if (context._$model)
+                        return _execOData(config, lurl, context, callerObject);
+                    else
+                        return null;
+                case 'enum':
+                    if (config.$value)
                         return _execOData(config, lurl, context, callerObject);
                     else
                         return null;
@@ -6168,7 +6549,8 @@ var Phoenix;
             PageControl.prototype._setEvents = function () {
                 var that = this;
                 $(document).on("mousedown touchstart", function (event) {
-                    if (_dom.inCover(event.target))
+                    var node = event.target;
+                    if (_dom.inCover(node))
                         return;
                     if (!that._inContextMenu(event)) {
                         that._closePopup(event);
@@ -8188,6 +8570,11 @@ var Phoenix;
             RATE_DECIMALS: 2,
             RATE_MAXIMUM: 1000,
             RATE_SYMBOL: '%',
+            moneyUnitSymbol: function (coef) {
+                if (coef === 1000)
+                    return 'K';
+                return '';
+            },
             expandSchema$Ref: function (schema) {
                 if (schema.definitions) {
                     Object.keys(schema.definitions).forEach(function (defName) {
@@ -8369,7 +8756,12 @@ var Phoenix;
             copyModel: function (schema, model, rootSchema, copyUX, copyStates) {
                 var res = {};
                 rootSchema = rootSchema || schema;
+                var pm = model && model.parentModel ? model.parentModel : null;
+                if (pm)
+                    delete model.parentModel;
                 _copyObject(schema, rootSchema, model, res, copyUX, copyStates);
+                if (pm)
+                    model.parentModel = pm;
                 return res;
             },
             columns: function (schema, rootSchema, locale) {
@@ -8395,7 +8787,7 @@ var Phoenix;
                 return res;
             },
             allData: function (lookup) {
-                return !lookup.pagination || lookup.data.$type === 'relation';
+                return !lookup.pagination || lookup.data.$type === 'relation' || lookup.data.$type === 'enum';
             },
             pkFields: function (pk) {
                 if (Array.isArray(pk))
@@ -8489,7 +8881,7 @@ var Phoenix;
                 return null;
             },
             supportPagination: function (lookup) {
-                if (lookup.data && (lookup.data.$type === 'odata' || lookup.data.$type === 'relation'))
+                if (lookup.data && (lookup.data.$type === 'odata' || lookup.data.$type === 'relation' || lookup.data.$type === 'enum'))
                     return true;
                 return false;
             },
@@ -8503,8 +8895,9 @@ var Phoenix;
                     ds.$params.selected = options.selected;
                 if (options.paginated && (options.findFirst || options.find)) {
                     ds = $.extend(true, {}, lookup.data);
+                    ds.$params = ds.$params || {};
                     options.search = (options.search || '') + '';
-                    var alldata = ds.$params.$allData || (ds.$type == 'relation');
+                    var alldata = ds.$params.$allData || (ds.$type == 'relation') || (ds.$type == 'enum');
                     var ff = null;
                     var config = _application.config(_application.name) || {};
                     var odataCfg = (ds.$params.$type ? config[ds.$params.$type] : null) || config.odata || {};
@@ -8575,8 +8968,31 @@ var Phoenix;
                     }
                 }
                 var promise = null;
+                var noPrefix = false;
                 if (ds.$type === 'relation') {
-                    data = { documents: data.getValue(ds.$params.relation).model(false) || [] };
+                    var relation = ds.$params.relation;
+                    if (relation.charAt(0) === '.')
+                        relation = relation.substring(2);
+                    else if (relation.charAt(0) === '/') {
+                        relation = relation.substring(1);
+                        noPrefix = true;
+                    }
+                    if (options.$bind) {
+                        var segments = options.$bind.split('.');
+                        segments.pop();
+                        var prefix = segments.join('.');
+                        if (segments.length && data.fullPath === prefix)
+                            noPrefix = true;
+                        if (!noPrefix && segments.length) {
+                            if (relation.indexOf(prefix) < 0)
+                                relation = prefix + '.' + relation;
+                        }
+                    }
+                    data = { documents: data.getValue(relation).model(false) || [] };
+                    promise = _utils.Promise.resolve(data);
+                }
+                else if (ds.$type === 'enum') {
+                    data = { documents: lookup.data.$value || [] };
                     promise = _utils.Promise.resolve(data);
                 }
                 else
@@ -8681,9 +9097,18 @@ var Phoenix;
                     var s = segments[i];
                     if (!cs.type && cs.$ref)
                         cs = _expandRefProp(cs, rootSchema);
-                    if ((cs.type == "array") && (_sutils.arrayProps.indexOf(s) >= 0)) {
-                        // $item, $new 
-                        cs = _expandRefProp(cs.items, rootSchema);
+                    if ((cs.type === "array")) {
+                        if (s === "$links") {
+                            cs = cs.links;
+                            link = true;
+                            continue;
+                        }
+                        if (_sutils.arrayProps.indexOf(s) >= 0)
+                            cs = _expandRefProp(cs.items, rootSchema);
+                        else {
+                            if (i < segments.length - 1 && _sutils.arrayProps.indexOf(segments[i + 1]) < 0)
+                                cs = _expandRefProp(cs.items, rootSchema);
+                        }
                     }
                     else {
                         if (s === "$links") {
@@ -8719,7 +9144,7 @@ var Phoenix;
                 return cs;
             },
             states: ['isHidden', 'isDisabled', 'isReadOnly', 'isMandatory', 'style'],
-            statesAndErrors: ['isHidden', 'isDisabled', 'isReadOnly', 'isMandatory', 'errors', 'filter', 'symbol', 'decimals', 'style', 'search', 'selected', 'columns', 'orderBy', 'filter'],
+            statesAndErrors: ['isHidden', 'isDisabled', 'isReadOnly', 'isMandatory', 'errors', 'filter', 'symbol', 'decimals', 'style', 'search', 'selected', 'columns', 'orderBy', 'filter', 'pageSize', 'totalCount', 'pageNumber'],
             linksStates: ['isHidden', 'isDisabled'],
             isLink: function (path) {
                 return (path.split('.').indexOf('$links') >= 0);
@@ -8911,6 +9336,9 @@ var Phoenix;
             init: function (schema, rootSchema, context, value, iCreate, opts) {
                 if (value === null)
                     return value;
+                if (value === undefined) {
+                    value = { $undefined: true };
+                }
                 var a = value || {};
                 if (a._schema_initialized)
                     return a;
@@ -8936,7 +9364,7 @@ var Phoenix;
                         }
                     }
                     if (_sutils.isCompositionRef(cs, rootSchema)) {
-                        a[pn] = _sutils.init(cs, rootSchema, context, a[pn] === null ? null : a[pn] || {}, iCreate, { children: opts.children, select: opts.select });
+                        a[pn] = _sutils.init(cs, rootSchema, context, a[pn], iCreate, { children: opts.children, select: opts.select });
                     }
                     else if (_sutils.isCompositionList(cs, rootSchema, false)) {
                         a[pn] = a[pn] || [];
@@ -8964,7 +9392,8 @@ var Phoenix;
                             firstItem_1.$select = true;
                         }
                         if (listStates) {
-                            delete listStates.selected;
+                            // if (!cs.syncSelected)
+                            //delete listStates.selected;
                         }
                     }
                     else if (_sutils.isSimpleList(cs, rootSchema)) {
@@ -9081,38 +9510,63 @@ var Phoenix;
                 }
                 return false;
             },
-            checkNumber: function (value, schema, locale, errors) {
+            checkNumber: function (value, schema, locale, errors, listParent) {
                 var res = true;
                 value = value || 0;
                 if (schema.exclusiveMinimum) {
                     if (schema.minimum != undefined && value <= schema.minimum) {
                         errors.push({ message: _utils.format(_localeSchema.minNumberExclusive, _sutils._title(schema.title, locale), _sutils.formatNumber(schema, schema.minimum)) });
+                        if (listParent)
+                            listParent.addChildError(errors[errors.length - 1].message);
                         res = false;
                     }
                 }
                 else {
                     if (schema.minimum != undefined && value < schema.minimum) {
                         errors.push({ message: _utils.format(_localeSchema.minNumber, _sutils._title(schema.title, locale), _sutils.formatNumber(schema, schema.minimum)) });
+                        if (listParent)
+                            listParent.addChildError(errors[errors.length - 1].message);
                         res = false;
                     }
                 }
                 if (schema.exclusiveMaximum) {
                     if (schema.maximum != undefined && value >= schema.maximum) {
                         errors.push({ message: _utils.format(_localeSchema.maxNumberExclusive, _sutils._title(schema.title, locale), _sutils.formatNumber(schema, schema.maximum)) });
+                        if (listParent)
+                            listParent.addChildError(errors[errors.length - 1].message);
                         res = false;
                     }
                 }
                 else {
                     if (schema.maximum != undefined && value > schema.maximum) {
                         errors.push({ message: _utils.format(_localeSchema.maxNumber, _sutils._title(schema.title, locale), _sutils.formatNumber(schema, schema.maximum)) });
+                        if (listParent)
+                            listParent.addChildError(errors[errors.length - 1].message);
                         res = false;
                     }
                 }
                 return res;
             },
-            _validateEmail: function (email, error) {
+            validateEmail: function (email, error) {
                 var re = /^([\w-]+(?:\.[\w-]+)*)@((?:[\w-]+\.)*\w[\w-]{0,66})\.([a-z]{2,6}(?:\.[a-z]{2})?)$/i;
                 return re.test(email);
+            },
+            validatePattern: function (value, pattern, error) {
+                var re = new RegExp(pattern);
+                return re.test(value);
+            },
+            validatePhone: function (uri, error) {
+                var svalue = uri || '';
+                for (var i = 0; i < svalue.length; i++) {
+                    var c = svalue.charAt(i);
+                    if ('+-() 0123456789.'.indexOf(c) < 0)
+                        return false;
+                }
+                return true;
+            },
+            validateUrl: function (uri, error) {
+                var re = /(ftp|http|https):\/\/(\w+:{0,1}\w*@)?(\S+)(:[0-9]+)?(\/|\/([\w#!:.?+=&%@!\-\/]))?/i;
+                return re.test(uri);
             },
             _validateJson: function (value, error) {
                 try {
@@ -9124,23 +9578,50 @@ var Phoenix;
                 }
                 return true;
             },
-            checkString: function (value, state, schema, locale, errors) {
+            checkString: function (value, state, schema, locale, errors, listParent) {
                 var res = true;
                 var v = (value || '');
+                if (!state.isMandatory && v === '') {
+                    return res;
+                }
                 if (schema.minLength && v.length < schema.minLength) {
                     errors.push({ message: _utils.format(_localeSchema.minLength, _sutils._title(schema.title, locale), schema.minLength) });
+                    if (listParent)
+                        listParent.addChildError(errors[errors.length - 1].message);
                     res = false;
                 }
                 if (state.isMandatory) {
                     if (v === '') {
                         errors.push({ message: _utils.format(_localeSchema.required, _sutils._title(schema.title, locale)) });
+                        if (listParent)
+                            listParent.addChildError(errors[errors.length - 1].message);
                         res = false;
                     }
                 }
                 if (schema.format) {
                     if (schema.format === "email") {
-                        if (value && !_sutils._validateEmail(value, {})) {
+                        if (value && !_sutils.validateEmail(value, {})) {
                             errors.push({ message: _localeSchema.invalidEmail });
+                            if (listParent)
+                                listParent.addChildError(errors[errors.length - 1].message);
+                            res = false;
+                        }
+                    }
+                    else if (schema.format === "phone") {
+                        var error = {};
+                        if (value && !_sutils.validatePhone(value, error)) {
+                            errors.push({ message: _localeSchema.invalidPhone });
+                            if (listParent)
+                                listParent.addChildError(errors[errors.length - 1].message);
+                            res = false;
+                        }
+                    }
+                    else if (schema.format === "url") {
+                        var error = {};
+                        if (value && !_sutils.validateUrl(value, error)) {
+                            errors.push({ message: _localeSchema.invalidUrl });
+                            if (listParent)
+                                listParent.addChildError(errors[errors.length - 1].message);
                             res = false;
                         }
                     }
@@ -9148,8 +9629,19 @@ var Phoenix;
                         var error = {};
                         if (value && !_sutils._validateJson(value, error)) {
                             errors.push({ message: error.ex.message });
+                            if (listParent)
+                                listParent.addChildError(errors[errors.length - 1].message);
                             res = false;
                         }
+                    }
+                }
+                if (schema.pattern) {
+                    var error = {};
+                    if (value && !_sutils.validatePattern(value, schema.pattern, error)) {
+                        errors.push({ message: _localeSchema.invalidChars });
+                        if (listParent)
+                            listParent.addChildError(errors[errors.length - 1].message);
+                        res = false;
                     }
                 }
                 return res;
@@ -9164,7 +9656,7 @@ var Phoenix;
                 }
                 return res;
             },
-            validateSchema: function (value, schema, state, locale, errors, glbErrors) {
+            validateSchema: function (value, schema, state, locale, errors, glbErrors, listParent) {
                 var res = true;
                 if (!schema)
                     return;
@@ -9175,10 +9667,10 @@ var Phoenix;
                 switch (schema.type) {
                     case "number":
                     case "integer":
-                        res = _sutils.checkNumber(value, schema, locale, errors);
+                        res = _sutils.checkNumber(value, schema, locale, errors, listParent);
                         break;
                     case "string":
-                        res = _sutils.checkString(value, state, schema, locale, errors);
+                        res = _sutils.checkString(value, state, schema, locale, errors, listParent);
                         break;
                 }
                 return res;
@@ -9199,7 +9691,7 @@ var Phoenix;
                     return schema;
                 });
             },
-            loadSchemaRefs: function (schema, ldata, layout, parentContext, after) {
+            loadSchemaRefs: function (schema, ldata, layout, parentContext, parent, opts, after) {
                 if (!schema)
                     return after(null, null);
                 var exec = function () {
@@ -9213,9 +9705,19 @@ var Phoenix;
                         var ctx = ldata;
                         if (parentContext) {
                             ctx = ctx || {};
-                            ctx.model = parentContext;
+                            ctx._$model = parentContext;
                         }
-                        var mainData = _dutils.loadMainData({ datasets: layout.datasets, transform: layout.transform, context: ctx }, true);
+                        if (parent) {
+                            ctx = ctx || {};
+                            var parentModel = parent.form.$model.model();
+                            if (parentModel && parentModel.pages) {
+                                var pages = JSON.parse(parentModel.pages);
+                                ctx.parentModel = pages[parent.name];
+                                if (ctx.parentModel)
+                                    ctx.parentModel.model = parent.form.$model;
+                            }
+                        }
+                        var mainData = opts && opts.design ? _utils.Promise.resolve({}) : _dutils.loadMainData({ modal: opts._modalForm, datasets: layout.datasets, transform: layout.transform, context: ctx }, true);
                         if (mainData)
                             promises.push(mainData);
                         var dataCount_1 = mainData ? enumsCount_1 + 1 : 0;
@@ -9324,10 +9826,20 @@ var Phoenix;
             hasSymbol: function (schema) {
                 return _sutils.isNumber(schema) && (schema.format === "money" || schema.format === 'rate' || schema.symbol);
             },
+            places: function (state) {
+                var res = state.decimals || 0;
+                if (state.moneyUnitCoef === 1000)
+                    return 0;
+                return res;
+            },
             text2Value: function (textValue, schema, state) {
                 if (_sutils.isNumber(schema)) {
                     var dec = state.decimals;
                     var float = typeof textValue === 'number' ? textValue : _ulocale.string2Float((textValue || ''));
+                    if (state.moneyUnitCoef && state.moneyUnitCoef !== 1) {
+                        float = float * state.moneyUnitCoef;
+                        dec = 0;
+                    }
                     float = parseFloat(float.toFixed(dec));
                     return float;
                 }
@@ -9339,6 +9851,16 @@ var Phoenix;
             },
             value2Text: function (value, schema, state) {
                 var that = this;
+                if (_sutils.isMoney(schema)) {
+                    var decimals = state.decimals || 0;
+                    if (state.moneyUnitCoef && state.moneyUnitCoef !== 1) {
+                        decimals = 0;
+                        if (typeof value !== 'number')
+                            value = parseFloat(value || '0');
+                        value = value / state.moneyUnitCoef;
+                    }
+                    return _ulocale.decimal(value, decimals, null);
+                }
                 if (_sutils.isNumber(schema)) {
                     return _ulocale.decimal(value, state.decimals, null);
                 }
@@ -9401,7 +9923,7 @@ var Phoenix;
                 return null;
             },
             isQuery: function (ds) {
-                return ((ds.$type === 'odata' || ds.$type === 'relation') && (!ds.$method || ds.$method.toUpperCase() === 'GET') && !ds.$params.hasOwnProperty('$entityId'));
+                return ((ds.$type === 'odata' || ds.$type === 'relation' || ds.$type === 'enum') && (!ds.$method || ds.$method.toUpperCase() === 'GET') && !ds.$params.hasOwnProperty('$entityId'));
             },
             isCreateOrUpdate: function (ds) {
                 return ds.$type === "odata" && ds.$params.hasOwnProperty('$entityId');
@@ -9506,8 +10028,14 @@ var Phoenix;
             },
             loadMainData: function (config, onlyAutoOpen) {
                 var ds = _dutils.extractDatasets(config, onlyAutoOpen);
-                if (ds && ds.length)
+                if (ds && ds.length) {
+                    var fds = ds[0];
+                    if (config.modal && fds.$type === 'sync') {
+                        fds.$params = fds.$params || {};
+                        fds.$params.$modal = true;
+                    }
                     return _dutils.datasetsAsPromise(ds, config.transform, config.context);
+                }
                 return _utils.Promise.resolve(null);
             },
             dsConfig: function (datasets, prop, isQuery) {
@@ -9696,7 +10224,8 @@ var Phoenix;
                         var sel = that._findSeleted(map);
                         if (sel)
                             cs = sel.listIndex;
-                        var parentWidth = that.$parent.get(0).offsetWidth;
+                        var parent_1 = that.$parent.get(0);
+                        var parentWidth = parent_1.offsetWidth;
                         e.style.minWidth = parentWidth + 'px';
                         e.style.maxHeight = (that.options.maxItems * DropItems._itemHeight() + DropItems.deltaHeight) + 'px';
                         e.style.overflowY = 'auto';
@@ -10763,7 +11292,8 @@ var Phoenix;
                 var e = that.$element.get(0);
                 var l = _dom.query(e, '.header_left_buttons');
                 var r = _dom.query(e, '.header_right_buttons');
-                var loc = that.$location ? _dom.query(that.$location.get(0), '.bs-location-buttons') : null;
+                var location = that.$location ? that.$location.get(0) : null;
+                var loc = that.$location ? _dom.query(location, '.bs-location-buttons') : null;
                 that.$buttons.forEach(function (button, index) {
                     button.$index = index;
                     var $btn = _addButton(button, index);
@@ -11223,7 +11753,7 @@ var Phoenix;
         layoutUtils.LAYOUT_HTML = 'html';
         layoutUtils.LAYOUT_ACCORDION = 'accordion';
         layoutUtils.LAYOUT_ACCORDION_GROUP = 'accordion-group';
-        var _p = Phoenix, _dom = _p.dom, _utils = _p.utils, _locale = _p.locale.layouts, _ulocale = _p.ulocale, _render = _p.render, _sticky = _p.sticky;
+        var _p = Phoenix, _dom = _p.dom, _utils = _p.utils, _locale = _p.locale.layouts, _ulocale = _p.ulocale, _render = _p.render, _customData = _p.customData, _sticky = _p.sticky;
         var page_prefix = 'page';
         var _checkAccordionChildName = function (name, index) {
             name = name || '';
@@ -11287,8 +11817,11 @@ var Phoenix;
                 delete layout.$origin;
             if (layout.$type !== layoutUtils.LAYOUT_ACCORDION_GROUP && layout.$title && layout.$title.value === _locale.defaultTitle)
                 delete layout.$title;
-        }, _layoutIsVisible = function (layout) {
+        }, _layoutIsVisible = function (layout, manageOpening) {
             if (layout.$type === layoutUtils.LAYOUT_ACCORDION_GROUP) {
+                if (manageOpening && layout._opening !== undefined) {
+                    return layout._opening;
+                }
                 return layout.opened;
             }
             return true;
@@ -11379,7 +11912,6 @@ var Phoenix;
                     res_4 = res_4 && field && field.options && field.options.right;
                 });
                 return res_4;
-                ;
             }
             return false;
         }, _addStdThemes = function (layout, css, options) {
@@ -11547,7 +12079,7 @@ var Phoenix;
                 case layoutUtils.LAYOUT_COLUMN:
                     if (options.step === 1) {
                         if (options.design)
-                            css.push('col-design col' + (_bootstrap4 ? '' : '-xs') + '-' + layout.$colSize);
+                            css.push('col-design col-sm-' + layout.$colSize);
                         else {
                             if (layout.$customColSize) {
                                 css.push(layout.$customColSize);
@@ -11717,8 +12249,15 @@ var Phoenix;
             _addId(html, layout);
             _addDataStep(html, 1, design);
             html.push('>');
-            if (layout.$html)
-                html.push(layout.$html);
+            if (layout.$html) {
+                if (layout.$factory) {
+                    var factory = _customData.get(layout.$factory);
+                    if (factory)
+                        html.push(factory());
+                }
+                else
+                    html.push(layout.$html);
+            }
         }, _htmlAfter = function (html, layout, model, llocale, design) {
             html.push('</div>');
         }, _tabBuilder = function (html, layout, parent, model, llocale, design, isForm, formData, refBlock) {
@@ -12090,6 +12629,7 @@ var Phoenix;
                                     delete layout.$html;
                             }
                         }
+                        delete item._opening;
                         if (item.$type !== layoutUtils.LAYOUT_ROW || layout.$forceTable === false)
                             delete layout.$forceTable;
                         if (!item.$name && item.$name !== undefined)
@@ -12122,6 +12662,11 @@ var Phoenix;
                             }
                             if (item.$config.$titleIsHidden || item.$config.$dontSaveTitle) {
                                 delete item.$config.$title;
+                            }
+                        }
+                        else {
+                            if (item.options && Object.keys(item.options).length === 0) {
+                                delete item.options;
                             }
                         }
                     }
@@ -12310,6 +12855,14 @@ var Phoenix;
                 var tab = that.$element ? _dom.find(that.$element.get(0), item.$id + '_title') : null;
                 if (tab) {
                     var $tab = $(tab);
+                    item._opening = true;
+                    if (item.$type === Phoenix.layoutUtils.LAYOUT_ACCORDION_GROUP) {
+                        var parent_2 = that.getLayoutById(item.$parentId);
+                        parent_2 && parent_2.$items.forEach(function (element) {
+                            if (element.opened)
+                                element._opening = false;
+                        });
+                    }
                     $tab.tab('show');
                 }
             };
@@ -12330,12 +12883,14 @@ var Phoenix;
                         var ci = parentLayout.$items[i];
                         if (ci.opened) {
                             ci.opened = false;
+                            delete ci._opening;
                             that._activateLayout(ci, false);
                             break;
                         }
                     }
                 }
                 l.opened = true;
+                delete l._opening;
                 that._updateLayoutContent(l);
                 that._activateLayout(l, true);
                 /*
@@ -12420,11 +12975,11 @@ var Phoenix;
                 }
                 return false;
             };
-            BaseLayout.prototype._isChildVisibleOf = function (child, layout) {
+            BaseLayout.prototype._isChildVisibleOf = function (child, layout, manageOpening) {
                 var that = this;
                 var cl = that.map[child];
                 while (cl) {
-                    if (!_layoutUtils.layoutVisible(cl))
+                    if (!_layoutUtils.layoutVisible(cl, manageOpening))
                         return false;
                     if (cl == layout)
                         return true;
@@ -12432,13 +12987,27 @@ var Phoenix;
                 }
                 return false;
             };
+            BaseLayout.prototype._getVisibleControls = function (layout, widget) {
+                var that = this;
+                var res = [];
+                Object.keys(that.controls).forEach(function (cn) {
+                    var c = that.controls[cn];
+                    if (c.config) {
+                        if (widget && c.config.$widget !== widget)
+                            return;
+                        if (that._isChildVisibleOf(c.config.$parentId, layout, true))
+                            res.push(c);
+                    }
+                });
+                return res;
+            };
             BaseLayout.prototype._getVisibleChildren = function (layout) {
                 var that = this;
                 var res = [];
                 Object.keys(that.controls).forEach(function (cn) {
                     var c = that.controls[cn];
-                    if (that.controls[cn].item)
-                        if (that._isChildVisibleOf(that.controls[cn].item.$parentId, layout))
+                    if (c.item)
+                        if (that._isChildVisibleOf(c.item.$parentId, layout, false))
                             res.push(c);
                 });
                 return res;
@@ -12513,7 +13082,7 @@ var Phoenix;
                     var layout = that.map[id];
                     if (!layout)
                         return true;
-                    if (!_layoutUtils.layoutVisible(layout))
+                    if (!_layoutUtils.layoutVisible(layout, false))
                         return false;
                     id = layout.$parentId;
                 }
@@ -12539,7 +13108,7 @@ var Phoenix;
                         var _constructor = fd.$config ? wc : fc;
                         var isField = _constructor === fc;
                         if (isField) {
-                            var isMeta = (fd.$bind || '').indexOf('$$') === 0;
+                            var isMeta = (fd.$bind || '').indexOf('$$') === 0 || fd.$bind === "$none";
                             var schema = that.getSchema(fd.$bind), lookup = void 0;
                             if (!schema && !isMeta)
                                 console.log('Schema not found for field "' + fd.$bind + '".');
@@ -12564,7 +13133,7 @@ var Phoenix;
                                 if (p_2.getSubControls && p_2.addSubControls) {
                                     var subctrls = p_2.getSubControls();
                                     subctrls && subctrls.forEach(function (ctrl) {
-                                        var scIsMeta = (ctrl.$bind || '').indexOf('$$') === 0;
+                                        var scIsMeta = (ctrl.$bind || '').indexOf('$$') === 0 || ctrl.$bind === "$none";
                                         var scSchema = that.getSchema(ctrl.$bind), scLookup;
                                         if (!scSchema && !scIsMeta)
                                             console.log('Schema not found for field "' + ctrl.$bind + '".');
@@ -12592,7 +13161,7 @@ var Phoenix;
                                 hparent = _dom.find(e, fd.$id);
                             }
                             else {
-                                hparent = _dom.find(e, fd.$parentId + "_" + fd.$htmlParent);
+                                hparent = _dom.find(e, fd.$parentId + '_' + fd.$htmlParent);
                                 if (hparent) {
                                     opt.replaceParent = false;
                                     var op = _dom.find(e, fd.$id);
@@ -12633,9 +13202,9 @@ var Phoenix;
                     metaCtrls.forEach(function (metaControl) {
                         var bind = metaControl.getCustomBind();
                         if (bind) {
-                            var parent_1 = ctrlsByBind[bind];
-                            if (parent_1)
-                                metaControl.setParentId(parent_1.id);
+                            var parent_3 = ctrlsByBind[bind];
+                            if (parent_3)
+                                metaControl.setParentId(parent_3.id);
                         }
                     });
                     toRender.forEach(function (item) {
@@ -12714,6 +13283,11 @@ var Phoenix;
                             that.currentResizeList.push(item);
                     });
                 }
+            };
+            BaseLayout.prototype.getVisibleControlsByWiget = function (widgetName) {
+                var that = this;
+                var vc = that._getVisibleControls(that.data, widgetName);
+                return vc;
             };
             BaseLayout.prototype._clearSticks = function () {
                 var that = this;
@@ -13697,9 +14271,14 @@ var Phoenix;
             function ListStates(parent, prop, value) {
                 var _this = _super.call(this, parent, prop, value) || this;
                 var that = _this;
+                that._selected = [];
                 _this._init(parent, prop, value, null);
                 return _this;
             }
+            ListStates.prototype.list = function () {
+                var that = this;
+                return that.parent[that.name];
+            };
             ListStates.prototype._init = function (parent, prop, value, list) {
                 var that = this;
                 that._state = value || {};
@@ -13709,14 +14288,14 @@ var Phoenix;
             Object.defineProperty(ListStates.prototype, "columns", {
                 get: function () {
                     var that = this, array = that.parent[that.name];
-                    return (array.columns || []).join(',');
+                    return JSON.stringify(array.columns || []);
                 },
                 set: function (value) {
                     var that = this, array = that.parent[that.name];
-                    var oldVal = (array.columns || []).join(',');
+                    var oldVal = JSON.stringify(array.columns || []);
                     value = value || '';
                     if (oldVal !== value) {
-                        array.columns = value ? value.split(',') : undefined;
+                        array.columns = value ? JSON.parse(value) : undefined;
                         if (that.parent && that.parent.notifyStateChanged)
                             that.parent.notifyStateChanged(that.name + '.columns', {});
                     }
@@ -13733,11 +14312,60 @@ var Phoenix;
                 set: function (value) {
                     var that = this;
                     var array = that.parent[that.name];
-                    var oldValue = array.getSelectedItems().join(',').split(',').sort();
+                    var oldValue = (that._selected || []).slice(0).sort();
                     var newValue = (value || '').split(',').sort();
                     var s = newValue.join(',');
+                    that._selected = JSON.parse('[' + s + ']');
                     if (oldValue.join(',') !== s) {
                         array.setSelectedItems(JSON.parse('[' + s + ']'));
+                    }
+                },
+                enumerable: true,
+                configurable: true
+            });
+            ListStates.prototype.selectedPks = function () {
+                return this._selected;
+            };
+            Object.defineProperty(ListStates.prototype, "pageSize", {
+                get: function () {
+                    var that = this;
+                    return that._pageSize || 0;
+                },
+                set: function (value) {
+                    var that = this;
+                    if (that._pageSize !== value) {
+                        that._pageSize = value;
+                        that.list().notifyChangedProperty('pagination');
+                    }
+                },
+                enumerable: true,
+                configurable: true
+            });
+            Object.defineProperty(ListStates.prototype, "pageNumber", {
+                get: function () {
+                    var that = this;
+                    return that._pageNumber || 1;
+                },
+                set: function (value) {
+                    var that = this;
+                    if (that._pageNumber !== value) {
+                        that._pageNumber = value;
+                        that.list().notifyChangedProperty('pagination');
+                    }
+                },
+                enumerable: true,
+                configurable: true
+            });
+            Object.defineProperty(ListStates.prototype, "totalCount", {
+                get: function () {
+                    var that = this;
+                    return that._totalCount || 0;
+                },
+                set: function (value) {
+                    var that = this;
+                    if (that._totalCount !== value) {
+                        that._totalCount = value;
+                        that.list().notifyChangedProperty('pagination');
                     }
                 },
                 enumerable: true,
@@ -13868,7 +14496,7 @@ var Phoenix;
                 that.parent = null;
             };
             Errors.prototype.errors = function () {
-                return this._errors.slice();
+                return this._errors ? this._errors.slice() : [];
             };
             Object.defineProperty(Errors.prototype, "length", {
                 get: function () {
@@ -13911,7 +14539,16 @@ var Phoenix;
             };
             Errors.prototype.hasErrors = function () {
                 var that = this;
-                return that._errors && that._errors.length ? true : false;
+                var he = that._errors && that._errors.length ? true : false;
+                if (he) {
+                    var error_1 = false;
+                    that._errors.forEach(function (e) {
+                        if (!error_1 && (e.severity === 'error' || e.severity === undefined))
+                            error_1 = true;
+                    });
+                    return error_1;
+                }
+                return false;
             };
             Errors.prototype.rmvError = function (message) {
                 var that = this;
@@ -13935,6 +14572,21 @@ var Phoenix;
                     });
                     if (ii >= 0) {
                         that._errors.splice(ii, 1);
+                        that.notify();
+                    }
+                }
+            };
+            Errors.prototype.addChildError = function (error) {
+                var that = this;
+                that._errors = that._errors || [];
+                if (error) {
+                    var add = true;
+                    for (var i = 0; i < that._errors.length; i++) {
+                        if (that._errors[i].isChild)
+                            return false;
+                    }
+                    if (add) {
+                        that._errors.push({ severity: "error", message: error, id: _utils.allocUuid(), isChild: true });
                         that.notify();
                     }
                 }
@@ -14003,7 +14655,7 @@ var Phoenix;
         var _utils = Phoenix.utils, _dom = Phoenix.dom, _application = Phoenix.application, _odata = Phoenix.data.odata, _sutils = Observable.SchemaUtils, _dutils = Observable.DataUtils, _dsPlugin = Phoenix.DatasetPlugin;
         var QueryableDataSource = /** @class */ (function () {
             function QueryableDataSource(dsConfig, model) {
-                if (dsConfig.$type !== 'odata' && dsConfig.$type !== 'relation')
+                if (dsConfig.$type !== 'odata' && dsConfig.$type !== 'relation' && dsConfig.$type !== 'enum')
                     throw new Error('Only odata sources are supported.');
                 var that = this;
                 var ct = (dsConfig.$params && dsConfig.$params.$type ? dsConfig.$params.$type : 'odata');
@@ -14016,6 +14668,7 @@ var Phoenix;
                 if (that._config.$params.$searchByFields) {
                     that._search = that._config.$params.$searchByFields.value;
                     that._searchFields = that._config.$params.$searchByFields.fields;
+                    that._fullSearch = that._config.$params.$searchByFields.fullSearch;
                 }
                 that._pageSize = 0;
                 that._model = model;
@@ -14102,7 +14755,8 @@ var Phoenix;
                         that._search = value;
                         that._config.$params.$searchByFields = {
                             fields: that._searchFields,
-                            value: value
+                            value: value,
+                            fullSearch: that._fullSearch
                         };
                         if (that._searchFields)
                             that.refresh(true, false);
@@ -14124,7 +14778,8 @@ var Phoenix;
                         that._searchFields = value;
                         that._config.$params.$searchByFields = {
                             fields: that._searchFields,
-                            value: value
+                            value: value,
+                            fullSearch: that._fullSearch
                         };
                         if (doRefresh)
                             that.refresh(true, false);
@@ -14245,7 +14900,7 @@ var Phoenix;
             QueryableDataSource.prototype._applyFilters = function () {
                 var that = this;
                 var allData = that._model.allData;
-                return _odata.applyFilters(allData, that._search, that._searchFields, that._skip, that._pageSize, that._orderby);
+                return _odata.applyFilters(allData, that._search, that._searchFields, that._skip, that._pageSize, that._orderby, that._fullSearch);
             };
             QueryableDataSource.prototype._open = function (forceReload) {
                 var that = this;
@@ -14639,7 +15294,13 @@ var Phoenix;
     var Observable;
     (function (Observable) {
         var JSONJPATCH_PROPERTY = 0, JSONJPATCH_METHOD = 1, JSONJPATCH_STATES = 2, JSONJPATCH_ERRORS = 3;
-        var _p = Phoenix, _application = _p.application, _observable = Observable, _rules = _p.rules, _su = _observable.SchemaUtils, _du = _observable.DataUtils, _utils = Phoenix.utils, _jp = _p.jsonpatch, _rules = _p.rules, _ajax = Phoenix.ajax, _locale = Phoenix.locale, _ulocale = Phoenix.ulocale, _localeSchema = Phoenix.locale.schema, _createProp = function (obj, propertyName) {
+        var Duplicates;
+        (function (Duplicates) {
+            Duplicates[Duplicates["dupIgnore"] = 0] = "dupIgnore";
+            Duplicates[Duplicates["dupSilent"] = 1] = "dupSilent";
+            Duplicates[Duplicates["dupError"] = 2] = "dupError";
+        })(Duplicates = Observable.Duplicates || (Observable.Duplicates = {}));
+        var _p = Phoenix, _application = _p.application, _observable = Observable, _rules = _p.rules, _su = _observable.SchemaUtils, _du = _observable.DataUtils, _utils = Phoenix.utils, _jp = _p.jsonpatch, _ajax = Phoenix.ajax, _locale = Phoenix.locale, _ulocale = Phoenix.ulocale, _localeSchema = Phoenix.locale.schema, _createProp = function (obj, propertyName) {
             var rs = obj._rootParent._schema;
             var cs = obj._schema.properties[propertyName];
             if (!_su.inModel(cs, rs))
@@ -14867,7 +15528,6 @@ var Phoenix;
                 var that = this;
                 that.isArray = true;
                 that._map = {};
-                that._expanded = false;
                 that.isQuery = isQuery;
                 that._selectedUids = [];
                 that._selectedPks = [];
@@ -14883,6 +15543,7 @@ var Phoenix;
                 that._rootSchema = that._parent.getRootModel().getSchema('');
                 that._schema = _su.expand$Ref(schema, that._rootSchema);
                 that._schemaItems = _su.expand$Ref(that._schema.items, that._rootSchema);
+                that._expanded = that._schema.expanded ? true : false;
                 that.frozen = false;
                 that.$links = {};
                 if (that._schema.links) {
@@ -14926,7 +15587,7 @@ var Phoenix;
                                 }
                                 else if (item.internalSetSelected(false))
                                     doSend_1 = true;
-                            }, expandingProperty);
+                            });
                             that._savedSelectedUids = null;
                             that._simulateSelecting = false;
                             if (doSend_1)
@@ -14941,6 +15602,13 @@ var Phoenix;
                 },
                 set: function (value) {
                     this._columns = value;
+                },
+                enumerable: true,
+                configurable: true
+            });
+            Object.defineProperty(DataListCore.prototype, "$states", {
+                get: function () {
+                    return this.parent.$states[this._path];
                 },
                 enumerable: true,
                 configurable: true
@@ -15024,7 +15692,8 @@ var Phoenix;
                         return this._selected;
                 },
                 set: function (value) {
-                    this._setSelected(value, true);
+                    var that = this;
+                    that._setSelected(value, that._arrayParent && that._arrayParent._simulateSelecting);
                 },
                 enumerable: true,
                 configurable: true
@@ -15035,11 +15704,12 @@ var Phoenix;
                     that._parentSelected._setSelected(value, notify);
                 }
                 else if (that._selected !== value) {
-                    var os = that._selected;
-                    that._selected = value;
-                    if (notify && that._parent && !that.simulateSelecting) {
-                        that._parent.notifyChanged(that._path + '.$selected', os, that._selected, 'propchange', { checkChildren: true, instance: that._parent }, false);
-                        // that._parent.notifyStateChanged(that._path + '.$selected', { checkChildren: true }); ///????
+                    if (!that.simulateSelecting) {
+                        var os = that._selected;
+                        that._selected = value;
+                        if (notify && that._parent && !that.simulateSelecting) {
+                            that._parent.notifyChanged(that._path + '.$selected', os, that._selected, 'propchange', { framework: '$selected', checkChildren: true, instance: that._parent }, false);
+                        }
                     }
                 }
             };
@@ -15070,8 +15740,7 @@ var Phoenix;
                     }
                     that._selected = ns_1;
                     if (notify && that._parent && !that.simulateSelecting) {
-                        that._parent.notifyChanged(that._path + '.$selected', os, that._selected, 'propchange', { checkChildren: true, instance: that._parent }, false);
-                        // that._parent.notifyStateChanged(that._path + '.$selected', { checkChildren: true });
+                        that._parent.notifyChanged(that._path + '.$selected', os, that._selected, 'propchange', { framework: '$selected', checkChildren: true, instance: that._parent }, false);
                     }
                 }
             };
@@ -15147,6 +15816,12 @@ var Phoenix;
             DataListCore.prototype.isQueryable = function () {
                 return this._queryable || false;
             };
+            DataListCore.prototype.addChildError = function (error) {
+                var that = this;
+                var err = that._parent.$errors[that._path];
+                if (err)
+                    err.addChildError(error);
+            };
             DataListCore.prototype.addErrors = function (errors) {
                 var that = this;
                 var err = that._parent.$errors[that._path];
@@ -15206,6 +15881,7 @@ var Phoenix;
             };
             DataListCore.prototype.destroy = function () {
                 var that = this;
+                that.filterManager = null;
                 that._parent = null;
                 that._arrayParent = null;
                 that._parentSelected = null;
@@ -15290,6 +15966,14 @@ var Phoenix;
                 this._expandForEach(cb, expandingProperty, 0, 0, noCheckExpanding);
             };
             DataListCore.prototype.get = function (index) { return this._items[index]; };
+            DataListCore.prototype.set = function (index, value) {
+                var that = this;
+                var ii = this._items[index];
+                ii.setModel(value);
+                that._model[index] = value;
+                ii.notifyChanged('*', undefined, ii, 'propchange', { instance: ii }, true);
+                ii.notifyStateChanged('', { checkChildren: true });
+            };
             Object.defineProperty(DataListCore.prototype, "$expand", {
                 get: function () {
                     return this._expanded;
@@ -15300,7 +15984,7 @@ var Phoenix;
                         var ov = that._parent[that._path + Observable.EXPANDED_FIELD_NAME];
                         that._expanded = value;
                         var nv = that._parent[that._path + Observable.EXPANDED_FIELD_NAME];
-                        if (nv !== ov)
+                        if (nv !== ov) //OK
                             that._parent.notifyChanged(that._path + Observable.EXPANDED_FIELD_NAME, ov, nv, 'propchange', { instance: that._parent }, true);
                     }
                 },
@@ -15337,7 +16021,7 @@ var Phoenix;
                             if (that._selectedPks.lastIndexOf(pkId) >= 0) {
                                 if (citem.internalSetSelected(true)) {
                                     if (!that.simulateSelecting)
-                                        citem.notifyChanged('$select', false, true, 'propchange', { instance: citem }, true);
+                                        citem.notifyChanged('$select', false, true, 'propchange', { framework: '$select', instance: citem }, true);
                                 }
                                 addItem = true;
                             }
@@ -15434,27 +16118,32 @@ var Phoenix;
             };
             DataListBase.prototype.enumSelectedItems = function (expandingProperty, cb) {
                 var that = this;
-                that._enumSelected(expandingProperty, function (parent, ii) {
+                that._enumSelected(expandingProperty, function (parent, ii, level) {
                     if (ii)
-                        cb(ii);
-                });
+                        cb(ii, level);
+                }, 0);
             };
-            DataListBase.prototype._enumChildren = function (expandingProperty, cb) {
+            DataListBase.prototype._enumChildren = function (expandingProperty, cb, beforeAfter) {
                 var that = this;
                 if (!expandingProperty)
                     return;
+                if (beforeAfter)
+                    beforeAfter(true, that);
                 that._items.forEach(function (item) {
                     cb(item);
                     var list = item[expandingProperty];
                     if (list)
                         list._enumChildren(expandingProperty, cb);
                 });
+                if (beforeAfter)
+                    beforeAfter(false, that);
             };
-            DataListBase.prototype.enumChildren = function (expandingProperty, cb) {
-                this._enumChildren(expandingProperty, cb);
+            DataListBase.prototype.enumChildren = function (expandingProperty, cb, beforeAfter) {
+                this._enumChildren(expandingProperty, cb, beforeAfter);
             };
-            DataListBase.prototype._enumSelected = function (expandingProperty, cb) {
+            DataListBase.prototype._enumSelected = function (expandingProperty, cb, level) {
                 var that = this;
+                level = level || 0;
                 if (!expandingProperty) {
                     var sel = that._selectedUids.slice(0);
                     cb(that, null);
@@ -15463,15 +16152,15 @@ var Phoenix;
                     sel.forEach(function (sid) {
                         var ii = that._map[sid];
                         if (ii)
-                            cb(that, ii);
+                            cb(that, ii, level);
                     });
                 }
                 else {
-                    that._enumSelected(null, cb);
+                    that._enumSelected(null, cb, level);
                     that._items.forEach(function (item) {
                         var list = _utils.getValue(item, expandingProperty);
                         if (list && list.length)
-                            list._enumSelected(expandingProperty, cb);
+                            list._enumSelected(expandingProperty, cb, level + 1);
                     });
                 }
             };
@@ -15486,31 +16175,58 @@ var Phoenix;
                             if (expandingProperty && selectChildren) {
                                 var list = _utils.getValue(item, expandingProperty);
                                 if (list)
-                                    list._enumChildren(expandingProperty, function (ii) { ii.$select = true; });
+                                    list._enumChildren(expandingProperty, function (ii) {
+                                        ii.$select = true;
+                                    }, function (before, list) {
+                                        if (that._simulateSelecting) {
+                                            if (before)
+                                                list.selecting(true, expandingProperty);
+                                            else
+                                                list.selecting(false, expandingProperty);
+                                        }
+                                    });
                             }
                         }
                         else {
+                            var simulateSelecting_1 = item.parentArray.simulateSelecting;
                             var selList_1 = [];
                             that._enumSelected(expandingProperty, function (parent, ii) {
-                                if (parent && !ii) {
-                                    parent._selectedUids = [];
-                                    parent._selectedPks = [];
+                                if (simulateSelecting_1) {
+                                    if (parent && !ii)
+                                        return;
+                                    if (ii.parentArray !== item.parentArray) {
+                                        ii.execSyncAction(ii.parentArray.getJSONPatchPath() + '.$selected', '');
+                                    }
+                                    else {
+                                        ii.$select = false;
+                                    }
                                 }
                                 else {
-                                    if (ii.internalSetSelected(false)) {
-                                        selList_1.push({ item: ii, value: false });
+                                    if (parent && !ii) {
+                                        parent._selectedUids = [];
+                                        parent._selectedPks = [];
+                                    }
+                                    else {
+                                        if (ii.internalSetSelected(false)) {
+                                            selList_1.push({ item: ii, value: false });
+                                        }
                                     }
                                 }
                             });
-                            if (item.internalSetSelected(true)) {
-                                selList_1.push({ item: item, value: true });
+                            if (simulateSelecting_1) {
+                                item.$select = true;
                             }
-                            var pa = item._arrayParent;
-                            if (pa)
-                                pa.pushSelected(item, true);
+                            else {
+                                if (item.internalSetSelected(true)) {
+                                    selList_1.push({ item: item, value: true });
+                                }
+                                var pa = item._arrayParent;
+                                if (pa)
+                                    pa.pushSelected(item, true);
+                            }
                             selList_1.forEach(function (citem) {
-                                if (!that.simulateSelecting)
-                                    citem.item.notifyChanged('$select', !citem.value, citem.value, 'propchange', { instance: citem.item }, true);
+                                if (!simulateSelecting_1)
+                                    citem.item.notifyChanged('$select', !citem.value, citem.value, 'propchange', { framework: '$select', instance: citem.item }, true);
                             });
                         }
                     }
@@ -15522,17 +16238,24 @@ var Phoenix;
                             if (expandingProperty && selectChildren) {
                                 var list = _utils.getValue(item, expandingProperty);
                                 if (list)
-                                    list._enumChildren(expandingProperty, function (ii) { ii.$select = false; });
+                                    list._enumChildren(expandingProperty, function (ii) { ii.$select = false; }, function (before, list) {
+                                        if (that._simulateSelecting) {
+                                            if (before)
+                                                list.selecting(true, expandingProperty);
+                                            else
+                                                list.selecting(false, expandingProperty);
+                                        }
+                                    });
                             }
                         }
                         else {
-                            var doNotify = item.internalSetSelected(false, true);
+                            var doNotify = item.internalSetSelected(false);
                             var pa = item._arrayParent;
                             if (pa)
                                 that.removeSelected(item, true);
                             if (doNotify) {
                                 if (!that.simulateSelecting)
-                                    item.notifyChanged('$select', true, false, 'propchange', { instance: item }, true);
+                                    item.notifyChanged('$select', true, false, 'propchange', { framework: '$select', instance: item }, true);
                             }
                         }
                     }
@@ -15605,6 +16328,22 @@ var Phoenix;
             };
             DataListBase.prototype.findById = function (id) {
                 return this._map[id];
+            };
+            DataListBase.prototype.findByIdEx = function (id, expandProperty) {
+                var that = this;
+                var res = that._map[id];
+                if (res)
+                    return res;
+                var keys = Object.keys(that._map);
+                for (var i = 0; i < keys.length; i++) {
+                    var list = that._map[keys[i]][expandProperty];
+                    if (list) {
+                        res = list.findByIdEx(id, expandProperty);
+                        if (res)
+                            break;
+                    }
+                }
+                return res;
             };
             DataListBase.prototype.findByPk = function (pkValue) {
                 var that = this;
@@ -15858,7 +16597,8 @@ var Phoenix;
                 var that = this;
                 if (!that._model)
                     return;
-                item.$create = true;
+                if (item.$create === undefined)
+                    item.$create = true;
                 that._model.splice(start, deleteCount, item);
                 that._items.splice(start, deleteCount, item);
                 that._parent.notifyChanged(that._path, undefined, item, 'add', { method: true, change: true, $index: start, $value: item, $id: item, instance: that._parent }, false);
@@ -15987,7 +16727,7 @@ var Phoenix;
                     that._parent.$errors[that._path].addErrors([], false);
                 }
                 that._destroyNew();
-                that.push(model);
+                that.push(model, Duplicates.dupIgnore);
                 that._createNewItem(true, false);
             };
             DataList.prototype._destroyNew = function () {
@@ -16002,15 +16742,38 @@ var Phoenix;
                 that._destroyNew();
                 _super.prototype.destroy.call(this);
             };
-            DataList.prototype.push = function (item) {
+            DataList.prototype.push = function (item, duplicates, addCallBack) {
                 var that = this;
-                item.$create = true;
+                if (duplicates === undefined)
+                    duplicates = Duplicates.dupIgnore;
+                if (item.$create = undefined)
+                    item.$create = true;
+                if (duplicates !== Duplicates.dupIgnore && that._schemaItems.primaryKey) {
+                    var keys = _su.pkFields(that._schemaItems.primaryKey);
+                    var pkValue = _su.extractPkValue(item, keys);
+                    var p = _su.findByPk(pkValue, keys, that._items);
+                    // Primary key violation
+                    that._parent.$errors[that._path].addErrors([], false);
+                    if (p) {
+                        var msg = keys.length > 1 ? _localeSchema.uniqueColumns : _localeSchema.uniqueColumn;
+                        if (duplicates !== Duplicates.dupSilent)
+                            that._parent.$errors[that._path].addErrors([{ code: 'duplicate_value', message: _utils.format(msg, keys.join(', ')) }], false);
+                        return;
+                    }
+                }
+                else {
+                    that._parent.$errors[that._path].addErrors([], false);
+                }
+                if (addCallBack) {
+                    delete item.$create;
+                    return addCallBack(item);
+                }
                 if (item.$select && item.$create)
                     that.clearSelection();
                 that._initModelInParent();
-                that.splice(-1, 0, item);
+                that.splice(-1, 0, item, duplicates);
             };
-            DataList.prototype.splice = function (start, deleteCount, item) {
+            DataList.prototype.splice = function (start, deleteCount, item, duplicates) {
                 if (deleteCount > 0)
                     throw 'Delete count is not supported.';
                 var that = this;
@@ -16021,8 +16784,6 @@ var Phoenix;
                 }
                 var ofv = that.frozen;
                 that.frozen = true;
-                //if (item && !item.$create)
-                //    item = _su.init(that._schemaItems, that._rootSchema, null, item);
                 var isPush = start < 0;
                 if (isPush) {
                     that._model.push(item);
@@ -16038,6 +16799,19 @@ var Phoenix;
                 that._map[ii.$id] = ii;
                 if (ii.$select) {
                     that.pushSelected(ii, true);
+                }
+                else {
+                    var stateSelected = that.$states.selectedPks();
+                    if (stateSelected.length && that._schemaItems.primaryKey) {
+                        var keys = _su.pkFields(that._schemaItems.primaryKey);
+                        var pk = _su.pk2Id(_su.extractPkValue(item, keys), keys);
+                        if (stateSelected.indexOf(pk) >= 0) {
+                            //ii.$select = true;
+                            var dd = ii;
+                            dd._selected = true;
+                            that.pushSelected(ii, true);
+                        }
+                    }
                 }
                 that._parent.notifyChanged(that._path, undefined, item, 'add', { method: true, change: true, $index: isPush ? that._items.length - 1 : start, $id: ii.$id, $value: ii, source: that._parent.getPropertyPath(that._path), instance: that._parent }, false);
                 ii.notifyStateChanged('', { checkChildren: true });
@@ -16056,6 +16830,7 @@ var Phoenix;
                 if (ii >= 0) {
                     removed = item.model();
                     notify = true;
+                    var notifyremoveSelected = false;
                     if (item.$select && that.manageSelecting) {
                         if ((ii + 1) < that._items.length) {
                             ns = that._items[ii + 1];
@@ -16063,12 +16838,13 @@ var Phoenix;
                         else if (ii > 0) {
                             ns = that._items[ii - 1];
                         }
+                        notifyremoveSelected = !ns && !that.simulateSelecting;
                     }
                     that._items.splice(ii, 1);
                     that._model.splice(ii, 1);
                     if (!ofv)
                         that.frozen = ofv;
-                    that.removeSelected(item, false);
+                    that.removeSelected(item, notifyremoveSelected);
                     that.frozen = true;
                     doDestroy = true;
                 }
@@ -16085,12 +16861,48 @@ var Phoenix;
                     if (ns) {
                         that.pushSelected(ns, true);
                         ns.internalSetSelected(true);
-                        ns.notifyChanged('$select', false, true, 'propchange', { instance: ns }, true);
+                        ns.notifyChanged('$select', false, true, 'propchange', { framework: '$select', instance: ns }, true);
                     }
                 }
                 if (doDestroy) {
                     item.destroy();
                 }
+            };
+            DataList.prototype.totalPages = function () {
+                var that = this;
+                var states = that.parent.$states[that.path];
+                if (states.pageSize) {
+                    var r = Math.trunc((states.totalCount || 0) / states.pageSize);
+                    if ((states.totalCount || 0) % states.pageSize > 0 || r === 0)
+                        r++;
+                    return r;
+                }
+                else
+                    return 1;
+            };
+            DataList.prototype.totalCount = function () {
+                var that = this;
+                var states = that.parent.$states[that.path];
+                if (states.pageSize) {
+                    return (states.totalCount || 0);
+                }
+                else
+                    return 0;
+            };
+            DataList.prototype.currentPage = function (page) {
+                var that = this;
+                var states = that.parent.$states[that.path];
+                if (page !== undefined) {
+                    var cp = page || 1;
+                    ;
+                    if (that.parent.execSyncAction(that.getJSONPatchPath() + '.$pageNumber', cp, cp)) {
+                        return states.pageNumber;
+                    }
+                    states.pageNumber = cp;
+                    return states.pageNumber;
+                }
+                else
+                    return states.pageNumber || 1;
             };
             return DataList;
         }(CompositionList));
@@ -16131,7 +16943,7 @@ var Phoenix;
                 }
                 that._arrayParent = arrayParent;
                 that._children = {};
-                that._initFromSchema(schema);
+                that._initFromSchema(that._schema);
                 if (!that._parent || frozen)
                     that.frozen = true;
                 if (that === that._rootParent) {
@@ -16169,6 +16981,13 @@ var Phoenix;
                 else
                     return undefined;
             };
+            Object.defineProperty(Data.prototype, "parentArray", {
+                get: function () {
+                    return this._arrayParent;
+                },
+                enumerable: true,
+                configurable: true
+            });
             Data.prototype.getJSONPatchPath = function (propertyName) {
                 var that = this;
                 if (!that.parent)
@@ -16199,7 +17018,12 @@ var Phoenix;
             };
             Data.prototype.saveModel = function () {
                 var that = this;
+                var ctxModel = that._model._$model;
+                if (ctxModel)
+                    delete that._model._$model;
                 that._origModel = _su.copyModel(that._schema, that._model);
+                if (ctxModel)
+                    that._model._$model = ctxModel;
             };
             Object.defineProperty(Data.prototype, "$schema", {
                 get: function () {
@@ -16230,7 +17054,7 @@ var Phoenix;
                 that._setModel(value, false);
                 that.frozen = false;
                 if (!that._parent) {
-                    that.notifyChanged('*', undefined, value, 'propchange', { sourve: '' }, false);
+                    that.notifyChanged('*', undefined, value, 'propchange', { source: '', checkChildren: true }, false);
                     that.notifyStateChanged('*', { checkChildren: true });
                 }
             };
@@ -16268,7 +17092,7 @@ var Phoenix;
                         return that.onRefresh(options);
                     else {
                         return new _utils.Promise(function (resolve, reject) {
-                            _du.loadMainData({ datasets: that.datasets, transform: that.transform, context: that.model(true) }, false).then(function (data) {
+                            _du.loadMainData({ datasets: that.datasets, transform: that.transform, context: that.model(true), modal: false }, false).then(function (data) {
                                 that.update(data);
                                 resolve();
                             }).catch(function (ex) {
@@ -16312,9 +17136,19 @@ var Phoenix;
                     });
                 }
             };
-            Data.prototype._validate = function (validators, isSaving, selectedProps) {
+            Data.prototype._validate = function (validators, isSaving, selectedProps, listParent) {
                 var that = this;
-                that.clearErrors(false);
+                if (selectedProps) {
+                    if (that.$errors) {
+                        selectedProps.forEach(function (propName) {
+                            var e = that.$errors[propName];
+                            if (propName)
+                                e.clear(true);
+                        });
+                    }
+                }
+                else
+                    that.clearErrors(false);
                 if (!validators || !validators.length)
                     return true;
                 var props = Object.keys(that._schema.properties);
@@ -16336,7 +17170,7 @@ var Phoenix;
                     if (_su.isCompositionRef(ss, rs)) {
                         var ref = that[name];
                         if (ref) {
-                            if (!ref._validate(validators, isSaving))
+                            if (!ref._validate(validators, isSaving, null, listParent))
                                 error = true;
                         }
                         else {
@@ -16347,10 +17181,10 @@ var Phoenix;
                         }
                     }
                     else if (_su.isCompositionList(ss, rs, false)) {
-                        var list = that[name];
-                        if (list) {
-                            list.forEach(function (item) {
-                                if (!item._validate(validators, isSaving))
+                        var list_1 = that[name];
+                        if (list_1) {
+                            list_1.forEach(function (item) {
+                                if (!item._validate(validators, isSaving, null, listParent || list_1))
                                     error = true;
                             });
                             execPropValidate = true;
@@ -16359,7 +17193,7 @@ var Phoenix;
                     else
                         execPropValidate = true;
                     if (execPropValidate) {
-                        if (!that._execValidators(validators, name, 'validate', {}, { base: that, state: state, schema: ss, value: that[name] })) {
+                        if (!that._execValidators(validators, name, 'validate', {}, { base: that, state: state, schema: ss, value: that[name], listParent: listParent })) {
                             error = true;
                         }
                     }
@@ -16409,7 +17243,7 @@ var Phoenix;
                             else
                                 that._arrayParent.removeSelected(that, true);
                             if (!that._arrayParent.simulateSelecting)
-                                that.notifyChanged('$select', !value, value, 'propchange', { source: that.getPropertyPath('$select'), instance: that }, true);
+                                that.notifyChanged('$select', !value, value, 'propchange', { framework: '$select', source: that.getPropertyPath('$select'), instance: that }, true);
                         }
                     }
                 },
@@ -16490,91 +17324,115 @@ var Phoenix;
                     try {
                         delta.forEach(function (item) {
                             var parent = _dutils.getJSONPatchParent(item.path, that);
-                            if (parent.type === JSONJPATCH_METHOD) {
-                                if (parent.value) {
-                                    parent.value[parent.lastSegment] = item.value;
+                            try {
+                                if (parent.type === JSONJPATCH_METHOD) {
+                                    if (parent.value) {
+                                        parent.value[parent.lastSegment] = item.value;
+                                    }
+                                    return;
                                 }
-                                return;
-                            }
-                            ;
-                            var p = parent.value;
-                            if (p.isArray && parent.type === JSONJPATCH_PROPERTY) {
-                                if (item.op === 'add') {
-                                    p.push(item.value);
-                                }
-                                else if (item.op === 'remove') {
-                                    var item_1 = p.find('id', _dutils._segment2Id(parent.lastSegment));
-                                    if (item_1)
-                                        p.remove(item_1);
-                                }
-                                else if (item.op === 'sort') {
-                                    p.sortByKey(item.value, 'id');
-                                }
-                            }
-                            else {
-                                if (parent.type === JSONJPATCH_ERRORS) {
-                                    if (parent.lastSegment === '$errors') {
-                                        if (!item.value) {
-                                            p.clearErrors(true);
+                                ;
+                                var p_3 = parent.value;
+                                if (!p_3)
+                                    return;
+                                if (p_3.isArray && parent.type === JSONJPATCH_PROPERTY) {
+                                    if (item.op === 'add') {
+                                        if (Array.isArray(item.value)) {
+                                            p_3.parent[p_3.path] = item.value;
                                         }
                                         else {
-                                            Object.keys(item.value).forEach(function (name) {
-                                                var error = p.$errors[name];
-                                                if (error) {
-                                                    error.clear(item.op === 'remove');
-                                                    if (item.op !== 'remove')
-                                                        error.addErrors(item.value[name]);
-                                                }
-                                            });
+                                            item.$create = false;
+                                            p_3.push(item.value);
                                         }
                                     }
-                                    else {
-                                        if (p.isArray && !parent.lastSegment) {
-                                            if (item.op === 'add')
-                                                p.addErrors([item.value]);
+                                    else if (item.op === 'remove') {
+                                        if (!parent.lastSegment) {
+                                            p_3.parent[p_3.path] = undefined;
                                         }
                                         else {
-                                            var error = p[parent.lastSegment];
-                                            if (error) {
-                                                if (item.op === 'remove')
-                                                    error.clear(true);
-                                                else {
-                                                    error.addErrors(item.value);
+                                            var itemById = p_3.find('id', _dutils._segment2Id(parent.lastSegment));
+                                            if (itemById)
+                                                p_3.remove(itemById);
+                                        }
+                                    }
+                                    else if (item.op === 'sort') {
+                                        p_3.sortByKey(item.value, 'id');
+                                    }
+                                }
+                                else {
+                                    if (parent.type === JSONJPATCH_ERRORS) {
+                                        if (parent.lastSegment === '$errors') {
+                                            if (!item.value) {
+                                                p_3.clearErrors(true);
+                                            }
+                                            else {
+                                                Object.keys(item.value).forEach(function (name) {
+                                                    var error = p_3.$errors[name];
+                                                    if (error) {
+                                                        error.clear(item.op === 'remove');
+                                                        if (item.op !== 'remove')
+                                                            error.addErrors(item.value[name]);
+                                                    }
+                                                });
+                                            }
+                                        }
+                                        else {
+                                            if (p_3.isArray && !parent.lastSegment) {
+                                                if (item.op === 'add')
+                                                    p_3.addErrors([item.value]);
+                                            }
+                                            else {
+                                                var error = p_3[parent.lastSegment];
+                                                if (error) {
+                                                    if (item.op === 'remove')
+                                                        error.clear(true);
+                                                    else {
+                                                        error.addErrors(item.value);
+                                                    }
                                                 }
                                             }
                                         }
                                     }
-                                }
-                                else if (parent.type === JSONJPATCH_STATES) {
-                                    if (p && !p.isState) {
-                                        p = p[parent.lastSegment];
-                                        if (typeof item.value === 'object') {
-                                            Object.keys(item.value).forEach(function (key) {
-                                                if (p[key] && p[key].isState) {
-                                                    var v_4 = item.value[key];
-                                                    if (typeof v_4 === 'object') {
-                                                        Object.keys(v_4).forEach(function (n) {
-                                                            p[key][n] = v_4[n];
-                                                        });
+                                    else if (parent.type === JSONJPATCH_STATES) {
+                                        if (p_3 && !p_3.isState) {
+                                            p_3 = p_3[parent.lastSegment];
+                                            if (!p_3)
+                                                return;
+                                            if (typeof item.value === 'object') {
+                                                Object.keys(item.value).forEach(function (key) {
+                                                    if (p_3[key] && p_3[key].isState) {
+                                                        var v_4 = item.value[key];
+                                                        if (typeof v_4 === 'object') {
+                                                            Object.keys(v_4).forEach(function (n) {
+                                                                p_3[key][n] = v_4[n];
+                                                            });
+                                                        }
                                                     }
-                                                }
-                                                else
-                                                    p[key] = item.value[key];
-                                            });
+                                                    else
+                                                        p_3[key] = item.value[key];
+                                                });
+                                            }
+                                            return;
                                         }
-                                        return;
+                                        if (item.op === 'remove')
+                                            p_3[parent.lastSegment] = undefined;
+                                        else
+                                            p_3[parent.lastSegment] = item.value;
+                                        //if (parent.lastSegment === 'selected') {
+                                        //    if (p.parent && p.parent  && p.parent[name] &&  p.parent[name])
+                                        //}
                                     }
-                                    if (item.op === 'remove')
-                                        p[parent.lastSegment] = undefined;
-                                    else
-                                        p[parent.lastSegment] = item.value;
+                                    else {
+                                        if (item.op === 'remove')
+                                            p_3[parent.lastSegment] = undefined;
+                                        else
+                                            p_3[parent.lastSegment] = item.value;
+                                    }
                                 }
-                                else {
-                                    if (item.op === 'remove')
-                                        p[parent.lastSegment] = undefined;
-                                    else
-                                        p[parent.lastSegment] = item.value;
-                                }
+                            }
+                            catch (e) {
+                                console.log("Json patch Error: " + JSON.stringify(item));
+                                throw e;
                             }
                         });
                     }
@@ -16847,6 +17705,10 @@ var Phoenix;
                 that.isNull = value === null;
                 that.isUndefined = value === undefined;
                 value = value || {};
+                if (value.$undefined) {
+                    that.isUndefined = true;
+                    delete value.$undefined;
+                }
                 var icreate = value.$create !== undefined ? value.$create : (that._parent ? that._parent.$create : false);
                 if (value) {
                     value = _su.init(that._schema, that._rootParent._schema, null, value, icreate, { select: that._schema === that._rootParent._schema });
@@ -16886,6 +17748,14 @@ var Phoenix;
                     that._setPropErrors(name, value);
                 });
                 that._setPropErrors('$', value);
+                if (that.$errors && !that.$errors.$ && that._parent) {
+                    Object.defineProperty(that.$errors, '$', {
+                        get: function () {
+                            return that._parent.$errors.$;
+                        },
+                        enumerable: false
+                    });
+                }
                 //for each link set state
                 if (value.$links) {
                     props = Object.keys(that._schema.links || {});
@@ -17064,7 +17934,7 @@ var Phoenix;
                 var that = this;
                 var res = { continue: true, value: value };
                 if (_su.isNumber(schema) && !isNaN(value) && value !== null && value !== undefined) {
-                    if (that.$states[propertyName] && that.$states[propertyName].decimals !== undefined) {
+                    if (that.$states[propertyName] && (that.$states[propertyName].decimals !== undefined) && (that.$states[propertyName].decimals !== false)) {
                         res.value = parseFloat(value.toFixed(that.$states[propertyName].decimals));
                         if (!forceContinue && oldValue === res.value)
                             res.continue = false;
@@ -17246,7 +18116,7 @@ var Phoenix;
                         that._execValidators(that._validators, propertyName, 'propchanged', params);
                     }
                     //Execute validation rules 
-                    if (!that._updating && params.change) {
+                    if (!that._updating && params.change && !params.framework) {
                         _rules.execPropChangeRules(that, propertyName, params, { validations: true, propagations: true });
                         if (that.onsync)
                             that.onsync(null);
@@ -17273,9 +18143,17 @@ var Phoenix;
                 else if (segments[segments.length - 1] === '$filter') {
                     return { op: actionParams ? 'replace' : 'remove', path: '/' + segments.join('/'), params: actionParams };
                 }
+                else if (segments[segments.length - 1] === '$pageNumber') {
+                    return { op: 'replace', path: '/' + segments.join('/'), params: actionParams };
+                }
+                else if (segments[segments.length - 1] === '$pageSize') {
+                    return { op: 'replace', path: '/' + segments.join('/'), params: actionParams };
+                }
                 else if (segments[segments.length - 1] === '$selected') {
                     return { op: 'replace', path: '/' + segments.join('/'), params: actionParams, delayed: true };
                 }
+                if (actionName === "$after")
+                    return { op: '$empty', after: actionParams.$after };
                 var ii = actionName.indexOf('$links.');
                 if (ii < 0)
                     return null;
@@ -17292,13 +18170,15 @@ var Phoenix;
                         return null;
                 }
                 var after = null;
+                var successMessage = null;
                 if (schema.links && schema.links[link]) {
                     if (schema.links[link].data) {
                         actionParams = schema.links[link].data;
                     }
-                    after = schema.links[link].after;
+                    after = schema.links[link].after || (actionParams ? actionParams.$after : undefined);
+                    successMessage = schema.links[link].successMessage;
                 }
-                return { path: '/' + segments.join('/'), params: actionParams, after: after };
+                return { path: '/' + segments.join('/'), params: actionParams, after: after, successMessage: successMessage };
             };
             Data.prototype._destroyObject = function (obj, pn) {
                 var o = obj[pn];
@@ -17308,6 +18188,12 @@ var Phoenix;
                         delete o[name];
                     });
                 }
+            };
+            Data.prototype.hasRootErrors = function () {
+                var that = this;
+                if (that.$errors && that.$errors.$ && that.$errors.$.hasErrors())
+                    return true;
+                return false;
             };
             Data.prototype.hasErrors = function () {
                 var that = this;
@@ -17352,6 +18238,10 @@ var Phoenix;
                 that._destroyObject(that, '$links');
                 that._destroyObject(that, '$errors');
                 that._arrayParent = null;
+                if (that._model) {
+                    that._model._$model = null;
+                    that._model.parentModel = null;
+                }
                 that._model = null;
                 that._schema = null;
                 that.onRefresh = null;
@@ -17372,16 +18262,87 @@ var Phoenix;
     var serversync;
     (function (serversync) {
         var _p = Phoenix, _observable = Phoenix.Observable, _su = _observable.SchemaUtils, _du = _observable.DataUtils, _dsPlugin = _p.DatasetPlugin, _locale = Phoenix.locale, _ulocale = Phoenix.ulocale, _utils = Phoenix.utils;
-        function update(model, actions, form, success, after) {
+        function notifyClose(params) {
+            var dataset = {
+                name: 'patch',
+                $type: 'sync',
+                $params: {
+                    $noWait: true,
+                    $transactionId: 'id',
+                    $method: 'PATCH',
+                    $entity: 'batch',
+                    viewId: "multiple",
+                    $data: {},
+                    $query: {}
+                }
+            };
+            var delta = [];
+            params.forEach(function (param) {
+                delta.push({ requestType: 'patch', id: param.viewId, viewName: param.viewName, patch: [{ op: "add", path: "/$links/close", value: null }] });
+            });
+            var result = {};
+            _dsPlugin.executeDatasets([dataset], delta, result, [], function (sended, ex) { });
+        }
+        serversync.notifyClose = notifyClose;
+        function update(actions, mapForms, success, after) {
             try {
-                var delta_1 = model.getJsonPachDelta({ useId: true });
+                var all_1 = {};
                 if (actions && actions.length) {
-                    delta_1 = delta_1 || [];
+                    var i = 0;
+                    var formsAdded_1 = [];
+                    var allVisibleForms_1 = [];
                     actions.forEach(function (action) {
-                        delta_1.push({ op: action.op || 'add', path: action.path, value: action.params });
+                        var form = mapForms[action.formId];
+                        if (allVisibleForms_1.indexOf(form) < 0)
+                            allVisibleForms_1.push(form);
+                        if (action.op === '$delta') {
+                            var form_1 = mapForms[action.formId];
+                            if (form_1) {
+                                var delta_1 = form_1.$model.getJsonPachDelta({ useId: true });
+                                if (delta_1 && delta_1.length) {
+                                    all_1[action.formId] = delta_1;
+                                    formsAdded_1.push(action.formId);
+                                }
+                            }
+                        }
+                        else if (action.op === '$empty') {
+                            all_1[action.formId] = [];
+                            formsAdded_1.push(action.formId);
+                        }
+                        else {
+                            all_1[action.formId] = all_1[action.formId] || [];
+                            all_1[action.formId].push({ op: action.op || 'add', path: action.path, value: action.params });
+                            formsAdded_1.push(action.formId);
+                        }
+                    });
+                    if (Object.keys(all_1).length) {
+                        var actionForms_1 = allVisibleForms_1.slice();
+                        actionForms_1.forEach(function (form) {
+                            var vf = form.visibleChildForms();
+                            vf.forEach(function (cf) {
+                                if (allVisibleForms_1.indexOf(cf) < 0) {
+                                    var formId = cf.data.$id;
+                                    all_1[formId] = all_1[formId] || [];
+                                    allVisibleForms_1.push(cf);
+                                    formsAdded_1.push(formId);
+                                }
+                            });
+                        });
+                    }
+                    var parents = [];
+                    var actionForms = allVisibleForms_1.slice();
+                    allVisibleForms_1.forEach(function (cf) {
+                        var parentForm = cf.parentForm;
+                        if (parentForm && parentForm.useSync && allVisibleForms_1.indexOf(parentForm) < 0) {
+                            var formId = parentForm.data.$id;
+                            all_1[formId] = all_1[formId] || [];
+                            allVisibleForms_1.push(parentForm);
+                            formsAdded_1.push(formId);
+                        }
                     });
                 }
-                if (!delta_1) {
+                var forms_1 = Object.keys(all_1);
+                if (!forms_1.length) {
                     try {
                         success(null);
                     }
@@ -17390,17 +18351,34 @@ var Phoenix;
                     }
                     return;
                 }
-                var dataset = form.syncDataSet();
-                dataset.name = 'patch';
-                dataset.$params.$method = 'PATCH';
+                var form = mapForms[forms_1[0]];
+                var firstDataset = form.syncDataSet();
+                var dataset = {
+                    name: 'patch',
+                    $type: 'sync',
+                    $params: {
+                        $transactionId: firstDataset.$params.$transactionId,
+                        $method: 'PATCH',
+                        $entity: 'batch',
+                        viewId: "multiple",
+                        $data: {},
+                        $query: {}
+                    }
+                };
+                var delta_2 = [];
+                forms_1.forEach(function (formId) {
+                    var form = mapForms[formId];
+                    var ds = form.syncDataSet();
+                    delta_2.push({ requestType: 'patch', id: form.$model.model(true).id, viewName: ds.$params.$entity, patch: all_1[formId] });
+                });
                 var result_1 = {};
-                _dsPlugin.executeDatasets([dataset], delta_1, result_1, [], function (sended, ex) {
+                _dsPlugin.executeDatasets([dataset], delta_2, result_1, [], function (sended, ex) {
                     try {
                         if (!ex) {
                             success(result_1.patch);
                         }
                         else {
-                            model.addAjaxException(ex);
+                            mapForms[forms_1[0]].$model.addAjaxException(ex);
                         }
                     }
                     finally {
@@ -17444,7 +18422,7 @@ var Phoenix;
                 var errors = [];
                 var glbErors = [];
                 var base = data ? data.base : model.getParentOf(params.name, params.params);
-                if (!_su.validateSchema(value, schema, state, llocale, errors, glbErors))
+                if (!_su.validateSchema(value, schema, state, llocale, errors, glbErors, data ? data.listParent : null))
                     res = false;
                 if (isValidate) {
                     // check password
@@ -17468,17 +18446,119 @@ var Phoenix;
 (function (Phoenix) {
     var ui;
     (function (ui) {
-        var _ui = ui, _utils = Phoenix.utils;
+        var _p = Phoenix, _ui = ui, _serversync = Phoenix.serversync, _history = Phoenix.history, _dom = Phoenix.dom, _locale = _p.locale, _utils = Phoenix.utils;
         var FormManager = /** @class */ (function () {
             function FormManager() {
-                this._forms = {};
-                this._inAction = false;
+                var that = this;
+                that._forms = {};
+                that._formsById = {};
+                that._inAction = false;
+                that._inSync = false;
+                that._inProcessing = false;
+                that._onsync = _serversync.update;
+                _history.destroyViewHandler = _serversync.notifyClose;
             }
+            Object.defineProperty(FormManager.prototype, "inSync", {
+                get: function () {
+                    return this._inSync;
+                },
+                set: function (value) {
+                    this._inSync = value;
+                },
+                enumerable: true,
+                configurable: true
+            });
             FormManager.prototype.setInAction = function (value) {
                 this._inAction = value;
             };
             FormManager.prototype.isInAction = function () {
                 return this._inAction;
+            };
+            FormManager.prototype.hasActions = function () {
+                return this._actions || this.inSync;
+            };
+            Object.defineProperty(FormManager.prototype, "isInProcessing", {
+                get: function () {
+                    return this._inProcessing;
+                },
+                enumerable: true,
+                configurable: true
+            });
+            FormManager.prototype.processing = function (value) {
+                var that = this;
+                that._inProcessing = value;
+                _dom.processing(value, 100);
+            };
+            FormManager.prototype.clearSyncTimeOut = function () {
+                var that = this;
+                if (that._syncTimeOut)
+                    clearTimeout(that._syncTimeOut);
+            };
+            FormManager.prototype.pushSyncAction = function (formId, action) {
+                var that = this;
+                action.formId = formId;
+                that._actions = that._actions || [];
+                var oi = that._actions.findIndex(function (ii) { return ii.formId === action.formId && ii.path === action.path && ii.op === action.op; });
+                if (oi >= 0)
+                    that._actions.splice(oi, 1);
+                that._actions.push(action);
+            };
+            FormManager.prototype._internalSendSyncData = function () {
+                var that = this;
+                that.inSync = true;
+                that.processing(true);
+                var ca = null;
+                if (that._actions && that._actions.length)
+                    ca = that._actions;
+                that._actions = null;
+                var formsBySync = {};
+                Object.keys(that._formsById).forEach(function (formId) {
+                    var cform = that._formsById[formId];
+                    if (cform.useSync) {
+                        var id = cform.$model.model(true).id + '';
+                        formsBySync[id] = formsBySync[id] || [];
+                        formsBySync[id].push(cform);
+                    }
+                });
+                that._onsync(ca, that._formsById, function (delta) {
+                    delta.forEach(function (item) {
+                        formsBySync[item.id].forEach(function (form) { return form.applyJsonPachDelta(item.patch); });
+                    });
+                }, function () {
+                    that._syncTimeOut = null;
+                    that.processing(false);
+                    that.inSync = false;
+                    if (ca) {
+                        ca.forEach(function (action) {
+                            var aform = that._formsById[action.formId];
+                            if (action && action.successMessage) {
+                                if (!aform.$model.hasErrors()) {
+                                    var msgCfg = typeof action.successMessage === 'object' ? action.successMessage : { title: '', content: '' };
+                                    var title = msgCfg.title || aform.$schema.title || _locale.ui.Info;
+                                    var content = msgCfg.content || _locale.ui.SaveSuccessful;
+                                    _utils.info(title, content, 'success');
+                                }
+                            }
+                            if (action && action.after) {
+                                if (!aform.$model.hasErrors()) {
+                                    if (typeof action.after === 'string')
+                                        aform.execAction(action.after, {}, { $nosync: true });
+                                    else
+                                        action.after();
+                                }
+                            }
+                        });
+                    }
+                });
+            };
+            FormManager.prototype.sendSyncData = function () {
+                var that = this;
+                if (that.inSync)
+                    return;
+                if (that._syncTimeOut) {
+                    clearTimeout(that._syncTimeOut);
+                }
+                that._syncTimeOut = setTimeout(that._internalSendSyncData.bind(that), 80);
             };
             FormManager.prototype.broadcast = function (eventName, params) {
                 var that = this;
@@ -17493,13 +18573,33 @@ var Phoenix;
             FormManager.prototype.add = function (form) {
                 if (form && form.data && form.data.name)
                     this._forms[form.data.name] = form;
+                if (form && form.data && form.data.$id)
+                    this._formsById[form.data.$id] = form;
             };
             FormManager.prototype.remove = function (form) {
                 if (form && form.data && form.data.name)
                     this._forms[form.data.name] = null;
+                if (form && form.data && form.data.$id)
+                    delete this._formsById[form.data.$id];
             };
             FormManager.prototype.formByName = function (form) {
                 return this._forms[form];
+            };
+            FormManager.prototype.formById = function (form) {
+                return this._formsById[form];
+            };
+            FormManager.prototype.destroyForms = function () {
+                var that = this;
+                Object.keys(that._forms).forEach(function (formName) {
+                    var form = that._forms[formName];
+                    try {
+                        form.destroy();
+                    }
+                    catch (e) {
+                    }
+                });
+                that._forms = [];
+                this._formsById = {};
             };
             return FormManager;
         }());
@@ -17513,6 +18613,16 @@ var Phoenix;
             };
         };
         ui.formManager = fm();
+        _dom.finalizeHandlers.push(function () {
+            if (!_history.supportRefresh) {
+                _history.clear(true);
+            }
+            else
+                _history.clearLastData();
+            var fm = ui.formManager();
+            if (fm)
+                fm.destroyForms();
+        });
     })(ui = Phoenix.ui || (Phoenix.ui = {}));
 })(Phoenix || (Phoenix = {}));
 /// <reference path="../../core/core-refs.ts" />
@@ -17525,7 +18635,7 @@ var Phoenix;
 (function (Phoenix) {
     var ui;
     (function (ui) {
-        var _p = Phoenix, _ui = _p.ui, _utils = _p.utils, _build = _p.build, _link = _p.link, _dom = _p.dom, _layoutUtils = _p.layoutUtils, _customData = _p.customData, _preferences = _p.preferences, _sutils = _p.Observable.SchemaUtils, _outils = _p.Observable.ObservableUtils, _ulocale = _p.ulocale;
+        var _p = Phoenix, _ui = _p.ui, _utils = _p.utils, _build = _p.build, _link = _p.link, _dom = _p.dom, _history = _p.history, _locale = _p.locale, _layoutUtils = _p.layoutUtils, _customData = _p.customData, _preferences = _p.preferences, _sutils = _p.Observable.SchemaUtils, _outils = _p.Observable.ObservableUtils;
         var Form = /** @class */ (function (_super) {
             __extends(Form, _super);
             function Form(layoutData, options, ldata, schema, locale, preferences) {
@@ -17548,10 +18658,21 @@ var Phoenix;
                     return null;
                 };
                 var that = _this;
+                that._modalForm = options ? options._modalForm : false;
+                that._moneyUnitCoef = 1;
                 if (ldata && ldata.$transactionId) {
                     that._transactionId = ldata.$transactionId;
                     that._viewId = ldata.id;
+                    that._viewName = ldata.$viewName;
                     delete ldata.$transactionId;
+                    delete ldata.$viewName;
+                    if (schema) {
+                        schema.properties = schema.properties || {};
+                        schema.properties.containerHasChanges = schema.properties.containerHasChanges || { type: 'boolean' };
+                    }
+                    if (that._viewName) {
+                        _history.addData({ viewId: that._viewId, transactionId: that._transactionId, viewName: that._viewName });
+                    }
                 }
                 that._resizeHnd = function (event) {
                     that._resizeControls(false);
@@ -17587,14 +18708,14 @@ var Phoenix;
                     that._localSettings = true;
                 }
                 var isSync = ((options && options.jsonSync) || (that.syncDataSet() !== null));
-                if (isSync)
-                    that.onsync = Phoenix.serversync.update;
+                that.useSync = isSync;
                 _sutils.fillEnumsFromData(that.$schema, ldata);
                 that.setData(ldata);
                 that.$model.onchange = that._modelChanged.bind(that);
                 if (isSync)
                     that.$model.onsync = that._synModel.bind(that);
                 that.$model.onstatechanged = that._stateChanged.bind(that);
+                that._bindValues = {};
                 that._bindStates = {};
                 that._bindTitles = {};
                 that._bindAccordion = {};
@@ -17603,6 +18724,10 @@ var Phoenix;
                     if (l.$bindState) {
                         that._bindStates[l.$bindState] = that._bindStates[l.$bindState] || [];
                         that._bindStates[l.$bindState].push(layoutId);
+                    }
+                    if (l.$bindValue) {
+                        that._bindValues[l.$bindValue] = that._bindValues[l.$bindValue] || [];
+                        that._bindValues[l.$bindValue].push(layoutId);
                     }
                     if (l.$title && l.$title.value && !l.$title.isHidden) {
                         var fields = [];
@@ -17636,6 +18761,28 @@ var Phoenix;
                     }
                     that.registerListenerFor(propName, that, 'layout-state');
                 });
+                Object.keys(that._bindValues).forEach(function (propName) {
+                    var l = that._bindValues[propName];
+                    var value = that.$model.getValue(propName, {});
+                    var schema = that.getSchema(propName);
+                    l.forEach(function (layoutId) {
+                        var layout = that.map[layoutId];
+                        if (schema.type === 'object') {
+                            if (value) {
+                                layout.$isHidden = value.isNull || value.isUndefined;
+                            }
+                            else
+                                layout.$isHidden = true;
+                        }
+                        else if (schema.type !== 'string')
+                            layout.$isHidden = !!!value;
+                        else
+                            layout.$isHidden = value !== that.map[layoutId].$name;
+                        if (layout.$bindValueInv)
+                            layout.$isHidden = !layout.$isHidden;
+                    });
+                    that.registerListenerFor(propName, that, 'layout-value');
+                });
                 that.registerListenerFor('$', that);
                 that.loadPrefs();
                 if (options && options.validators)
@@ -17649,12 +18796,26 @@ var Phoenix;
                 that._afterCreate();
                 return _this;
             }
+            Form.prototype._setParentForm = function (aForm) {
+                var that = this;
+                if (aForm) {
+                    that._parentForm = aForm;
+                    that.moneyUnitCoef = aForm.moneyUnitCoef;
+                }
+            };
             Form.prototype.addChildForm = function (aForm, parentId) {
                 var that = this;
                 that._childrenForms = that._childrenForms || [];
                 that._childrenForms.push({ form: aForm, parentId: parentId });
-                aForm._parentForm = that;
+                aForm._setParentForm(that);
             };
+            Object.defineProperty(Form.prototype, "isInProcessing", {
+                get: function () {
+                    return this.formManager.isInProcessing;
+                },
+                enumerable: true,
+                configurable: true
+            });
             Form.prototype.removeChildForm = function (aForm) {
                 var that = this;
                 if (that._childrenForms) {
@@ -17668,6 +18829,13 @@ var Phoenix;
                     }
                 }
             };
+            Object.defineProperty(Form.prototype, "parentForm", {
+                get: function () {
+                    return this._parentForm;
+                },
+                enumerable: true,
+                configurable: true
+            });
             Form.prototype.closeInlineForms = function (where) {
                 var that = this;
                 var layout = that.getLayoutByName(where);
@@ -17697,23 +18865,15 @@ var Phoenix;
                 return null;
             };
             Form.prototype._isInDelayedAction = function () {
-                if (this.formManager)
-                    return this.formManager.isInAction();
-                else
-                    return this._internalDelayedAction;
+                var fm = _ui.formManager();
+                return fm.isInAction();
             };
             Form.prototype._setInDelayedAction = function (value) {
-                if (this.formManager)
-                    this.formManager.setInAction(value);
-                else
-                    this._internalDelayedAction = value;
+                var fm = _ui.formManager();
+                fm.setInAction(value);
             };
             Form.prototype.initOptions = function (options) {
                 options = options || {};
-                if (options.parentContext) {
-                    this._parentModel = options.parentContext;
-                    options.parentContext = null;
-                }
                 options.form = true;
                 return options;
             };
@@ -17723,6 +18883,9 @@ var Phoenix;
             Form.prototype.syncViewId = function () {
                 return this._viewId;
             };
+            Form.prototype.syncViewName = function () {
+                return this._viewName;
+            };
             Form.prototype.execLater = function (task) {
                 var that = this;
                 if (that._afterProcessing) {
@@ -17730,6 +18893,20 @@ var Phoenix;
                 }
                 else
                     task.hnd();
+            };
+            Object.defineProperty(Form.prototype, "inSync", {
+                get: function () {
+                    return this.formManager.inSync;
+                },
+                set: function (value) {
+                    this.formManager.inSync = value;
+                },
+                enumerable: true,
+                configurable: true
+            });
+            Form.prototype.forceAfterProcessing = function () {
+                var that = this;
+                that._afterProcessing = that._afterProcessing || {};
             };
             Form.prototype._processing = function (handler, detach) {
                 var that = this;
@@ -17747,12 +18924,68 @@ var Phoenix;
                     that._afterProcessing = null;
                 }
             };
+            Form.prototype.fwField = function (fieldName, operation, value) {
+                var that = this;
+                if (fieldName === 'moneyUnitCoef') {
+                    if (operation === 'state') {
+                        return {};
+                    }
+                    else if (operation === 'set') {
+                        that.moneyUnitCoef = value;
+                    }
+                    else if (operation === 'value') {
+                        return that.moneyUnitCoef;
+                    }
+                    else if (operation === 'schema') {
+                        return {
+                            type: 'integer',
+                            enum: [
+                                1,
+                                1000
+                            ],
+                            enumNames: _locale.number.coef.map(function (ii, index) {
+                                if (index === 0)
+                                    return Phoenix.locale.number.symbol;
+                                return ii + Phoenix.locale.number.symbol;
+                            })
+                        };
+                    }
+                }
+            };
+            Object.defineProperty(Form.prototype, "moneyUnitCoef", {
+                get: function () {
+                    return this._moneyUnitCoef;
+                },
+                set: function (value) {
+                    var that = this;
+                    if (that._moneyUnitCoef !== value) {
+                        that._moneyUnitCoef = value;
+                        that.notifyGlobalChanged('money-unit');
+                        if (that._childrenForms)
+                            that._childrenForms.forEach(function (item) {
+                                item.form.moneyUnitCoef = value;
+                            });
+                    }
+                },
+                enumerable: true,
+                configurable: true
+            });
+            Form.prototype.notifyGlobalChanged = function (globalName) {
+                var that = this;
+                Object.keys(that.controls).forEach(function (cn) {
+                    that.controls[cn].notifyGlobalChanged('money-unit');
+                });
+            };
             Form.prototype.syncDataSet = function () {
                 var that = this;
                 var datasets = that.data.datasets ? Object.keys(that.data.datasets) : [];
                 if (datasets.length === 1 && that.data.datasets[datasets[0]].$type === 'sync') {
-                    var res = _utils.copy(that.data.datasets[datasets[0]]);
-                    return res;
+                    var ds = that.data.datasets[datasets[0]];
+                    if (that._modalForm) {
+                        ds.$params = ds.$params || {};
+                        ds.$params.$modal = true;
+                    }
+                    return _utils.copy(ds);
                 }
                 return null;
             };
@@ -17774,11 +19007,16 @@ var Phoenix;
                     });
                     if (newActive_1) {
                         newActive_1.opened = true;
-                        if (oldActive_1 && oldActive_1 !== newActive_1)
+                        delete newActive_1._opening;
+                        if (oldActive_1 && oldActive_1 !== newActive_1) {
                             oldActive_1.opened = false;
+                            delete oldActive_1._opening;
+                        }
                     }
-                    else if (!oldActive_1 && l.$items.length)
+                    else if (!oldActive_1 && l.$items.length) {
                         l.$items[0].opened = true;
+                        delete l.$items[0]._opening;
+                    }
                 }
             };
             Form.prototype.setData = function (ldata) {
@@ -17801,9 +19039,7 @@ var Phoenix;
                 }
             };
             Form.prototype.processing = function (value) {
-                var that = this;
-                that._inProcessing = value;
-                _dom.processing(value, 100);
+                this.formManager.processing(value);
             };
             Form.prototype.controlByField = function (fieldName) {
                 var that = this;
@@ -17906,7 +19142,7 @@ var Phoenix;
                     css.push('bs-form-vertical-space');
                 else if (that.options.closeButtonHandler || that.options.authoringIndicator)
                     css.push('bs-form-settings-space');
-                return $('<div id="' + that.data.$id + '_error" class="' + css.join(' ') + '"><div>').get(0);
+                return $('<div class="' + css.join(' ') + '"><div id="' + that.data.$id + '_error"></div><div id="' + that.data.$id + '_warning"></div><div>').get(0);
             };
             Form.prototype._createErrorItem = function (error, show) {
                 var that = this;
@@ -17932,10 +19168,41 @@ var Phoenix;
                 html.push('</div>');
                 return $(html.join('')).get(0);
             };
+            Form.prototype._getErrorContainer = function () {
+                var that = this;
+                if (that.data.errorContainer) {
+                    var l = that.getLayoutByName(that.data.errorContainer);
+                    if (l) {
+                        var res = _dom.find(that.$element.get(0), l.$id);
+                        return res;
+                    }
+                }
+                return _dom.find(that.$element.get(0), that.data.$id + '_error');
+            };
+            Form.prototype._getWarningsContainer = function () {
+                var that = this;
+                if (that.data.errorContainer) {
+                    var l = that.getLayoutByName(that.data.warningContainer);
+                    if (l) {
+                        var res = _dom.find(that.$element.get(0), l.$id);
+                        return res;
+                    }
+                }
+                return _dom.find(that.$element.get(0), that.data.$id + '_warning');
+            };
             Form.prototype.clearErrors = function () {
                 var that = this;
                 if (that.$element) {
-                    var eerr = _dom.find(that.$element.get(0), that.data.$id + '_error');
+                    var eerr = that._getErrorContainer();
+                    if (eerr) {
+                        _dom.empty(eerr);
+                    }
+                }
+            };
+            Form.prototype.clearWarnings = function () {
+                var that = this;
+                if (that.$element) {
+                    var eerr = that._getWarningsContainer();
                     if (eerr) {
                         _dom.empty(eerr);
                     }
@@ -17944,11 +19211,8 @@ var Phoenix;
             Form.prototype.showErrorItem = function (error, clear) {
                 var that = this;
                 if (that.$element) {
-                    var eerr = _dom.find(that.$element.get(0), that.data.$id + '_error');
+                    var eerr = (error.severity === 'error' || !error.severity) ? that._getErrorContainer() : that._getWarningsContainer();
                     if (eerr) {
-                        if (clear) {
-                            _dom.empty(eerr);
-                        }
                         _dom.append(eerr, that._createErrorItem(error, clear));
                     }
                 }
@@ -18052,7 +19316,7 @@ var Phoenix;
                     _dom.append(e, $(fdetail('cog', 'data-form-settings', null, cd)).get(0));
                     cd++;
                 }
-                that._showErrors();
+                that._showErrors(true);
             };
             Form.prototype._afterLayoutAdded = function (layout) {
                 var that = this;
@@ -18094,20 +19358,63 @@ var Phoenix;
                         });
                     }
                 }
-            };
-            Form.prototype._showErrors = function () {
-                var that = this;
-                var err = that.$model.$errors.$;
-                if (!err.hasErrors()) {
-                    that.clearErrors();
-                }
-                else {
-                    var le = err.errors();
-                    for (var i = 0, len = le.length; i < len; i++) {
-                        var ce = le[i];
-                        that.showErrorItem(ce, i == 0);
+                else if (params.targetId === 'layout-value') {
+                    if (propName !== params.propName)
+                        return;
+                    if (that._bindValues[params.propName]) {
+                        that._bindValues[params.propName].forEach(function (layoutId) {
+                            var layout = that.getLayoutById(layoutId);
+                            var value = nv;
+                            var schema = that.getSchema(params.propName);
+                            if (!layout)
+                                return;
+                            var isHidden = false;
+                            if (schema.type === 'object') {
+                                var value_1 = that.$model.getValue(propName, {});
+                                if (value_1) {
+                                    isHidden = value_1.isNull || value_1.isUndefined;
+                                }
+                                else
+                                    isHidden = true;
+                            }
+                            else {
+                                isHidden = !!!value;
+                                if (schema.type !== 'string')
+                                    isHidden = !!!value;
+                                else
+                                    isHidden = value !== that.map[layoutId].$name;
+                            }
+                            if (layout.$bindValueInv)
+                                isHidden = !isHidden;
+                            that.updateIsHidden(layout, isHidden);
+                        });
                     }
                 }
+            };
+            Form.prototype._showErrors = function (force) {
+                var that = this;
+                var err = that.$model.$errors.$;
+                var hasParent = !!that.$model.model(true).parentModel;
+                var le = err.errors();
+                var errors = [];
+                var warnings = [];
+                that.clearErrors();
+                that.clearWarnings();
+                if (hasParent)
+                    return;
+                for (var i = 0, len = le.length; i < len; i++) {
+                    var ce = le[i];
+                    if (ce.severity === 'error' || !ce.severity)
+                        errors.push(ce);
+                    else
+                        warnings.push(ce);
+                }
+                errors.forEach(function (ce, index) {
+                    that.showErrorItem(ce, index == 0);
+                });
+                warnings.forEach(function (ce, index) {
+                    that.showErrorItem(ce, index == 0);
+                });
             };
             Form.prototype.stateChanged = function (propName, params) {
                 var that = this;
@@ -18141,7 +19448,7 @@ var Phoenix;
                     }
                 }
                 else if (params.property === '$' && propName === 'errors') {
-                    that._showErrors();
+                    that._showErrors(false);
                 }
             };
             Form.prototype.getSchema = function (path) {
@@ -18215,7 +19522,9 @@ var Phoenix;
                             cb(name, true, false, false);
                         }
                         else if (match === '*' || (match.indexOf(name + '.') === 0)) {
-                            cb(name, false, true, false);
+                            var exact = match === '*';
+                            // cb(name, false, true, false);
+                            cb(name, exact, true, false);
                         }
                         else if (params.checkChildren && name.indexOf(match2) === 0) {
                             cb(name, false, false, true);
@@ -18225,14 +19534,16 @@ var Phoenix;
             };
             Form.prototype.openInlineForm = function (opts) {
                 var that = this;
-                var layout = that.getLayoutByName(opts.where);
-                if (layout && ui.OpenInlineForm)
-                    ui.OpenInlineForm(layout.$id, opts.name, opts.meta, opts.controller, opts.data, opts.locale, function (childForm) {
-                        that.addChildForm(childForm, layout.$id);
-                    });
+                var parentLayout = that.getLayoutByName(opts.where);
+                if (parentLayout && ui.OpenInlineForm)
+                    ui.OpenInlineForm(parentLayout.$id, opts.name, opts.meta, opts.controller, opts.data, opts.locale, function (childForm) {
+                        that.addChildForm(childForm, parentLayout.$id);
+                    }, null);
             };
             Form.prototype.execAction = function (propName, actionParams, params) {
                 var that = this;
+                if (that.options.design)
+                    return;
                 // Find Link in schema
                 if (that.$model.execSyncAction(propName, actionParams, params))
                     return;
@@ -18249,6 +19560,10 @@ var Phoenix;
             Form.prototype.close = function () {
                 var that = this;
                 if (that.$content) {
+                    if (that.$content && that.$content['tooltip']) {
+                        var $ttc = that.$content.find('[data-phoenix-tooltip]');
+                        $ttc["tooltip"]('dispose');
+                    }
                     that.$content.empty();
                     _dom.remove(that.$content.get(0));
                 }
@@ -18257,73 +19572,53 @@ var Phoenix;
             Form.prototype.broadcast = function (eventName, params) {
                 this.formManager.broadcast(eventName, params);
             };
-            Form.prototype.patch = function (delta) {
+            Form.prototype.sendEmptyAction = function () {
                 var that = this;
-                that._inSync = true;
+                if (!that.useSync)
+                    return;
+                that.formManager.pushSyncAction(that.data.$id, { op: "$empty" });
+                that.formManager.sendSyncData();
+            };
+            // used for test
+            Form.prototype.patch = function (delta) {
+                // OK
+                var that = this;
+                that.inSync = true;
                 that.processing(true);
                 try {
                     that._processing(function () { that.$model.applyJsonPachDelta(delta); }, delta.length > 10);
                 }
                 finally {
                     that.processing(false);
-                    that._inSync = false;
+                    that.inSync = false;
+                }
+            };
+            Form.prototype.applyJsonPachDelta = function (delta) {
+                var that = this;
+                if (delta && delta.length) {
+                    that._processing(function () { that.$model.applyJsonPachDelta(delta); }, delta.length > 10);
                 }
             };
             Form.prototype._sendData = function () {
                 var that = this;
-                that._inSync = true;
-                that.processing(true);
-                var ca = null;
-                if (that._actions && that._actions.length)
-                    ca = that._actions;
-                that._actions = null;
-                that.onsync(that.$model, ca, that, function (delta) {
-                    if (delta && delta.length) {
-                        that._processing(function () { that.$model.applyJsonPachDelta(delta); }, delta.length > 10);
-                    }
-                }, function () {
-                    that.processing(false);
-                    that._inSync = false;
-                    if (ca) {
-                        ca.forEach(function (action) {
-                            if (action && action.after) {
-                                that.execAction(action.after, {}, { $nosync: true });
-                            }
-                        });
-                    }
-                });
+                that.formManager.sendSyncData();
             };
             Form.prototype._synModel = function (action) {
                 var that = this;
-                if (that._inSync)
+                if (that.inSync) {
                     return;
-                if (that.onsync) {
-                    if (that._syncTimeOut) {
-                        clearTimeout(that._syncTimeOut);
-                    }
-                    //80 > 30 = focusDelay
-                    if (action) {
-                        var delayed = action.delayed;
-                        delete action.delayed;
-                        that._actions = that._actions || [];
-                        var oi = that._actions.findIndex(function (ii) { return ii.path === action.path && ii.op === action.op; });
-                        if (oi >= 0)
-                            that._actions.splice(oi, 1);
-                        that._actions.push(action);
-                        if (delayed) {
-                            setTimeout(function () {
-                                that._sendData();
-                            }, 80);
-                        }
-                        else {
-                            that._sendData();
-                        }
-                    }
-                    else {
-                        setTimeout(function () {
-                            that._sendData();
-                        }, 80);
-                    }
+                }
+                that.formManager.clearSyncTimeOut();
+                //80 > 30 = focusDelay
+                if (action) {
+                    var delayed = action.delayed;
+                    delete action.delayed;
+                    that.formManager.pushSyncAction(that.data.$id, action);
+                    that._sendData();
+                }
+                else {
+                    that.formManager.pushSyncAction(that.data.$id, { op: '$delta' });
+                    that._sendData();
                 }
             };
             Form.prototype._modelChanged = function (propName, ov, nv, op, params, actionParams) {
@@ -18340,10 +19635,11 @@ var Phoenix;
                             return;
                         params.propName = name;
                         if (exact) {
+                            var cnv_1 = that.$model.getValue(name, params);
                             that._enumListener(name, function (item) {
                                 if (item.target.changed) {
                                     params.targetId = item.id;
-                                    item.target.changed(propName, ov, nv, op, params);
+                                    item.target.changed(name, ov, cnv_1, op, params);
                                 }
                             });
                         }
@@ -18371,7 +19667,6 @@ var Phoenix;
             Form.prototype.afterchanged = function (propName, op, params, actionParams) {
                 var that = this;
                 if (that.onaction) {
-                    //if (that.inAction || that._inProcessing) return;
                     if (that.inAction)
                         return;
                     that.inAction = true;
@@ -18427,13 +19722,12 @@ var Phoenix;
                 that.$data = null;
                 that.$schema = null;
                 that._bindStates = null;
+                that._bindValues = null;
                 that._bindTitles = null;
                 that._bindAccordion = null;
                 that.module = null;
-                that.onsync = null;
                 that.onaction = null;
                 that._listeners = {};
-                that._parentModel = null;
                 that._listenersByName = [];
                 that._loadNestedControllers = null;
                 if (that._parentForm)
@@ -18452,6 +19746,14 @@ var Phoenix;
                 if (that.formManager) {
                     that.formManager.remove(that);
                     that.formManager = null;
+                }
+                if (that.$element) {
+                    if (that.$element && that.$element['tooltip']) {
+                        var $ttc = that.$element.find('[data-phoenix-tooltip]');
+                        $ttc["tooltip"]('dispose');
+                    }
+                    that.$content.empty();
+                    _dom.remove(that.$content.get(0));
                 }
                 _super.prototype.destroy.call(this);
             };
@@ -18485,8 +19787,9 @@ var Phoenix;
             Form.prototype.postMessageToParent = function (actionName, params) {
                 var that = this;
                 if (that._parentForm) {
+                    var parentForm_1 = that._parentForm;
                     _utils.nextTick(function () {
-                        that._parentForm.execAction(actionName, params);
+                        parentForm_1.execAction(actionName, params);
                     });
                 }
             };
@@ -18508,7 +19811,7 @@ var Phoenix;
                 $(window).off('global-phoenix-resize', that._resizeHnd);
                 _super.prototype._removeBaseEvents.call(this);
             };
-            Form.prototype._freeze = function (e) {
+            Form.prototype.freeze = function (e) {
                 e.preventDefault();
                 e.stopPropagation();
                 return false;
@@ -18530,11 +19833,19 @@ var Phoenix;
                 }
                 return true;
             };
+            Form.prototype.delayClick = function (control, event) {
+                var fm = _ui.formManager();
+                if (control && control.syncClick && fm.hasActions()) {
+                    setTimeout(function () { return event.target.click(); }, 100);
+                    return true;
+                }
+                return false;
+            };
             Form.prototype._addBaseEvents = function () {
                 var that = this;
                 that.$element.on('focusin', function (event) {
-                    if (that._inProcessing)
-                        return that._freeze(event);
+                    if (that.isInProcessing)
+                        return that.freeze(event);
                     var control = that._event2Field(event);
                     if (control && control.focusIn) {
                         if (control.focused)
@@ -18544,8 +19855,8 @@ var Phoenix;
                     }
                 });
                 that.$element.on('focusout', function (event) {
-                    if (that._inProcessing)
-                        return that._freeze(event);
+                    if (that.isInProcessing)
+                        return that.freeze(event);
                     var control = that._event2Field(event);
                     if (control && control.focusOut) {
                         var ne_2 = { target: event.target };
@@ -18583,17 +19894,20 @@ var Phoenix;
                     }
                 });
                 that.$element.on('dblclick', function (event) {
-                    if (that._inProcessing)
-                        return that._freeze(event);
+                    if (that.isInProcessing)
+                        return that.freeze(event);
                     var control = that._event2Field(event);
                     if (control && control.dblclick) {
                         control.dblclick(event);
                     }
                 });
                 that.$element.on('click', function (event) {
-                    if (that._inProcessing)
-                        return that._freeze(event);
                     var control = that._event2Field(event);
+                    if (that.delayClick(control, event))
+                        return;
+                    if (that.isInProcessing) {
+                        return that.freeze(event);
+                    }
                     var target = event.target;
                     if (control && target.id === control.id + '_rules') {
                         control.showRules();
@@ -18606,6 +19920,8 @@ var Phoenix;
                         if (control.focusClick)
                             return;
                         if (!that._isInDelayedAction() || control.focused && control.targetInControl(event.target)) {
+                            if (that.delayClick(control, event))
+                                return;
                             return control.click(event);
                         }
                         that._setInDelayedAction(true);
@@ -18614,6 +19930,8 @@ var Phoenix;
                             if (control.destroyed)
                                 return;
                             control.focusClick = 0;
+                            if (that.delayClick(control, event))
+                                return;
                             control.click(event);
                             return;
                         });
@@ -18635,19 +19953,19 @@ var Phoenix;
                                         that.openErrors();
                                     }
                                 }
-                                return that._freeze(event);
+                                return that.freeze(event);
                             }
                             else if (target_1.getAttribute('data-form-detail-close')) {
                                 if (that.options.closeButtonHandler) {
                                     that.options.closeButtonHandler();
                                 }
-                                return that._freeze(event);
+                                return that.freeze(event);
                             }
                             else if (target_1.getAttribute('data-form-settings')) {
                                 if (that.options.authoringIndicator) {
                                     _link.execLink({ $formAuthoring: true, path: that.options.path, name: that.options.externalLayout, schema: that.options.externalSchema, locale: that.options.externalLocale }, {}, null);
                                 }
-                                return that._freeze(event);
+                                return that.freeze(event);
                             }
                         }
                     }
@@ -18656,8 +19974,8 @@ var Phoenix;
                         that.execAction(layout.$actionName);
                 });
                 that.$element.on('keypress', function (event) {
-                    if (that._inProcessing)
-                        return that._freeze(event);
+                    if (that.isInProcessing)
+                        return that.freeze(event);
                     if (!that._doKeyDown(event)) {
                         return;
                     }
@@ -18666,8 +19984,8 @@ var Phoenix;
                         control.keypress(event);
                 });
                 that.$element.on('keydown', function (event) {
-                    if (that._inProcessing)
-                        return that._freeze(event);
+                    if (that.isInProcessing)
+                        return that.freeze(event);
                     if (!that._doKeyPress(event)) {
                         return;
                     }
@@ -18676,8 +19994,8 @@ var Phoenix;
                         control.keydown(event);
                 });
                 that.$element.on('keyup', function (event) {
-                    if (that._inProcessing)
-                        return that._freeze(event);
+                    if (that.isInProcessing)
+                        return that.freeze(event);
                     if (!that._doKeyDown(event)) {
                         return;
                     }
@@ -18686,22 +20004,22 @@ var Phoenix;
                         control.keyup(event);
                 });
                 that.$element.on('paste', function (event) {
-                    if (that._inProcessing)
-                        return that._freeze(event);
+                    if (that.isInProcessing)
+                        return that.freeze(event);
                     var control = that._event2Field(event);
                     if (control && control.paste)
                         control.paste(event);
                 });
                 that.$element.on('keyup', function (event) {
-                    if (that._inProcessing)
-                        return that._freeze(event);
+                    if (that.isInProcessing)
+                        return that.freeze(event);
                     var control = that._event2Field(event);
                     if (control && control.keyup)
                         control.keyup(event);
                 });
                 that.$element.on('mousedown', function (event) {
-                    if (that._inProcessing)
-                        return that._freeze(event);
+                    if (that.isInProcessing)
+                        return that.freeze(event);
                     var control = that._event2Field(event);
                     if (control && control.mousedown)
                         return control.mousedown(event);
@@ -18709,6 +20027,20 @@ var Phoenix;
                 });
                 $(window).on('global-phoenix-resize', that._resizeHnd);
                 _super.prototype._addBaseEvents.call(this);
+            };
+            Form.prototype.visibleChildForms = function () {
+                var that = this;
+                if (!that.useSync)
+                    return [];
+                var res = that.getVisibleControlsByWiget('form');
+                var vf = [];
+                if (res) {
+                    res.forEach(function (control) {
+                        if (control && control.inlineForm && control.inlineForm.useSync)
+                            vf.push(control.inlineForm);
+                    });
+                }
+                return vf;
             };
             Form.prototype._resizeControls = function (visibilityChanged) {
                 var that = this;
@@ -18764,442 +20096,6 @@ var Phoenix;
         ui.OpenInlineForm = null;
     })(ui = Phoenix.ui || (Phoenix.ui = {}));
 })(Phoenix || (Phoenix = {}));
-/// <reference path="../../core/core-refs.ts" />
-/// <reference path="../../core/modules/ajax.ts" />
-/// <reference path="../../core/modules/application.ts" />
-/// <reference path="../modal.control.ts" />
-/// <reference path="../autoclose.control.ts" />
-/// <reference path="./form.control.ts" />
-/// <reference path="./schema.data.ts" />
-var Phoenix;
-(function (Phoenix) {
-    var _p = Phoenix, _ajax = _p.ajax, _dom = _p.dom, _utils = _p.utils, _autoclose = _p.autoclose, _modal = _p.modal, _pagecontrol = _p.pagecontrol, _application = _p.application, _su = _p.Observable.SchemaUtils, _external = _p.external, _customData = _p.customData;
-    var ui;
-    (function (ui) {
-        var ModalForm = /** @class */ (function (_super) {
-            __extends(ModalForm, _super);
-            function ModalForm(formOptions, layout, schema, data, locale, preferences) {
-                var _this = _super.call(this, formOptions, locale) || this;
-                var that = _this;
-                var opts = formOptions.opts ? formOptions.opts : {};
-                if (formOptions.validators) {
-                    opts.validators = formOptions.validators;
-                    delete formOptions.validators;
-                }
-                that.render = new ui.Form(layout, opts, data, schema, locale, preferences);
-                that.render.$locale = locale;
-                return _this;
-            }
-            ModalForm.prototype.on = function (hnd) {
-                var that = this;
-                var newHnd = function (action, data, form) {
-                    return hnd(that, action, data, form);
-                };
-                that._clickHnd = function (name) {
-                    that.render.afterchanged(name, "modal-action", {});
-                };
-                that.render.on(newHnd);
-            };
-            ModalForm.prototype.onNatural = function (hnd) {
-                var that = this;
-                var newHnd = function (action, data, form) {
-                    return hnd(action, data, form, that);
-                };
-                that._clickHnd = function (name) {
-                    that.render.afterchanged(name, "modal-action", {});
-                };
-                that.render.on(newHnd);
-            };
-            return ModalForm;
-        }(Phoenix.modal.Modal));
-        ui.ModalForm = ModalForm;
-        function _checkEx(ex) {
-            if (typeof ex === 'string')
-                return { message: ex };
-            return ex;
-        }
-        var _openForm = function (formOptions, params, handler) {
-            _su.loadSchemaRefs(params.schema, params.data, params.layout, null, function (ex, ldata) {
-                if (ex) {
-                    console.log(ex);
-                    ex = _checkEx(ex);
-                    ex = ex._ajax ? _ajax.extractAjaxErrors(ex) : ex;
-                    if (formOptions && formOptions.module && formOptions.module.error)
-                        return formOptions.module.error(ex);
-                    _utils.alert('', ex.message, function () { });
-                    return;
-                }
-                var f = new ModalForm(formOptions, params.layout, params.schema, ldata, params.locale, params.preferences);
-                f.open();
-                if (handler) {
-                    formOptions.natural ? f.onNatural(handler) : f.on(handler);
-                }
-            });
-        };
-        var _preferenceName = function (name, config) {
-            var prefName = '';
-            if (name && _application.name)
-                prefName = _application.name + '_form_' + name;
-            if (prefName && config && config.current && config.current.preferences) {
-                var prefs = config.current.preferences;
-                if (prefs.excludedForms && prefs.excludedForms.indexOf(prefName) >= 0)
-                    prefName = '';
-            }
-            return prefName;
-        }, _loadSchema = function (schema) {
-            if (typeof schema === 'object') {
-                return _utils.Promise.resolve($.extend(true, {}, schema));
-            }
-            else {
-                var config = _application.config(_application.name);
-                return _ajax.get(config.current.prototypes + '/' + schema + '.json');
-            }
-        }, _prepareForm = function (layout, schema, formData, locale, opts, after) {
-            var ci = 0, li = -1, si = -1, promises = [], params = { locale: locale }, dataIndex = -1, preferencesIndex = -1;
-            var config = _application.config(_application.name);
-            opts = opts || {};
-            if (locale && locale.$name)
-                opts.externalLocale = locale.$name;
-            if (!formData || !formData.then)
-                params.data = $.extend(true, {}, formData);
-            else {
-                promises.push(formData);
-                dataIndex = 0;
-                ci++;
-            }
-            var ln;
-            if (typeof layout === 'object') {
-                params.layout = $.extend(true, {}, layout);
-                ln = params.layout.name;
-            }
-            else {
-                li = ci;
-                ci++;
-                opts.externalLayout = layout;
-                ln = layout;
-                promises.push(_ajax.get(config.current.forms + '/' + layout + '.json'));
-            }
-            if (typeof schema === 'object') {
-                params.schema = $.extend(true, {}, schema);
-            }
-            else {
-                si = ci;
-                ci++;
-                opts.externalSchema = schema;
-                promises.push(_ajax.get(config.current.prototypes + '/' + schema + '.json'));
-            }
-            var preferenceName = _preferenceName(ln, config);
-            if (preferenceName && _external.preferenceLoadHandler) {
-                preferencesIndex = ci;
-                ci++;
-                opts.preferenceName = preferenceName;
-                promises.push(_external.preferenceLoadHandler(preferenceName));
-            }
-            if (promises.length) {
-                _utils.Promise.all(promises).then(function (values) {
-                    if (li >= 0)
-                        params.layout = values[li];
-                    if (si >= 0)
-                        params.schema = values[si];
-                    if (dataIndex >= 0)
-                        params.data = values[dataIndex];
-                    if (preferencesIndex >= 0) {
-                        params.preferences = values[preferencesIndex];
-                    }
-                    after(null, opts, params);
-                }).catch(function (ex) {
-                    after(ex, null, null);
-                });
-            }
-            else
-                after(null, opts, params);
-        };
-        var _OpenModalForm = function (formOptions, layout, schema, fdata, locale, handler) {
-            _prepareForm(layout, schema, fdata, locale, null, function (ex, opts, params) {
-                if (ex) {
-                    console.log(ex);
-                    ex = _checkEx(ex);
-                    ex = ex._ajax ? _ajax.extractAjaxErrors(ex) : ex;
-                    if (formOptions && formOptions.module && formOptions.module.error)
-                        return formOptions.module.error(ex);
-                    _utils.alert('', ex.message, function () { });
-                    return;
-                }
-                formOptions = formOptions || {};
-                formOptions.opts = opts;
-                _openForm(formOptions, params, handler);
-            });
-        };
-        var _initController = function (options, config) {
-            if (config.isFormController)
-                options.beforeSetModel = config.beforeSetModel ? config.beforeSetModel.bind(config) : null;
-            else
-                options.beforeSetModel = config.initObjectState ? config.initObjectState.bind(config) : null;
-            options.beforeModelCreated = config.initModel ? config.initModel.bind(config) : null;
-            options.onSettings = config.onSettings ? config.onSettings.bind(config) : null;
-            options.storageName = config.storageName;
-            options.validators = config.validators;
-            options.checkFormLayout = config.checkFormLayout;
-        };
-        var _showModalForm = function (opts, data) {
-            if (!opts.controller)
-                throw 'Controller name is empty.';
-            var config = typeof opts.controller === 'string' ? _customData.get(opts.controller) : opts.controller;
-            if (!config)
-                throw _utils.format('Controller not found "{0}". Use customData.register(controllerName, ctrlConfig).', opts.controller);
-            var options = {};
-            _initController(options, config);
-            var fo = opts.options;
-            fo.opts = options;
-            fo.parentContext = opts.parentContext;
-            fo.natural = true;
-            var hnd = null;
-            if (config.isFormController) {
-                hnd = config.modelChanged.bind(config);
-            }
-            else if (config.onModelChanged) {
-                hnd = config.onModelChanged.bind(config);
-            }
-            _OpenModalForm(fo, opts.name, opts.meta, data, opts.locale, hnd);
-        };
-        var _showInlineForm = function (opts, after, data) {
-            if (!opts.controller)
-                throw 'Controller name is empty.';
-            var config = typeof opts.controller === 'string' ? _customData.get(opts.controller) : opts.controller;
-            if (!config)
-                throw _utils.format('Controller not found "{0}". Use customData.register(controllerName, ctrlConfig).', opts.controller);
-            var options = {};
-            _initController(options, config);
-            var fo = opts.options;
-            fo.opts = options;
-            fo.parentContext = opts.parentContext;
-            fo.natural = true;
-            var hnd = null;
-            if (config.isFormController) {
-                hnd = config.modelChanged.bind(config);
-            }
-            else if (config.onModelChanged) {
-                hnd = config.onModelChanged.bind(config);
-            }
-            if (!opts.formParent)
-                throw 'No form parent.';
-            var parent = _dom.find(null, opts.formParent);
-            if (!parent)
-                throw 'No form parent.';
-            _OpenFormExp($(parent), opts.name, opts.meta, data, opts.locale, hnd, fo, after);
-        };
-        var _showAutoCloseForm = function (opts, data, after) {
-            if (!opts.controller)
-                throw 'Controller name is empty.';
-            var config = typeof opts.controller === 'string' ? _customData.get(opts.controller) : opts.controller;
-            if (!config)
-                throw _utils.format('Controller not found "{0}". Use customData.register(controllerName, ctrlConfig).', opts.controller);
-            var options = {};
-            _initController(options, config);
-            var fo = opts.options;
-            fo = options;
-            fo.natural = true;
-            fo.parentContext = opts.parentContext;
-            var hnd = null;
-            if (config.isFormController) {
-                hnd = config.modelChanged.bind(config);
-            }
-            else if (config.onModelChanged) {
-                hnd = config.onModelChanged.bind(config);
-            }
-            fo.autoClose = opts.autoClose;
-            _OpenFormExp(null, opts.name, opts.meta, data, null, hnd, fo, after);
-        };
-        var _openInlineForm = function ($parent, params, handler, opts, after) {
-            opts = opts || { design: false };
-            if (opts && opts.autoClose) {
-                var ac_1 = opts.autoClose;
-                var acOptions = {
-                    parent: ac_1.parentId ? _dom.find(null, ac_1.parentId) : null,
-                    alignElement: ac_1.alignElementId ? _dom.find(null, ac_1.alignElementId) : null,
-                    style: ac_1.style,
-                    parents: ac_1.parents,
-                    opener: ac_1.opener,
-                    width: ac_1.width,
-                    height: ac_1.height,
-                    minWidth: ac_1.minWidth,
-                    minHeight: ac_1.minHeight,
-                    stayOnTop: ac_1.stayOnTop,
-                    beforeClose: ac_1.beforeClose,
-                    contentRender: function ($p, autoCloseControl, cb) {
-                        try {
-                            var co_2 = opts;
-                            if (opts.opts)
-                                opts = opts.opts || {};
-                            if (co_2 !== opts && co_2.parentContext) {
-                                opts.parentContext = co_2.parentContext;
-                                co_2.parentContext = null;
-                            }
-                            if (ac_1.showCloseButton) {
-                                opts.closeButtonHandler = function () {
-                                    var pager = _pagecontrol.Page();
-                                    pager.setPopup(null);
-                                };
-                            }
-                            var render_1 = new ui.Form(params.layout, opts, params.data, params.schema, params.locale, params.preferences);
-                            render_1.$locale = params.locale;
-                            render_1.autoClose = autoCloseControl;
-                            render_1.render($p);
-                            if (handler)
-                                render_1.on(handler);
-                            autoCloseControl.renderControl = render_1;
-                            cb();
-                            if (after)
-                                after(render_1);
-                        }
-                        catch (ex) {
-                            cb(ex);
-                        }
-                    }
-                };
-                _autoclose.open(ac_1.align, acOptions);
-                return;
-            }
-            var co = opts;
-            if (opts.opts)
-                opts = opts.opts || {};
-            if (co !== opts && co.parentContext) {
-                opts.parentContext = co.parentContext;
-                co.parentContext = null;
-            }
-            var render = new ui.Form(params.layout, opts || { design: false }, params.data, params.schema, params.locale, params.preferences);
-            render.$locale = params.locale;
-            render.render($parent);
-            if (handler)
-                render.on(handler);
-            if (after)
-                after(render);
-        };
-        var _loadSubLayouts = function ($parent, params, handler, formOpts, after) {
-        };
-        var _afterLoadSchema = function ($parent, params, handler, formOpts, after) {
-            _su.loadSchemaRefs(params.schema, params.data, params.layout, formOpts ? formOpts.parentContext : null, function (ex, ldata) {
-                if (ex) {
-                    console.log(ex);
-                    ex = _checkEx(ex);
-                    ex = ex._ajax ? _ajax.extractAjaxErrors(ex) : ex;
-                    if (formOpts && formOpts.module && formOpts.module.error)
-                        return formOpts.module.error(ex);
-                    _utils.alert('', ex.message, function () { });
-                    return;
-                }
-                params.data = ldata;
-                _openInlineForm($parent, params, handler, formOpts, after);
-            });
-        };
-        var _OpenFormExp = function ($parent, layout, schema, fdata, locale, handler, formOpts, after) {
-            _prepareForm(layout, schema, fdata, locale, formOpts, function (ex, opts, params) {
-                if (ex) {
-                    console.log(ex);
-                    ex = _checkEx(ex);
-                    ex = ex._ajax ? _ajax.extractAjaxErrors(ex) : ex;
-                    if (formOpts && formOpts.module && formOpts.module.error)
-                        return formOpts.module.error(ex);
-                    _utils.alert('', ex.message, function () { });
-                    return;
-                }
-                if (opts && formOpts && formOpts.parentContext)
-                    opts.parentContext = formOpts.parentContext;
-                _afterLoadSchema($parent, params, handler, opts, after);
-            });
-        };
-        function _camelize(propName) {
-            return propName.split('.').map(function (segment) {
-                return segment.charAt(0).toUpperCase() + segment.slice(1);
-            }).join('').split('-').map(function (segment) {
-                return segment.charAt(0).toUpperCase() + segment.slice(1);
-            }).join('');
-        }
-        var FormController = /** @class */ (function () {
-            function FormController() {
-            }
-            FormController.prototype.isFormController = function () { return true; };
-            FormController.prototype.data = function () { return null; };
-            FormController.prototype.beforeSetModel = function (model, form) {
-                if (form && form.hasNestedControllers())
-                    form.modelCreated(model);
-                this.initObjectState(model, form);
-            };
-            FormController.prototype.initObjectState = function (model, form) { };
-            FormController.prototype.modelChanged = function (action, model, form, modal) {
-                if (form.hasNestedControllers()) {
-                    form.modelChanged(action, model, form, modal);
-                }
-                this.onModelChanged(action, model, form, modal);
-            };
-            FormController.prototype.onModelChanged = function (action, model, form, modal) {
-                var that = this;
-                var pn = action.property;
-                var ca = action;
-                if (pn) {
-                    if (that.bindProperty && pn.indexOf(that.bindProperty) === 0) {
-                        pn = pn.substr(that.bindProperty.length);
-                        ca.property = pn;
-                    }
-                    var ii = pn.indexOf('$links.');
-                    if (ii >= 0)
-                        pn = pn.replace(/\$links\./g, '');
-                    var c = 'on' + _camelize(pn);
-                    if (that[c])
-                        return that[c](ca, model, form, modal);
-                }
-            };
-            return FormController;
-        }());
-        ui.FormController = FormController;
-        _customData.register('phoenix.empty.controller', { onModelChanged: function (action, model, form, modalForm) { } });
-        ui.loadSchema = _loadSchema;
-        ui.formController2Options = _initController;
-        ui.OpenModalForm = _OpenModalForm;
-        ui.showModalForm = _showModalForm;
-        ui.showAutoCloseForm = _showAutoCloseForm;
-        ui.OpenForm = _OpenFormExp;
-        ui.OpenInlineForm = function (parentId, layout, schema, controller, formData, locale, after, options) {
-            var opts = {
-                name: layout,
-                meta: schema,
-                controller: controller,
-                options: {},
-                formParent: parentId,
-                locale: locale
-            };
-            if (options)
-                _utils.merge(options, opts.options);
-            _showInlineForm(opts, after, formData);
-        };
-        _external.formOpenHandler = function (params) {
-            var opts = {
-                name: params.name,
-                meta: params.meta,
-                controller: params.controller || 'phoenix.empty.controller',
-                options: params.options || {}
-            };
-            if (!params.modal) {
-                opts.autoClose = {
-                    align: _autoclose.BOTTOM_LEFT,
-                    opener: params.opener,
-                    alignElementId: params.alignElementId,
-                    style: params.style,
-                    parents: params.parents,
-                    width: params.width,
-                    height: params.height,
-                    minWidth: params.minWidth,
-                    minHeight: params.minHeight,
-                    showCloseButton: params.showCloseButton
-                };
-                _showAutoCloseForm(opts);
-            }
-            else {
-                _showModalForm(opts);
-            }
-        };
-    })(ui = Phoenix.ui || (Phoenix.ui = {}));
-})(Phoenix || (Phoenix = {}));
 /// <reference path="../../../core/core-refs.ts" />
 /// <reference path="../../../ui/layout.control.ts" />
 /// <reference path="../schema.data.ts" />
@@ -19210,7 +20106,7 @@ var Phoenix;
     (function (uiutils) {
         var DATE_PICKER_NAME = 'datepicker';
         var DATETIME_PICKER_NAME = 'datetimepicker';
-        var _dateNative = function () {
+        var _registeredMask = {}, _dateNative = function () {
             var res = false, called = false;
             return function () {
                 if (called)
@@ -19282,22 +20178,24 @@ var Phoenix;
             }
             html.push('><span class="' + css.join(' ') + '"></span>');
             if (options.avanced._expandItem && options.display && options.display.value) {
+                var addLink = options.html && options.avanced && options.avanced.$link;
+                if (addLink)
+                    html.push('<a href="#" class="bs-cursor-p" data-phoenix-href="link://$link">');
                 html.push('<span class="bs-expand-child">');
                 html.push(' ');
                 html.push(options.display.value);
                 html.push('</span>');
+                if (addLink)
+                    html.push('</a>');
             }
             html.push('</div>');
             return { value: html.join(''), html: true };
         }, _afutils = {
             useDatePicker: function () { return $.fn[DATE_PICKER_NAME] != null; },
             useDateTimePicker: function () { return $.fn[DATETIME_PICKER_NAME] != null; },
-            addErrorDiv: function (html, noMargin) {
-                if (Phoenix.bootstrap4)
-                    html.push('<div class="invalid-feedback bs-none' + (noMargin ? ' no-y-margin' : '') + '" id="{0}_errors"></div>');
-                else {
-                    html.push('<div class="small text-danger bs-none" id="{0}_errors"></div>');
-                }
+            addErrorDiv: function (html, noMargin, inline) {
+                var tagName = inline ? 'span' : 'div';
+                html.push('<' + tagName + ' class="invalid-feedback bs-none' + (noMargin ? ' no-y-margin' : '') + '" id="{0}_errors"></' + tagName + '>');
             },
             keyPressPassword: function (event, input, options) {
                 var code = event.which;
@@ -19354,6 +20252,57 @@ var Phoenix;
             keyDownPassword: function (event, input, options) {
                 return true;
             },
+            registerMask: function (mask, maskConfig) {
+                _registeredMask[mask] = maskConfig;
+            },
+            maskKeys: function (mask, event, input, isKeyPress) {
+                if (!mask)
+                    return event.which;
+                if (mask === 'numeric') {
+                    if (event.which < 48 || event.which > 57) {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        return 0;
+                    }
+                    return event.which;
+                }
+                var rm = _registeredMask[mask];
+                if (rm && rm.maskKeys)
+                    return rm.maskKeys(event, input, isKeyPress);
+                return event.which;
+            },
+            maskCheckValue: function (mask, value) {
+                if (!mask)
+                    return value;
+                if (mask === 'uppercase') {
+                    return ((value || '') + '').toUpperCase();
+                }
+                else if (mask === 'numeric') {
+                    var res = [];
+                    var svalue = ((value || '') + '');
+                    for (var i = 0; i < svalue.length; i++) {
+                        var code = svalue.charCodeAt(i);
+                        var c = svalue.charAt(i);
+                        if (code >= 48 && code <= 57)
+                            res.push(c);
+                    }
+                    return res.join('');
+                }
+                else if (mask === 'phone') {
+                    var res = [];
+                    var svalue = ((value || '') + '');
+                    for (var i = 0; i < svalue.length; i++) {
+                        var c = svalue.charAt(i);
+                        if ('+-() 0123456789.'.indexOf(c) >= 0)
+                            res.push(c);
+                    }
+                    return res.join('');
+                }
+                var rm = _registeredMask[mask];
+                if (rm && rm.format)
+                    return rm.format(value);
+                return value;
+            },
             addContainerId: function (html, authoring) {
                 if (authoring)
                     html.push(' draggable="true"');
@@ -19364,8 +20313,11 @@ var Phoenix;
                 var css = [groupClass, options.groupFieldClass || "bs-field-group", "bs-island"];
                 if (options.noVerticalMargins && !authoring)
                     css.pop();
-                if (options.inline)
-                    css.push(options.inlineFieldClass || "bs-field-inline");
+                if (options.inline) {
+                    css.push(options.inlineFieldClass || 'bs-field-inline');
+                }
+                if (options.simulateColumns)
+                    css.push('bs-field-group-columns');
                 if (authoring)
                     css.push(' design');
                 return css.join(' ');
@@ -19417,9 +20369,16 @@ var Phoenix;
             datePickerSetValue: function ($element, value) {
                 $element[DATE_PICKER_NAME]('update', _ulocale.parseISODate(value || '') || '');
             },
+            elementInDatePicker: function (element, $element) {
+                var pd = $element.data(DATE_PICKER_NAME);
+                if (pd && pd.picker && pd.picker.length) {
+                    return _dom.isChildOf(pd.picker.get(0), element);
+                }
+                return false;
+            },
             datePickerInitialize: function ($element, opts, onHide) {
                 _dom.addClass($element.get(0), 'date');
-                var o = $.extend({ zIndexOffset: 1000, language: _ulocale.currentLang, autoclose: true }, opts || {});
+                var o = $.extend({ zIndexOffset: 1000, todayHighlight: true, language: _ulocale.currentLang, autoclose: true }, opts || {});
                 $element[DATE_PICKER_NAME](o);
                 if (onHide)
                     $element[DATE_PICKER_NAME]().on('hide', onHide);
@@ -19478,17 +20437,30 @@ var Phoenix;
                 return textValue;
             },
             defaultOptions: { titleIsHidden: false, placeHolder: false, labelCol: 3 },
+            display: function (value, schema, form) {
+                return _afutils.displayValue(value, schema, {}, { html: false, useSymbol: true, selectable: false, editable: false, isTotal: false, check: false, form: form }, null, '').value;
+            },
             displayValue: function (value, schema, locale, options, item, fieldName) {
                 var res;
                 options = options || {};
+                options.avanced = options.avanced || {};
                 if (_utils.isNullOrUndefined(value)) {
-                    res = { value: '', html: false };
-                    return res;
+                    if (options.avanced && options.avanced.showEmpty) {
+                    }
+                    else if (options.avanced && options.avanced.transform && !options.isTotal && schema.type === 'string') {
+                    }
+                    else {
+                        res = { value: '', html: false };
+                        return res;
+                    }
                 }
                 if (options.isTotal && (_sutils.isFwField(fieldName) || schema.enum)) {
                     res = { value: '', html: false };
                     return res;
                 }
+                var addLink = options.html && options.avanced && options.avanced.$link;
+                if (options.avanced._expandItem && options.display && options.display.value)
+                    addLink = false;
                 if (schema.enum) {
                     var si = schema.enum.indexOf(value);
                     var dv = si >= 0 ? (schema.enumNames ? _ulocale.tt(schema.enumNames[si], locale) : value) : '';
@@ -19535,10 +20507,28 @@ var Phoenix;
                             break;
                         case 'number':
                             var ndv = void 0;
-                            if (options.state)
-                                ndv = _ulocale.decimal(value || 0, options.state.decimals || 0, (options.useSymbol ? (options.state.symbol || '') : ''));
+                            var isMoney = schema.format === 'money';
+                            if (options.state) {
+                                var places = options.state.decimals || 0;
+                                value = value || 0;
+                                var symbol = options.useSymbol ? (options.state.symbol || '') : '';
+                                if (isMoney) {
+                                    if (options.form)
+                                        options.state.moneyUnitCoef = options.form.moneyUnitCoef;
+                                    if (options.state.moneyUnitCoef === 1000) {
+                                        places = 0;
+                                        if (options.useSymbol) {
+                                            symbol = 'K' + symbol;
+                                        }
+                                    }
+                                    if (options.state.moneyUnitCoef) {
+                                        value = value / options.state.moneyUnitCoef;
+                                    }
+                                }
+                                ndv = _ulocale.decimal(value, places, symbol);
+                            }
                             else
-                                ndv = (schema.format === 'money') ? _ulocale.money(value || 0, options.useSymbol) : _ulocale.decimal(value || 0, schema.decimals || 0, (options.useSymbol ? schema.symbol : ''));
+                                ndv = isMoney ? _ulocale.money(value || 0, options.useSymbol) : _ulocale.decimal(value || 0, schema.decimals || 0, (options.useSymbol ? schema.symbol : ''));
                             if (options.avanced && options.avanced.transform)
                                 res = _transform(value, ndv, options.avanced.transform, item);
                             else if (options.avanced && options.avanced.icons)
@@ -19565,7 +20555,15 @@ var Phoenix;
                             }
                             else if (options.html) {
                                 var html = [];
-                                if ((options.avanced && options.avanced.editable) || options.editable || options.check || (options.avanced && options.avanced.icons)) {
+                                if (options.avanced && options.avanced.widget === 'toggle') {
+                                    html.push('<span>');
+                                    var id = _utils.allocID();
+                                    html.push('<input class="tgl tgl-light disabled" id="' + id + '" type="checkbox" disabled="true"' + (!!value ? ' checked' : '') + '>');
+                                    html.push('<label class="tgl-btn " for="' + id + '"></label>');
+                                    html.push('</span>');
+                                    res = { value: html.join(''), html: true };
+                                }
+                                else if ((options.avanced && options.avanced.editable) || options.editable || options.check || (options.avanced && options.avanced.icons)) {
                                     var ces = 'bs-bool-edit';
                                     var cc = options.tableOptions && options.tableOptions.small ? ' small-table' : '';
                                     var map = options.avanced ? options.avanced.icons : null;
@@ -19592,7 +20590,7 @@ var Phoenix;
                 }
                 if (!res)
                     res = { value: value, html: false };
-                if (options.html && options.avanced && options.avanced.$link) {
+                if (addLink) {
                     var chtml = ['<a href="#" class="bs-cursor-p" data-phoenix-href="link://$link">'];
                     chtml.push(res.value);
                     chtml.push('</a>');
@@ -19610,14 +20608,124 @@ var Phoenix;
                     html.push('<span id="{0}_rules"  class="' + _dom.iconClass('bolt') + ' bs-rules');
                     html.push('"></span>');
                 }
+            },
+            extractFields: function (template) {
+                var e = $(template).get(0);
+                return _afutils.extractFieldsFromDom(e);
+            },
+            extractFieldsFromDom: function (e) {
+                var res = [];
+                var list = _dom.queryAll(e, '[data-bind]');
+                if (list) {
+                    for (var i = 0; i < list.length; i++) {
+                        res.push(_dom.attr(list.item(i), 'data-bind'));
+                    }
+                }
+                return res;
+            },
+            extractFieldsTitlesFromDom: function (e) {
+                var res = [];
+                var list = _dom.queryAll(e, '[data-bind-title]');
+                if (list) {
+                    for (var i = 0; i < list.length; i++) {
+                        res.push(_dom.attr(list.item(i), 'data-bind-title'));
+                    }
+                }
+                return res;
+            },
+            renderButton: function (fieldName, fieldOptions, state, schema, parentElement, item) {
+                var btn, span;
+                if (fieldOptions.transform) {
+                    var func = _customData.get("ui.html." + fieldOptions.transform);
+                    if (func) {
+                        var html = func(state, fieldOptions, item);
+                        if (!html)
+                            return false;
+                        _dom.append(parentElement, html);
+                        return true;
+                    }
+                    return false;
+                }
+                if (fieldOptions.button) {
+                    var _space = '';
+                    btn = document.createElement('button');
+                    btn.type = 'button';
+                    if (state.isDisabled)
+                        btn.disabled = true;
+                    var sz = fieldOptions.size || 'sm';
+                    var sizeCss = sz === 'normal' ? '' : ' btn-' + sz;
+                    var cc = (fieldOptions.type || 'link');
+                    cc = _dom.bootstrapStyles(fieldOptions.outline)[cc];
+                    btn.className = 'bs-button btn btn-' + cc + sizeCss + (state.isDisabled ? ' disabled' : '');
+                    if (fieldOptions.icon) {
+                        span = document.createElement('span');
+                        span.className = _dom.iconClass(fieldOptions.icon);
+                        _dom.append(btn, span);
+                        _space = ' ';
+                    }
+                    if (schema.title) {
+                        if (fieldOptions.titleIsHidden) {
+                            btn.title = schema.title;
+                        }
+                        else {
+                            var tn = document.createTextNode(_space + schema.title);
+                            _dom.append(btn, tn);
+                        }
+                    }
+                }
+                else if (fieldOptions.icon) {
+                    btn = document.createElement('center');
+                    if (state.isDisabled) {
+                        _dom.addClass(btn, 'bs-disabled');
+                    }
+                    span = document.createElement('span');
+                    var cssb = ['text-' + (fieldOptions.type || 'default')];
+                    cssb.push('bs-basictable-btn');
+                    cssb.push(_dom.iconClass(fieldOptions.icon));
+                    span.className = cssb.join(' ');
+                    _dom.append(btn, span);
+                }
+                else {
+                    return false;
+                }
+                if (btn) {
+                    btn['$link'] = fieldName;
+                    _dom.append(parentElement, btn);
+                }
+                return true;
+            },
+            updateTitle: function (e, bind, value) {
+                var list = _dom.queryAll(e, '[data-bind-title="' + bind + '"]');
+                if (list) {
+                    for (var i = 0; i < list.length; i++) {
+                        var p = list.item(i);
+                        if (p.firstChild && p.firstChild.nodeType === 1)
+                            p = p.firstChild;
+                        _dom.empty(p);
+                        _dom.append(p, document.createTextNode(value || ''));
+                    }
+                }
+            },
+            updateValue: function (e, bind, v) {
+                var list = _dom.queryAll(e, '[data-bind="' + bind + '"]');
+                if (list) {
+                    for (var i = 0; i < list.length; i++) {
+                        var p = list.item(i);
+                        _dom.empty(p);
+                        if (v.html) {
+                            var $c = $(v.value);
+                            _dom.append(p, $c.get(0));
+                        }
+                        else
+                            _dom.append(p, document.createTextNode(v.value || ''));
+                    }
+                }
             }
         };
         if (_afutils.useDatePicker()) {
-            var tdp = function (lang) {
+            var tdp_1 = function (lang) {
                 var dtJquery = $.fn[DATE_PICKER_NAME];
-                if (Phoenix.bootstrap4) {
-                    dtJquery.DPGlobal.template = dtJquery.DPGlobal.template.replace(/\"table-condensed\"/g, '"table-sm"');
-                }
+                dtJquery.DPGlobal.template = dtJquery.DPGlobal.template.replace(/\"table-condensed\"/g, '"table-sm"').replace(/class=\"datepicker\"/g, 'tabIndex="0" class=\"datepicker bs-focus-outline-none\"');
                 dtJquery.dates[lang] = {
                     days: _locale.date.weekdays,
                     daysShort: _locale.date.weekdaysShort,
@@ -19632,12 +20740,12 @@ var Phoenix;
                 };
             };
             _dom.readyHandlers.push(function () {
-                tdp(_ulocale.currentLang);
+                tdp_1(_ulocale.currentLang);
             });
-            _ulocale.register(tdp);
+            _ulocale.register(tdp_1);
         }
         if (_afutils.useDateTimePicker()) {
-            var tdp = function (lang) {
+            var tdp_2 = function (lang) {
                 var moment = window['moment'];
                 if (moment) {
                     moment.updateLocale(lang, {
@@ -19657,9 +20765,9 @@ var Phoenix;
                 }
             };
             _dom.readyHandlers.push(function () {
-                tdp(_ulocale.currentLang);
+                tdp_2(_ulocale.currentLang);
             });
-            _ulocale.register(tdp);
+            _ulocale.register(tdp_2);
         }
         uiutils.utils = _afutils;
     })(uiutils = Phoenix.uiutils || (Phoenix.uiutils = {}));
@@ -19671,7 +20779,7 @@ var Phoenix;
 /// <reference path="../form.control.ts" />
 var Phoenix;
 (function (Phoenix) {
-    var _utils = Phoenix.utils, _uiutils = Phoenix.uiutils, _observable = Phoenix.Observable, _dom = Phoenix.dom, _external = Phoenix.external, _customData = Phoenix.customData, _sutils = _observable.SchemaUtils;
+    var _utils = Phoenix.utils, _observable = Phoenix.Observable, _dom = Phoenix.dom, _external = Phoenix.external, _customData = Phoenix.customData, _sutils = _observable.SchemaUtils;
     var ui;
     (function (ui) {
         var _registerLinkControl = function (factory, widget) {
@@ -19692,6 +20800,9 @@ var Phoenix;
                 _customData.register('ui-controls-readonly-' + widget + '-' + format, factory);
             else
                 _customData.register('ui-controls-' + type + '-' + isEnum + '-' + lookup + '-' + widget + '-' + format, factory);
+            if (widget) {
+                _customData.register('ui-controls-by-widget-' + widget, factory);
+            }
         }, _getRegisteredControl = function (type, isEnum, widget, format, options) {
             isEnum = isEnum || false;
             if (isEnum)
@@ -19710,6 +20821,8 @@ var Phoenix;
                 var factory = _customData.get('ui-controls-' + type + '-' + isEnum + '-' + lookup + '-' + widget + '-' + format);
                 if (!factory && format)
                     factory = _customData.get('ui-controls-' + type + '-' + isEnum + '-' + lookup + '-' + widget + '-');
+                if (!factory && widget)
+                    factory = _customData.get('ui-controls-by-widget-' + widget);
                 return factory;
             }
         };
@@ -19720,13 +20833,19 @@ var Phoenix;
                 that.config = fp;
                 that.form = form;
                 that.options = options || {};
-                fp.options = fp.options || {};
+                fp.options = $.extend(true, {}, fp.options || {});
                 that.parent = that.form.getLayoutById(fp.$parentId);
                 that.$bind = fp.$bind;
                 if (that.$bind === '$none') {
                     that._isBinded = false;
-                    that._internalValue = fp.options.value;
-                    that._internalState = fp.options.state || {};
+                    if (fp.options.fwField) {
+                        that._internalValue = that.form.fwField(fp.options.fwField, 'value');
+                        that._internalState = that.form.fwField(fp.options.fwField, 'state');
+                    }
+                    else {
+                        that._internalValue = fp.options.value;
+                        that._internalState = fp.options.state || {};
+                    }
                 }
                 if (fp.$name)
                     that.name = fp.$name;
@@ -19747,13 +20866,24 @@ var Phoenix;
                 that._defineProps();
                 that.fieldOptions = fp.options || {};
                 that.renderOptions = that.fieldOptions;
-                that.$schema = that._isBinded && that.$bind ? form.getSchema(that.$bind) : {};
+                that.$schema = that._isBinded && that.$bind ? form.getSchema(that.$bind) : null;
+                if (!that._isBinded && fp.options.fwField) {
+                    that.$schema = that.form.fwField(fp.options.fwField, 'schema');
+                }
+                if (!that.$schema) {
+                    that.$schema = that._customSchema();
+                }
                 if (that.$schema && that.$schema.type === 'array') {
                     that.$schemaItems = _sutils.expand$Ref(that.$schema.items, that.form.$rootSchema);
                 }
                 that.id = fp.$id;
                 that.title = that.fieldOptions.title ? that.fieldOptions.title : (that.$schema ? that.$schema.title : that.$bind);
             }
+            AbsField.prototype.notifyGlobalChanged = function (globalName) {
+            };
+            AbsField.prototype._customSchema = function () {
+                return {};
+            };
             AbsField.prototype.hide = function (value) {
                 var that = this;
                 if (!that._isBinded)
@@ -19764,18 +20894,29 @@ var Phoenix;
             };
             AbsField.prototype.setInternalValue = function (value, notify) {
                 var that = this;
-                if (that._isBinded)
+                if (that._isBinded) {
+                    if (notify)
+                        that.form.setValue(that.$bind, value);
+                    else
+                        that.state.value = value;
                     return;
+                }
                 if (that._internalValue !== value) {
                     var ov = that._internalValue;
-                    that._internalValue = value;
+                    if (!notify)
+                        that._internalValue = value;
                     if (that.changed)
-                        that.changed('', ov, value, 'propchange');
+                        that.changed(that.$bind, ov, value, 'propchange');
                     if (that.fieldOptions.onChange)
                         that.fieldOptions.onChange();
+                    if (that.fieldOptions.fwField)
+                        that.form.fwField(that.fieldOptions.fwField, 'set', value);
                 }
             };
             AbsField.prototype.getInternalValue = function () {
+                var that = this;
+                if (that._isBinded)
+                    return that.state.value;
                 return this._internalValue;
             };
             AbsField.prototype.getSettingsName = function (controlName) {
@@ -19822,10 +20963,14 @@ var Phoenix;
                     res.push(that.$bind);
                 return res;
             };
+            AbsField.prototype.fieldState = function () {
+                return this.state;
+            };
             AbsField.prototype.setHidden = function (element) {
+                var that = this;
                 if (!element)
                     return;
-                if (this.state.isHidden)
+                if (that.fieldState().isHidden)
                     _dom.addClass(element, 'bs-none');
                 else
                     _dom.removeClass(element, 'bs-none');
@@ -19951,8 +21096,8 @@ var Phoenix;
                 if (e) {
                     if (hasErrors) {
                         var cerror = errors[0].message;
-                        if (that.renderOptions.inline && Phoenix.bootstrap4)
-                            cerror = '  (' + cerror + ')';
+                        if (that.renderOptions.inline)
+                            cerror = String.fromCharCode(160) + '(' + cerror + ')';
                         _dom.text(e, cerror);
                         _dom.removeClass(e, 'bs-none');
                     }
@@ -20072,14 +21217,276 @@ var Phoenix;
 /// <reference path="./absfield.control.ts" />
 var Phoenix;
 (function (Phoenix) {
+    var arrayactions;
+    (function (arrayactions) {
+        var _p = Phoenix, _utils = _p.utils, _ui = _p.ui, _su = _p.Observable.SchemaUtils, _dom = _p.dom, _locale = _p.locale, _ulocale = _p.ulocale, _uiutils = _p.uiutils;
+        var ArrayActionItems = /** @class */ (function (_super) {
+            __extends(ArrayActionItems, _super);
+            function ArrayActionItems(fp, options, form) {
+                var _this = _super.call(this, fp, options, form) || this;
+                var that = _this;
+                that._selected = [];
+                var config = that.renderOptions;
+                config.links = config.links || [];
+                config.title = config.title || _locale.ui.Actions;
+                config.options = config.options || {};
+                if (config.options.caret === undefined)
+                    config.options.caret = true;
+                config.options.type = config.options.type || 'secondary';
+                if (config.options.titleIsHidden) {
+                    config.options.icon = config.options.icon || config.right ? 'ellipsis-v' : 'bars';
+                }
+                var schemaLinks = that.$schema.links || {};
+                config.links.forEach(function (link) {
+                    link.id = _utils.allocID();
+                    if (!schemaLinks[link.name]) {
+                        console.log('Invalid link name: ' + link.name);
+                        return;
+                    }
+                    link.options = link.options || {};
+                    link.options.type = link.options.type || 'secondary';
+                    link.schema = schemaLinks[link.name];
+                    link.bind = that.$bind + '.$links.' + link.name;
+                    link.isHidden = false;
+                    that.form.registerListenerFor(link.bind, that);
+                });
+                that._updateselected();
+                that._state();
+                return _this;
+                //if (!that.fieldOptions.gridName) {
+                //    console.log('"array-actions" :  gridName is missing.')
+                //}
+            }
+            ArrayActionItems.prototype._state2Ui = function () {
+                var that = this;
+                var actionsVisible = 0;
+                that.renderOptions.links.forEach(function (link) {
+                    var isVisible = !link.state.isHidden;
+                    if (isVisible) {
+                        if (link.schema.select) {
+                            if (that._selected.length) {
+                                if (!link.schema.select.multiselect)
+                                    isVisible = that._selected.length === 1;
+                            }
+                            else
+                                isVisible = false;
+                        }
+                    }
+                    if (isVisible && !link.important)
+                        actionsVisible++;
+                    if (that.$element) {
+                        var ei = _dom.find(that.$element.get(0), link.id);
+                        if (isVisible)
+                            _dom.removeClass(ei, 'bs-none');
+                        else if (!_dom.hasClass(ei, 'bs-none'))
+                            _dom.addClass(ei, 'bs-none');
+                        if (isVisible) {
+                            if (link.state.isDisabled) {
+                                if (!_dom.hasClass(ei, 'disabled'))
+                                    _dom.addClass(ei, 'disabled');
+                            }
+                            else {
+                                _dom.removeClass(ei, 'disabled');
+                            }
+                        }
+                    }
+                });
+                if (that.$element) {
+                    var ei = _dom.find(that.$element.get(0), 'actions_' + that.id);
+                    if (actionsVisible)
+                        _dom.removeClass(ei, 'bs-none');
+                    else if (!_dom.hasClass(ei, 'bs-none'))
+                        _dom.addClass(ei, 'bs-none');
+                }
+            };
+            ArrayActionItems.prototype._updateselected = function () {
+                var that = this;
+                var value = that.form.getValue(that.$bind);
+                if (value)
+                    that._selected = value.getSelectedItems(that.renderOptions.expandingProperty);
+            };
+            ArrayActionItems.prototype._stateOfLink = function (link) {
+                var that = this;
+                var state = that.form.getState(link.bind);
+                link.state = link.state || {};
+                Object.keys(state).forEach(function (pn) { link.state[pn] = state[pn]; });
+            };
+            ArrayActionItems.prototype._state = function () {
+                var that = this;
+                that.renderOptions.links.forEach(function (link) {
+                    that._stateOfLink(link);
+                });
+            };
+            ArrayActionItems.prototype.findLinkByBind = function (bind) {
+                var that = this;
+                for (var i = 0; i < that.renderOptions.links.length; i++) {
+                    if (that.renderOptions.links[i].bind === bind)
+                        return that.renderOptions.links[i];
+                }
+                return null;
+            };
+            ArrayActionItems.prototype.findLinkById = function (id) {
+                var that = this;
+                for (var i = 0; i < that.renderOptions.links.length; i++) {
+                    if (that.renderOptions.links[i].id === id)
+                        return that.renderOptions.links[i];
+                }
+                return null;
+            };
+            ArrayActionItems.prototype.stateChanged = function (propName, params) {
+                var that = this;
+                if (propName && params && params.property && params.property.indexOf('.$links') >= 0) {
+                    var link_3 = that.findLinkByBind(params.property);
+                    if (link_3) {
+                        that._stateOfLink(link_3);
+                        that._state2Ui();
+                    }
+                }
+            };
+            ArrayActionItems.prototype.changed = function (propName, ov, nv, op, params) {
+                var that = this;
+                if (!that.$element)
+                    return;
+                var pp = propName.substr(that.$bind.length);
+                if (pp.indexOf('.$selected') >= 0)
+                    return;
+                if (pp.indexOf('.$links') >= 0)
+                    return;
+                if (op === 'propchange' || op === 'add' || op === 'remove') {
+                    if (propName === that.$bind) {
+                        that._updateselected();
+                        that._state();
+                        that._state2Ui();
+                    }
+                    else {
+                        var prop = propName;
+                        var instPath = _su.parsePath(that.$bind, prop, that.renderOptions.expandingProperty);
+                        var item = params[instPath];
+                        if (item) {
+                            var cp = propName.substr(instPath.length + 1);
+                            if (!cp)
+                                return;
+                            if (_su.isSelectField(cp)) {
+                                that._updateselected();
+                                that._state2Ui();
+                            }
+                        }
+                    }
+                }
+            };
+            ArrayActionItems.prototype._createImportantActions = function (html) {
+                var that = this;
+                that.renderOptions.links.forEach(function (link) {
+                    if (link.important) {
+                        html.push('<div id="' + link.id + '" class="bs-toolbar-item' + (that.renderOptions.right ? ' right' : '') + ' " title="' + _utils.escapeHtml(link.schema.title) + '">');
+                        var outline = false;
+                        if (link.options.outline !== undefined)
+                            outline = link.options.outline;
+                        else if (['default', 'info', 'secondary', 'danger'].indexOf(link.options.type) >= 0)
+                            outline = true;
+                        html.push('<button data-action-id="' + link.id + '" class="bs-button btn btn-' + _dom.bootstrapStyles(outline)[link.options.type] + '" type="button">');
+                        var hasIcon = false;
+                        if (link.options.icon) {
+                            hasIcon = true;
+                            html.push('<span data-action-id="' + link.id + '" class="' + _dom.iconClass(link.options.icon) + '"></span>');
+                        }
+                        if (!link.options.titleIsHidden && link.schema.title) {
+                            html.push('<span data-action-id="' + link.id + '" ' + (hasIcon ? 'class="d-none d-md-inline-block">&nbsp;' : '>') + _utils.escapeHtml(link.schema.title) + '</span>');
+                        }
+                        html.push('</button>');
+                        html.push('</div>');
+                    }
+                });
+            };
+            ArrayActionItems.prototype._createMenuActions = function (html) {
+                var that = this;
+                that.renderOptions.links.forEach(function (link) {
+                    if (!link.important) {
+                        html.push('<a id="' + link.id + '" data-action-id="' + link.id + '" href="#" class="dropdown-item">' + _utils.escapeHtml(link.schema.title) + '</a>');
+                    }
+                });
+            };
+            ArrayActionItems.prototype.render = function ($parent) {
+                var that = this;
+                var opts = that._initOptions(_uiutils.utils.defaultOptions);
+                if (!that.$element) {
+                    that.$element = that._createElement();
+                    that._state2Ui();
+                }
+                that.appendElement($parent, opts);
+                return that.$element;
+            };
+            ArrayActionItems.prototype._createElement = function () {
+                var that = this;
+                var config = that.renderOptions;
+                var html = [];
+                Phoenix.uiutils.utils.fieldWrapper(html, config, that.options.design, function () {
+                    html.push('<div class="bs-focus-online-none bs-toolbar-item ' + (config.right ? ' right' : '') + (config.bottom ? ' bottom' : '') + '">');
+                    that._createImportantActions(html);
+                    html.push('<div class="dropdown">');
+                    html.push('<button id="actions_{0}" title="' + _utils.escapeHtml(config.title) + '" class="bs-button btn btn-' + _dom.bootstrapStyles(true)[config.options.type] + (config.options.caret ? ' dropdown-toggle' : '') + '" id="tooltip-dropdown-{1}" type="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">');
+                    if (config.options.icon)
+                        html.push('<span class="' + _dom.iconClass(config.options.icon) + '"></span>');
+                    if (!config.options.titleIsHidden)
+                        html.push('<span class="d-none d-md-inline-block">&nbsp;' + _utils.escapeHtml(config.title) + ' </span>');
+                    html.push('</button>');
+                    html.push('<div class="dropdown-menu dropdown-menu-right" aria-labelledby="tooltip-dropdown-{1}" data-id="toolCommands">');
+                    that._createMenuActions(html);
+                    html.push('</div>');
+                    html.push('</div>');
+                    html.push('</div>');
+                });
+                return $(_utils.format(html.join(''), that.id));
+            };
+            ArrayActionItems.prototype.destroy = function () {
+                var that = this;
+                if (that.renderOptions) {
+                    that.renderOptions.links.forEach(function (link) {
+                        that.form.unRegisterListenerFor(link.bind, that);
+                    });
+                }
+                _super.prototype.destroy.call(this);
+            };
+            ArrayActionItems.prototype.click = function (event) {
+                var that = this;
+                var target = event.target;
+                if (target.href) {
+                    event.preventDefault();
+                }
+                var actionId = _dom.attr(target, 'data-action-id');
+                if (actionId) {
+                    var link_4 = that.findLinkById(actionId);
+                    if (link_4) {
+                        if (!link_4.isHidden && !link_4.state.isDisabled && !link_4.state.isHidden)
+                            that.form.execAction(link_4.bind, link_4.schema.select ? that._selected : null);
+                        if (that.renderOptions.gridName) {
+                            var grid = that.form.controlByName(that.renderOptions.gridName, false);
+                            if (grid && grid.length)
+                                grid[0].setFocus();
+                        }
+                    }
+                }
+            };
+            return ArrayActionItems;
+        }(Phoenix.ui.AbsField));
+        _ui.registerControl(ArrayActionItems, 'array', false, 'array-actions', null);
+    })(arrayactions || (arrayactions = {}));
+})(Phoenix || (Phoenix = {}));
+/// <reference path="../../../core/core-refs.ts" />
+/// <reference path="./absfield.control.ts" />
+var Phoenix;
+(function (Phoenix) {
     var _utils = Phoenix.utils, _dom = Phoenix.dom, _ui = Phoenix.ui, _uiutils = Phoenix.uiutils;
     var formcomplex;
     (function (formcomplex) {
-        function _createContainer(id, options, authoring) {
+        function _createContainer(id, options, authoring, cb) {
             options = $.extend({ titleIsHidden: false, placeHolder: false, columns: false }, options);
             var html = [];
             if (authoring) {
-                _uiutils.utils.fieldWrapper(html, options, authoring, function () { });
+                _uiutils.utils.fieldWrapper(html, options, authoring, function () {
+                    if (cb)
+                        cb(html);
+                });
             }
             else {
                 var css = [];
@@ -20089,7 +21496,10 @@ var Phoenix;
                 if (css.length)
                     html.push(' class= "' + css.join(' ') + '"');
                 _uiutils.utils.addContainerId(html, authoring);
-                html.push('/></div>');
+                html.push('>');
+                if (cb)
+                    cb(html);
+                html.push('</div>');
             }
             return _utils.format(html.join(''), id);
         }
@@ -20106,7 +21516,7 @@ var Phoenix;
             ComplexBase.prototype._setDisabled = function (element) { };
             ComplexBase.prototype._setReadOnly = function (element) { };
             ComplexBase.prototype._setMandatory = function (element) { };
-            ComplexBase.prototype._state2UI = function () {
+            ComplexBase.prototype._state2UI = function (inRender) {
                 var that = this, element = that.$element ? that.$element.get(0) : null;
                 if (element) {
                     that.renderContent(element);
@@ -20119,12 +21529,12 @@ var Phoenix;
                 }
                 _dom.append(parent, $('<pre>' + s + '</pre>').get(0));
             };
-            ComplexBase.prototype.changed = function (propName, ov, nv, op) {
+            ComplexBase.prototype.changed = function (propName, ov, nv, op, params) {
                 var that = this;
                 that.state.value = that.form.getValue(that.$bind);
-                that._state2UI();
+                that._state2UI(false);
             };
-            ComplexBase.prototype.stateChanged = function (propName, params) {
+            ComplexBase.prototype.stateChanged = function (propName, cparams, params) {
                 var that = this, state = that.form.getState(that.$bind), element = that.$element ? that.$element.get(0) : null;
                 if (state.isHidden !== that.state.isHidden) {
                     that.state.isHidden = state.isHidden;
@@ -20143,12 +21553,16 @@ var Phoenix;
                     that._setMandatory(element);
                 }
             };
+            ComplexBase.prototype._containerContent = function (html) {
+            };
             ComplexBase.prototype.render = function ($parent) {
                 var that = this;
                 var opts = that._initOptions(_uiutils.utils.defaultOptions);
                 if (!that.$element) {
-                    that.$element = $(_createContainer(that.id, opts, that.options.design));
-                    that._state2UI();
+                    that.$element = $(_createContainer(that.id, opts, that.options.design, function (html) {
+                        that._containerContent(html);
+                    }));
+                    that._state2UI(true);
                     that.setEvents(opts);
                 }
                 that.appendElement($parent, opts);
@@ -20167,16 +21581,19 @@ var Phoenix;
 (function (Phoenix) {
     var formarray;
     (function (formarray) {
-        var _p = Phoenix, _customData = _p.customData, _formcomplex = _p.formcomplex, _ui = _p.ui, _utils = _p.utils, _dom = _p.dom, _link = _p.link;
+        var _p = Phoenix, _customData = _p.customData, _formcomplex = _p.formcomplex, _ui = _p.ui, _utils = _p.utils, _dom = _p.dom, _ctrlsinterfaces = _p.ctrlsinterfaces, _observable = Phoenix.Observable, _sutils = _observable.SchemaUtils, _link = _p.link;
         var GRID_COLUMNS = 4;
         var ArrayControl = /** @class */ (function (_super) {
             __extends(ArrayControl, _super);
             function ArrayControl() {
                 return _super !== null && _super.apply(this, arguments) || this;
             }
+            /* IArrayControl */
             ArrayControl.prototype.customOptions = function (options) {
                 var that = this;
                 _super.prototype.customOptions.call(this, options);
+                if (that._render)
+                    return;
                 if (!options.item || !options.item.render)
                     throw 'Item render is null. Use options: { item : {render: "my_item_render"}} ';
                 that._render = _customData.get(options.item.render);
@@ -20184,87 +21601,102 @@ var Phoenix;
                     throw 'Item render isn\'t registered. Use customData.register("' + options.item.render + '", controller);';
                 }
             };
-            ArrayControl.prototype._renderContentElement = function (item, index, itemAfter) {
-                if (itemAfter === void 0) { itemAfter = false; }
-                var self = this;
+            ArrayControl.prototype._renderContentElement = function (parent, item, index) {
+                var that = this;
                 var itemParent;
+                var model = item.model ? item.model(true) : item;
                 var itemCss = [];
-                if (self._layout === 'scroll')
-                    itemCss.push(self._id + '_inScroll');
-                if (self._layout === 'grid' || self._layout === 'column') {
-                    var ci = index % self._columns;
-                    if ((ci === 0 && self._layout === 'grid') || (index === 0 && self._layout === 'column')) {
-                        self._row = $('<div class="row"></div>').get(0);
-                        var bootstrapCol = Math.floor(12 / self._columns);
-                        for (var i = 0; i < self._columns; i++)
-                            _dom.append(self._row, $('<div class="col-sm-' + bootstrapCol + '"></div>').get(0));
-                        _dom.append(self._cp, self._row);
+                var itemContainer;
+                if (that._layout === 'grid' || that._layout === 'column') {
+                    var ci = index % that._columns;
+                    if ((ci === 0 && that._layout === 'grid') || (index === 0 && that._layout === 'column')) {
+                        that._row = $('<div class="row"></div>').get(0);
+                        var bootstrapCol = Math.floor(12 / that._columns);
+                        for (var i = 0; i < that._columns; i++) {
+                            var col = document.createElement('div');
+                            col.className = (that.renderOptions.layout.noPadding ? 'no-x-padding ' : '') + 'col-sm-' + bootstrapCol;
+                            _dom.append(that._row, col);
+                        }
+                        _dom.append(parent, that._row);
                     }
-                    itemParent = self._row.childNodes[ci];
+                    itemParent = that._row ? that._row.childNodes[ci] : null;
                 }
-                else {
-                    itemParent = self._cp;
+                else if (that._layout === 'group') {
+                    var gi = document.createElement('a');
+                    gi.href = '#';
+                    itemCss.push('list-group-item list-group-item-action flex-column align-items-start');
+                    itemContainer = gi;
+                    itemParent = parent;
+                }
+                else if (that._layout === 'inline') {
+                    itemParent = parent;
                     itemCss.push('bs-inline-block bs-va-top');
                 }
-                if (self.renderOptions.item.style) {
-                    _dom.parseStyle(self.renderOptions.item.style, itemCss);
-                }
-                var itemContainer = $('<div class="' + itemCss.join(' ') + '"></div>').get(0);
-                if (itemAfter)
-                    self._parentItemAddedInDom = itemContainer;
                 else {
-                    if (!item && self._render.lastRender)
-                        self._render.lastRender(itemContainer, item, self._id, index);
-                    else
-                        self._render.render(itemContainer, item, self._map, self.state.value.get(index), index);
+                    itemParent = that.renderCustomLayoutCreateParentOfItem(parent, item, index);
                 }
-                _dom.append(itemParent, itemContainer);
+                if (that.renderOptions.item && that.renderOptions.item.style)
+                    _dom.parseStyle(that.renderOptions.item.style, itemCss);
+                if (!itemContainer)
+                    itemContainer = document.createElement('div');
+                _dom.attr(itemContainer, 'data-array-item', item.$id);
+                if (itemCss.length)
+                    itemContainer.className = itemCss.join(' ');
+                that._render.render(itemContainer, model, that._map, item, index, that.renderOptions.item);
+                if (itemParent)
+                    _dom.append(itemParent, itemContainer);
             };
-            ArrayControl.prototype.beforeRenderContent = function () {
-                var self = this;
-                self._render && self._render.beforeRenderContent && self._render.beforeRenderContent(self);
+            ArrayControl.prototype.beforeRenderContent = function (parent) {
+                var that = this, render = that._render;
+                render && render.beforeRenderContent && render.beforeRenderContent(self, parent);
+            };
+            ArrayControl.prototype.renderCustomLayout = function (parent) {
+            };
+            ArrayControl.prototype.renderCustomLayoutCreateParentOfItem = function (parent, item, index) {
             };
             // Create content
             ArrayControl.prototype.renderContent = function (parent) {
-                var that = this, columns = 0, scrollLeft = null, scrollRight = null;
+                var that = this;
                 _dom.empty(parent);
-                that._parent = parent;
-                that._id = _utils.allocID();
                 that._map = {};
+                var model = that.state.value;
                 that._layout = 'inline';
                 if (that.renderOptions && that.renderOptions.layout)
                     that._layout = that.renderOptions.layout.type;
-                that._cp = document.createDocumentFragment();
-                if (that._layout === 'grid' || that._layout === 'column')
-                    that._columns = Math.max(Math.min(that.renderOptions.layout.columns || GRID_COLUMNS, 12), 1);
-                var m = that.state.value.model(true);
-                that._localModel = m;
-                that.beforeRenderContent();
-                m && m.forEach(function (item, index) {
-                    that._renderContentElement(item, index);
-                });
-                if (that._render.lastRender)
-                    that._renderContentElement(null, m && m.length);
-                that._renderContentElement(null, m && m.length + 1, true);
                 if ((that._layout === 'grid' || that._layout === 'column') && !_dom.hasClass(parent, 'container-fluid'))
                     _dom.addClass(parent, 'container-fluid');
-                if (that._layout === 'scroll') {
-                    var scrollContainer = $(_utils.format('<div id="{0}_overflow" class="array-control-overflow">', that._id)).get(0);
-                    _dom.append(scrollContainer, $(_utils.format('<div id="{0}_left" class="{0}_move array-control-move array-control-goLeft"><span class="{1}"></span></div>', that._id, _dom.iconClass('chevron-left'))).get(0));
-                    _dom.append(scrollContainer, $(_utils.format('<div id="{0}_right" class="{0}_move array-control-move array-control-goRight"><span class="{1}"></span></div>', that._id, _dom.iconClass('chevron-right'))).get(0));
-                    var container = $(_utils.format('<div id="{0}_container"></div>', that._id)).get(0);
-                    _dom.append(scrollContainer, container);
-                    _dom.append(container, that._cp);
-                    _dom.append(parent, scrollContainer);
+                var fragment = document.createDocumentFragment();
+                that.beforeRenderContent(fragment);
+                if (that._layout === 'grid' || that._layout === 'column')
+                    that._columns = Math.max(Math.min(that.renderOptions.layout.columns || GRID_COLUMNS, 12), 1);
+                var first = null;
+                if (model) {
+                    model.forEach(function (item, index) {
+                        if (!first && that._layout === 'group') {
+                            first = document.createElement('div');
+                            first.className = 'list-groups';
+                            _dom.append(parent, first);
+                            parent = first;
+                        }
+                        that._renderContentElement(parent, item, index);
+                    });
                 }
-                else
-                    _dom.append(parent, that._cp);
+                _dom.append(parent, fragment);
+                that._row = null;
             };
             ArrayControl.prototype.destroy = function () {
                 var that = this;
                 that._map = null;
-                that._render = null;
+                if (that.pager) {
+                    that.pager.destroy();
+                    that.pager = null;
+                }
+                if (that.toolBar) {
+                    that.toolBar.destroy();
+                    that.toolBar = null;
+                }
                 _super.prototype.destroy.call(this);
+                that._render = null;
             };
             ArrayControl.prototype.setEvents = function (opts) {
                 var that = this;
@@ -20287,94 +21719,9 @@ var Phoenix;
                     self._render.afterAddedInDomRender(self._parentItemAddedInDom, self._id);
             };
             ArrayControl.prototype.resize = function () {
-                var self = this;
-                var width = 0, height = 0, maxWidth = 0;
-                if (self._layout === 'scroll') {
-                    self._nOverflow = $(_utils.format('#{0}_overflow', self._id));
-                    self._nCtrlLeft = $(_utils.format('#{0}_left', self._id));
-                    self._nCtrlRight = $(_utils.format('#{0}_right', self._id));
-                    self._nContainer = $(_utils.format('#{0}_container', self._id));
-                    self._nInScroll = $(_utils.format('.{0}_inScroll', self._id));
-                    self._nCtrls = $(_utils.format('.{0}_move', self._id));
-                    self._nInScroll.each(function () {
-                        width += $(this).outerWidth();
-                        if ($(this).height() > height)
-                            height = $(this).height();
-                        if ($(this).outerWidth() > maxWidth)
-                            maxWidth = $(this).outerWidth();
-                    });
-                    width = Math.round(width);
-                    height = Math.round(height);
-                    self._nContainer.css('width', width + "px");
-                    self._nContainer.css('height', (height + 10) + "px");
-                    var heightMoveCtrl = self._nCtrls.height();
-                    self._nCtrls.css('padding-top', Math.round(height / 2 - heightMoveCtrl / 2));
-                    self._nCtrls.css('padding-bottom', Math.round(height / 2 - heightMoveCtrl / 2));
-                    var paddingBorder = 10;
-                    var paddingCenter = 20;
-                    self._nCtrlLeft.css('padding-left', paddingBorder);
-                    self._nCtrlLeft.css('padding-right', paddingCenter);
-                    self._nCtrlRight.css('padding-left', paddingCenter);
-                    self._nCtrlRight.css('padding-right', paddingBorder);
-                    self._nCtrlRight.css('left', Math.round(self._nOverflow.outerWidth() - (paddingCenter + paddingBorder + self._nCtrls.width() + 3)));
-                    self._setMoveCtrls();
-                    self._moveDelta = 0;
-                    self._nCtrlLeft.mouseenter(function () {
-                        self._moveDelta = -5;
-                        self._activeMove();
-                    });
-                    self._nCtrlLeft.mouseleave(function () {
-                        self._moveDelta = 0;
-                    });
-                    self._nCtrlRight.mouseenter(function () {
-                        self._moveDelta = 5;
-                        self._activeMove();
-                    });
-                    self._nCtrlRight.mouseleave(function () {
-                        self._moveDelta = 0;
-                    });
-                }
-                if (self._render.afterResize)
-                    self._render.afterResize(self._id, self.state.value, self.form);
-            };
-            ArrayControl.prototype.changed = function (propName, ov, nv, op) {
-                _super.prototype.changed.call(this, propName, ov, nv, op);
-                var self = this;
-                /*var m = self.state.value.model(true);
-                if (m === self._localModel)
-                    return;
-                self._localModel = m;*/
-                setTimeout(function () {
-                    self.afterAddedInDom();
-                    self.resize();
-                }, 50);
-            };
-            ArrayControl.prototype._activeMove = function () {
-                var self = this;
-                if (self._moveDelta == 0)
-                    self._moving = false;
-                else if (!self._moving) {
-                    setTimeout(function () { self._move(self); }, 10);
-                    self._moving = true;
-                }
-            };
-            ArrayControl.prototype._setMoveCtrls = function () {
-                var self = this;
-                var scroll = self._nOverflow.scrollLeft();
-                self._nCtrlLeft.css('display', 'block');
-                self._nCtrlRight.css('display', 'block');
-                if (scroll == 0)
-                    self._nCtrlLeft.css('display', 'none');
-                if (scroll + self._nOverflow.outerWidth() + 1 > self._nContainer.outerWidth())
-                    self._nCtrlRight.css('display', 'none');
-            };
-            ArrayControl.prototype._move = function (ctx) {
-                var self = ctx;
-                var scroll = self._nOverflow.scrollLeft();
-                self._nOverflow.scrollLeft(scroll + self._moveDelta);
-                self._moving = false;
-                self._activeMove();
-                self._setMoveCtrls();
+                var that = this;
+                if (that._render.afterResize)
+                    that._render.afterResize(that.id, that.state.value, that.form);
             };
             return ArrayControl;
         }(Phoenix.formcomplex.ComplexBase));
@@ -20391,7 +21738,7 @@ var Phoenix;
 (function (Phoenix) {
     var gridrender;
     (function (gridrender) {
-        var _utils = Phoenix.utils, _dom = Phoenix.dom, _ui = Phoenix.ui, _uiutils = Phoenix.uiutils, _ulocale = Phoenix.ulocale, _su = Phoenix.Observable.SchemaUtils;
+        var _p = Phoenix, _utils = _p.utils, _customData = _p.customData, _dom = _p.dom, _ui = _p.ui, _uiutils = _p.uiutils, _ulocale = _p.ulocale, _su = _p.Observable.SchemaUtils;
         var _addDesign = function (id, options, authoring, html) {
             if (authoring)
                 html.push(' draggable="true"');
@@ -20442,9 +21789,9 @@ var Phoenix;
             else {
                 if (!options.headerIsHidden) {
                     if (isFrozen)
-                        el = Phoenix.dom.find(parent, id + '_frozen_cols');
+                        el = Phoenix.dom.find(parent, id + '_frozen_cols_tr');
                     else
-                        el = Phoenix.dom.find(parent, id + '_cols');
+                        el = Phoenix.dom.find(parent, id + '_cols_tr');
                     if (el)
                         res.push(el);
                 }
@@ -20526,14 +21873,37 @@ var Phoenix;
                 _dom.append(frag, cc);
             });
             return frag;
-        }, _createCols = function (id, columns, options, authoring, locale, orderby, isFrozen) {
+        }, _createCols = function (id, sufix, columns, options, authoring, locale, orderby, isFrozen, form) {
             var frag = document.createDocumentFragment();
+            var colTr = document.createElement('tr');
+            colTr.className = 'bs-va-middle';
+            colTr.id = id + sufix + '_tr';
             var aorderby = (orderby || '').split(' ');
+            var checkGroups = options.groups ? true : false;
+            var groups = [];
             columns.forEach(function (col, colIndex) {
                 var css;
                 var th = document.createElement('th');
                 _dom.attr(th, 'colId', col.$bind);
                 _dom.attr(th, 'data-drag', 'move');
+                if (checkGroups) {
+                    if (!col.group) {
+                        checkGroups = false;
+                        console.log('Grid ' + col.$bind + ': no group defined!');
+                    }
+                    else if (!options.groups[col.group]) {
+                        checkGroups = false;
+                        console.log('Grid ' + col.$bind + ': group nof found: ' + col.group);
+                    }
+                    if (checkGroups) {
+                        var og = options.groups[col.group];
+                        var lastGroup = groups.length ? groups[groups.length - 1] : null;
+                        if (lastGroup && lastGroup.name === col.group)
+                            lastGroup.colSpan = lastGroup.colSpan + 1;
+                        else
+                            groups.push({ name: col.group, colSpan: 1, title: og.title, group: og.group });
+                    }
+                }
                 if (!options._useColGrp) {
                     if (col.options.width)
                         th.style.width = _ensureWidth(col.options.width);
@@ -20570,7 +21940,7 @@ var Phoenix;
                 if (options.selecting && options.selecting.multiselect && options.selecting.selectAll && _su.isSelectField(col.$bind)) {
                     var v = _uiutils.utils.displayValue(false, col.schema, locale, {
                         html: true, selectable: true, editable: true, isTotal: false, check: true,
-                        avanced: col.options || {}, tableOptions: options, state: {}
+                        avanced: col.options || {}, tableOptions: options, state: {}, form: form
                     }, null, col.$bind);
                     if (v.html) {
                         var $c = $(v.value);
@@ -20604,20 +21974,62 @@ var Phoenix;
                 }
                 if (css)
                     th.className = css.join(' ');
-                _dom.append(frag, th);
+                _dom.append(colTr, th);
             });
+            _dom.append(frag, colTr);
+            var firstChild = colTr;
+            checkGroups = checkGroups && groups.length > 0;
+            var _loop_2 = function () {
+                var grpTr = document.createElement('tr');
+                grpTr.className = 'bs-va-middle';
+                var cg = groups;
+                groups = [];
+                cg.forEach(function (group) {
+                    if (checkGroups) {
+                        if (!group.group) {
+                            checkGroups = false;
+                        }
+                        else if (!options.groups[group.group]) {
+                            checkGroups = false;
+                            console.log('Grid group for group not found: ' + group.group);
+                        }
+                    }
+                    if (checkGroups) {
+                        var og = options.groups[group.group];
+                        var lastGroup = groups.length ? groups[groups.length - 1] : null;
+                        if (lastGroup && lastGroup.name === group.group)
+                            lastGroup.colSpan = lastGroup.colSpan + group.colSpan;
+                        else
+                            groups.push({ name: group.group, colSpan: group.colSpan, title: og.title, group: og.group });
+                    }
+                    var th = document.createElement('th');
+                    if (group.colSpan > 1)
+                        th.colSpan = group.colSpan;
+                    var cth = document.createElement('div');
+                    cth.className = 'bs-column-header align-center';
+                    _dom.append(cth, document.createTextNode(group.title || String.fromCharCode(160)));
+                    _dom.append(th, cth);
+                    _dom.append(grpTr, th);
+                });
+                checkGroups = checkGroups && groups.length > 0;
+                _dom.before(firstChild, grpTr);
+                firstChild = grpTr;
+            };
+            while (checkGroups) {
+                _loop_2();
+            }
             return frag;
-        }, _createGridRows = function (id, rows, values, columns, options, authoring, locale) {
+        }, _createGridRows = function (id, rows, values, columns, options, authoring, locale, form) {
             var frag = document.createDocumentFragment();
             rows && rows.forEach(function (row, rowIndex) {
-                _dom.append(frag, _createGridRow(id, rowIndex, row, values, columns, options, authoring, locale));
+                _dom.append(frag, _createGridRow(id, rowIndex, row, values, columns, options, authoring, locale, form));
             });
             return frag;
         }, 
         /*
         *  row: {name: fieldName, schema: {}}
         */
-        _createGridRow = function (id, index, row, values, columns, options, authoring, locale) {
+        _createGridRow = function (id, index, row, values, columns, options, authoring, locale, form) {
             var tr = document.createElement('tr');
             if (options.align === 'middle')
                 _dom.addClass(tr, 'bs-va-middle');
@@ -20632,7 +22044,10 @@ var Phoenix;
                     td['rowIndex'] = index;
                     td['colIndex'] = colIndex - 1;
                     var item = values.get(colIndex - 1);
-                    var v = _uiutils.utils.displayValue(item.getRelativeValue(row.name), row.schema, locale, { html: true, useSymbol: true, editable: row.canEdit, check: row.check, avanced: null, tableOptions: options, state: null }, item, row.name);
+                    var v = _uiutils.utils.displayValue(item.getRelativeValue(row.name), row.schema, locale, {
+                        html: true, useSymbol: true, editable: row.canEdit, check: row.check, avanced: null,
+                        tableOptions: options, state: null, form: form
+                    }, item, row.name);
                     if (v.html) {
                         var $c = $(v.value);
                         _dom.append(td, $c.get(0));
@@ -20661,7 +22076,7 @@ var Phoenix;
                         _dom.removeClass(ctr, 'bs-row-selected');
                 });
             }
-        }, _createRow = function (id, index, level, row, columns, options, authoring, locale, isOdd, isFrozen, isTotal, totalOptions) {
+        }, _createRow = function (id, index, level, row, columns, options, authoring, locale, isOdd, isFrozen, isTotal, totalOptions, form) {
             var _bootstrap4 = Phoenix.bootstrap4;
             var tr = document.createElement('tr');
             tr.id = row.$id + (isFrozen ? '_frozen' : '');
@@ -20741,53 +22156,8 @@ var Phoenix;
                     if (!state.isHidden) {
                         if (col.isLink) {
                             if (!isTotal) {
-                                var btn = void 0, span = void 0;
-                                if (col.options.button) {
-                                    var _space = '';
-                                    btn = document.createElement('button');
-                                    btn.type = 'button';
-                                    if (state.isDisabled)
-                                        btn.disabled = true;
-                                    var sz = col.options.size || 'sm';
-                                    var sizeCss = sz === 'normal' ? '' : ' btn-' + sz;
-                                    var cc = (col.options.type || 'link');
-                                    cc = _dom.bootstrapStyles(col.options.outline)[cc];
-                                    btn.className = 'bs-button btn btn-' + cc + sizeCss + (state.isDisabled ? ' disabled' : '');
-                                    if (col.options.icon) {
-                                        span = document.createElement('span');
-                                        span.className = _dom.iconClass(col.options.icon);
-                                        _dom.append(btn, span);
-                                        _space = ' ';
-                                    }
-                                    if (col.schema.title) {
-                                        if (col.options.titleIsHidden) {
-                                            btn.title = col.schema.title;
-                                        }
-                                        else {
-                                            var tn = document.createTextNode(_space + col.schema.title);
-                                            _dom.append(btn, tn);
-                                        }
-                                    }
-                                }
-                                else if (col.options.icon) {
-                                    btn = document.createElement('center');
-                                    if (state.isDisabled) {
-                                        _dom.addClass(btn, 'bs-disabled');
-                                    }
-                                    span = document.createElement('span');
-                                    var cssb = ['text-' + (col.options.type || 'default')];
-                                    cssb.push('bs-basictable-btn');
-                                    cssb.push(_dom.iconClass(col.options.icon));
-                                    span.className = cssb.join(' ');
-                                    _dom.append(btn, span);
-                                }
-                                else {
+                                if (!_uiutils.utils.renderButton(col.$bind, col.options, state, col.schema, td, row))
                                     appendSpace = true;
-                                }
-                                if (btn) {
-                                    btn['$link'] = col.$bind;
-                                    _dom.append(td, btn);
-                                }
                             }
                         }
                         else {
@@ -20797,9 +22167,9 @@ var Phoenix;
                             if (!state.isHidden) {
                                 var dv = null;
                                 if (co.display && co.displaySchema) {
-                                    dv = _uiutils.utils.displayValue(row.getRelativeValue(co.display), co.displaySchema, locale, { tableOptions: options, avanced: co.displayOptions || {}, state: row.getRelativeState(co.display) }, row, co.display);
+                                    dv = _uiutils.utils.displayValue(row.getRelativeValue(co.display), co.displaySchema, locale, { tableOptions: options, avanced: co.displayOptions || {}, state: row.getRelativeState(co.display), form: form }, row, co.display);
                                 }
-                                var v = _uiutils.utils.displayValue(row.getRelativeValue(col.$bind), col.schema, locale, { html: true, useSymbol: false, selectable: !state.isDisabled, editable: editable, isTotal: isTotal, check: options.editing, avanced: co, tableOptions: options, display: dv, level: level, state: state }, row, col.$bind);
+                                var v = _uiutils.utils.displayValue(row.getRelativeValue(col.$bind), col.schema, locale, { html: true, useSymbol: false, selectable: !state.isDisabled, editable: editable, isTotal: isTotal, check: options.editing, avanced: co, tableOptions: options, display: dv, level: level, state: state, form: form }, row, col.$bind);
                                 if (v.html) {
                                     var $c = $(v.value);
                                     _dom.append(p, $c.get(0));
@@ -20824,17 +22194,17 @@ var Phoenix;
                 _dom.append(tr, td);
             });
             return tr;
-        }, _createBulkRows = function (id, rows, columns, options, authoring, locale, isFrozen, isTotal, cb) {
+        }, _createBulkRows = function (id, rows, columns, options, authoring, locale, isFrozen, isTotal, cb, form) {
             var frag = document.createDocumentFragment();
             rows && rows.forEach(function (row, rowIndex) {
                 var level = row.level || 0;
                 if (cb)
                     cb(row.value, rowIndex, level);
                 var isOdd = rowIndex % 2 === 1;
-                _dom.append(frag, _createRow(id, rowIndex, level, row.value, columns, options, authoring, locale, isOdd, isFrozen, isTotal, null));
+                _dom.append(frag, _createRow(id, rowIndex, level, row.value, columns, options, authoring, locale, isOdd, isFrozen, isTotal, null, form));
             });
             return frag;
-        }, _createRows = function (id, rows, columns, options, authoring, locale, isFrozen, isTotal, cb, totalField, stopField) {
+        }, _createRows = function (id, rows, columns, options, authoring, locale, isFrozen, isTotal, cb, totalField, stopField, form) {
             var totalOptions = null;
             if (totalField || stopField) {
                 var colspan = 0;
@@ -20858,7 +22228,7 @@ var Phoenix;
                 if (cb)
                     cb(row, rowIndex, level);
                 var isOdd = rowIndex % 2 === 1;
-                _dom.append(frag, _createRow(id, rowIndex, level, row, columns, options, authoring, locale, isOdd, isFrozen, isTotal, totalOptions));
+                _dom.append(frag, _createRow(id, rowIndex, level, row, columns, options, authoring, locale, isOdd, isFrozen, isTotal, totalOptions, form));
             }, options.expandingProperty);
             return frag;
         }, _canUseColGroups = function (options, columns) {
@@ -20963,11 +22333,11 @@ var Phoenix;
                 html.push('<colgroup id="{0}_colgrp' + (isFrozen ? '_frozen' : '') + (isHeader ? '_header' : '') + (isFooter ? '_footer' : '') + '"></colgroup>');
             if (isHeader) {
                 if (!options.headerIsHidden)
-                    html.push('<thead><tr class="bs-va-middle" id="{0}' + (isFrozen ? '_frozen' : '') + '_cols"></tr></thead>');
+                    html.push('<thead id="{0}' + (isFrozen ? '_frozen' : '') + '_cols"> </thead>');
             }
             else if (!vscrolling) {
                 if (!options.headerIsHidden)
-                    html.push('<thead><tr class="bs-va-middle" id="{0}' + (isFrozen ? '_frozen' : '') + '_cols"></tr></thead>');
+                    html.push('<thead id="{0}' + (isFrozen ? '_frozen' : '') + '_cols"> </thead>');
                 if (options.total && options.total.property)
                     html.push('<tfoot id="{0}' + (isFrozen ? '_frozen' : '') + '_totals"></tfoot>');
             }
@@ -21033,12 +22403,15 @@ var Phoenix;
             return _dom.hasClass(container, 'minimized');
         }, _setMultiselectMinimized = function (minimized, id, container) {
             var closeBtn = _dom.find(container, id + '_close_ms');
+            var title = _dom.find(container, id + '_title_ms');
             if (minimized) {
                 _dom.addClass(container, 'minimized');
                 if (closeBtn) {
                     _dom.removeClass(closeBtn, Phoenix.dom.iconClass('window-minimize', true));
                     _dom.addClass(closeBtn, Phoenix.dom.iconClass('window-maximize', true));
                 }
+                if (title)
+                    _dom.addClass(title, 'bs-none');
             }
             else {
                 _dom.removeClass(container, 'minimized');
@@ -21046,32 +22419,49 @@ var Phoenix;
                     _dom.removeClass(closeBtn, Phoenix.dom.iconClass('window-maximize', true));
                     _dom.addClass(closeBtn, Phoenix.dom.iconClass('window-minimize', true));
                 }
+                if (title)
+                    _dom.removeClass(title, 'bs-none');
             }
-        }, _createMultiselectItems = function (id, container, options, items) {
+        }, _defaultCreateMultiselectItems = function (id, container, options, items, form) {
             var itemsContainer = _dom.find(container, id + '_ms_list');
             var exp = options.rowMove.expression || '{{$id}}';
+            var hnd = null;
+            if (options.rowMove.lineRender) {
+                hnd = _customData.get(options.rowMove.lineRender);
+            }
             var toClone = $('<li class="list-group-item bs-list-item-button"></li>').get(0);
             var btn = $('<div class="bs-list-button"><span class="' + _dom.iconClass('times') + '"></span></div>').get(0);
             var d = document.createDocumentFragment();
-            items.forEach(function (item) {
+            items.forEach(function (ii) {
+                var item = ii.data;
                 var e = toClone.cloneNode();
                 _dom.attr(e, 'data-ms-unselect', item.$id);
-                _dom.text(e, _utils.execAngularExpression(exp, item.model(true)));
+                if (hnd) {
+                    var element = hnd(options, item.model(true), ii.level, form);
+                    if (!element)
+                        return;
+                    _dom.append(e, element);
+                }
+                else {
+                    _dom.text(e, _utils.execAngularExpression(exp, item.model(true)));
+                }
                 _dom.append(d, e);
                 _dom.append(e, btn.cloneNode(true));
             });
             while (itemsContainer.firstChild)
                 _dom.remove(itemsContainer.firstChild);
             _dom.append(itemsContainer, d);
-        }, _createMultiselectContainer = function (id, maximized) {
+        }, _createMultiselectItems = function (id, container, options, items, form) {
+            _defaultCreateMultiselectItems(id, container, options, items, form);
+        }, _createMultiselectContainer = function (id, maximized, title) {
             var html = ['<div class="modal-content bs-table-selected-list" id="{0}_ms">'];
-            html.push('<div class="bs-table-selected-list-header"><span id="{0}_close_ms" class="icon-close {1}"></span></div>');
+            html.push('<div class="bs-table-selected-list-header"><span id="{0}_title_ms" class="title bs-none">{2}</span><span id="{0}_close_ms" class="icon-close {1}"></span></div>');
             html.push('<div class="bs-table-selected-list-content">');
-            html.push('<ul class="list-group"  id="{0}_ms_list">');
+            html.push('<ul class="list-group" id="{0}_ms_list">');
             html.push('</ul>');
             html.push('</div>');
             html.push('</div>');
-            var e = $(_utils.format(html.join(''), id, _dom.iconClass('window-minimize'))).get(0);
+            var e = $(_utils.format(html.join(''), id, _dom.iconClass('window-minimize'), title || '')).get(0);
             if (!maximized)
                 _setMultiselectMinimized(true, id, e);
             return e;
@@ -21408,19 +22798,29 @@ var Phoenix;
     })(gridrender = Phoenix.gridrender || (Phoenix.gridrender = {}));
 })(Phoenix || (Phoenix = {}));
 /// <reference path="../../../core/core-refs.ts" />
+/// <reference path="../../pager.control.ts" />
+var Phoenix;
+(function (Phoenix) {
+    var ctrlsinterfaces;
+    (function (ctrlsinterfaces) {
+        ctrlsinterfaces.glbGridFilter = null;
+        ctrlsinterfaces.glbGridSettings = null;
+        ctrlsinterfaces.glbMongoFilter2Filter = null;
+    })(ctrlsinterfaces = Phoenix.ctrlsinterfaces || (Phoenix.ctrlsinterfaces = {}));
+})(Phoenix || (Phoenix = {}));
+/// <reference path="../../../core/core-refs.ts" />
 /// <reference path="./absfield.control.ts" />
 /// <reference path="../errors.data.ts" />
 /// <reference path="../../pager.control.ts" />
 /// <reference path="./basicgrid.ts" />
 /// <reference path="./uiutils.ts" />
+/// <reference path="./controls.ts" />
 var Phoenix;
 (function (Phoenix) {
-    var _utils = Phoenix.utils, _dom = Phoenix.dom, _ui = Phoenix.ui, _ulocale = Phoenix.ulocale, _uiutils = Phoenix.uiutils, _observable = Phoenix.Observable, _gridrender = Phoenix.gridrender, _gu = _gridrender.GridUtil, _eu = _observable.errorsUtils, _link = Phoenix.link, _locale = Phoenix.locale, _drag = Phoenix.drag, _events = Phoenix.events, _sutils = _observable.SchemaUtils;
+    var _utils = Phoenix.utils, _dom = Phoenix.dom, _ui = Phoenix.ui, _ulocale = Phoenix.ulocale, _uiutils = Phoenix.uiutils, _observable = Phoenix.Observable, _gridrender = Phoenix.gridrender, _gu = _gridrender.GridUtil, _customData = Phoenix.customData, _eu = _observable.errorsUtils, _link = Phoenix.link, _ctrlsinterfaces = Phoenix.ctrlsinterfaces, _locale = Phoenix.locale, _drag = Phoenix.drag, _events = Phoenix.events, _sutils = _observable.SchemaUtils;
     var formgrid;
     (function (formgrid) {
         var MIN_COL_WIDTH = 20, MAX_COL_WIDTH = 2000;
-        formgrid.toolBarFactory = null;
-        formgrid.toolBarRender = null;
         var withModifier = function ($event, key) {
             if (key === _dom.keys.VK_TAB && $event.shiftKey)
                 return false;
@@ -21434,9 +22834,6 @@ var Phoenix;
             return false;
         };
         formgrid.gridlookup = null;
-        formgrid.glbGridFilter = null;
-        formgrid.glbGridSettings = null;
-        formgrid.glbMongoFilter2Filter = null;
         var BasicGrid = /** @class */ (function (_super) {
             __extends(BasicGrid, _super);
             function BasicGrid(fp, options, form) {
@@ -21502,6 +22899,8 @@ var Phoenix;
                 // load config 
                 that.checkOptions(that.fieldOptions);
                 that._initOrigColumns(that.fieldOptions);
+                if (that.state.value && that.state.value.columns)
+                    that._setVisiblesColumns(that.fieldOptions, that.state.value.columns, true);
                 that._initCols(that.fieldOptions);
                 that._details = [];
                 that._onselectItemHandler = that._onselectItem.bind(that);
@@ -21511,13 +22910,21 @@ var Phoenix;
                 var that = this;
                 that._originalCols = {};
                 opts.columns = opts.columns || [];
+                var bindVisibilityFields = [];
                 opts.columns.forEach(function (col) {
                     col.options = col.options || {};
                     if (col.$bind === _observable.EXPANDED_FIELD_NAME && col.options.display) {
                         that._originalCols[col.options.display] = $.extend(true, {}, col);
                         that._originalCols[col.options.display].options._expandItem = true;
                     }
+                    if (col.options.bindVisibility && (bindVisibilityFields.indexOf(col.options.bindVisibility) < 0)) {
+                        bindVisibilityFields.push(col.options.bindVisibility);
+                    }
                 });
+                if (bindVisibilityFields.length) {
+                    that._bindVisibility = bindVisibilityFields;
+                    that._bindVisibility.forEach(function (field) { return that.form.registerListenerFor(field, that); });
+                }
             };
             BasicGrid.prototype.checkOptions = function (opts) {
                 if (opts.allowColumnMove === undefined)
@@ -21553,8 +22960,13 @@ var Phoenix;
             BasicGrid.prototype._inplaceEditValue2Model = function (value, item, col) {
                 var that = this;
                 var state = item.getState(col.$bind);
-                var nv = _sutils.text2Value(value, col.schema, state);
+                if (_sutils._isMoney(col.schema))
+                    state.moneyUnitCoef = that.form.moneyUnitCoef;
                 var ov = item.getValue(col.$bind);
+                var cv = _sutils.value2Text(ov, col.schema, state);
+                if (cv === value)
+                    return;
+                var nv = _sutils.text2Value(value, col.schema, state);
                 if (nv !== ov) {
                     item.setValue(col.$bind, nv);
                     return true;
@@ -21592,6 +23004,8 @@ var Phoenix;
                 var that = this;
                 if (that.inplace.schema.enum) {
                     $(that.inplace.input).on('change', function (event) {
+                        if (that.form.isInProcessing)
+                            return that.form.freeze(event);
                         var td = that.inplace.td;
                         var cell = that._td2value(td);
                         var iv = that._inplaceEditGetValue(cell);
@@ -21627,6 +23041,8 @@ var Phoenix;
                 var cell = that._td2value(td);
                 var value = cell.item.getValue(cell.col.$bind);
                 var state = cell.item.getState(cell.col.$bind);
+                if (_sutils.isMoney)
+                    state.moneyUnitCoef = that.form.moneyUnitCoef;
                 var s = _sutils.value2Text(value, cell.col.schema, state);
                 td.tabIndex = -1;
                 var opts = { type: 'text', after: null, id: null };
@@ -21706,18 +23122,20 @@ var Phoenix;
                                 that._modifyCell(cell_1.item, cell_1.col.$bind, null, td_1);
                             }
                         }
+                        // <--- END LOOKUP
                         else if (isCancel || !that._inplaceEditValue2Model(s + '', cell_1.item, cell_1.col))
                             that._modifyCell(cell_1.item, cell_1.col.$bind, null, td_1);
                     }
                 }
                 that._destroyInplaceEdit();
             };
-            BasicGrid.prototype._inplaceEditModel2Control = function (item, field, td) {
+            BasicGrid.prototype._inplaceEditModel2Control = function (item, field, td, form) {
                 var that = this;
                 var cell = that._td2value(td);
-                var iv = that._inplaceEditGetValue(cell);
                 var value = item.getValue(cell.col.$bind);
                 var state = item.getState(cell.col.$bind);
+                if (_sutils._isMoney(cell.col.schema))
+                    state.moneyUnitCoef = that.form.moneyUnitCoef;
                 var s = _sutils.value2Text(value, cell.col.schema, state);
                 var opts = {};
                 _gu.updateInplaceEdit(that.inplace, s, value, state, td, cell, cell.col, opts);
@@ -21729,6 +23147,8 @@ var Phoenix;
                 }
                 //if (that._scrollableFrozenContent  && (that.fieldOptions.editing || (that.fieldOptions.selecting && that.fieldOptions.selecting.cell)))
                 //    $(that._scrollableFrozenContent).off('scroll');
+                if (that._scrollableFrozenContent)
+                    $(that._scrollableFrozenContent).off('mousewheel');
                 that._scrollableMaster = null;
                 that._scrollableHeaderOfMaster = null;
                 that._scrollableFooterOfMaster = null;
@@ -21768,6 +23188,35 @@ var Phoenix;
                         $(that._scrollableMaster).on('scroll', that.syncHeaderAndFrozenScroll.bind(that));
                     //if (that._scrollableFrozenContent && (that.fieldOptions.editing || (that.fieldOptions.selecting && that.fieldOptions.selecting.cell)))
                     //    $(that._scrollableFrozenContent).on('scroll', that.syncMasterScroll.bind(that));
+                    if (that._scrollableFrozenContent) {
+                        $(that._scrollableFrozenContent).on('mousewheel', function (event) {
+                            var DELTA_SCROLL = 120;
+                            var canScroll = that._scrollableMaster.scrollHeight > that._scrollableMaster.clientHeight;
+                            if (!canScroll)
+                                return;
+                            var canScrollUp = that._scrollableMaster.scrollTop > 0;
+                            var canScrollDown = that._scrollableMaster.scrollTop + that._scrollableMaster.clientHeight < that._scrollableMaster.scrollHeight;
+                            var oe = event.originalEvent;
+                            var ns = that._scrollableMaster.scrollTop;
+                            if (oe.wheelDelta / 120 > 0) {
+                                if (canScrollUp) {
+                                    ns = Math.max(0, that._scrollableMaster.scrollTop - DELTA_SCROLL);
+                                    event.stopPropagation();
+                                    event.preventDefault();
+                                }
+                            }
+                            else {
+                                if (canScrollDown) {
+                                    ns = Math.min(that._scrollableMaster.scrollHeight - that._scrollableMaster.clientHeight, that._scrollableMaster.scrollTop + DELTA_SCROLL);
+                                    event.stopPropagation();
+                                    event.preventDefault();
+                                }
+                            }
+                            if (ns !== that._scrollableMaster.scrollTop) {
+                                that._scrollableMaster.scrollTop = ns;
+                            }
+                        });
+                    }
                 }
                 if (((opts.allowColumnResize || opts.allowColumnMove) && !opts.headerIsHidden) || opts.rowMove) {
                     var drag_2 = _drag.dragManager.addDrag([that.$element.get(0)]);
@@ -21931,12 +23380,12 @@ var Phoenix;
                     height: cloned.offsetHeight
                 };
                 if (opts.allowFrozenColumns) {
-                    pc = _dom.find(grid, that.id + '_frozen_cols');
+                    pc = _dom.find(grid, that.id + '_frozen_cols_tr');
                     if (pc)
                         children = _dom.childrenPositions(pc, that._getColsInfo(that.frozenColumns, pc), false, 'frozen', copts);
                 }
                 copts.lastDelta = 0;
-                pc = _dom.find(grid, that.id + '_cols');
+                pc = _dom.find(grid, that.id + '_cols_tr');
                 if (pc) {
                     var fc = _dom.childrenPositions(pc, that._getColsInfo(that.columns, pc), false, 'free', copts);
                     if (children)
@@ -21980,7 +23429,7 @@ var Phoenix;
                 drag.data.item = item;
                 ;
                 if (opts.rowMove.multiselect)
-                    drag.data.multiSelTarget = that._openMultiselectSummary(null, true);
+                    drag.data.multiSelTarget = that._openMultiselectSummary(null, true, opts.rowMove.title);
                 return true;
             };
             BasicGrid.prototype._dddrowmove = function (event) {
@@ -22005,7 +23454,7 @@ var Phoenix;
                         point.y > p.top && point.y < (p.top + drag.data.multiSelTarget.offsetHeight)) {
                         var opts = that.renderOptions;
                         if (that.state.value) {
-                            var list = that.state.value;
+                            var list = drag.data.item.parentArray;
                             list.selecting(true, opts.expandingProperty);
                             try {
                                 drag.data.item.select(true, opts.selecting && opts.selecting.row && opts.selecting.multiselect, that.state.value, opts.expandingProperty, opts.expanding && opts.expanding.selectChildren);
@@ -22113,19 +23562,18 @@ var Phoenix;
                 if (that._totalProperty) {
                     that.form.unRegisterListenerFor(that._totalProperty, that);
                 }
+                if (that._bindVisibility) {
+                    that._bindVisibility.forEach(function (field) { return that.form.unRegisterListenerFor(field, that); });
+                }
                 that._inplaceEditRemove(false, true, false);
                 that._onselectItemHandler = null;
                 if (that._eventBus) {
                     that._eventBus.destroy();
                     that._eventBus = null;
                 }
-                if (that._pager) {
-                    that._pager.destroy();
-                    that._pager = null;
-                }
-                if (that.toolBar) {
-                    that.toolBar.destroy();
-                    that.toolBar = null;
+                if (that.pager) {
+                    that.pager.destroy();
+                    that.pager = null;
                 }
                 that._details = null;
                 that._mapCols = null;
@@ -22150,16 +23598,16 @@ var Phoenix;
                 var that = this;
                 switch (page) {
                     case 'next':
-                        that._moveToPage(that._pager.options.noPagesCount ? that._pager.props.currentPage + 1 : Math.min(that._pager.props.totalPages, that._pager.props.currentPage + 1));
+                        that._moveToPage(that.pager.options.noPagesCount ? that.pager.props.currentPage + 1 : Math.min(that.pager.props.totalPages, that.pager.props.currentPage + 1));
                         break;
                     case 'prev':
-                        that._moveToPage(Math.max(0, that._pager.props.currentPage - 1));
+                        that._moveToPage(Math.max(0, that.pager.props.currentPage - 1));
                         break;
                     case 'first':
                         that._moveToPage(1);
                         break;
                     case 'last':
-                        that._moveToPage(that._pager.props.totalPages);
+                        that._moveToPage(that.pager.props.totalPages);
                         break;
                     default:
                         that._moveToPage(page);
@@ -22184,30 +23632,100 @@ var Phoenix;
                     that._refreshGrid();
                 });
             };
-            BasicGrid.prototype._setVisiblesColumns = function (columns) {
+            BasicGrid.prototype.setProperty = function (propertyName, value) {
                 var that = this;
-                that.renderOptions.columns.forEach(function (col) {
+                if (propertyName === 'bottom') {
+                    var opts = that.renderOptions;
+                    if (opts.bottom !== undefined) {
+                        opts.bottom = value;
+                        that._refreshGrid();
+                    }
+                }
+            };
+            BasicGrid.prototype._setVisiblesColumns = function (options, columns, inCreate) {
+                var that = this;
+                var ccMap = columns && columns.length ? {} : null;
+                if (ccMap) {
+                    columns.forEach(function (col, index) {
+                        ccMap[col.name] = col;
+                        col.index = index;
+                    });
+                }
+                options = options || that.renderOptions;
+                options.columns.forEach(function (col, index) {
                     var colName = col.$bind;
-                    if (_sutils.isSelectField(colName))
+                    col.index = index;
+                    if (_sutils.isSelectField(colName)) {
+                        col.index = -2;
+                        col._isHidden = false;
                         return;
-                    if (col.options._expandItem)
-                        colName = _observable.EXPANDED_FIELD_NAME;
-                    col._isHidden = columns ? columns.indexOf(colName) < 0 : false;
+                    }
+                    if (col.options._expandItem && col.options.display)
+                        colName = col.options.display;
+                    else if (col.options._expandItem) {
+                        col.index = -1;
+                        col._isHidden = false;
+                    }
+                    if (ccMap) {
+                        if (ccMap[colName]) {
+                            col._isHidden = false;
+                            col.index = ccMap[colName].index;
+                        }
+                        else
+                            col._isHidden = true;
+                    }
+                    else
+                        col._isHidden = false;
                 });
-                that.savePreferences(function () {
+                if (ccMap) {
+                    options.columns.sort(function (col1, col2) {
+                        return col1.index - col2.index;
+                    });
+                }
+                !inCreate && that.savePreferences(function () {
                     that._refreshGrid();
                 });
             };
-            BasicGrid.prototype._getMultiselectdItems = function () {
+            BasicGrid.prototype._getMultiselectdItems = function (sort) {
                 var that = this;
                 var selectedItems = [];
                 var opts = that.renderOptions;
                 var list = that.state.value;
                 if (!list)
                     return;
-                list.enumSelectedItems(opts.expandingProperty, function (ii) {
-                    selectedItems.push(ii);
+                var map = {};
+                list.enumSelectedItems(opts.expandingProperty, function (ii, level) {
+                    var d = { data: ii, level: level, hasParent: false, children: null };
+                    selectedItems.push(d);
+                    map[ii.$id] = d;
                 });
+                if (sort && opts.expandingProperty) {
+                    var res = {};
+                    selectedItems.forEach(function (item) {
+                        var dd = item.data;
+                        if (dd.parent && map[dd.parent.$id]) {
+                            var p = map[dd.parent.$id];
+                            p.children = p.children || [];
+                            p.children.push(item);
+                            item.hasParent = true;
+                        }
+                    });
+                    selectedItems = [];
+                    var _push_1 = function (e) {
+                        var children = e.children;
+                        delete e.children;
+                        selectedItems.push(e);
+                        children && children.forEach(function (ii) {
+                            _push_1(ii);
+                        });
+                    };
+                    Object.keys(map).forEach(function (id) {
+                        var e = map[id];
+                        if (e.hasParent)
+                            return false;
+                        _push_1(e);
+                    });
+                }
                 return selectedItems;
             };
             BasicGrid.prototype._updateMultiselectSummary = function (isCreate) {
@@ -22217,28 +23735,28 @@ var Phoenix;
                     if (that._timeOutSelected)
                         window.clearTimeout(that._timeOutSelected);
                     that._timeOutSelected = window.setTimeout(function () {
-                        var selectedItems = that._getMultiselectdItems();
+                        var selectedItems = that._getMultiselectdItems(true);
                         if (!selectedItems.length) {
                             that._closeMultiselectSummary(true, false);
                         }
                         else {
-                            that._openMultiselectSummary(selectedItems, false);
+                            that._openMultiselectSummary(selectedItems, false, opts.rowMove.title);
                         }
                     }, 100);
                 }
             };
-            BasicGrid.prototype._openMultiselectSummary = function (selectedItems, forceMaximized) {
+            BasicGrid.prototype._openMultiselectSummary = function (selectedItems, forceMaximized, title) {
                 var that = this;
                 var mse = _dom.find(that.$element.get(0), that.id + '_ms');
                 if (!mse) {
-                    mse = that._toggleMultiselectSummary(selectedItems, forceMaximized);
+                    mse = that._toggleMultiselectSummary(selectedItems, forceMaximized, title);
                 }
                 else {
                     if (!selectedItems)
-                        selectedItems = that._getMultiselectdItems();
+                        selectedItems = that._getMultiselectdItems(true);
                     if (forceMaximized && _gu.isMultiselectMinimized(mse))
                         _gu.setMultiselectMinimized(false, that.id, mse);
-                    _gu.createMultiselectItems(that.id, mse, that.renderOptions, selectedItems);
+                    _gu.createMultiselectItems(that.id, mse, that.renderOptions, selectedItems, that.form);
                 }
                 return mse;
             };
@@ -22247,7 +23765,7 @@ var Phoenix;
                 var mse = _dom.find(that.$element.get(0), that.id + '_ms');
                 if (forceClose) {
                     if (mse)
-                        that._toggleMultiselectSummary(null, false);
+                        that._toggleMultiselectSummary(null, false, that.renderOptions.rowMove.title);
                     return;
                 }
                 if (toggleMinimize && mse) {
@@ -22255,7 +23773,7 @@ var Phoenix;
                     _gu.setMultiselectMinimized(v, that.id, mse);
                 }
             };
-            BasicGrid.prototype._toggleMultiselectSummary = function (selectedItems, forceMaximized) {
+            BasicGrid.prototype._toggleMultiselectSummary = function (selectedItems, forceMaximized, title) {
                 var that = this;
                 var mse = _dom.find(that.$element.get(0), that.id + '_ms');
                 if (mse) {
@@ -22263,36 +23781,14 @@ var Phoenix;
                     return null;
                 }
                 if (!selectedItems)
-                    selectedItems = that._getMultiselectdItems();
-                mse = _gu.multiselectContainer(that.id, forceMaximized);
-                _gu.createMultiselectItems(that.id, mse, that.renderOptions, selectedItems);
+                    selectedItems = that._getMultiselectdItems(true);
+                mse = _gu.multiselectContainer(that.id, forceMaximized, title);
+                _gu.createMultiselectItems(that.id, mse, that.renderOptions, selectedItems, that.form);
                 var p = _dom.find(that.$element.get(0), that.id + '_focus');
                 if (p) {
                     _dom.append(p, mse);
                 }
                 return mse;
-            };
-            BasicGrid.prototype._renderToolbar = function () {
-                var that = this;
-                if (that.toolBar && formgrid.toolBarRender) {
-                    var opts = that.fieldOptions;
-                    var tbOptions = opts.toolbar || {};
-                    var tt = tbOptions.parentName && !that.options.design ? that.form.getLayoutElementByName(tbOptions.parentName) : null;
-                    var element = that.$element.get(0);
-                    if (!tt)
-                        tt = _dom.find(element, that.id + '_header');
-                    else {
-                        _dom.addClass(tt, 'bs-field-group');
-                        _dom.removeClass(tt, 'no-x-padding');
-                    }
-                    var bt = _dom.find(element, that.id + '_bottom');
-                    formgrid.toolBarRender($(tt), that.toolBar, $(bt));
-                }
-            };
-            BasicGrid.prototype._createToolbar = function () {
-                var that = this;
-                if (formgrid.toolBarFactory)
-                    that.toolBar = formgrid.toolBarFactory(that);
             };
             BasicGrid.prototype._state = function () {
                 _super.prototype._state.call(this);
@@ -22303,17 +23799,16 @@ var Phoenix;
                 that.state.value.allowSelecting = that.renderOptions.selecting && (that.renderOptions.selecting.row || that.renderOptions.selecting.cell);
                 that.state.value.multiselect = that.renderOptions.selecting && that.renderOptions.selecting.multiselect;
                 that.state.value.expandingProperty = that.renderOptions.expandingProperty;
-                if (that.state.value.isQueryable()) {
+                if (that.state.value.isQueryable() || that.state.value.$states.pageSize) {
                     // create pager
                     var options = $.extend({ size: "default", selectPage: that._onselectPage.bind(that), noPagesCount: that.state.value.noPagesCount() }, opts.pager || {});
-                    that._pager = new _ui.Pager(options);
-                    var p = that._pager;
+                    that.pager = new _ui.Pager(options);
+                    var p = that.pager;
                     p.props.hasNext = that.state.value.hasNext();
                     p.props.hasPrev = that.state.value.hasPrev();
                     p.props.totalPages = that.state.value.totalPages();
                     p.props.currentPage = that.state.value.currentPage();
                 }
-                that._createToolbar();
             };
             BasicGrid.prototype._destroyDetails = function () {
                 //Destroy all inline "forms" 
@@ -22366,13 +23861,11 @@ var Phoenix;
                 var canExpand = !!options.expandingProperty;
                 var addWidth = options.scrolling && options.scrolling.vertical || options.editing;
                 var ri = [];
-                //xxxx
-                var cc = (that.state.value && that.state.value.columns) ? that.state.value.columns : null;
                 options.columns.forEach(function (col, index) {
                     var c = $.extend({}, col);
+                    var isExpand = true;
                     c.options = c.options || {};
-                    if (selectField !== col && cc && cc.indexOf(col.$bind) < 0)
-                        c._isHidden = true;
+                    c._isHiddenByBind = false;
                     if (canExpand && _sutils.isExpandField(col.$bind)) {
                         expandField = col;
                         c.schema = _sutils.getSchema(col.$bind, that.$schemaItems, that.form.$rootSchema, false);
@@ -22383,9 +23876,11 @@ var Phoenix;
                         };
                         c.options.align = c.options.align || 'left';
                         c.options.alignIcon = c.options.alignIcon || 'left';
-                        c.options._clickable = true;
-                        c.options._expandItem = true;
-                        if (options.expanding) {
+                        if (!that.options.design) {
+                            c.options._clickable = true;
+                            c.options._expandItem = true;
+                        }
+                        if (options.expanding && !that.options.design) {
                             if (options.expanding.style)
                                 c.options._expandItemClass = options.expanding.style;
                             if (options.expanding.iconClass)
@@ -22395,10 +23890,8 @@ var Phoenix;
                     if (!c.schema)
                         c.schema = _sutils.getSchema(col.$bind, that.$schemaItems, that.form.$rootSchema, false);
                     if (!c.schema) {
-                        if (!c.schema) {
-                            console.log('Field (bind) not found : ' + col.$bind);
-                            return;
-                        }
+                        console.log('Field (bind) not found : ' + col.$bind);
+                        return;
                     }
                     if (c.options.$lookup)
                         c.$lookup = that.form.getLookupForSchema(that.$bind + '.' + c.$bind, c.options.$lookup);
@@ -22407,7 +23900,7 @@ var Phoenix;
                         return;
                     }
                     c.title = _ulocale.tt(c.options.title || c.schema.title, that.form.$locale);
-                    if (c.options.display) {
+                    if (c.options.display && !that.options.design) {
                         c.options.displaySchema = _sutils.getSchema(c.options.display, that.$schemaItems, that.form.$rootSchema, false);
                         if (!c.title && c.options.displaySchema) {
                             c.title = _ulocale.tt(c.options.displaySchema.title, that.form.$locale);
@@ -22416,6 +23909,10 @@ var Phoenix;
                     if (_sutils.isLink(col.$bind)) {
                         c.isLink = true;
                         c._isHidden = false;
+                    }
+                    if (c.options.bindVisibility) {
+                        var value = that.form.getValue(c.options.bindVisibility);
+                        c._isHiddenByBind = value !== c.options.bindVisibilityValue;
                     }
                     if (addWidth && !c.options.width)
                         c.options.width = _gu.widthFromSchema(c.schema);
@@ -22426,21 +23923,31 @@ var Phoenix;
                         else if (!checkPixels(c.options.width)) {
                             c.options.width = 50;
                         }
-                        if (!c._isHidden) {
+                        if (!c._isHidden && !c._isHiddenByBind)
                             that.frozenColumns.push(c);
-                            that._mapCols[c.$bind] = { column: c, index: that.frozenColumns.length - 1, tindex: index };
-                        }
+                        that._mapCols[c.$bind] = { column: c, index: that.frozenColumns.length - 1, tindex: index };
+                        if (col === expandField && c.options.display)
+                            that._mapCols[c.options.display] = { column: c, index: that.frozenColumns.length - 1, tindex: index };
                         return;
                     }
-                    if (!c._isHidden) {
+                    if (!c._isHidden && !c._isHiddenByBind)
                         that.columns.push(c);
-                        that._mapCols[c.$bind] = { column: c, index: that.columns.length - 1, tindex: index };
-                    }
+                    that._mapCols[c.$bind] = { column: c, index: that.columns.length - 1, tindex: index };
+                    if (col === expandField && c.options.display)
+                        that._mapCols[c.options.display] = { column: c, index: that.columns.length - 1, tindex: index };
                 });
             };
             BasicGrid.prototype._colByField = function (field) {
                 var ff = this._mapCols[field];
                 return ff ? ff.column : null;
+            };
+            BasicGrid.prototype._columnsVisibilityChanged = function (propName, ov, nv, op, params) {
+                var that = this;
+                if (!that.$element)
+                    return;
+                if (that._ignoreNotifications)
+                    return false;
+                that._refreshGrid();
             };
             BasicGrid.prototype._totalChanged = function (propName, ov, nv, op, params) {
                 var that = this;
@@ -22469,6 +23976,16 @@ var Phoenix;
                             }
                         }
                         break;
+                    case 'add':
+                        if (propName === that._totalProperty) {
+                            that._renderTotalRows();
+                        }
+                        break;
+                    case 'remove':
+                        if (propName === that._totalProperty) {
+                            that._renderTotalRows();
+                        }
+                        break;
                 }
             };
             BasicGrid.prototype.changed = function (propName, ov, nv, op, params) {
@@ -22480,19 +23997,24 @@ var Phoenix;
                 var pp = propName.substr(that.$bind.length);
                 if (pp.indexOf('.$selected') >= 0)
                     return;
-                var checkVisibility = that.renderOptions.hideWhenNoRows;
+                var rOptions = that.renderOptions;
+                var checkVisibility = rOptions.hideWhenNoRows;
                 var oldSelected = that.selectedCell;
                 var rowToSelect = null;
-                var forceRender = false;
                 if (params.checkChildren && op === 'propchange' && propName === that.$bind) {
                     checkVisibility = true;
-                    forceRender = true;
                     that.state.value = that.form.getValue(that.$bind);
-                    that.state.value.allowSelecting = that.renderOptions.selecting && (that.renderOptions.selecting.row || that.renderOptions.selecting.cell);
-                    that.state.value.multiselect = that.renderOptions.selecting && that.renderOptions.selecting.multiselect;
-                    that.state.value.expandingProperty = that.renderOptions.expandingProperty;
+                    if (that.state.value) {
+                        that.state.value.allowSelecting = rOptions.selecting && (rOptions.selecting.row || rOptions.selecting.cell);
+                        that.state.value.multiselect = rOptions.selecting && rOptions.selecting.multiselect;
+                        that.state.value.expandingProperty = rOptions.expandingProperty;
+                    }
                 }
                 var updOddEven = false, doResize = false, doSelectFirstCell = false;
+                if (that._bindVisibility && that._bindVisibility.indexOf(propName) >= 0) {
+                    that._columnsVisibilityChanged(propName, ov, nv, op, params);
+                    return;
+                }
                 if (that._totalProperty) {
                     if (propName.indexOf(that._totalProperty) === 0) {
                         that._totalChanged(propName, ov, nv, op, params);
@@ -22507,17 +24029,12 @@ var Phoenix;
                 }
                 switch (op) {
                     case "count":
-                        var t = that.toolBar;
-                        if (t && t.setValue)
-                            t.setValue("count", that.state.value.totalCount());
-                        break;
-                    case "filter":
-                        var tb = that.toolBar;
-                        if (tb && tb.setValue)
-                            tb.setValue('filter', that.state.value.filter.title || '');
+                        //let t = that.toolBar;
+                        //if (t && t.setValue)
+                        //    t.setValue("count", that.state.value.totalCount());
                         break;
                     case "pagination":
-                        var p = that._pager;
+                        var p = that.pager;
                         if (p) {
                             p.props.totalPages = that.state.value.totalPages();
                             p.props.currentPage = that.state.value.currentPage();
@@ -22545,7 +24062,7 @@ var Phoenix;
                         }
                         else {
                             var prop = propName;
-                            var instPath = _sutils.parsePath(that.$bind, prop, that.renderOptions.expandingProperty);
+                            var instPath = _sutils.parsePath(that.$bind, prop, rOptions.expandingProperty);
                             var item = params[instPath];
                             if (item) {
                                 var cp = propName.substr(instPath.length + 1);
@@ -22553,15 +24070,42 @@ var Phoenix;
                                     return;
                                 that._modifyCell(item, cp, null, null);
                                 if (_sutils.isSelectField(cp)) {
-                                    if (!that.renderOptions.noRowSelectedIndicator)
+                                    if (!rOptions.noRowSelectedIndicator)
                                         _gu.setRowsSelected(item.$id, item.$select, that.fieldOptions, that.$element.get(0));
-                                    if (item.$select && that.renderOptions.selecting && that.renderOptions.selecting.cell) {
+                                    if (item.$select && rOptions.selecting && rOptions.selecting.cell) {
                                         if (!that.selectedCell || that.selectedCell.row !== item.$id) {
-                                            that._selectFirstCellEditable('model', item.$id, null);
+                                            var ci = that._findById(item.$id);
+                                            if (ci)
+                                                that._selectFirstCellEditable('model', item.$id, null);
                                             doSelectFirstCell = false;
                                         }
                                     }
                                     that._updateMultiselectSummary(false);
+                                }
+                                else if (cp.indexOf(_observable.EXPANDED_FIELD_NAME) > 0 && rOptions.expandingProperty) {
+                                    var list = _utils.getValue(item, rOptions.expandingProperty);
+                                    if (!list)
+                                        return;
+                                    var expanded = list.$expand;
+                                    var oldIgnoreNotifications = that._ignoreNotifications;
+                                    that._ignoreNotifications = true;
+                                    try {
+                                        var childrens_1 = [];
+                                        var ii = that._viewMap[item.$id];
+                                        item.enumVisibleChildren(rOptions.expandingProperty, ii.level, true, function (item, level) {
+                                            var ii = { level: level, value: item };
+                                            childrens_1.push(ii);
+                                        });
+                                        if (!childrens_1.length)
+                                            return;
+                                        if (expanded)
+                                            that._addRows(item, childrens_1);
+                                        else
+                                            that._removeRows(item, childrens_1);
+                                    }
+                                    finally {
+                                        that._ignoreNotifications = oldIgnoreNotifications;
+                                    }
                                 }
                             }
                         }
@@ -22577,13 +24121,12 @@ var Phoenix;
                         checkVisibility = true;
                         break;
                     case 'remove':
-                        var opts = that.renderOptions;
-                        if (opts.expandingProperty) {
+                        if (rOptions.expandingProperty) {
                             that._removeRow(params.$id);
                             if (params.$value) {
-                                var list = params.$value[opts.expandingProperty];
+                                var list = params.$value[rOptions.expandingProperty];
                                 if (list)
-                                    list._enumChildren(opts.expandingProperty, function (item) {
+                                    list._enumChildren(rOptions.expandingProperty, function (item) {
                                         that._removeRow(item.$id);
                                     });
                             }
@@ -22635,6 +24178,9 @@ var Phoenix;
                 if (state.isHidden) {
                     _dom.empty(td);
                 }
+                else if (stateName === 'isHidden') {
+                    that._modifyTD(item, field, td);
+                }
                 if (opts.editing) {
                     if (editable)
                         _dom.removeClass(td, 'bs-td-readonly');
@@ -22658,9 +24204,9 @@ var Phoenix;
                 var ii = that._viewMap[item.$id];
                 var level = ii ? ii.level || 0 : 0;
                 if (co.display && co.displaySchema) {
-                    dv = _uiutils.utils.displayValue(item.getValue(co.display), co.displaySchema, that.form.$locale, { html: true, tableOptions: opts, avanced: co.displayOptions || {}, state: item.getState(co.display) }, item, co.display);
+                    dv = _uiutils.utils.displayValue(item.getValue(co.display), co.displaySchema, that.form.$locale, { html: true, tableOptions: opts, avanced: co.displayOptions || {}, state: item.getState(co.display), form: that.form }, item, co.display);
                 }
-                var v = _uiutils.utils.displayValue(item.getValue(field), col.schema, that.form.$locale, { html: true, useSymbol: false, editable: editable, selectable: !state.isDisabled, check: opts.editing, avanced: co, tableOptions: opts, display: dv, level: level, state: state }, item, field);
+                var v = _uiutils.utils.displayValue(item.getValue(field), col.schema, that.form.$locale, { html: true, useSymbol: false, editable: editable, selectable: !state.isDisabled, check: opts.editing, avanced: co, tableOptions: opts, display: dv, level: level, state: state, form: that.form }, item, field);
                 if (v.html) {
                     var $c = $(v.value);
                     _dom.append(td, $c.get(0));
@@ -22718,12 +24264,15 @@ var Phoenix;
                     }
                     else {
                         if (that.inplace && that.inplace.input && that.inplace.td === ctd) {
-                            that._inplaceEditModel2Control(item, field, ctd);
+                            that._inplaceEditModel2Control(item, field, ctd, that.form);
                             return;
                         }
                         that._modifyTD(item, field, ctd);
                     }
                 }
+            };
+            BasicGrid.prototype._showErrors = function (item, field, stateName, td) {
+                // 
             };
             BasicGrid.prototype._modifyCell = function (item, field, stateName, td) {
                 var that = this;
@@ -22734,7 +24283,7 @@ var Phoenix;
                     return;
                 if (td) {
                     if (that.inplace && that.inplace.input && that.inplace.td === td) {
-                        that._inplaceEditModel2Control(item, field, td);
+                        that._inplaceEditModel2Control(item, field, td, that.form);
                         return;
                     }
                     return that._modifyTD(item, field, td);
@@ -22827,7 +24376,12 @@ var Phoenix;
                     if (that.inplace && _dom.isChildOf(that.inplace.td, event.target)) {
                         var cell = that._td2value(that.inplace.td);
                         if (_sutils.isNumber(that.inplace.schema) && !that.inplace.schema.enum) {
-                            if (_uiutils.utils.keyPressNumber(event, that.inplace.input, { decimalSep: _locale.number.decimal, thousandSep: _locale.number.thousand, places: that.inplace.decimals, schema: that.inplace.schema }) === false)
+                            var places = that.inplace.decimals;
+                            if (_sutils.isMoney(that.inplace.schema)) {
+                                if (that.form.moneyUnitCoef !== 1)
+                                    places = 0;
+                            }
+                            if (_uiutils.utils.keyPressNumber(event, that.inplace.input, { decimalSep: _locale.number.decimal, thousandSep: _locale.number.thousand, places: places, schema: that.inplace.schema }) === false)
                                 return false;
                         }
                         else if (_sutils.isDate(that.inplace.schema) && !that.inplace.schema.enum) {
@@ -22864,7 +24418,12 @@ var Phoenix;
                         // <--- END LOOKUP  
                     }
                     else if (_sutils.isNumber(that.inplace.schema) && !that.inplace.schema.enum) {
-                        if (_uiutils.utils.keyDownNumber($event, that.inplace.input, { decimalSep: _locale.number.decimal, thousandSep: _locale.number.thousand, places: that.inplace.decimals, schema: that.inplace.schema }) === false)
+                        var places = that.inplace.decimals;
+                        if (_sutils.isMoney(that.inplace.schema)) {
+                            if (that.form.moneyUnitCoef !== 1)
+                                places = 0;
+                        }
+                        if (_uiutils.utils.keyDownNumber($event, that.inplace.input, { decimalSep: _locale.number.decimal, thousandSep: _locale.number.thousand, places: places, schema: that.inplace.schema }) === false)
                             return;
                     }
                     else if (_sutils.isDate(that.inplace.schema) && !that.inplace.schema.enum) {
@@ -22927,12 +24486,16 @@ var Phoenix;
             };
             BasicGrid.prototype._getSource = function (cell, options) {
                 var that = this;
+                options.$bind = cell.col.$bind;
                 options.fieldName = cell.col.$lookup.mapping[cell.col.$bind];
                 options.paginated = true;
                 options.containerId = that.form.syncTransactionId();
                 options.viewId = that.form.syncViewId();
                 options.selected = cell.item.pkId();
-                return _sutils.executeLookup(cell.col.$lookup, cell.item, options);
+                var currentData = that.form.$model;
+                if (cell.col.$lookup.data && cell.col.$lookup.data.$type === 'relation' && cell.col.$lookup.data.$params.relation.charAt(0) === '.')
+                    currentData = cell.item;
+                return _sutils.executeLookup(cell.col.$lookup, currentData, options);
             };
             BasicGrid.prototype._findValue = function (search, cell, after) {
                 var that = this;
@@ -22942,21 +24505,61 @@ var Phoenix;
                 }
                 var opts = { search: search, select: false, findFirst: true, find: false, paginated: that.renderOptions.paginated };
                 that._eventBus.push(that._getSource(cell, opts), function (ldata) {
-                    ldata = that._filterResult(ldata, opts, cell.col.$lookup, cell.col.$bindp, cell.col.$display);
+                    ldata = that._filterResult(ldata, opts, cell.col.$lookup, cell.col.$bind, cell.item);
                     if (ldata && ldata.value && ldata.value.length)
                         after(ldata.value[0]);
                     else
                         after(null);
                 }, true);
             };
-            BasicGrid.prototype._filterResult = function (ldata, opts, lookup, bind, display) {
+            BasicGrid.prototype.notifyGlobalChanged = function (globalName) {
                 var that = this;
-                lookup = formgrid.gridlookup.checkGridLookup(lookup, that.form.$model);
+                if (globalName === 'money-unit') {
+                    that._unitChanged();
+                }
+            };
+            BasicGrid.prototype._unitChanged = function () {
+                var that = this;
+                if (!that.$element)
+                    return;
+                var allCols = that.frozenColumns.concat(that.columns);
+                var moneyColumns = [];
+                allCols.forEach(function (col) {
+                    if (_sutils.isMoney(col.schema))
+                        moneyColumns.push(col);
+                });
+                if (!moneyColumns.length)
+                    return;
+                if (that.state.value) {
+                    var list = that.state.value;
+                    list.forEach(function (item, index, level) {
+                        moneyColumns.forEach(function (col) {
+                            that._modifyCell(item, col.$bind, null, null);
+                        });
+                    }, that.renderOptions.expandingProperty);
+                }
+                if (that._totalProperty) {
+                    //let totals = [];
+                    var totals = that.form.getValue(that._totalProperty);
+                    if (totals && !that._totalIsArray)
+                        totals = [totals];
+                    if (totals) {
+                        totals.forEach(function (item) {
+                            moneyColumns.forEach(function (col) {
+                                that._modifyFooterCell(item, col.$bind);
+                            });
+                        });
+                    }
+                }
+            };
+            BasicGrid.prototype._filterResult = function (ldata, opts, lookup, bind, itemModel) {
+                var that = this;
+                lookup = formgrid.gridlookup.checkGridLookup(lookup, that.form.$model, itemModel, null, '');
                 if (ldata && Array.isArray(ldata)) {
                     ldata = { value: ldata };
                 }
                 else if (ldata && ldata.documents) {
-                    if (lookup.data && lookup.data.$params && lookup.data.$params.$allData) {
+                    if (lookup.data && lookup.data.$params && (lookup.data.$params.$allData || lookup.data.$type === 'relation')) {
                         var fi = _sutils.findFirst(opts.search, _sutils.remoteSearch(_sutils.lastSegment(bind, bind), lookup), ldata.documents);
                         if (fi)
                             return { value: [fi.item] };
@@ -22993,10 +24596,20 @@ var Phoenix;
                         }
                     }
                 });
-                if (changed)
+                if (changed) {
                     empty.forEach(function (key) {
                         item.setValue(base + key, col.$lookup.mapping[key]);
                     });
+                }
+                if (col.$lookup.customMapping) {
+                    var func = _customData.get("lookup.mappings." + col.$lookup.customMapping);
+                    if (func) {
+                        if (base)
+                            base = base.substr(0, base.length - 1);
+                        var ci = item.getValue(base);
+                        func(ci, ldata);
+                    }
+                }
             };
             BasicGrid.prototype._onselectItem = function (value) {
                 var that = this;
@@ -23004,10 +24617,10 @@ var Phoenix;
                     var col_1 = that.inplace.col;
                     var cell = that._td2cell(that.inplace.td);
                     if (cell) {
-                        var item_2 = that._findById(cell.row);
-                        if (item_2) {
+                        var item_1 = that._findById(cell.row);
+                        if (item_1) {
                             that._eventBus.push(value, function (ldata) {
-                                that._setRemoteValue(col_1, item_2, ldata);
+                                that._setRemoteValue(col_1, item_1, ldata);
                             }, true);
                         }
                     }
@@ -23017,13 +24630,18 @@ var Phoenix;
                 var that = this;
                 if (!that.inplace.combo.opened) {
                     var cell = that._td2cell(that.inplace.td);
-                    var selected = void 0;
+                    var selected = void 0, item = void 0;
                     if (cell) {
-                        var item = that._findById(cell.row);
+                        item = that._findById(cell.row);
                         if (item)
                             selected = item.pkId();
                     }
-                    var lookup = formgrid.gridlookup.checkGridLookup(that.inplace.col.$lookup, that.form.$model);
+                    var itemModel = null;
+                    var lookup = formgrid.gridlookup.checkGridLookup(that.inplace.col.$lookup, that.form.$model, item, null, null);
+                    if (lookup.data.$type === 'relation' && lookup.data.$params.relation.charAt(0) === '.') {
+                        itemModel = item;
+                    }
+                    that.inplace.$bind = that.inplace.col.$bind;
                     formgrid.gridlookup.openGridLookup(that.inplace, {
                         lookup: lookup,
                         parentControl: that,
@@ -23039,7 +24657,8 @@ var Phoenix;
                         onselect: that._onselectItemHandler,
                         lookupColumns: that.inplace.col.options.lookupColumns ? that.inplace.col.options.lookupColumns : undefined,
                         propertyName: 'combo',
-                        minWidth: that.inplace.col.options.lookupMinWidth || 0
+                        minWidth: that.inplace.col.options.lookupMinWidth || 0,
+                        itemModel: itemModel
                     });
                 }
             };
@@ -23186,39 +24805,22 @@ var Phoenix;
                                     if (_dom.attr(event.target, 'data-clickable') || _dom.attr(event.target.parentNode, 'data-clickable')) {
                                         var state = item.getRelativeState(c.$bind);
                                         if (!state.isDisabled && !state.isReadOnly) {
-                                            var expanded = item.toggleExpand(opts.expandingProperty);
-                                            //TODO : move in modifyCell
-                                            that._ignoreNotifications = true;
-                                            try {
-                                                var childrens_1 = [];
-                                                var ii = that._viewMap[item.$id];
-                                                item.enumVisibleChildren(opts.expandingProperty, ii.level, true, function (item, level) {
-                                                    var ii = { level: level, value: item };
-                                                    childrens_1.push(ii);
-                                                });
-                                                if (!childrens_1.length)
-                                                    return;
-                                                if (expanded)
-                                                    that._addRows(item, childrens_1);
-                                                else
-                                                    that._removeRows(item, childrens_1);
-                                                //item.notifyChanged(item.$bind, undefined, undefined, 'set', { source: item.getPropertyPath(that.$bind), instance: item }, false);
-                                            }
-                                            finally {
-                                                that._ignoreNotifications = false;
-                                            }
+                                            item.toggleExpand(opts.expandingProperty);
                                         }
                                     }
                                 }
-                                else if (c.options.$link) {
+                                if (c.options.$link) {
                                     var a = _dom.findByAttribute(event.target, td, 'data-phoenix-href');
                                     if (a) {
                                         var state = item.getRelativeState(c.$bind);
                                         if (!state.isDisabled) {
                                             if (c.options.$link.action)
                                                 that.form.execAction(that.$bind + '.$links.' + c.options.$link.action, item);
-                                            else
-                                                _link.execLink(c.options.$link, { $item: item }, null);
+                                            else {
+                                                var lo = _utils.copy(c.options.$link);
+                                                lo.$form = that.form;
+                                                _link.execLink(lo, { $item: item }, null);
+                                            }
                                         }
                                     }
                                 }
@@ -23233,7 +24835,7 @@ var Phoenix;
                                         if (!state.isDisabled && !state.isReadOnly && !state.isHidden) {
                                             var ov = item.getValue(c.$bind);
                                             if (_sutils.isSelectField(c.$bind)) {
-                                                var list = that.state.value;
+                                                var list = item.parentArray;
                                                 list.selecting(true, opts.expandingProperty);
                                                 try {
                                                     item.select(!!!ov, opts.selecting && opts.selecting.row && opts.selecting.multiselect, that.state.value, opts.expandingProperty, opts.expanding && opts.expanding.selectChildren);
@@ -23283,28 +24885,35 @@ var Phoenix;
                                             _dom.addClass(check, cc);
                                         }
                                         var list = that.state.value;
-                                        if (!isChecked) {
-                                            list.selecting(true, opts.expandingProperty);
-                                            try {
+                                        var parents_1 = [];
+                                        try {
+                                            if (!isChecked) {
                                                 list.forEach(function (item, index, level) {
+                                                    var slist = item.parentArray;
+                                                    if (parents_1.indexOf(slist) < 0) {
+                                                        parents_1.push(slist);
+                                                        slist.selecting(true, opts.expandingProperty);
+                                                    }
                                                     item.select(true, opts.selecting && opts.selecting.row && opts.selecting.multiselect, that.state.value, opts.expandingProperty, false);
-                                                }, opts.expandingProperty, true);
+                                                });
                                             }
-                                            finally {
-                                                list.selecting(false, opts.expandingProperty);
-                                            }
-                                        }
-                                        else {
-                                            list.selecting(true, opts.expandingProperty);
-                                            try {
-                                                var selectedItems = that._getMultiselectdItems();
-                                                selectedItems.forEach(function (item) {
+                                            else {
+                                                var selectedItems = that._getMultiselectdItems(false);
+                                                selectedItems.forEach(function (ii) {
+                                                    var item = ii.data;
+                                                    var slist = item.parentArray;
+                                                    if (parents_1.indexOf(slist) < 0) {
+                                                        parents_1.push(slist);
+                                                        slist.selecting(true, opts.expandingProperty);
+                                                    }
                                                     item.select(false, opts.selecting && opts.selecting.row && opts.selecting.multiselect, that.state.value, opts.expandingProperty, false);
                                                 });
                                             }
-                                            finally {
-                                                list.selecting(false, opts.expandingProperty);
-                                            }
+                                        }
+                                        finally {
+                                            parents_1.forEach(function (parent) {
+                                                parent.selecting(false, opts.expandingProperty);
+                                            });
                                         }
                                     }
                                 }
@@ -23340,25 +24949,15 @@ var Phoenix;
                         var p = _dom.parentByAttr(that.$element.get(0), event.target, 'data-ms-unselect');
                         if (p) {
                             var itemId = _dom.attr(p, 'data-ms-unselect');
-                            var item = that._findById(itemId);
+                            var item = opts.expandingProperty ? that.state.value.findByIdEx(itemId, opts.expandingProperty) : that._findById(itemId);
                             if (item) {
-                                var list = that.state.value;
+                                var list = item.parentArray;
                                 list.selecting(true, opts.expandingProperty);
                                 try {
                                     item.select(false, opts.selecting && opts.selecting.row && opts.selecting.multiselect, that.state.value, opts.expandingProperty, opts.expanding && opts.expanding.selectChildren);
                                 }
                                 finally {
                                     list.selecting(false, opts.expandingProperty);
-                                }
-                            }
-                        }
-                        else if (that.toolBar) {
-                            var roots = that.toolBar.htmlRoots();
-                            for (var ii = 0; ii < roots.length; ii++) {
-                                var root = roots[ii];
-                                if (_dom.isChildOf(root.element, event.target)) {
-                                    that.toolBar.execClick(event);
-                                    break;
                                 }
                             }
                         }
@@ -23440,7 +25039,7 @@ var Phoenix;
                 var multiselect = opts.selecting && opts.selecting.row && opts.selecting.multiselect;
                 var item = that._findById(id);
                 if (item) {
-                    var list = that.state.value;
+                    var list = item.parentArray;
                     list.selecting(true, opts.expandingProperty);
                     try {
                         item.select(true, multiselect, that.state.value, opts.expandingProperty);
@@ -23509,9 +25108,9 @@ var Phoenix;
                         rid = rowId;
                     else {
                         if (opts.selecting && opts.selecting.row && !opts.selecting.multiselect) {
-                            var selected = that._getMultiselectdItems();
+                            var selected = that._getMultiselectdItems(false);
                             if (selected && selected.length)
-                                rid = selected[0].$id;
+                                rid = selected[0].data.$id;
                         }
                         if (!rid) {
                             if (opts.allowFrozenColumns && c.options.frozen)
@@ -23757,21 +25356,6 @@ var Phoenix;
                 }
                 return false;
             };
-            // subcontrols 
-            BasicGrid.prototype.getSubControls = function () {
-                var that = this;
-                if (that.toolBar && that.toolBar.getSubControls)
-                    return that.toolBar.getSubControls();
-                return null;
-            };
-            BasicGrid.prototype.addSubControls = function (control) {
-                this.toolBar.addSubControls(control);
-            };
-            BasicGrid.prototype.getChildren = function () {
-                var that = this;
-                return that.toolBar ? that.toolBar.getChildren() : null;
-            };
-            // end subcontrols
             BasicGrid.prototype._state2UI = function (inRender) {
                 var that = this;
                 var grid = that._rootElement();
@@ -23782,10 +25366,9 @@ var Phoenix;
                     that._setErrors(grid, element);
                     if (!inRender)
                         that._selectFirstCell('model', null, false, null);
-                    that._renderToolbar();
-                    if (that._pager) {
+                    if (that.pager) {
                         var $pp = $(_dom.find(element, that.id + '_pagination'));
-                        that._pager.render($pp);
+                        that.pager.render($pp);
                     }
                 }
             };
@@ -23801,9 +25384,9 @@ var Phoenix;
                     return;
                 var that = this;
                 if (that._isHidden())
-                    _dom.addClass(element, "bs-none");
+                    _dom.addClass(element, 'bs-none');
                 else
-                    _dom.removeClass(element, "bs-none");
+                    _dom.removeClass(element, 'bs-none');
             };
             BasicGrid.prototype.stateChanged = function (propName, cparams, params) {
                 var that = this;
@@ -23821,7 +25404,7 @@ var Phoenix;
                 var element = that.$element ? that.$element.get(0) : null;
                 if ((propName === 'columns')) {
                     if (that.state.value)
-                        that._setVisiblesColumns(that.state.value.columns);
+                        that._setVisiblesColumns(that.renderOptions, that.state.value.columns, false);
                 }
                 if (!propName && cparams.isState) {
                     var instPath = _sutils.parsePath(that.$bind, cparams.property, that.renderOptions.expandingProperty);
@@ -23829,7 +25412,11 @@ var Phoenix;
                     if (item) {
                         var cp = cparams.property.substr(instPath.length + 1);
                         var stateName = cparams.origProperty.substr(cparams.property.length + 1);
-                        that._modifyCell(item, cp, stateName, null);
+                        if (stateName === 'errors') {
+                            that._showErrors(item, cp, stateName, null);
+                        }
+                        else
+                            that._modifyCell(item, cp, stateName, null);
                     }
                     return;
                 }
@@ -23974,13 +25561,13 @@ var Phoenix;
                             doColSpan = false;
                             pr = _dom.find(that.$element.get(0), that.id + '_frozen_totals');
                             if (pr) {
-                                rows = _gu.createRows(that.id, totals, that.frozenColumns, opts, that.options.design, that.form.$locale, true, true, null, null, null);
+                                rows = _gu.createRows(that.id, totals, that.frozenColumns, opts, that.options.design, that.form.$locale, true, true, null, null, null, that.form);
                                 _dom.empty(pr);
                                 _dom.append(pr, rows);
                             }
                         }
                         pr = _dom.find(that.$element.get(0), that.id + '_totals');
-                        rows = _gu.createRows(that.id, totals, that.columns, opts, that.options.design, that.form.$locale, false, true, null, doColSpan ? that._totalField : null, doColSpan ? that._stopField : null);
+                        rows = _gu.createRows(that.id, totals, that.columns, opts, that.options.design, that.form.$locale, false, true, null, doColSpan ? that._totalField : null, doColSpan ? that._stopField : null, that.form);
                         _dom.empty(pr);
                         _dom.append(pr, rows);
                     }
@@ -24004,14 +25591,14 @@ var Phoenix;
                         pr = _dom.find(that.$element.get(0), that.id + '_frozen_rows');
                         if (pr) {
                             if (allRows) {
-                                rows = that.state.value ? _gu.createRows(that.id, that.state.value, that.frozenColumns, opts, that.options.design, that.form.$locale, true, false, cb, null, null) : null;
+                                rows = that.state.value ? _gu.createRows(that.id, that.state.value, that.frozenColumns, opts, that.options.design, that.form.$locale, true, false, cb, null, null, that.form) : null;
                                 cb = null;
                                 _dom.empty(pr);
                                 if (rows)
                                     _dom.append(pr, rows);
                             }
                             else {
-                                rows = _gu.createBulkRows(that.id, values, that.frozenColumns, opts, that.options.design, that.form.$locale, true, false, cb);
+                                rows = _gu.createBulkRows(that.id, values, that.frozenColumns, opts, that.options.design, that.form.$locale, true, false, cb, that.form);
                                 var pp = _dom.find(pr, afterRow + '_frozen');
                                 _dom.after(pp, rows);
                             }
@@ -24019,13 +25606,13 @@ var Phoenix;
                     }
                     pr = _dom.find(that.$element.get(0), that.id + '_rows');
                     if (allRows) {
-                        rows = that.state.value ? _gu.createRows(that.id, that.state.value, that.columns, opts, that.options.design, that.form.$locale, false, false, cb, null, null) : null;
+                        rows = that.state.value ? _gu.createRows(that.id, that.state.value, that.columns, opts, that.options.design, that.form.$locale, false, false, cb, null, null, that.form) : null;
                         _dom.empty(pr);
                         if (rows)
                             _dom.append(pr, rows);
                     }
                     else {
-                        rows = _gu.createBulkRows(that.id, values, that.columns, opts, that.options.design, that.form.$locale, false, false, cb);
+                        rows = _gu.createBulkRows(that.id, values, that.columns, opts, that.options.design, that.form.$locale, false, false, cb, that.form);
                         var pp = _dom.find(pr, afterRow);
                         _dom.after(pp, rows);
                     }
@@ -24101,7 +25688,7 @@ var Phoenix;
                                         break;
                                 }
                             }
-                        }, fo);
+                        }, null, fo, null);
                         _dom.after(p, tdetail);
                     }
                 }
@@ -24189,7 +25776,7 @@ var Phoenix;
                         //TODO find level when expandingProperty is not null
                         ii = { level: 0, value: item };
                         that._view.push(ii);
-                        that._view.push(item.$id);
+                        // that._view.push(item.$id);
                         index = that._view.length - 1;
                         that._viewMap[item.$id] = ii;
                     }
@@ -24199,24 +25786,15 @@ var Phoenix;
                     var pr = void 0, nr = void 0, hasFc = _gu.hasFrozenColumns(that.renderOptions, that.frozenColumns);
                     if (hasFc) {
                         pr = _dom.find(that.$element.get(0), that.id + '_frozen_rows');
-                        nr = _gu.createRow(that.id, index, ii.level, ii.value, that.frozenColumns, that.renderOptions, that.options.design, that.form.$locale, pr.childNodes.length % 2 === 1, true, false);
+                        nr = _gu.createRow(that.id, index, ii.level, ii.value, that.frozenColumns, that.renderOptions, that.options.design, that.form.$locale, pr.childNodes.length % 2 === 1, true, false, null, that.form);
                         _dom.append(pr, nr);
                     }
                     pr = _dom.find(that.$element.get(0), that.id + '_rows');
-                    nr = _gu.createRow(that.id, index, ii.level, ii.value, that.columns, that.renderOptions, that.options.design, that.form.$locale, pr.childNodes.length % 2 === 1, false, false);
+                    nr = _gu.createRow(that.id, index, ii.level, ii.value, that.columns, that.renderOptions, that.options.design, that.form.$locale, pr.childNodes.length % 2 === 1, false, false, null, that.form);
                     _dom.append(pr, nr);
                 }
             };
-            BasicGrid.prototype.filtrableColumns = function () {
-                var that = this;
-                var schema = that.$schema;
-                var schemaItems = that.$schemaItems;
-                if (schema && schema.type === "array" && schemaItems && schemaItems.type === "object") {
-                    return _sutils.filtrableFields(schemaItems, that.form.$rootSchema, that.form.$locale);
-                }
-                return [];
-            };
-            BasicGrid.prototype._getColumnsFromSchema = function () {
+            BasicGrid.prototype.getColumnsFromSchema = function () {
                 var that = this;
                 var schema = that.$schema;
                 var schemaItems = that.$schemaItems;
@@ -24225,77 +25803,16 @@ var Phoenix;
                 }
                 return [];
             };
-            BasicGrid.prototype._getSelectedColumns = function () {
+            BasicGrid.prototype.getSelectedColumns = function () {
                 var that = this, res = {};
                 Object.keys(that._mapCols).forEach(function (key) {
                     var c = that._mapCols[key].column;
                     if (c.options._expandItem && c.options.display)
                         key = c.options.display;
-                    res[key] = true;
+                    if (!c._isHidden)
+                        res[key] = true;
                 });
                 return res;
-            };
-            BasicGrid.prototype._getGroupsFromSchema = function () {
-                var that = this;
-                var schema = that.$schema;
-                var schemaItems = that.$schemaItems;
-                if (schema && schema.type === "array" && schemaItems && schemaItems.type === "object" && schemaItems.groups) {
-                    return schemaItems.groups;
-                }
-                return {};
-            };
-            BasicGrid.prototype.getColumnsForSettings = function () {
-                var that = this;
-                return {
-                    schemaGroups: that._getGroupsFromSchema(),
-                    schemaColumns: that._getColumnsFromSchema(),
-                    selectedColumns: that._getSelectedColumns(),
-                    locale: that.form.$locale
-                };
-            };
-            BasicGrid.prototype.getColumnsForFilter = function (mongoFilter) {
-                var that = this;
-                var res = {
-                    schemaGroups: that._getGroupsFromSchema(),
-                    schemaColumns: that.filtrableColumns(),
-                    locale: that.form.$locale,
-                    mongoFilter: mongoFilter,
-                    filters: undefined
-                };
-                if (mongoFilter && formgrid.glbMongoFilter2Filter) {
-                    res.filters = formgrid.glbMongoFilter2Filter(that.state.value.filter, that.filtrableColumns());
-                }
-                return res;
-            };
-            BasicGrid.prototype.getColumnsForFilterExpress = function (fields) {
-                var that = this;
-                var columns;
-                if (fields && Array.isArray(fields)) {
-                    var allColumns_1 = that._getColumnsFromSchema();
-                    columns = [];
-                    fields.forEach(function (field) {
-                        allColumns_1.every(function (col) {
-                            if (field === col.name) {
-                                columns.push(col);
-                                return false;
-                            }
-                            return true;
-                        });
-                    });
-                }
-                else
-                    columns = that._getColumnsFromSchema();
-                var formatCols = [];
-                columns.forEach(function (col) {
-                    var sc = col.schema;
-                    var elt = { code: col.name, lib: sc.title || sc.name, type: sc.type, selected: true };
-                    if (sc.enum)
-                        elt.enum = sc.enum;
-                    if (sc.enumNames)
-                        elt.enumNames = sc.enumNames;
-                    formatCols.push(elt);
-                });
-                return formatCols;
             };
             BasicGrid.prototype._updateSorting = function () {
                 var that = this;
@@ -24305,10 +25822,10 @@ var Phoenix;
                 if (opts && opts.sorting && !opts.headerIsHidden) {
                     if (!that.state.value)
                         return;
-                    var pc = _dom.find(that.$element.get(0), that.id + '_cols');
+                    var pc = _dom.find(that.$element.get(0), that.id + '_cols_tr');
                     if (pc)
                         _gu.updSorting(opts, pc, that._colByField.bind(that), that.state.value.$orderby());
-                    pc = _dom.find(that.$element.get(0), that.id + '_frozen_cols');
+                    pc = _dom.find(that.$element.get(0), that.id + '_frozen_cols_tr');
                     if (pc)
                         _gu.updSorting(opts, pc, that._colByField.bind(that), that.state.value.$orderby());
                 }
@@ -24360,12 +25877,12 @@ var Phoenix;
                 if (!opts.headerIsHidden) {
                     var pc = _dom.find(that.$element.get(0), that.id + '_cols');
                     _dom.empty(pc);
-                    _dom.append(pc, _gu.createCols(that.id, that.columns, opts, that.options.design, that.form.$locale, that.state.value ? that.state.value.$orderby() : null, false));
+                    _dom.append(pc, _gu.createCols(that.id, '_cols', that.columns, opts, that.options.design, that.form.$locale, that.state.value ? that.state.value.$orderby() : null, false, that.form));
                     if (_gu.hasFrozenColumns(opts, that.frozenColumns)) {
                         pc = _dom.find(that.$element.get(0), that.id + '_frozen_cols');
                         if (pc) {
                             _dom.empty(pc);
-                            _dom.append(pc, _gu.createCols(that.id, that.frozenColumns, opts, that.options.design, that.form.$locale, that.state.value ? that.state.value.$orderby() : null, true));
+                            _dom.append(pc, _gu.createCols(that.id, '_frozen_cols', that.frozenColumns, opts, that.options.design, that.form.$locale, that.state.value ? that.state.value.$orderby() : null, true, that.form));
                         }
                     }
                 }
@@ -24474,14 +25991,8 @@ var Phoenix;
                 var that = this, input = that._input(), value = input.checked || false;
                 if (event.target != input)
                     return;
-                if (that.state.value != value) {
-                    if (that._isBinded) {
-                        that.state.value = value;
-                        that.form.setValue(that.$bind, value);
-                    }
-                    else {
-                        that.setInternalValue(value, true);
-                    }
+                if (value !== that.getInternalValue()) {
+                    that.setInternalValue(value, true);
                 }
             };
             Check.prototype._setDisabled = function (input, element) {
@@ -24511,7 +26022,7 @@ var Phoenix;
             Check.prototype._state2UI = function () {
                 var that = this, input = that._input(), element = that.$element ? that.$element.get(0) : null;
                 if (input) {
-                    input.checked = that.state.value || false;
+                    input.checked = that.getInternalValue() || false;
                     that._setDisabled(input, element);
                     that._setReadOnly(input, element);
                     that.setHidden(element);
@@ -24520,10 +26031,10 @@ var Phoenix;
             };
             Check.prototype.changed = function (propName, ov, nv, op) {
                 var that = this, input = that._input();
-                if (that.state.value != nv) {
-                    that.state.value = nv;
+                if (nv !== that.getInternalValue()) {
+                    that.setInternalValue(nv, false);
                     if (input)
-                        input.checked = that.state.value || false;
+                        input.checked = that.getInternalValue() || false;
                 }
             };
             Check.prototype.stateChanged = function (propName, params) {
@@ -24573,391 +26084,49 @@ var Phoenix;
 })(Phoenix || (Phoenix = {}));
 /// <reference path="../../../core/core-refs.ts" />
 /// <reference path="./absfield.control.ts" />
-/// <reference path="../errors.data.ts" />
-/// <reference path="./basicgrid.ts" />
-/// <reference path="../modalform.control.ts" />
+/// <reference path="../form.control.ts" />
 var Phoenix;
 (function (Phoenix) {
-    var formcolumngrid;
-    (function (formcolumngrid) {
-        var _utils = Phoenix.utils, _ui = Phoenix.ui, _dom = Phoenix.dom, _uiutils = Phoenix.uiutils, _eu = Phoenix.Observable.errorsUtils, _gridrender = Phoenix.gridrender, _gu = _gridrender.GridUtil, _sutils = Phoenix.Observable.SchemaUtils;
-        var ColumnGrid = /** @class */ (function (_super) {
-            __extends(ColumnGrid, _super);
-            function ColumnGrid(fp, options, form) {
+    var _utils = Phoenix.utils, _ui = Phoenix.ui, _dom = Phoenix.dom, _data = Phoenix.data, _uiutils = Phoenix.uiutils;
+    var downloadctrl;
+    (function (downloadctrl) {
+        var DownloadControl = /** @class */ (function (_super) {
+            __extends(DownloadControl, _super);
+            function DownloadControl(fp, options, form) {
                 var _this = _super.call(this, fp, options, form) || this;
-                var that = _this;
-                var opts = that.fieldOptions;
-                that._initAllColumns();
-                that._state();
-                var fields = opts.columns.header.fields || [];
-                opts.columns.header.fields = that.form.afterSettings(that.$bind, "columngrid", { columns: fields }).columns;
-                var ctrSettings = that.form.getFieldSettings(that.$bind);
-                if (ctrSettings) {
-                    that._settings = that.form.afterSettings(that.$bind, "columngrid", ctrSettings);
-                }
-                that._initRows();
+                _this._state();
                 return _this;
             }
-            ColumnGrid.prototype._initSchemaRows = function (rows) {
+            DownloadControl.prototype.changed = function (propName, ov, nv, op, params) {
                 var that = this;
-                that.rows = [];
-                rows.forEach(function (r, index) {
-                    that.rows[index] = { name: r.name, canEdit: r.canEdit, check: r.check, schema: _sutils.getSchema(r.name, that.$schemaItems, that.form.$rootSchema, false) || {} };
-                });
-            };
-            ColumnGrid.prototype._colByName = function (rn) {
-                var that = this;
-                for (var i = 0, len = that.rows.length; i < len; i++) {
-                    var r = that.rows[i];
-                    if (r.name === rn)
-                        return r;
-                }
-                return null;
-            };
-            ColumnGrid.prototype.setSettings = function (settings) {
-                var that = this;
-                that._rrender();
-            };
-            ColumnGrid.prototype._initRows = function () {
-                var that = this;
-                if (that.rows)
-                    return;
-                var opts = that.fieldOptions;
-                if (!opts.columns)
-                    opts.columns = {};
-                if (!opts.columns.header)
-                    opts.columns.header = {};
-                if (!opts.columns.row)
-                    opts.columns.row = {};
-                var fields = opts.columns.header.fields || [];
-                if (that._settings && that._settings.columns && that._settings.columns.length)
-                    fields = that._settings.columns;
-                that._initSchemaRows(fields);
-            };
-            // Create columns
-            ColumnGrid.prototype._initCols = function (options) {
-                var that = this;
-                if (!options.columns)
-                    options.columns = {};
-                if (!options.columns.header)
-                    options.columns.header = {};
-                if (!options.columns.row)
-                    options.columns.row = {};
-                var header = $.extend({}, options.columns.header);
-                var row = options.columns.row;
-                header.options = header.options || {};
-                row.options = row.options || {};
-                var headerBind = row.$bind, headerSchema;
-                if (!row.$bind) {
-                    headerBind = "$index";
-                    headerSchema = { type: "integer" };
-                }
-                else {
-                    headerSchema = _sutils.getSchema(row.$bind, that.$schemaItems, that.form.$rootSchema, false);
-                }
-                var columns = [];
-                columns.push(header);
-                if (that.state.value) {
-                    that.state.value.forEach(function (item) {
-                        var title = _uiutils.utils.displayValue(item.getRelativeValue(headerBind), headerSchema, that.form.$locale, { html: false }, item, headerBind).value;
-                        var r = $.extend({}, row);
-                        r.title = title || '';
-                        r.id = item.$id;
-                        columns.push(r);
-                    });
-                }
-                return columns;
-            };
-            ColumnGrid.prototype._modifyRow = function (value, schema, rowIndex, colIndex, opts, item, fieldName) {
-                var that = this;
-                var pr = _dom.find(that.$element.get(0), that.id + '_rows');
-                var tr = pr.childNodes[rowIndex];
-                var td = tr.childNodes[colIndex];
-                var v = _uiutils.utils.displayValue(value, schema, that.form.$locale, { html: true, useSymbol: false, editable: opts.editable, check: opts.check, tableOptions: that.config.options }, item, fieldName);
-                _dom.empty(td);
-                if (v.html) {
-                    var $c = $(v.value);
-                    _dom.append(td, $c.get(0));
-                }
-                else
-                    _dom.append(td, document.createTextNode(v.value));
-            };
-            ColumnGrid.prototype.changed = function (propName, ov, nv, op, params) {
-                var that = this;
-                if (op === 'upd') {
-                    var item_3 = params && params.$id ? that.state.value.findById(params.$id) : null;
-                    if (item_3) {
-                        that.rows.forEach(function (row, index) {
-                            if (row.name === params.property) {
-                                that._modifyRow(item_3.getValue(row.name), row.schema, index, that.state.value.indexOf(item_3) + 1, { editable: row.canEdit, check: row.check }, item_3, row.name);
-                            }
-                        });
+                if (that.state.value !== nv) {
+                    that.state.value = nv;
+                    if (that.state.value) {
+                        var frame_3 = _dom.downloadFrame();
+                        var prefix = '';
+                        if (that.renderOptions.dataSource)
+                            prefix = _data.getUrlBaseByType(that.renderOptions.dataSource, false, false);
+                        frame_3.src = prefix + that.state.value;
                     }
                 }
             };
-            ColumnGrid.prototype._grid = function () {
-                return this.$element.get(0);
-            };
-            ColumnGrid.prototype._setErrors = function (grid, element) {
-                var that = this;
-                var errors = that.state.errors;
-                if (element && Phoenix.bootstrap4) {
-                    var errorClass = 'is-invalid';
-                    if (errors && errors.length)
-                        _dom.addClass(element, errorClass);
-                    else
-                        _dom.removeClass(element, errorClass);
-                }
-                that.showErrors(element, errors);
-            };
-            ColumnGrid.prototype.click = function (event) {
-                var that = this;
-                var td = _dom.parentByTag(that.$element.get(0), event.target, 'td');
-                if (td) {
-                    var cn = _dom.attr(td, "colId");
-                    if (cn) {
-                        var col = that._colByName(cn);
-                        if (col && col.canEdit && _sutils.isBoolean(col.schema)) {
-                            if (_dom.attr(event.target, 'data-clickable')) {
-                                var rid = _dom.attr(td, "rowId");
-                                var item = rid ? that.state.value.findById(rid) : null;
-                                if (item) {
-                                    var ov = item.getValue(col.name);
-                                    item.setValue(col.name, !ov);
-                                }
-                            }
-                        }
-                    }
-                }
-            };
-            ColumnGrid.prototype._setDisabled = function (button, element) { };
-            ColumnGrid.prototype._state2UI = function () {
-                var that = this;
-                var grid = that._grid();
-                var element = that.$element ? that.$element.get(0) : null;
-                if (grid) {
-                    that._setDisabled(grid, element);
-                    that.setHidden(element);
-                    that._setErrors(grid, element);
-                }
-            };
-            ColumnGrid.prototype.stateChanged = function (propName, params) {
-                var that = this;
-                var state = that.form.getState(that.$bind);
-                var grid = that._grid();
-                var element = that.$element ? that.$element.get(0) : null;
-                if (!propName || (propName === 'isHidden')) {
-                    if (state.isHidden !== that.state.isHidden) {
-                        that.state.isHidden = state.isHidden;
-                        if (grid)
-                            that.setHidden(element);
-                    }
-                }
-                if (!propName || (propName === 'isDisabled')) {
-                    if (state.isDisabled != that.state.isDisabled) {
-                        that.state.isDisabled = state.isDisabled;
-                        if (grid)
-                            that._setDisabled(grid, element);
-                    }
-                }
-                if (!propName || (propName === 'errors')) {
-                    if (_eu.errorChanged(that.state.errors, state.errors)) {
-                        that.state.errors = state.errors;
-                        that._setErrors(grid, element);
-                    }
-                }
-            };
-            ColumnGrid.prototype._renderRows = function () {
-                var that = this;
-                if (that.$element) {
-                    var pr = _dom.find(that.$element.get(0), that.id + '_rows');
-                    _dom.empty(pr);
-                    _dom.append(pr, _gu.createGridRows(that.id, that.rows, that.state.value, that.columns, that.renderOptions, that.options.design, that.form.$locale));
-                }
-            };
-            ColumnGrid.prototype._draw = function (opts) {
-                var that = this;
-                that.columns = that._initCols(that.fieldOptions);
-                if (opts._useColGrp) {
-                    var colgrp = _dom.find(that.$element.get(0), that.id + '_colgrp');
-                    _dom.empty(colgrp);
-                    _dom.append(colgrp, _gu.createColGroup(that.columns, opts, false));
-                }
-                if (!opts.headerIsHidden) {
-                    var pc = _dom.find(that.$element.get(0), that.id + '_cols');
-                    _dom.empty(pc);
-                    _dom.append(pc, _gu.createCols(that.id, that.columns, opts, that.options.design, that.form.$locale, '', false));
-                }
-                that._renderRows();
-                that._state2UI();
-            };
-            ColumnGrid.prototype._rrender = function () {
-                var that = this;
-                if (that.$element) {
-                    that._draw(that.renderOptions);
-                }
-            };
-            ColumnGrid.prototype.render = function ($parent) {
+            DownloadControl.prototype.render = function ($parent) {
                 var that = this;
                 var opts = that._initOptions(_uiutils.utils.defaultOptions);
                 if (!that.$element) {
-                    that.columns = that._initCols(that.fieldOptions);
-                    that.$element = $(_gu.gridContainer(that.id, opts, that.options.design, that.$schema.title, that.form.$locale, that.columns, null));
-                    that._draw(opts);
-                    that.appendElement($parent, opts);
-                    return that.$element;
+                    var html = [];
+                    if (!that.options.design)
+                        opts.styles = 'bs-none';
+                    _uiutils.utils.fieldWrapper(html, opts, that.options.design, function () { });
+                    that.$element = $(_utils.format(html.join(''), that.id));
                 }
+                that.appendElement($parent, opts);
+                return that.$element;
             };
-            ColumnGrid.prototype._createRow = function (index) {
-                var that = this;
-                if (that.$element) {
-                    var pr = _dom.find(that.$element.get(0), that.id + '_rows');
-                    var nr = _gu.createRow(that.id, index, 0, that.state.value.get(index), that.columns, that.renderOptions, that.options.design, that.form.$locale, index % 2 === 1, false, false);
-                    if (pr.childNodes.length >= index)
-                        _dom.append(pr, nr);
-                    else
-                        _dom.before(pr.childNodes[index], nr);
-                }
-            };
-            ColumnGrid.prototype._initAllColumns = function () {
-                var that = this;
-                var opts = that.fieldOptions;
-                that._allColumns = [];
-                that._allColumnsNames = [];
-                if (!opts.columns)
-                    opts.columns = {};
-                if (!opts.columns.header)
-                    opts.columns.header = {};
-                var selectedColumns = [];
-                var allColumns = opts.columns.header.allFields;
-                allColumns.forEach(function (col) {
-                    that._allColumns.push($.extend({}, col));
-                    that._allColumnsNames.push(col.name);
-                });
-            };
-            ColumnGrid.prototype._selectedColumns = function () {
-                var that = this;
-                var selectedColumns = [];
-                var res = [];
-                that.rows.forEach(function (col) {
-                    selectedColumns.push(col.name);
-                });
-                that._allColumns.forEach(function (col) {
-                    var schema = _sutils.getSchema(col.name, that.$schemaItems, that.form.$rootSchema, false);
-                    if (selectedColumns.indexOf(col.name) >= 0) {
-                        res.push({ name: col.name, title: schema.title });
-                    }
-                });
-                return res;
-            };
-            ColumnGrid.prototype._initDataSettings = function () {
-                var that = this;
-                var layout = {
-                    $type: "block",
-                    $items: [
-                        { $type: "block", $items: [] },
-                        {
-                            $type: "block",
-                            $items: [
-                                {
-                                    $bind: "columns",
-                                    $widget: "basicgrid",
-                                    options: {
-                                        border: true,
-                                        align: "middle",
-                                        small: true,
-                                        noRowSelectedIndicator: true,
-                                        headerIsHidden: true,
-                                        selecting: {
-                                            row: true,
-                                            multiselect: true
-                                        },
-                                        columns: [
-                                            { $bind: "caption", options: { "width": "100%" } }
-                                        ]
-                                    }
-                                }
-                            ]
-                        },
-                        { $type: "block", $items: [] }
-                    ]
-                };
-                var schema = {
-                    properties: {
-                        columns: {
-                            type: "array",
-                            items: {
-                                type: "object",
-                                properties: {
-                                    name: { type: "string" },
-                                    caption: { type: "string" }
-                                }
-                            }
-                        }
-                    }
-                };
-                var data = { "columns": [] };
-                var selectedColumns = [];
-                that.rows.forEach(function (col) {
-                    selectedColumns.push(col.name);
-                });
-                that._allColumns.forEach(function (col) {
-                    var schema = _sutils.getSchema(col.name, that.$schemaItems, that.form.$rootSchema, false);
-                    data.columns.push({ name: col.name, caption: schema.title, $select: selectedColumns.indexOf(col.name) >= 0 });
-                });
-                return { schema: schema, data: data, layout: layout };
-            };
-            ColumnGrid.prototype.sendMessage = function (message, params) {
-                var that = this;
-                switch (message) {
-                    case "column-list":
-                        that.openColumns(params);
-                        break;
-                    case "selected-cols":
-                        return that._selectedColumns();
-                }
-            };
-            ColumnGrid.prototype.stopProppagation = function (event) {
-                var that = this;
-                event.preventDefault();
-                event.stopPropagation();
-            };
-            ColumnGrid.prototype.openColumns = function (params) {
-                var that = this;
-                var opts = that._initDataSettings();
-                var fo = { "title": params.title || "Columns ...", "buttons": [{ "type": "success", "title": params.okTitle || "OK", "name": "ok" }] };
-                _ui.OpenModalForm(fo, opts.layout, opts.schema, opts.data, {}, function (form, action, model, formControl) {
-                    if (action.operation === "modal-action") {
-                        switch (action.property) {
-                            case "ok":
-                                var cd_1 = { columns: [] };
-                                model.columns.forEach(function (col) {
-                                    if (col.$select) {
-                                        var ii = that._allColumnsNames.indexOf(col.name);
-                                        if (ii >= 0) {
-                                            cd_1.columns.push($.extend({}, that._allColumns[ii]));
-                                        }
-                                    }
-                                });
-                                that._settings = cd_1;
-                                that.form.setFieldSettings(that.$bind, that._settings);
-                                that.form.savePrefs(function () {
-                                    that._settings = that.form.afterSettings(that.$bind, "columngrid", cd_1);
-                                    that.rows = null;
-                                    that._initRows();
-                                    form.close();
-                                    that._rrender();
-                                });
-                                break;
-                        }
-                    }
-                });
-            };
-            return ColumnGrid;
+            return DownloadControl;
         }(Phoenix.ui.AbsField));
-        ;
-        _ui.registerControl(ColumnGrid, "array", false, "columngrid", null);
-    })(formcolumngrid || (formcolumngrid = {}));
+        _ui.registerControl(DownloadControl, 'string', false, 'download', {});
+    })(downloadctrl = Phoenix.downloadctrl || (Phoenix.downloadctrl = {}));
 })(Phoenix || (Phoenix = {}));
 /// <reference path="../../../core/core-refs.ts" />
 /// <reference path="../../../core/modules/locale.ts" />
@@ -24970,7 +26139,6 @@ var Phoenix;
     (function (formedit) {
         var _p = Phoenix, _serial = _p.serial, _utils = _p.utils, _dom = _p.dom, _locale = _p.locale, _su = _p.Observable.SchemaUtils, _ulocale = _p.ulocale, _ui = _p.ui, _uiutils = _p.uiutils, _eu = _p.Observable.errorsUtils;
         var _createInput = function (html, options, title, tagName) {
-            var _bootstrap4 = _p.bootstrap4;
             tagName = tagName || 'input';
             var isTextArea = tagName === "textarea";
             if (options.readOnly) {
@@ -24986,20 +26154,23 @@ var Phoenix;
             var isDate = options.$format === 'date';
             var isMoney = options.$format === 'money';
             if (isMoney || isDate || isDateTime) {
-                if (options.maxWidth === undefined)
+                if (options.maxWidth === undefined) {
                     options.maxWidth = '16em';
+                    if (options.inline && options.minWidth === undefined)
+                        options.minWidth = '16em';
+                }
             }
-            if (options.before || options.after) {
-                html.push('<div class="input-group" id="{0}_group"');
-                var style = [];
-                if (options.minWidth)
-                    style.push('min-width: ' + options.minWidth + ';');
-                if (options.maxWidth)
-                    style.push('max-width: ' + options.maxWidth + ';');
-                if (style.length)
-                    html.push('  style="' + style.join("") + '"');
-                html.push('>');
-            }
+            html.push('<div class="input-group" id="{0}_group"');
+            var style = [];
+            if (options.minWidth)
+                style.push('min-width: ' + options.minWidth + ';');
+            if (options.maxWidth)
+                style.push('max-width: ' + options.maxWidth + ';');
+            if (style.length)
+                html.push('  style="' + style.join("") + '"');
+            html.push('>');
+            if (isTextArea && options.noResize)
+                style.push('resize: none;');
             if (options.before) {
                 html.push('<span class="bs-grp-btn input-group-prepend">');
                 html.push('<span class="input-group-text">');
@@ -25011,28 +26182,18 @@ var Phoenix;
                 html.push('</span>');
             }
             var inputCss = ['form-control'];
-            if (options.size && _bootstrap4)
+            if (options.size)
                 inputCss.push('form-control-' + options.size);
             if (options.inputClass)
                 inputCss.push(options.inputClass);
-            if (options.readOnly) {
+            if (options.readOnly)
                 inputCss.push('bs-read-only');
-            }
+            if (options.mask === 'uppercase')
+                inputCss.push('text-uppercase');
             html.push('<' + tagName + ' autocomplete="off"' + (options.readOnly ? '' : ' type="' + (options.type || 'text') + '"') + ' class="' + inputCss.join(' '));
             html.push('" id="{0}_input"');
             if (isTextArea) {
                 html.push(' rows="' + (options.rows || 3) + '"');
-            }
-            if (!options.before && !options.after) {
-                var style = [];
-                if (options.maxWidth)
-                    style.push('max-width: ' + options.maxWidth + ';');
-                if (options.minWidth)
-                    style.push('min-width: ' + options.minWidth + ';');
-                if (isTextArea && options.noResize)
-                    style.push('resize: none;');
-                if (style.length)
-                    html.push('  style="' + style.join('') + '"');
             }
             if (options.maxLength)
                 html.push('  maxLength="' + options.maxLength + '"');
@@ -25041,64 +26202,58 @@ var Phoenix;
                 html.push('  placeholder="' + phv + '"');
             }
             html.push('>');
-            if (options.after) {
-                html.push('<span  id="{0}_after" tabindex="-1" class="bs-grp-btn input-group-append input-group-addon');
-                if (options.after.icon)
-                    html.push(' bs-icon-input');
-                html.push('">');
-                html.push('<span class="input-group-text">');
-                if (options.after.icon) {
-                    html.push('<span class="' + _dom.iconClass(options.after.icon) + '"></span>');
-                }
-                else
-                    html.push(options.after.value);
-                html.push('</span>');
-                html.push('</span>');
-            }
-            if (options.before || options.after)
-                html.push('</div>');
             if (isTextArea || options.readOnly) {
                 html.push('</' + tagName + '>');
             }
-            _uiutils.utils.addErrorDiv(html);
+            if (options.after && options.after.icon)
+                _addAfter(html, options.after);
+            html.push('</div>');
+            _uiutils.utils.addErrorDiv(html, false, options.inline);
+        }, _addAfter = function (html, afterDef) {
+            html.push('<span  id="{0}_after" tabindex="-1" class="bs-grp-btn input-group-append input-group-addon');
+            if (afterDef.icon)
+                html.push(' bs-icon-input');
+            html.push('">');
+            html.push('<span class="input-group-text">');
+            if (afterDef.icon) {
+                html.push('<span class="' + _dom.iconClass(afterDef.icon) + '"></span>');
+            }
+            else
+                html.push(afterDef.value);
+            html.push('</span>');
+            html.push('</span>');
+        }, _createAfter = function (id, afterDef) {
+            var html = [];
+            _addAfter(html, afterDef);
+            return $(_utils.format(html.join(''), id)).get(0);
         }, _createEditInput = function (id, options, authoring, title, tagName) {
             title = title || '';
             options = $.extend({ titleIsHidden: false, placeHolder: false, columns: false, labelCol: 3 }, options);
             var html = [];
-            if (options.titleIsHidden) {
-                options.columns = false;
-            }
             if (options.readOnly) {
                 delete options.after;
                 delete options.before;
             }
             _uiutils.utils.fieldWrapper(html, options, authoring, function () {
-                var _bootstrap4 = _p.bootstrap4;
-                if (!options.titleIsHidden) {
+                if (!options.titleIsHidden || options.columns) {
                     html.push('<label for="{0}_input" id="{0}_label"');
                     var css = ['bs-label'];
                     if (options.columns) {
-                        if (_bootstrap4) {
-                            css.push('col-form-label');
-                        }
-                        else {
-                            css.push('checkbox-inline bs-cursor-d');
-                        }
+                        css.push('col-form-label');
                         css.push('bs-lib-col col-sm-' + options.labelCol);
                         if (options.labelLeft)
                             css.push('text-left');
                     }
                     if (options.inline) {
-                        if (_bootstrap4)
-                            css.push('form-check-inline bs-cursor-d no-x-padding');
-                        else
-                            css.push('checkbox-inline bs-cursor-d no-x-padding');
+                        css.push('form-check-inline bs-cursor-d no-x-padding');
                     }
                     if (css.length)
                         html.push(' class="' + css.join(' ') + '"');
                     html.push('>');
-                    html.push(_utils.escapeHtml(title || '') + (options.inline ? '&nbsp;' : ''));
-                    _uiutils.utils.addTooltipAndRule(html, options);
+                    if (!options.titleIsHidden) {
+                        html.push(_utils.escapeHtml(title || '') + (options.inline ? '&nbsp;' : ''));
+                        _uiutils.utils.addTooltipAndRule(html, options);
+                    }
                     html.push('</label>');
                 }
                 if (options.columns)
@@ -25176,6 +26331,9 @@ var Phoenix;
             BaseEdit.prototype._isMemo = function () {
                 return _su.isText(this._schemaInput());
             };
+            BaseEdit.prototype._isEnum = function () {
+                return !!this._schemaInput().enum;
+            };
             BaseEdit.prototype._isNumber = function () {
                 var schema = this._schemaInput();
                 return !schema.enum && _su.isNumber(schema);
@@ -25208,7 +26366,7 @@ var Phoenix;
             };
             BaseEdit.prototype._setErrors = function (input, element) {
                 var that = this;
-                if (that.renderOptions.readOnly)
+                if (that.renderOptions.readOnly && !that.renderOptions.showErrors)
                     return;
                 var errors = that.state.errors;
                 var errorClass = Phoenix.bootstrap4 ? 'is-invalid' : 'has-error';
@@ -25235,7 +26393,7 @@ var Phoenix;
                 else
                     _dom.removeClass(input, "bs-mandatory");
                 if (that.renderOptions.placeHolder) {
-                    input.placeholder = that.renderOptions.title + (v ? ' *' : '');
+                    input.placeholder = (that.renderOptions.placeHolder === true ? that.renderOptions.title : that.renderOptions.placeHolder) + (v ? ' *' : '');
                 }
                 if (!that.renderOptions.titleIsHidden) {
                     var label = _dom.find(element, that.id + '_label');
@@ -25248,6 +26406,8 @@ var Phoenix;
                 var that = this;
                 var input = that._input();
                 var element = that.$element ? that.$element.get(0) : null;
+                if (that._isMoney)
+                    that.fieldState().moneyUnitCoef = that.form.moneyUnitCoef;
                 if (input) {
                     that._value2Input(input);
                     that._setDisabled(input, element);
@@ -25258,21 +26418,41 @@ var Phoenix;
                     that._setSymbol(element);
                 }
             };
+            BaseEdit.prototype.beforeAfter = function () {
+                return this._input();
+                ;
+            };
             BaseEdit.prototype._setSymbol = function (e) {
                 var that = this;
-                if (that.renderOptions.readOnly)
+                if (!e)
                     return;
-                if (!that._hasSymbol || !e)
+                if (!that._isNumber())
                     return;
                 var after = that._after();
+                var cs = that._isMoney() ? _su.moneyUnitSymbol(that.fieldState().moneyUnitCoef) + (that.fieldState().symbol || '') : that.fieldState().symbol;
                 if (after) {
-                    if (!that.state.symbol) {
-                        _dom.text(after, String.fromCharCode(160));
+                    if (!cs) {
+                        _dom.remove(after);
                     }
                     else {
-                        _dom.text(after, that.state.symbol);
+                        _dom.text(after, cs);
                     }
                 }
+                else {
+                    if (cs) {
+                        after = _createAfter(that.id, { value: cs });
+                        var input = that.beforeAfter();
+                        _dom.after(input, after);
+                    }
+                }
+            };
+            BaseEdit.prototype.focusInControl = function (activeFocusElement) {
+                var that = this;
+                var p = _super.prototype.focusInControl.call(this, activeFocusElement);
+                if (!p && that._isDate() && _uiutils.utils.useDatePicker()) {
+                    return _uiutils.utils.elementInDatePicker(activeFocusElement, that.$element);
+                }
+                return p;
             };
             BaseEdit.prototype._value2Input = function (input) {
                 var that = this;
@@ -25325,34 +26505,37 @@ var Phoenix;
                     that._value2Input(input);
                 }
                 else {
-                    var av = input.value;
+                    var av = _uiutils.utils.maskCheckValue(that.renderOptions.mask, input.value);
                     var cv = that._value2Text();
                     if (av != cv)
                         that._value2Input(input);
                 }
+            };
+            BaseEdit.prototype._patchState = function (state) {
             };
             BaseEdit.prototype.stateChanged = function (propName, params) {
                 var that = this;
                 if (that.useDisplay && propName === that.$display)
                     return;
                 var state = that.form.getState(that.$bind);
+                that._patchState(state);
                 var input = that._input();
                 var element = that.$element ? that.$element.get(0) : null;
                 if (!propName || (propName === 'symbol')) {
-                    if (state.symbol !== that.state.symbol) {
-                        that.state.symbol = state.symbol;
+                    if (state.symbol !== that.fieldState().symbol) {
+                        that.fieldState().symbol = state.symbol;
                         if (input)
                             that._setSymbol(element);
                     }
                 }
                 if (!propName || (propName === 'decimals')) {
-                    if (state.decimals !== that.state.decimals) {
-                        that.state.decimals = state.decimals;
+                    if (state.decimals !== that.fieldState().decimals) {
+                        that.fieldState().decimals = state.decimals;
                     }
                 }
                 if (!propName || (propName === 'isHidden')) {
-                    if (state.isHidden !== that.state.isHidden) {
-                        that.state.isHidden = state.isHidden;
+                    if (state.isHidden !== that.fieldState().isHidden) {
+                        that.fieldState().isHidden = state.isHidden;
                         if (input)
                             that.setHidden(element);
                     }
@@ -25447,11 +26630,13 @@ var Phoenix;
             Edit.prototype.internalRender = function ($parent) {
                 var that = this;
                 var opts = that._initOptions(_uiutils.utils.defaultOptions);
+                var schema = that._schemaInput();
                 if (!that.$element) {
                     opts.title = _ulocale.tt(that.$schema.title, that.form.$locale);
-                    if (opts.placeHolder && opts.placeHolder != true)
+                    if (opts.placeHolder && opts.placeHolder !== true && !opts.title)
                         opts.title = _ulocale.tt(opts.placeHolder, that.form.$locale);
-                    opts.maxLength = that.$schema.maxLength;
+                    if (schema.maxLength)
+                        opts.maxLength = schema.maxLength;
                     if (that.$schema.description)
                         opts.description = _ulocale.tt(that.$schema.description, that.form.$locale);
                     that.$element = $(_createEditInput(that.id, opts, that.options.design, opts.title, opts.tagName));
@@ -25467,12 +26652,12 @@ var Phoenix;
             };
             Edit.prototype._text2value = function (textValue) {
                 var that = this;
-                return _uiutils.utils.text2value(textValue, that.$schema, that.state);
+                return _uiutils.utils.text2value(textValue, that._schemaInput(), that.fieldState());
             };
             Edit.prototype._value2Text = function () {
                 var that = this;
                 if (that._isNumber()) {
-                    return _su.value2Text(that.state.value, that.$schema, that.state);
+                    return _su.value2Text(that.state.value, that._schemaInput(), that.fieldState());
                 }
                 else
                     return _super.prototype._value2Text.call(this);
@@ -25480,14 +26665,22 @@ var Phoenix;
             Edit.prototype.customOptions = function (options) {
                 var that = this;
                 _super.prototype.customOptions.call(this, options);
-                if (that._isDate()) {
+                var schema = that._schemaInput();
+                if (schema) {
+                    if (schema.format === 'phone')
+                        that._mask = 'phone';
+                }
+                if (that._isEnum()) {
+                    that.customOptionsEnums(options);
+                }
+                else if (that._isDate()) {
                     that.customOptionsDate(options);
                 }
                 else if (that._isDateTime()) {
                     that.customOptionsDateTime(options);
                 }
                 else if (that._isNumber()) {
-                    that.customOptionsNumber(options, that.state.symbol);
+                    that.customOptionsNumber(options);
                 }
                 else if (that._isPassword()) {
                     that.customOptionsPassword(options);
@@ -25497,10 +26690,31 @@ var Phoenix;
                 }
             };
             Edit.prototype.customOptionsMemo = function (options) {
+                if (this._schemaInput().format === 'memo')
+                    options.maxLength = options.maxLength || 4000;
                 options.tagName = 'textarea';
             };
             Edit.prototype.customOptionsPassword = function (options) {
                 options.type = 'password';
+            };
+            Edit.prototype._unitChanged = function () {
+                var that = this;
+                var input = that._input();
+                var element = that.$element ? that.$element.get(0) : null;
+                if (input) {
+                    that._value2Input(input);
+                    that._setSymbol(element);
+                }
+            };
+            Edit.prototype.notifyGlobalChanged = function (globalName) {
+                var that = this;
+                if (globalName === 'money-unit') {
+                    that.fieldState().moneyUnitCoef = that.form.moneyUnitCoef;
+                    that._unitChanged();
+                }
+            };
+            Edit.prototype.customOptionsEnums = function (options) {
+                options.after = { icon: 'chevron-down' };
             };
             Edit.prototype.customOptionsDate = function (options) {
                 var that = this;
@@ -25521,14 +26735,10 @@ var Phoenix;
                     options.date = true;
                 }
             };
-            Edit.prototype.customOptionsNumber = function (options, symbol) {
+            Edit.prototype.customOptionsNumber = function (options) {
                 var that = this;
                 options.inputClass = "bs-edit-number";
                 var schema = that._schemaInput();
-                if (symbol || _su.hasSymbol(schema)) {
-                    options.after = { value: symbol };
-                    that._hasSymbol = true;
-                }
                 options.$format = schema.format;
             };
             Edit.prototype._removeEventsDate = function () {
@@ -25589,7 +26799,7 @@ var Phoenix;
                     return true;
                 var schema = that._schemaInput();
                 if (that._isNumber() && !that.$lookup) {
-                    if (_uiutils.utils.doPasteNumber(event, input, { decimalSep: _locale.number.decimal, thousandSep: _locale.number.thousand, places: that.state.decimals, schema: schema }) === false)
+                    if (_uiutils.utils.doPasteNumber(event, input, { decimalSep: _locale.number.decimal, thousandSep: _locale.number.thousand, places: _su.places(that.fieldState()), schema: schema }) === false)
                         return false;
                 }
                 else if (that._isDate()) {
@@ -25602,7 +26812,8 @@ var Phoenix;
                 }
                 return true;
             };
-            Edit.prototype._ignoreKeys = function (event, keyPress) {
+            Edit.prototype._ignoreKeys = function (event, keyPress, input) {
+                var that = this;
                 if (event.which === _dom.keys.VK_TAB)
                     return true;
                 if (event.which === _dom.keys.VK_DELETE)
@@ -25614,6 +26825,11 @@ var Phoenix;
                         return true;
                     if (_dom.arrowKeys.indexOf(event.which) >= 0)
                         return true;
+                    if (that.renderOptions.mask) {
+                        event.which = _uiutils.utils.maskKeys(that.renderOptions.mask || that._mask, event, input, keyPress);
+                        if (event.which === 0)
+                            return true;
+                    }
                     return false;
                 }
                 else {
@@ -25629,11 +26845,11 @@ var Phoenix;
                 if (that.state.isReadOnly || that.state.isDisabled)
                     return true;
                 var input = that._input();
-                if (that._ignoreKeys(event, true))
+                if (that._ignoreKeys(event, true, input))
                     return true;
                 var schema = that._schemaInput();
                 if (that._isNumber() && !that.$lookup) {
-                    if (_uiutils.utils.keyPressNumber(event, input, { decimalSep: _locale.number.decimal, thousandSep: _locale.number.thousand, places: that.state.decimals, schema: schema }) === false)
+                    if (_uiutils.utils.keyPressNumber(event, input, { decimalSep: _locale.number.decimal, thousandSep: _locale.number.thousand, places: _su.places(that.fieldState()), schema: schema }) === false)
                         return false;
                 }
                 else if (that._isDate()) {
@@ -25660,7 +26876,7 @@ var Phoenix;
                 if (that.state.isReadOnly || that.state.isDisabled)
                     return true;
                 var input = that._input();
-                if (that._ignoreKeys(event, false)) {
+                if (that._ignoreKeys(event, false, input)) {
                     if (event.which === _dom.keys.VK_ENTER) {
                         that._afterEnter();
                     }
@@ -25668,7 +26884,7 @@ var Phoenix;
                 }
                 var schema = that._schemaInput();
                 if (that._isNumber() && !that.$lookup) {
-                    if (_uiutils.utils.keyDownNumber(event, input, { decimalSep: _locale.number.decimal, thousandSep: _locale.number.thousand, places: that.state.decimals, schema: schema }) === false)
+                    if (_uiutils.utils.keyDownNumber(event, input, { decimalSep: _locale.number.decimal, thousandSep: _locale.number.thousand, places: _su.places(that.state), schema: schema }) === false)
                         return false;
                 }
                 else if (that._isDate()) {
@@ -25683,9 +26899,14 @@ var Phoenix;
             };
             Edit.prototype.equals = function (nv) {
                 var that = this;
-                var res = (that.state.value === nv);
-                if (!res && that.state.value === undefined) {
-                    if (that.$schema.type === "string") {
+                var cv = that.state.value;
+                if (that._isMoney()) {
+                    cv = that._value2Text();
+                    nv = _su.value2Text(nv, that._schemaInput(), that.state);
+                }
+                var res = (cv === nv);
+                if (!res && cv === undefined) {
+                    if (that._schemaInput().type === "string") {
                         if (nv === '')
                             return true;
                     }
@@ -25711,11 +26932,14 @@ var Phoenix;
             };
             Edit.prototype._input2Model = function (isFocusOut) {
                 var that = this, input = that._input();
-                var nv = that._text2value(input.value);
+                var av = _uiutils.utils.maskCheckValue(that.renderOptions.mask, input.value);
+                if (av != input.value)
+                    input.value = av;
+                var nv = that._text2value(av);
                 if (!that.equals(nv)) {
                     that.checkValue(nv, function (cv) {
                         if (that.state.value !== cv) {
-                            if (cv === '' && that.$schema.type === "string")
+                            if (cv === '' && that._schemaInput().type === "string")
                                 cv = undefined;
                             that._internalSetValue(cv, isFocusOut);
                         }
@@ -26062,6 +27286,111 @@ var Phoenix;
     })(formenum || (formenum = {}));
 })(Phoenix || (Phoenix = {}));
 /// <reference path="../../../core/core-refs.ts" />
+var Phoenix;
+(function (Phoenix) {
+    var filtersummary;
+    (function (filtersummary) {
+        var _p = Phoenix, _uiutils = Phoenix.uiutils, _sutils = _p.Observable.SchemaUtils, _utils = _p.utils, _ctrlsinterfaces = Phoenix.ctrlsinterfaces, _dom = _p.dom, _ui = _p.ui;
+        function _createContent(id, options, authoring) {
+            var html = [];
+            _uiutils.utils.fieldWrapper(html, options, authoring, function () {
+            });
+            return _utils.format(html.join(''), id);
+        }
+        ;
+        var _createTag = function (title) {
+            return $(_utils.format(' <span class="bs-tag badge badge-info">{0}</span>', title)).get(0);
+        };
+        var FilterSummary = /** @class */ (function (_super) {
+            __extends(FilterSummary, _super);
+            function FilterSummary(fp, options, form) {
+                var _this = _super.call(this, fp, options, form) || this;
+                var that = _this;
+                that._state();
+                return _this;
+            }
+            FilterSummary.prototype.destroy = function () {
+                _super.prototype.destroy.call(this);
+            };
+            FilterSummary.prototype.stateChanged = function (propName, cparams, params) {
+                var that = this;
+                if (propName === 'filter') {
+                    that._state2UI();
+                }
+            };
+            FilterSummary.prototype.changed = function (propName, ov, nv, op, params) {
+                var that = this;
+                if (params.checkChildren && op === 'propchange' && propName === that.$bind) {
+                    that.state.value = that.form.getValue(that.$bind);
+                    that._state();
+                    that._state2UI();
+                }
+            };
+            FilterSummary.prototype.filter2English = function (mongoFilter) {
+                var that = this;
+                return _ctrlsinterfaces.glbMongoFilter2Filter(mongoFilter, that._filtrableColumns(), true);
+            };
+            FilterSummary.prototype.renderFilter = function () {
+                var that = this;
+                var e = that.$element.get(0);
+                if (that.state.value && that.state.value.filter) {
+                    var filters_1 = this.filter2English(that.state.value.filter);
+                    _dom.empty(e);
+                    filters_1.forEach(function (filter) {
+                        _dom.append(e, _createTag(filter.title));
+                    });
+                }
+                else {
+                    _dom.empty(e);
+                }
+            };
+            FilterSummary.prototype.setHidden = function (element) {
+                var that = this;
+                if (!element)
+                    return;
+                if (that.options.design) {
+                    _dom.removeClass(element, 'bs-none');
+                }
+                else {
+                    if (that.state.value && that.state.value.filter)
+                        _dom.removeClass(element, 'bs-none');
+                    else
+                        _dom.addClass(element, 'bs-none');
+                }
+            };
+            FilterSummary.prototype._state2UI = function () {
+                var that = this;
+                var e = that.$element.get(0);
+                that.renderFilter();
+                that.setHidden(e);
+            };
+            FilterSummary.prototype.render = function ($parent) {
+                var that = this;
+                var opts = that._initOptions(_uiutils.utils.defaultOptions);
+                if (!that.$element) {
+                    if (!that.$element) {
+                        that.$element = $(_createContent(that.id, opts, that.options.design));
+                        that._state2UI();
+                        that.appendElement($parent, opts);
+                    }
+                    return that.$element;
+                }
+            };
+            FilterSummary.prototype._filtrableColumns = function () {
+                var that = this;
+                var schema = that.form.getSchema(that.$bind);
+                var schemaItems = _sutils.expand$Ref(schema.items, that.form.$rootSchema);
+                if (schema && schema.type === "array" && schemaItems && schemaItems.type === "object") {
+                    return _sutils.filtrableFields(schemaItems, that.form.$rootSchema, that.form.$locale);
+                }
+                return [];
+            };
+            return FilterSummary;
+        }(Phoenix.ui.AbsField));
+        _ui.registerControl(FilterSummary, 'array', false, 'filter-summary', null);
+    })(filtersummary = Phoenix.filtersummary || (Phoenix.filtersummary = {}));
+})(Phoenix || (Phoenix = {}));
+/// <reference path="../../../core/core-refs.ts" />
 /// <reference path="../../../ui/layout.control.ts" />
 /// <reference path="../schema.data.ts" />
 var Phoenix;
@@ -26301,7 +27630,9 @@ var Phoenix;
         var end = oldVal.substr(selectionStart, oldVal.length);
         // Check if keypress is "," or "."
         if (event.key === opts.decimalSep || event.key === '.') {
-            _dom.selectRange(input, oldVal.indexOf(opts.decimalSep) + 1 + charNegative.length);
+            if (opts.places) {
+                _dom.selectRange(input, oldVal.indexOf(opts.decimalSep) + 1 + charNegative.length);
+            }
             event.preventDefault();
             return true;
         }
@@ -26402,6 +27733,7 @@ var Phoenix;
             event.preventDefault();
             return true;
         }
+        // Other cases
         else {
             // New values
             var newVal = '';
@@ -26512,9 +27844,9 @@ var Phoenix;
                     if (!iframeElement) {
                         if (that.state.value && e) {
                             // Create iframe
-                            var parent_2 = _dom.find(e, that.id + '_parent');
+                            var parent_4 = _dom.find(e, that.id + '_parent');
                             var iframeElement_1 = $('<iframe src="' + _checkIFrameUri(that.state.value, that.renderOptions) + '" scrolling="no" width="100%" frameBorder="0" border="0"></iframe>');
-                            _dom.append(parent_2, iframeElement_1.get(0));
+                            _dom.append(parent_4, iframeElement_1.get(0));
                             that._applyIResize();
                         }
                     }
@@ -26626,6 +27958,333 @@ var Phoenix;
     })(frame = Phoenix.frame || (Phoenix.frame = {}));
 })(Phoenix || (Phoenix = {}));
 /// <reference path="../../../core/core-refs.ts" />
+/// <reference path="../../datasets-plugin.ts" />
+var Phoenix;
+(function (Phoenix) {
+    var _p = Phoenix, _ajax = _p.ajax, _link = _p.link, _menubase = _p.menubase, _preferences = _p.preferences, _application = _p.application, _device = _p.device, _utils = _p.utils, _locale = _p.locale, _contextmenu = Phoenix.contextmenu, _dom = _p.dom;
+    var geodecode;
+    (function (geodecode) {
+        var _loadLeaflet = function (cb) {
+            var loader = {
+                execute: function (after) {
+                    var head = document.getElementsByTagName('head')[0];
+                    var css = document.createElement('link');
+                    css.rel = 'stylesheet';
+                    css.type = 'text/css';
+                    css.href = 'https://unpkg.com/leaflet@1.3.1/dist/leaflet.css';
+                    css.media = 'all';
+                    head.appendChild(css);
+                    _ajax.getScript('https://unpkg.com/leaflet@1.3.1/dist/leaflet.js').then(function () { after(null); }).catch(function (err) { after(err); });
+                }
+            };
+            _ajax.loadScript('leaflet', null, cb, loader);
+        };
+        var _geodecode = function (list, mapping, cb) {
+            if (!list || !list.length)
+                return cb(null);
+            if (!mapping.address)
+                return cb(null);
+            var cl = [];
+            var map = {};
+            list.forEach(function (item) {
+                var model = item.model(true);
+                if (model[mapping.latitude] === undefined) {
+                    var address = encodeURIComponent('location.LLL' + item[mapping.address]);
+                    if (window.localStorage) {
+                        var cacheloc = window.localStorage.getItem(address);
+                        if (cacheloc) {
+                            cacheloc = JSON.parse(cacheloc);
+                            item[mapping.latitude] = cacheloc.lat;
+                            item[mapping.longitude] = cacheloc.lng;
+                            return;
+                        }
+                    }
+                    cl.push(item);
+                }
+            });
+            if (!cl.length)
+                return cb(null);
+            var promises = cl.map(function (item) {
+                return _ajax.get('https://maps.googleapis.com/maps/api/geocode/json?key=' + _utils.gGeodecodeKey + '&address=' + encodeURIComponent(item[mapping.address]));
+            });
+            _utils.Promise.all(promises).then(function (res) {
+                res.forEach(function (value, index) {
+                    var item = cl[index];
+                    if (value && value.results && value.results.length) {
+                        item[mapping.latitude] = value.results[0].geometry.location.lat;
+                        item[mapping.longitude] = value.results[0].geometry.location.lng;
+                        if (window.localStorage) {
+                            var address = encodeURIComponent('location.LLL' + item[mapping.address]);
+                            window.localStorage.setItem(address, JSON.stringify(value.results[0].geometry.location));
+                        }
+                    }
+                });
+                cb(null);
+            }).catch(function (err) { return cb(err); });
+        };
+        var _renderLeaflet = function (parent, model, adresses, mapping, after) {
+            _geodecode(adresses, mapping, function (err) {
+                if (err) {
+                    model.addError(err.message);
+                    return after(err);
+                }
+                _loadLeaflet(function (err) {
+                    if (err) {
+                        model.addError(err.message);
+                        return after(err);
+                    }
+                    _dom.empty(parent);
+                    if (!adresses.length)
+                        return after(null, null);
+                    var selected = null;
+                    var sel = null;
+                    // find selected
+                    adresses.enumSelectedItems('', function (ii) {
+                        if (!selected) {
+                            selected = ii;
+                        }
+                    });
+                    if (!selected)
+                        selected = adresses.get(0);
+                    var L = window['L'];
+                    if (!L)
+                        return after(null, null);
+                    var zoom = 13;
+                    var list = [selected[mapping.latitude], selected[mapping.longitude]];
+                    if (list[0] === 0 && list[1] === 0)
+                        zoom = 1;
+                    var map = L.map(parent).setView(list, zoom);
+                    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                    }).addTo(map);
+                    return after(null, map);
+                });
+            });
+        };
+        geodecode.renderLeaflet = _renderLeaflet;
+    })(geodecode = Phoenix.geodecode || (Phoenix.geodecode = {}));
+})(Phoenix || (Phoenix = {}));
+/// <reference path="../../../core/core-refs.ts" />
+/// <reference path="../../../core/modules/locale.ts" />
+/// <reference path="./absfield.control.ts" />
+var Phoenix;
+(function (Phoenix) {
+    var _p = Phoenix, _utils = _p.utils, _customData = _p.customData, _ui = _p.ui, _geodecode = _p.geodecode, _observable = _p.Observable, _sutils = _observable.SchemaUtils, _dom = _p.dom, _uiutils = _p.uiutils;
+    var openstreet;
+    (function (openstreet) {
+        var _createContainer = function (id, options, authoring) {
+            var html = [];
+            _uiutils.utils.fieldWrapper(html, options, authoring, function () {
+                options.height = options.height || 450;
+                html.push('<div id="{0}_parent" style="height:' + options.height + 'px; "></div>');
+            }, null);
+            return _utils.format(html.join(''), id);
+        };
+        var OpenStreetArrayView = /** @class */ (function (_super) {
+            __extends(OpenStreetArrayView, _super);
+            function OpenStreetArrayView(fp, options, form) {
+                var _this = _super.call(this, fp, options, form) || this;
+                _this._state();
+                return _this;
+            }
+            OpenStreetArrayView.prototype._setDisabled = function (element) {
+            };
+            OpenStreetArrayView.prototype._setReadOnly = function (element) {
+                this._setDisabled(element);
+            };
+            OpenStreetArrayView.prototype._setMandatory = function (element) {
+            };
+            OpenStreetArrayView.prototype.destroy = function () {
+                var that = this;
+                that._mapItems = null;
+                if (that._map) {
+                    try {
+                        that._map.remove();
+                    }
+                    catch (e) { }
+                    that._map = null;
+                }
+                _super.prototype.destroy.call(this);
+            };
+            OpenStreetArrayView.prototype._renderMap = function () {
+                var that = this;
+                that._mapItems = {};
+                if (that._map) {
+                    that._map.remove();
+                    that._map = null;
+                }
+                var mapping = {
+                    address: that.renderOptions.address,
+                    latitude: that.renderOptions.latitude,
+                    longitude: that.renderOptions.longitude
+                };
+                var popupFactory = null;
+                if (that.renderOptions.popupFactory) {
+                    popupFactory = _customData.get(that.renderOptions.popupFactory);
+                }
+                _utils.nextTick(function () {
+                    _geodecode.renderLeaflet(_dom.find(that.$element.get(0), that.id + '_parent'), that.form.$model, that.state.value, mapping, function (err, map) {
+                        if (map) {
+                            that._map = map;
+                            var L_1 = window['L'];
+                            that.state.value.forEach(function (item) {
+                                if (item[mapping.latitude] === 0 && item[mapping.longitude] === 0)
+                                    return;
+                                that._mapItems[item.id] = item;
+                                var marker = L_1.marker([item[mapping.latitude], item[mapping.longitude]]).addTo(that._map);
+                                if (popupFactory) {
+                                    var html = '<div data-map-popup="' + item.id + '">' + popupFactory(item) + '</div>';
+                                    var layer = marker.bindPopup(html);
+                                    if (item.$select)
+                                        layer.openPopup();
+                                }
+                            });
+                        }
+                    });
+                });
+            };
+            OpenStreetArrayView.prototype._state2UI = function () {
+                var that = this, element = that.$element ? that.$element.get(0) : null;
+                if (element) {
+                    that._renderMap();
+                    that._setDisabled(element);
+                    that._setReadOnly(element);
+                    that.setHidden(element);
+                }
+            };
+            OpenStreetArrayView.prototype.click = function (event) {
+                var that = this;
+                var href = _dom.attr(event.target.parentNode, 'href') || _dom.attr(event.target, 'href');
+                if (href === '#')
+                    event.preventDefault();
+                if (that.state.isDisabled || that.state.isReadOnly)
+                    return;
+                var parentPopup = _dom.findByAttribute(event.target, that.$element.get(0), 'data-map-popup');
+                if (parentPopup) {
+                    var item = that._mapItems[_dom.attr(parentPopup, 'data-map-popup')];
+                    if (!item)
+                        return;
+                    var parentAction = _dom.findByAttribute(event.target, that.$element.get(0), 'data-bind');
+                    if (parentAction) {
+                        var fieldName = _dom.attr(parentAction, 'data-bind');
+                        if (_sutils.isLink(fieldName)) {
+                            var state = item.getState(fieldName);
+                            if (state && !state.isDisabled) {
+                                that.form.execAction(that.$bind + '.$item.' + fieldName, item);
+                            }
+                            return;
+                        }
+                    }
+                }
+            };
+            OpenStreetArrayView.prototype.changed = function (propName, ov, nv, op, params) {
+                var that = this;
+                if (!that.$element)
+                    return;
+                var pp = propName.substr(that.$bind.length);
+                if (pp.indexOf('.$selected') >= 0)
+                    return;
+                var rOptions = that.renderOptions;
+                var rowToSelect = null;
+                var doRenderAll = false;
+                if (params.checkChildren && op === 'propchange' && propName === that.$bind) {
+                    that.state.value = that.form.getValue(that.$bind);
+                    if (that.state.value) {
+                        that.state.value.allowSelecting = rOptions.selecting && (rOptions.selecting.row || rOptions.selecting.cell);
+                        that.state.value.expandingProperty = rOptions.expandingProperty;
+                    }
+                }
+                var doResize = false;
+                if (!that.state.value) {
+                    op = 'none';
+                }
+                switch (op) {
+                    case 'propchange':
+                        if (propName === that.$bind) {
+                            doRenderAll = true;
+                        }
+                        else {
+                            var prop = propName;
+                            var instPath = _sutils.parsePath(that.$bind, prop, rOptions.expandingProperty);
+                            var item = params[instPath];
+                            if (item) {
+                                var cp = propName.substr(instPath.length + 1);
+                                if (!cp)
+                                    return;
+                                /*
+                                todo
+                                const p = _dom.find(that.$element.get(0), item.$id);
+                                if (p) {
+                                    if (_sutils.isSelectField(cp)) {
+                                        that._render.selectRow(p, item.$select, item)
+                                    } else {
+                                        that._render.renderField(p, cp, item);
+                                    }
+                                }
+                                */
+                            }
+                        }
+                        break;
+                    case 'remove':
+                    case 'add':
+                        doRenderAll = true;
+                        break;
+                }
+                if (doRenderAll) {
+                    that._state2UI();
+                }
+            };
+            OpenStreetArrayView.prototype.stateChanged = function (propName, params) {
+                var that = this, state = that.form.getState(that.$bind), element = that.$element ? that.$element.get(0) : null;
+                if (state.isHidden !== that.state.isHidden) {
+                    that.state.isHidden = state.isHidden;
+                    if (element)
+                        that.setHidden(element);
+                }
+                if (state.isDisabled != that.state.isDisabled) {
+                    that.state.isDisabled = state.isDisabled;
+                    if (element)
+                        that._setDisabled(element);
+                }
+                if (state.isReadOnly != that.state.isReadOnly) {
+                    that.state.isReadOnly = state.isReadOnly;
+                    if (element)
+                        that._setReadOnly(element);
+                }
+                if (state.isMandatory != that.state.isMandatory) {
+                    that.state.isMandatory = state.isMandatory;
+                    if (element)
+                        that._setMandatory(element);
+                }
+            };
+            OpenStreetArrayView.prototype.customOptions = function (options) {
+                var that = this;
+                _super.prototype.customOptions.call(this, options);
+                if (!options.latitude) {
+                    console.log('openstreet-array: options.latitude is missing');
+                }
+                if (!options.longitude) {
+                    console.log('openstreet-array: options.longitude is missing');
+                }
+            };
+            OpenStreetArrayView.prototype.render = function ($parent) {
+                var that = this;
+                var opts = that._initOptions(_uiutils.utils.defaultOptions);
+                if (!that.$element) {
+                    opts.src = that.state.value;
+                    that.$element = $(_createContainer(that.id, opts, that.options.design));
+                    that._state2UI();
+                    that.setEvents(opts);
+                }
+                that.appendElement($parent, opts);
+                return that.$element;
+            };
+            return OpenStreetArrayView;
+        }(Phoenix.ui.AbsField));
+        _ui.registerControl(OpenStreetArrayView, "array", false, 'openstreet-array', {});
+    })(openstreet || (openstreet = {}));
+})(Phoenix || (Phoenix = {}));
+/// <reference path="../../../core/core-refs.ts" />
 /// <reference path="../../../core/modules/locale.ts" />
 /// <reference path="./absfield.control.ts" />
 var Phoenix;
@@ -26672,9 +28331,9 @@ var Phoenix;
                 if (!iframeElement) {
                     if (that.state.value && e) {
                         // Create iframe
-                        var parent_3 = _dom.find(e, that.id + '_parent');
+                        var parent_5 = _dom.find(e, that.id + '_parent');
                         var iframeElement_2 = $('<iframe id="' + that.id + '_frame" src="' + _checkIFrameUri(that.state.value) + '" scrolling="no" width="100%" height="' + that.renderOptions.height + '"  frameBorder="0" border="0"></iframe>');
-                        _dom.append(parent_3, iframeElement_2.get(0));
+                        _dom.append(parent_5, iframeElement_2.get(0));
                     }
                 }
                 else {
@@ -26739,6 +28398,461 @@ var Phoenix;
         }(Phoenix.ui.AbsField));
         _ui.registerControl(GMapsView, "string", false, 'gmapsview', {});
     })(gmapsviewer = Phoenix.gmapsviewer || (Phoenix.gmapsviewer = {}));
+})(Phoenix || (Phoenix = {}));
+/// <reference path="../../core/core-refs.ts" />
+/// <reference path="../../core/modules/ajax.ts" />
+/// <reference path="../../core/modules/application.ts" />
+/// <reference path="../modal.control.ts" />
+/// <reference path="../autoclose.control.ts" />
+/// <reference path="./form.control.ts" />
+/// <reference path="./schema.data.ts" />
+var Phoenix;
+(function (Phoenix) {
+    var _p = Phoenix, _ajax = _p.ajax, _dom = _p.dom, _utils = _p.utils, _autoclose = _p.autoclose, _modal = _p.modal, _pagecontrol = _p.pagecontrol, _application = _p.application, _su = _p.Observable.SchemaUtils, _external = _p.external, _customData = _p.customData;
+    var ui;
+    (function (ui) {
+        var ModalForm = /** @class */ (function (_super) {
+            __extends(ModalForm, _super);
+            function ModalForm(formOptions, layout, schema, data, locale, preferences) {
+                var _this = _super.call(this, formOptions, locale) || this;
+                var that = _this;
+                var opts = formOptions.opts ? formOptions.opts : {};
+                if (formOptions.validators) {
+                    opts.validators = formOptions.validators;
+                    delete formOptions.validators;
+                }
+                opts._modalForm = true;
+                that.render = new ui.Form(layout, opts, data, schema, locale, preferences);
+                if (formOptions.parentForm && formOptions.parentForm.form) {
+                    formOptions.parentForm.form.addChildForm(that.render, null);
+                }
+                that.render.$locale = locale;
+                return _this;
+            }
+            ModalForm.prototype.on = function (hnd) {
+                var that = this;
+                var newHnd = function (action, data, form) {
+                    return hnd(that, action, data, form);
+                };
+                that._clickHnd = function (name) {
+                    that.render.afterchanged(name, "modal-action", {});
+                };
+                that.render.on(newHnd);
+            };
+            ModalForm.prototype.onNatural = function (hnd) {
+                var that = this;
+                var newHnd = function (action, data, form) {
+                    return hnd(action, data, form, that);
+                };
+                that._clickHnd = function (name) {
+                    that.render.afterchanged(name, "modal-action", {});
+                };
+                that.render.on(newHnd);
+            };
+            return ModalForm;
+        }(Phoenix.modal.Modal));
+        ui.ModalForm = ModalForm;
+        function _checkEx(ex) {
+            if (typeof ex === 'string')
+                return { message: ex };
+            return ex;
+        }
+        var _openForm = function (formOptions, params, handler) {
+            _su.loadSchemaRefs(params.schema, params.data, params.layout, null, formOptions.parentForm, formOptions, function (ex, ldata) {
+                if (ex) {
+                    console.log(ex);
+                    ex = _checkEx(ex);
+                    ex = ex._ajax ? _ajax.extractAjaxErrors(ex) : ex;
+                    if (formOptions && formOptions.module && formOptions.module.error)
+                        return formOptions.module.error(ex);
+                    _utils.alert('', ex.message, function () { });
+                    return;
+                }
+                var f = new ModalForm(formOptions, params.layout, params.schema, ldata, params.locale, params.preferences);
+                f.open();
+                if (handler) {
+                    formOptions.natural ? f.onNatural(handler) : f.on(handler);
+                }
+            });
+        };
+        var _preferenceName = function (name, config) {
+            var prefName = '';
+            if (name && _application.name)
+                prefName = _application.name + '_form_' + name;
+            if (prefName && config && config.current && config.current.preferences) {
+                var prefs = config.current.preferences;
+                if (prefs.excludedForms && prefs.excludedForms.indexOf(prefName) >= 0)
+                    prefName = '';
+            }
+            return prefName;
+        }, _loadSchema = function (schema) {
+            if (typeof schema === 'object') {
+                return _utils.Promise.resolve($.extend(true, {}, schema));
+            }
+            else {
+                var config = _application.config(_application.name);
+                return _ajax.get(config.current.prototypes + '/' + schema + '.json');
+            }
+        }, _prepareForm = function (layout, schema, formData, locale, opts, after) {
+            var ci = 0, li = -1, si = -1, promises = [], params = { locale: locale }, dataIndex = -1, preferencesIndex = -1;
+            var config = _application.config(_application.name);
+            opts = opts || {};
+            if (locale && locale.$name)
+                opts.externalLocale = locale.$name;
+            if (!formData || !formData.then)
+                params.data = $.extend(true, {}, formData);
+            else {
+                promises.push(formData);
+                dataIndex = 0;
+                ci++;
+            }
+            var ln;
+            if (typeof layout === 'object') {
+                params.layout = $.extend(true, {}, layout);
+                if (opts.preferences)
+                    ln = params.layout.name;
+            }
+            else {
+                li = ci;
+                ci++;
+                opts.externalLayout = layout;
+                if (opts.preferences)
+                    ln = layout;
+                promises.push(_ajax.get(config.current.forms + '/' + layout + '.json'));
+            }
+            if (typeof schema === 'object') {
+                params.schema = $.extend(true, {}, schema);
+            }
+            else {
+                si = ci;
+                ci++;
+                opts.externalSchema = schema;
+                promises.push(_ajax.get(config.current.prototypes + '/' + schema + '.json'));
+            }
+            var preferenceName = opts.design ? null : _preferenceName(ln, config);
+            if (preferenceName && _external.preferenceLoadHandler) {
+                preferencesIndex = ci;
+                ci++;
+                opts.preferenceName = preferenceName;
+                promises.push(_external.preferenceLoadHandler(preferenceName));
+            }
+            if (promises.length) {
+                _utils.Promise.all(promises).then(function (values) {
+                    if (li >= 0)
+                        params.layout = values[li];
+                    if (si >= 0)
+                        params.schema = values[si];
+                    if (dataIndex >= 0)
+                        params.data = values[dataIndex];
+                    if (preferencesIndex >= 0) {
+                        params.preferences = values[preferencesIndex];
+                    }
+                    after(null, opts, params);
+                }).catch(function (ex) {
+                    after(ex, null, null);
+                });
+            }
+            else
+                after(null, opts, params);
+        };
+        var _OpenModalForm = function (formOptions, layout, schema, fdata, locale, handler) {
+            _prepareForm(layout, schema, fdata, locale, null, function (ex, opts, params) {
+                if (ex) {
+                    console.log(ex);
+                    ex = _checkEx(ex);
+                    ex = ex._ajax ? _ajax.extractAjaxErrors(ex) : ex;
+                    if (formOptions && formOptions.module && formOptions.module.error)
+                        return formOptions.module.error(ex);
+                    _utils.alert('', ex.message, function () { });
+                    return;
+                }
+                formOptions = formOptions || {};
+                //
+                formOptions.opts = formOptions.opts || {};
+                if (opts)
+                    _utils.merge(opts, formOptions.opts);
+                _openForm(formOptions, params, handler);
+            });
+        };
+        var _initController = function (options, config) {
+            if (config.isFormController)
+                options.beforeSetModel = config.beforeSetModel ? config.beforeSetModel.bind(config) : null;
+            else
+                options.beforeSetModel = config.initObjectState ? config.initObjectState.bind(config) : null;
+            options.beforeModelCreated = config.initModel ? config.initModel.bind(config) : null;
+            options.onSettings = config.onSettings ? config.onSettings.bind(config) : null;
+            options.storageName = config.storageName;
+            options.validators = config.validators;
+            options.checkFormLayout = config.checkFormLayout;
+        };
+        var _showModalForm = function (opts, data) {
+            if (!opts.controller)
+                throw 'Controller name is empty.';
+            var config = typeof opts.controller === 'string' ? _customData.get(opts.controller) : opts.controller;
+            if (!config)
+                throw _utils.format('Controller not found "{0}". Use customData.register(controllerName, ctrlConfig).', opts.controller);
+            var options = {};
+            _initController(options, config);
+            var fo = opts.options;
+            fo.opts = options;
+            fo.parentContext = opts.parentContext;
+            fo.parentForm = opts.parentForm;
+            fo.natural = true;
+            var hnd = null;
+            if (config.isFormController) {
+                hnd = config.modelChanged.bind(config);
+            }
+            else if (config.onModelChanged) {
+                hnd = config.onModelChanged.bind(config);
+            }
+            fo._modalForm = true;
+            _OpenModalForm(fo, opts.name, opts.meta, data, opts.locale, hnd);
+        };
+        var _showInlineForm = function (opts, after, data) {
+            if (!opts.controller)
+                throw 'Controller name is empty.';
+            var config = typeof opts.controller === 'string' ? _customData.get(opts.controller) : opts.controller;
+            if (!config)
+                throw _utils.format('Controller not found "{0}". Use customData.register(controllerName, ctrlConfig).', opts.controller);
+            var options = {};
+            _initController(options, config);
+            var fo = opts.options;
+            fo.opts = options;
+            fo.parentContext = opts.parentContext;
+            fo.natural = true;
+            var hnd = null;
+            if (config.isFormController) {
+                hnd = config.modelChanged.bind(config);
+            }
+            else if (config.onModelChanged) {
+                hnd = config.onModelChanged.bind(config);
+            }
+            if (!opts.where)
+                throw 'No form parent.';
+            var parent = _dom.find(null, opts.where);
+            if (!parent)
+                throw 'No form parent.';
+            _OpenFormExp($(parent), opts.name, opts.meta, data, opts.locale, hnd, opts.parentForm, fo, after);
+        };
+        var _showAutoCloseForm = function (opts, data, after) {
+            if (!opts.controller)
+                throw 'Controller name is empty.';
+            var config = typeof opts.controller === 'string' ? _customData.get(opts.controller) : opts.controller;
+            if (!config)
+                throw _utils.format('Controller not found "{0}". Use customData.register(controllerName, ctrlConfig).', opts.controller);
+            var options = {};
+            _initController(options, config);
+            var fo = opts.options;
+            fo = options;
+            fo.natural = true;
+            fo.parentContext = opts.parentContext;
+            var hnd = null;
+            if (config.isFormController) {
+                hnd = config.modelChanged.bind(config);
+            }
+            else if (config.onModelChanged) {
+                hnd = config.onModelChanged.bind(config);
+            }
+            fo.autoClose = opts.autoClose;
+            _OpenFormExp(null, opts.name, opts.meta, data, null, hnd, opts.parentForm, fo, after);
+        };
+        var _openInlineForm = function ($parent, params, handler, opts, parentForm, after) {
+            opts = opts || { design: false };
+            if (opts && opts.autoClose) {
+                var ac_1 = opts.autoClose;
+                var acOptions = {
+                    parent: ac_1.parentId ? _dom.find(null, ac_1.parentId) : null,
+                    alignElement: ac_1.alignElementId ? _dom.find(null, ac_1.alignElementId) : null,
+                    style: ac_1.style,
+                    parents: ac_1.parents,
+                    opener: ac_1.opener,
+                    width: ac_1.width,
+                    height: ac_1.height,
+                    minWidth: ac_1.minWidth,
+                    minHeight: ac_1.minHeight,
+                    stayOnTop: ac_1.stayOnTop,
+                    beforeClose: ac_1.beforeClose,
+                    contentRender: function ($p, autoCloseControl, cb) {
+                        try {
+                            var co_2 = opts;
+                            if (opts.opts)
+                                opts = opts.opts || {};
+                            if (co_2 !== opts && co_2.parentContext) {
+                                opts.parentContext = co_2.parentContext;
+                                co_2.parentContext = null;
+                            }
+                            if (ac_1.showCloseButton) {
+                                opts.closeButtonHandler = function () {
+                                    var pager = _pagecontrol.Page();
+                                    pager.setPopup(null);
+                                };
+                            }
+                            var render_1 = new ui.Form(params.layout, opts, params.data, params.schema, params.locale, params.preferences);
+                            if (parentForm)
+                                parentForm.form.addChildForm(render_1, null);
+                            render_1.$locale = params.locale;
+                            render_1.autoClose = autoCloseControl;
+                            render_1.render($p);
+                            if (handler)
+                                render_1.on(handler);
+                            autoCloseControl.renderControl = render_1;
+                            cb();
+                            if (after)
+                                after(render_1);
+                        }
+                        catch (ex) {
+                            cb(ex);
+                        }
+                    }
+                };
+                _autoclose.open(ac_1.align, acOptions);
+                return;
+            }
+            var co = opts;
+            if (opts.opts) {
+                opts = opts.opts || {};
+                if (co.externalLayout)
+                    opts.externalLayout = co.externalLayout;
+                if (co.externalSchema)
+                    opts.externalSchema = co.externalSchema;
+            }
+            if (co !== opts && co.parentContext) {
+                opts.parentContext = co.parentContext;
+                co.parentContext = null;
+            }
+            var render = new ui.Form(params.layout, opts || { design: false }, params.data, params.schema, params.locale, params.preferences);
+            if (parentForm && parentForm.form)
+                parentForm.form.addChildForm(render, null);
+            render.$locale = params.locale;
+            render.render($parent);
+            if (handler)
+                render.on(handler);
+            if (after)
+                after(render);
+        };
+        var _loadSubLayouts = function ($parent, params, handler, formOpts, after) {
+        };
+        var _afterLoadSchema = function ($parent, params, handler, formOpts, parentForm, after) {
+            _su.loadSchemaRefs(params.schema, params.data, params.layout, formOpts ? formOpts.parentContext : null, parentForm, formOpts, function (ex, ldata) {
+                if (ex) {
+                    console.log(ex);
+                    ex = _checkEx(ex);
+                    ex = ex._ajax ? _ajax.extractAjaxErrors(ex) : ex;
+                    if (formOpts && formOpts.module && formOpts.module.error)
+                        return formOpts.module.error(ex);
+                    _utils.alert('', ex.message, function () { });
+                    return;
+                }
+                params.data = ldata;
+                _openInlineForm($parent, params, handler, formOpts, parentForm, after);
+            });
+        };
+        var _OpenFormExp = function ($parent, layout, schema, fdata, locale, handler, parentForm, formOpts, after) {
+            _prepareForm(layout, schema, fdata, locale, formOpts, function (ex, opts, params) {
+                if (ex) {
+                    console.log(ex);
+                    ex = _checkEx(ex);
+                    ex = ex._ajax ? _ajax.extractAjaxErrors(ex) : ex;
+                    if (formOpts && formOpts.module && formOpts.module.error)
+                        return formOpts.module.error(ex);
+                    _utils.alert('', ex.message, function () { });
+                    return;
+                }
+                if (opts && formOpts && formOpts.parentContext)
+                    opts.parentContext = formOpts.parentContext;
+                _afterLoadSchema($parent, params, handler, opts, parentForm, after);
+            });
+        };
+        function _camelize(propName) {
+            return propName.split('.').map(function (segment) {
+                return segment.charAt(0).toUpperCase() + segment.slice(1);
+            }).join('').split('-').map(function (segment) {
+                return segment.charAt(0).toUpperCase() + segment.slice(1);
+            }).join('');
+        }
+        var FormController = /** @class */ (function () {
+            function FormController() {
+            }
+            FormController.prototype.isFormController = function () { return true; };
+            FormController.prototype.data = function () { return null; };
+            FormController.prototype.beforeSetModel = function (model, form) {
+                this.initObjectState(model, form);
+                if (form && form.hasNestedControllers())
+                    form.modelCreated(model);
+            };
+            FormController.prototype.initObjectState = function (model, form) { };
+            FormController.prototype.modelChanged = function (action, model, form, modal) {
+                if (form.hasNestedControllers()) {
+                    form.modelChanged(action, model, form, modal);
+                }
+                this.onModelChanged(action, model, form, modal);
+            };
+            FormController.prototype.onModelChanged = function (action, model, form, modal) {
+                var that = this;
+                var pn = action.property;
+                var ca = action;
+                if (pn) {
+                    if (that.bindProperty && pn.indexOf(that.bindProperty) === 0) {
+                        pn = pn.substr(that.bindProperty.length);
+                        ca.property = pn;
+                    }
+                    var ii = pn.indexOf('$links.');
+                    if (ii >= 0)
+                        pn = pn.replace(/\$links\./g, '');
+                    var c = 'on' + _camelize(pn);
+                    if (that[c])
+                        return that[c](ca, model, form, modal);
+                }
+            };
+            return FormController;
+        }());
+        ui.FormController = FormController;
+        _customData.register('phoenix.empty.controller', { onModelChanged: function (action, model, form, modalForm) { } });
+        ui.loadSchema = _loadSchema;
+        ui.formController2Options = _initController;
+        ui.OpenModalForm = _OpenModalForm;
+        ui.showModalForm = _showModalForm;
+        ui.showAutoCloseForm = _showAutoCloseForm;
+        ui.OpenForm = _OpenFormExp;
+        ui.OpenInlineForm = function (parentId, layout, schema, controller, formData, locale, after, parentForm) {
+            var opts = {
+                name: layout,
+                meta: schema,
+                controller: controller,
+                options: {},
+                where: parentId,
+                locale: locale
+            };
+            opts.parentForm = parentForm;
+            _showInlineForm(opts, after, formData);
+        };
+        _external.formOpenHandler = function (params) {
+            var opts = {
+                name: params.name,
+                meta: params.meta,
+                controller: params.controller || 'phoenix.empty.controller',
+                options: params.options || {}
+            };
+            if (!params.modal) {
+                opts.autoClose = {
+                    align: _autoclose.BOTTOM_LEFT,
+                    opener: params.opener,
+                    alignElementId: params.alignElementId,
+                    style: params.style,
+                    parents: params.parents,
+                    width: params.width,
+                    height: params.height,
+                    minWidth: params.minWidth,
+                    minHeight: params.minHeight,
+                    showCloseButton: params.showCloseButton
+                };
+                _showAutoCloseForm(opts);
+            }
+            else {
+                _showModalForm(opts);
+            }
+        };
+    })(ui = Phoenix.ui || (Phoenix.ui = {}));
 })(Phoenix || (Phoenix = {}));
 /// <reference path="../../../core/core-refs.ts" />
 /// <reference path="../../page.control.ts" />
@@ -26939,7 +29053,10 @@ var Phoenix;
                     mds.$transform = ds.$transform;
                 if (ds.$type)
                     mds.$type = ds.$type;
-                mds.$params.$orderby = mds.$params.$orderby || (opts.display ? that._lookup.mapping[opts.display] : '');
+                mds.$params.$orderby = (mds.$params.$orderby !== undefined ? mds.$params.$orderby : (opts.display ? that._lookup.mapping[opts.display] : ''));
+                if (mds.$type === 'enum') {
+                    mds.$value = that._lookup.data.$value;
+                }
                 var searchField = opts.display ? that._lookup.mapping[opts.display] : '';
                 that._searchField = searchField;
                 _ui.loadSchema(formSchema).then(function (schema) {
@@ -26979,7 +29096,7 @@ var Phoenix;
                             //minHeight: params.minHeight,
                             showCloseButton: false
                         },
-                        parentContext: that._parentControl.form.$model,
+                        parentContext: opts.itemModel ? opts.itemModel : that._parentControl.form.$model,
                         options: {},
                     }, null, function (form) {
                         that._form = form;
@@ -27019,11 +29136,52 @@ var Phoenix;
                     }, true);
                 }
             },
-            checkGridLookup: function (lookup, model) {
-                if (lookup.data.$type === 'relation') {
-                    var cl = _utils.copy(lookup);
+            checkGridLookup: function (lookup, model, itemModel, schemaField, prefix) {
+                var cl = _utils.copy(lookup);
+                if (lookup.data.$type === 'enum') {
+                    cl.schema = {
+                        type: 'object',
+                        primaryKey: 'code',
+                        properties: {
+                            documents: {
+                                type: 'array',
+                                items: {
+                                    type: 'object',
+                                    primaryKey: 'code',
+                                    properties: {
+                                        code: {
+                                            type: "string",
+                                            capabilities: ''
+                                        },
+                                        title: {
+                                            title: _locale.ui.title,
+                                            type: schemaField ? schemaField.type : 'string'
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    };
+                    cl.primaryKey = 'code';
+                    return cl;
+                }
+                else if (lookup.data.$type === 'relation') {
                     var rootSchema = model.getSchema(null);
-                    var schema = _sutils.expand$Ref(model.getSchema(lookup.data.$params.relation), rootSchema);
+                    var relation = lookup.data.$params.relation;
+                    var cm = model;
+                    if (relation.charAt(0) === '.') {
+                        relation = relation.substring(2);
+                        cm = itemModel;
+                    }
+                    else if (relation.charAt(0) === '/') {
+                        relation = relation.substring(1);
+                        prefix = '';
+                    }
+                    if (prefix) {
+                        if (relation.indexOf(prefix) < 0)
+                            relation = prefix + '.' + relation;
+                    }
+                    var schema = _sutils.expand$Ref(cm.getSchema(relation), rootSchema);
                     schema.items = _sutils.expand$Ref(schema.items, rootSchema);
                     cl.schema = {
                         type: 'object',
@@ -27038,6 +29196,17 @@ var Phoenix;
             },
             openGridLookup: function (that, options) {
                 var ds = $.extend(true, {}, options.lookup.data);
+                if (ds && ds.$params && ds.$params.relation && options.bind) {
+                    if (ds.$params.relation.charAt(0) !== '/') {
+                        var segments = that.$bind.split('.');
+                        segments.pop();
+                        if (segments.length) {
+                            var prefix = segments.join('.');
+                            if (ds.$params.relation.indexOf(prefix) < 0)
+                                ds.$params.relation = prefix + '.' + ds.$params.relation;
+                        }
+                    }
+                }
                 var opts = {
                     alignElementId: options.align,
                     openerId: options.openerId,
@@ -27046,13 +29215,14 @@ var Phoenix;
                     display: options.display,
                     onselect: options.onselect,
                     search: options.searchText,
-                    minWidth: options.minWidth
+                    minWidth: options.minWidth,
+                    itemModel: options.itemModel
                 };
                 if (ds && ds.$params && ds.$params.$filter)
                     ds.$params.$filter = _data.replaceFilterVars(ds.$params.$filter, options.formControl.getParentModel(options.bind).model(true));
-                if (options.containerId)
+                if (ds.$params && options.containerId)
                     ds.$params.containerId = options.containerId;
-                if (options.viewId)
+                if (ds.$params && options.viewId)
                     ds.$params.viewId = options.viewId;
                 if (options.selected)
                     ds.$params.selected = options.selected;
@@ -27102,12 +29272,12 @@ var Phoenix;
                     if (cid.indexOf(prefix) === 0) {
                         var index = parseInt(cid.substring(prefix.length), 10);
                         var value = that.$schema.enum[index];
-                        var oldIndex = that.$schema.enum.indexOf(that.state.value);
+                        var oldIndex = that.$schema.enum.indexOf(that.getInternalValue());
                         if (that.renderOptions.wizard && oldIndex >= 0 && index >= 0 && (index - oldIndex > 0)) {
                             return;
                         }
-                        if (value !== that.state.value) {
-                            that.form.setValue(that.$bind, value);
+                        if (value !== that.getInternalValue()) {
+                            that.setInternalValue(value, true);
                         }
                     }
                 }
@@ -27132,7 +29302,7 @@ var Phoenix;
                 var that = this, element = that.$element ? that.$element.get(0) : null;
                 if (!element)
                     return;
-                var ii = that.$schema.enum.indexOf(that.state.value);
+                var ii = that.$schema.enum.indexOf(that.getInternalValue());
                 if (ii >= 0) {
                     var item = that._item(ii);
                     if (item)
@@ -27158,7 +29328,7 @@ var Phoenix;
                 var that = this, element = that.$element ? that.$element.get(0) : null;
                 if (!element)
                     return;
-                var ii = that.$schema.enum.indexOf(that.state.value);
+                var ii = that.$schema.enum.indexOf(that.getInternalValue());
                 if (ii >= 0) {
                     return that._item(ii);
                 }
@@ -27207,28 +29377,19 @@ var Phoenix;
             options = $.extend({ titleIsHidden: false, placeHolder: false, columns: false }, options);
             var html = [];
             _uiutils.utils.fieldWrapper(html, options, authoring, function () {
-                var _bootstrap4 = Phoenix.bootstrap4;
                 //add label: 
                 var addDiv = !options.columns && !options.inline;
                 if (!options.titleIsHidden) {
                     html.push('<label id="{0}_label" for="{0}_grp" ');
                     var cssLabel = ['bs-label'];
                     if (options.columns) {
-                        if (_bootstrap4) {
-                            cssLabel.push('col-form-label');
-                        }
-                        else {
-                            cssLabel.push('checkbox-inline bs-cursor-d');
-                        }
+                        cssLabel.push('col-form-label');
                         cssLabel.push('bs-lib-col col-sm-' + options.labelCol);
                         if (options.labelLeft)
                             cssLabel.push('text-left');
                     }
                     else if (options.inline) {
-                        if (_bootstrap4)
-                            cssLabel.push('form-check-inline');
-                        else
-                            cssLabel.push('checkbox-inline');
+                        cssLabel.push('form-check-inline');
                         cssLabel.push('bs-cursor-d no-x-padding');
                     }
                     if (cssLabel.length)
@@ -27280,12 +29441,13 @@ var Phoenix;
             BtnGroup.prototype.changed = function (propName, ov, nv, op) {
                 var that = this;
                 var pclass = that.renderOptions.binary ? 'bactive' : 'active';
-                if (that.state.value != nv) {
-                    that.state.value = nv;
+                if (that.getInternalValue() != nv) {
+                    that.setInternalValue(nv, false);
                     if (!that.$element)
                         return;
+                    var cv_1 = that.getInternalValue();
                     _super.prototype._enumItems.call(this, function (btn, value) {
-                        if (that.state.value === value) {
+                        if (cv_1 === value) {
                             _dom.addClass(btn, pclass);
                         }
                         else {
@@ -27324,10 +29486,11 @@ var Phoenix;
                 if ($event.altKey || $event.ctrlKey || $event.metaKey || $event.shiftKey)
                     return;
                 var kc = $event.which || $event.keyCode;
+                var cv = that.getInternalValue();
                 switch (kc) {
                     case _dom.keys.VK_LEFT:
                         //left
-                        var cci = that.$schema.enum.indexOf(that.state.value);
+                        var cci = that.$schema.enum.indexOf(cv);
                         if (cci > 0) {
                             var nv = that.$schema.enum[cci - 1];
                             that.form.setValue(that.$bind, nv);
@@ -27335,7 +29498,7 @@ var Phoenix;
                         break;
                     case _dom.keys.VK_RIGHT:
                         //right
-                        var ci = that.$schema.enum.indexOf(that.state.value);
+                        var ci = that.$schema.enum.indexOf(cv);
                         if (ci >= 0 && (ci < that.$schema.enum.length - 1)) {
                             var nv = that.$schema.enum[ci + 1];
                             that.form.setValue(that.$bind, nv);
@@ -27363,6 +29526,69 @@ var Phoenix;
         groupbtn.BtnGroup = BtnGroup;
         _ui.registerControl(BtnGroup, '*', true, 'grpbtn', null);
     })(groupbtn || (groupbtn = {}));
+})(Phoenix || (Phoenix = {}));
+/// <reference path="../../../core/core-refs.ts" />
+/// <reference path="../../../core/modules/locale.ts" />
+/// <reference path="./absfield.control.ts" />
+var Phoenix;
+(function (Phoenix) {
+    var _p = Phoenix, _utils = _p.utils, _ui = _p.ui, _dom = _p.dom, _uiutils = _p.uiutils;
+    var inlineform;
+    (function (inlineform) {
+        var _createParent = function (id, options, authoring) {
+            var html = [];
+            _uiutils.utils.fieldWrapper(html, options, authoring, function () {
+                html.push('<div id="{0}_parent">');
+                html.push('</div>');
+            }, null);
+            return _utils.format(html.join(''), id);
+        };
+        var InlineForm = /** @class */ (function (_super) {
+            __extends(InlineForm, _super);
+            function InlineForm(fp, options, form) {
+                var _this = _super.call(this, fp, options, form) || this;
+                _this._state();
+                return _this;
+            }
+            InlineForm.prototype.destroy = function () {
+                var that = this;
+                that.form = null;
+                _super.prototype.destroy.call(this);
+            };
+            InlineForm.prototype.render = function ($parent) {
+                var that = this;
+                var opts = that._initOptions(_uiutils.utils.defaultOptions);
+                if (!that.$element) {
+                    that.$element = $(_createParent(that.id, opts, that.options.design));
+                    that._state2UI();
+                    that.setEvents(opts);
+                }
+                that.appendElement($parent, opts);
+                return that.$element;
+            };
+            InlineForm.prototype.afterAddedInDom = function () {
+                var that = this;
+                that._canRenderForm = true;
+                that._state2UI();
+            };
+            InlineForm.prototype._state2UI = function () {
+                var that = this, element = that.$element ? that.$element.get(0) : null;
+                if (element) {
+                    if (that._canRenderForm && !that._formRendered) {
+                        that._formRendered = true;
+                        var options = that.renderOptions;
+                        if (options.pageName)
+                            _ui.OpenInlineForm(that.id + '_parent', options.layout, options.meta, options.controller || 'phoenix.empty.controller', options.data || { $create: true }, options.locale, function (childForm) {
+                                that.inlineForm = childForm;
+                                // that.form.addChildForm(childForm, that.id + '_parent');
+                            }, { form: that.form, name: options.pageName });
+                    }
+                }
+            };
+            return InlineForm;
+        }(Phoenix.ui.AbsField));
+        _ui.registerControl(InlineForm, '*', false, 'form', null);
+    })(inlineform = Phoenix.inlineform || (Phoenix.inlineform = {}));
 })(Phoenix || (Phoenix = {}));
 /// <reference path="../../../core/core-refs.ts" />
 /// <reference path="./absfield.control.ts" />
@@ -27512,33 +29738,66 @@ var Phoenix;
 /// <reference path="../form.control.ts" />
 var Phoenix;
 (function (Phoenix) {
-    var _utils = Phoenix.utils, _ui = Phoenix.ui, _dom = Phoenix.dom, _uiutils = Phoenix.uiutils, _ulocale = Phoenix.ulocale;
+    var _utils = Phoenix.utils, _ui = Phoenix.ui, _dom = Phoenix.dom, _history = Phoenix.history, _uiutils = Phoenix.uiutils, _ulocale = Phoenix.ulocale;
     var formlinkbase;
     (function (formlinkbase) {
         var LinkBase = /** @class */ (function (_super) {
             __extends(LinkBase, _super);
             function LinkBase(fp, options, form) {
                 var _this = _super.call(this, fp, options, form) || this;
-                _this._state();
+                var that = _this;
+                4;
+                if (that.$schema && that.$schema.isSave) {
+                    that.form.registerListenerFor('containerHasChanges', that, 'check-for-changes');
+                }
+                that._state();
                 return _this;
             }
             LinkBase.prototype._button = function () {
+            };
+            LinkBase.prototype._execClick = function () {
+                var that = this;
+                if (that.renderOptions.back) {
+                    window.history.back();
+                    return;
+                }
+                if (that._isBinded) {
+                    that.form.execAction(that.$bind);
+                }
+                else {
+                    if (that.renderOptions.onChange)
+                        that.renderOptions.onChange();
+                }
             };
             LinkBase.prototype.click = function (event) {
                 var that = this;
                 if (that.state.isDisabled)
                     return;
-                if (that._isBinded) {
-                    that.form.execAction(that.$bind);
+                if (that.$element && that.$element['tooltip'] && _dom.attr(that.$element.get(0), 'data-phoenix-tooltip')) {
+                    that.$element["tooltip"]('hide');
                 }
-                else {
-                    if (that.fieldOptions.onChange)
-                        that.fieldOptions.onChange();
+                if (that.renderOptions.confirm) {
+                    _utils.confirm(that.renderOptions.confirm.title, that.renderOptions.confirm.message, function () {
+                        that._execClick();
+                    });
                 }
+                else
+                    that._execClick();
+            };
+            LinkBase.prototype.customOptions = function (opts) {
+                var that = this;
+                _super.prototype.customOptions.call(this, opts);
+                if (that.$schema && that.$schema.description && opts.description === undefined)
+                    opts.description = that.$schema.description;
             };
             LinkBase.prototype._setDisabled = function (button, element) {
                 var that = this;
-                button.disabled = that.state.isDisabled;
+                if (that.$schema.isSave && !that.state.isDisabled) {
+                    var model = that.form.$model;
+                    button.disabled = !model.containerHasChanges;
+                }
+                else
+                    button.disabled = that.state.isDisabled;
                 if (that.state.isDisabled)
                     _dom.addClass(button, 'disabled');
                 else
@@ -27548,14 +29807,31 @@ var Phoenix;
                 var that = this;
                 var element = that.$element ? that.$element.get(0) : null;
                 var button = that._button();
+                if (that.renderOptions.back && !_history.hasBack()) {
+                    that.fieldState().isHidden = true;
+                }
                 if (button) {
                     that._setDisabled(button, element);
                     that.setHidden(element);
                 }
             };
+            LinkBase.prototype.changed = function (propName, ov, nv, op, params) {
+                if (params.targetId === 'check-for-changes') {
+                    var that = this;
+                    var element = that.$element ? that.$element.get(0) : null;
+                    var button = that._button();
+                    if (button)
+                        that._setDisabled(button, element);
+                }
+            };
             LinkBase.prototype.stateChanged = function (propName, params) {
                 var that = this;
+                if (params.targetId === 'check-for-changes')
+                    return;
                 var state = that.form.getState(that.$bind);
+                if (that.renderOptions.back) {
+                    state.isHidden = state.isHidden || !_history.hasBack();
+                }
                 var button = that._button();
                 var element = that.$element ? that.$element.get(0) : null;
                 if (state.isHidden !== that.state.isHidden) {
@@ -27580,7 +29856,13 @@ var Phoenix;
                     that._state2UI();
                 }
                 that.appendElement($parent, opts);
+                that.setEvents(opts);
                 return that.$element;
+            };
+            LinkBase.prototype.destroy = function () {
+                var that = this;
+                if (that.$schema.isSave)
+                    that.form.unRegisterListenerFor('containerHasChanges', that);
             };
             return LinkBase;
         }(Phoenix.ui.AbsField));
@@ -27593,15 +29875,17 @@ var Phoenix;
 /// <reference path="./link-base.control.ts" />
 var Phoenix;
 (function (Phoenix) {
-    var _utils = Phoenix.utils, _ui = Phoenix.ui, _dom = Phoenix.dom, _uiutils = Phoenix.uiutils, _ulocale = Phoenix.ulocale;
+    var _utils = Phoenix.utils, _ui = Phoenix.ui, _dom = Phoenix.dom, _locale = Phoenix.locale, _uiutils = Phoenix.uiutils, _ulocale = Phoenix.ulocale;
     var formlink;
     (function (formlink) {
+        var forbiddenFiles = ['ADE', 'ADP', 'BAT', 'CHM', 'CMD', 'COM', 'CPL', 'DLL', 'DMG', 'EXE', 'HTA', 'INS', 'ISP', 'JAR', 'JS', 'JSE', 'LIB', 'LNK',
+            'MDE', 'MSC', 'MSI', 'MSP', 'MST', 'NSH', 'PIF', 'SCR', 'SCT', 'SHB', 'SYS', 'VB', 'VBE', 'VBS', 'VXD', 'WSC', 'WSF', 'WSH', 'CAB'];
         function _addDesign(id, options, authoring, html) {
             if (authoring)
                 html.push(' draggable="true"');
             html.push(' data-render="{0}"');
         }
-        function _createButton(id, options, authoring, title) {
+        function _createButton(id, options, authoring, title, upload) {
             title = title || '';
             options = $.extend({ right: false, icon: null, type: 'default', size: null }, options);
             if (options.title !== undefined)
@@ -27617,8 +29901,14 @@ var Phoenix;
             }
             html.push('<button type="button"');
             html.push(' class="bs-button btn btn-' + _dom.bootstrapStyles(options.outline || options.type === 'secondary' || options.type === 'default')[options.type]);
-            if (options.classButton)
-                html.push(' ' + options.classButton.join(''));
+            if (options.color) {
+                html.push(' text-' + _dom.bootstrapStyles()[options.color]);
+            }
+            if (options.buttonStyles)
+                html.push(' ' + options.buttonStyles);
+            if (upload) {
+                html.push(' bs-upload-button');
+            }
             if (options.size)
                 html.push(' btn-' + options.size);
             if (!options.inline) {
@@ -27638,6 +29928,9 @@ var Phoenix;
             if (options.inline) {
                 _uiutils.utils.addContainerId(html, authoring);
             }
+            if (options.description) {
+                html.push(' data-toggle="tooltip" data-phoenix-tooltip="true" data-placement="auto" title="' + options.description + '"');
+            }
             html.push('>');
             if (options.icon && !options.iconRight)
                 html.push('<span class="' + _dom.iconClass(options.icon) + '"></span>');
@@ -27650,6 +29943,9 @@ var Phoenix;
             }
             if (options.icon && options.iconRight)
                 html.push('<span class="' + _dom.iconClass(options.icon) + '"></span>');
+            if (upload) {
+                html.push('<input class="bs-hidden-upload" type="file" id="{0}_upload" name="{0}_upload" />');
+            }
             html.push('</button>');
             if (!options.inline) {
                 html.push('</div>');
@@ -27670,13 +29966,254 @@ var Phoenix;
             };
             Link.prototype._renderButton = function () {
                 var that = this;
-                return $(_createButton(that.id, that.renderOptions, that.options.design, _ulocale.tt(that.title, that.form.$locale)));
+                if (!that.title && that.$schema && that.$schema.isSave)
+                    that.title = _locale.ui.Apply;
+                return $(_createButton(that.id, that.renderOptions, that.options.design, _ulocale.tt(that.title, that.form.$locale), false));
             };
             return Link;
         }(Phoenix.formlinkbase.LinkBase));
         formlink.Link = Link;
+        var UploadLink = /** @class */ (function (_super) {
+            __extends(UploadLink, _super);
+            function UploadLink() {
+                return _super !== null && _super.apply(this, arguments) || this;
+            }
+            UploadLink.prototype._button = function () {
+                var that = this;
+                if (!that.$element)
+                    return null;
+                return that.renderOptions.inline ? that.$element.get(0) : that.$element.get(0).firstChild;
+            };
+            UploadLink.prototype.uploadInput = function () {
+                var that = this, e = that.$element ? that.$element.get(0) : null;
+                if (!e)
+                    return null;
+                return _dom.find(e, that.id + '_upload');
+            };
+            UploadLink.prototype._renderButton = function () {
+                var that = this;
+                return $(_createButton(that.id, that.renderOptions, that.options.design, _ulocale.tt(that.title, that.form.$locale), true));
+            };
+            UploadLink.prototype.setEvents = function (opts) {
+                var that = this;
+                var upload = that.uploadInput();
+                if (upload) {
+                    $(upload).on('change', function (event) {
+                        if (that.form.isInProcessing)
+                            return that.form.freeze(event);
+                        var files = event.target.files; // FileList object
+                        var pp = that.form.$model.getParentOf(that.$bind, null);
+                        var uerror = pp.$errors[that.$bind];
+                        if (uerror)
+                            uerror.clear(true);
+                        if (files && files.length) {
+                            var f = files[0].name;
+                            var a = f.split('/');
+                            f = a[a.length - 1];
+                            a = f.split('\\');
+                            f = a[a.length - 1];
+                            a = f.split('.');
+                            that.form.setValue(that.$bind, f);
+                            var ext = a.length > 1 ? a[a.length - 1].toUpperCase() : '';
+                            if (forbiddenFiles.indexOf(ext) >= 0) {
+                                if (uerror)
+                                    uerror.addError(_locale.errors.invalidUploadFileName);
+                                return;
+                            }
+                            if (files[0].size && (files[0].size / 1000000 > 25)) {
+                                if (uerror)
+                                    uerror.addError(_locale.errors.invalidUploadFileSize);
+                                return;
+                            }
+                        }
+                    });
+                }
+            };
+            UploadLink.prototype.removeEvents = function () {
+                var that = this;
+                var upload = that.uploadInput();
+                if (upload)
+                    $(upload).off('change');
+            };
+            return UploadLink;
+        }(Phoenix.formlinkbase.LinkBase));
+        formlink.UploadLink = UploadLink;
         _ui.registerLinkControl(Link, 'button');
+        _ui.registerControl(UploadLink, "string", false, 'upload', null);
     })(formlink = Phoenix.formlink || (Phoenix.formlink = {}));
+})(Phoenix || (Phoenix = {}));
+/// <reference path="../../../core/core-refs.ts" />
+/// <reference path="./link-base.control.ts" />
+/// <reference path="./link-button.control.ts" />
+var Phoenix;
+(function (Phoenix) {
+    var _p = Phoenix, _utils = Phoenix.utils, _ui = Phoenix.ui, _dom = Phoenix.dom, _sutils = _p.Observable.SchemaUtils, _uiutils = Phoenix.uiutils, _ctrlsinterfaces = Phoenix.ctrlsinterfaces, _ulocale = Phoenix.ulocale;
+    var columnslink;
+    (function (columnslink) {
+        var ColumnsBtn = /** @class */ (function (_super) {
+            __extends(ColumnsBtn, _super);
+            function ColumnsBtn(fp, options, form) {
+                var _this = _super.call(this, fp, options, form) || this;
+                var that = _this;
+                if (that.$bind !== '$none') {
+                    console.log('For widget columns-array $bind must be $none.');
+                }
+                if (!that.fieldOptions.bind) {
+                    console.log("Invalid columns-array element, options.bind is missing.");
+                }
+                else {
+                    var schema = that.form.getSchema(that.fieldOptions.bind);
+                    if (!schema || schema.type !== 'array')
+                        console.log("Invalid columns-array element, options.bind is invalid.");
+                }
+                if (!that.fieldOptions.gridName) {
+                    console.log("Invalid columns-array element, options.gridName must be  a valid grid name.");
+                }
+                return _this;
+            }
+            ColumnsBtn.prototype.customOptions = function (options) {
+                var that = this;
+                _super.prototype.customOptions.call(this, options);
+                options.icon = 'wrench';
+                options.titleIsHidden = true;
+                options.onChange = function () {
+                    that._openColumns();
+                };
+            };
+            ColumnsBtn.prototype._getGroupsFromSchema = function () {
+                var that = this;
+                var schema = that.form.getSchema(that.fieldOptions.bind);
+                var schemaItems = _sutils.expand$Ref(schema.items, that.form.$rootSchema);
+                if (schema && schema.type === "array" && schemaItems && schemaItems.type === "object" && schemaItems.groups) {
+                    return schemaItems.groups;
+                }
+                return {};
+            };
+            ColumnsBtn.prototype._filtrableColumns = function () {
+                var that = this;
+                var schema = that.form.getSchema(that.fieldOptions.bind);
+                var schemaItems = _sutils.expand$Ref(schema.items, that.form.$rootSchema);
+                if (schema && schema.type === "array" && schemaItems && schemaItems.type === "object") {
+                    return _sutils.filtrableFields(schemaItems, that.form.$rootSchema, that.form.$locale);
+                }
+                return [];
+            };
+            ColumnsBtn.prototype._getColumnsForSettings = function (grid) {
+                var that = this;
+                return {
+                    schemaGroups: that._getGroupsFromSchema(),
+                    schemaColumns: grid.getColumnsFromSchema(),
+                    selectedColumns: grid.getSelectedColumns(),
+                    locale: that.form.$locale
+                };
+            };
+            ColumnsBtn.prototype._openColumns = function () {
+                var that = this;
+                var list = that.form.getValue(that.renderOptions.bind);
+                var grid = that.form.controlByName(that.renderOptions.gridName, false);
+                grid = (grid && grid.length) ? grid[0] : null;
+                if (!grid)
+                    return;
+                var params = that._getColumnsForSettings(grid);
+                return _ctrlsinterfaces.glbGridSettings(params, function (columns) {
+                    grid.setColumns(columns);
+                });
+            };
+            return ColumnsBtn;
+        }(Phoenix.formlink.Link));
+        _ui.registerControl(ColumnsBtn, '*', true, 'columns-array', null);
+    })(columnslink || (columnslink = {}));
+})(Phoenix || (Phoenix = {}));
+/// <reference path="../../../core/core-refs.ts" />
+/// <reference path="./link-base.control.ts" />
+/// <reference path="./link-button.control.ts" />
+var Phoenix;
+(function (Phoenix) {
+    var _p = Phoenix, _ui = Phoenix.ui, _sutils = _p.Observable.SchemaUtils, _ctrlsinterfaces = Phoenix.ctrlsinterfaces;
+    var filterlink;
+    (function (filterlink) {
+        var FilterBtn = /** @class */ (function (_super) {
+            __extends(FilterBtn, _super);
+            function FilterBtn(fp, options, form) {
+                var _this = _super.call(this, fp, options, form) || this;
+                var that = _this;
+                if (that.$bind !== '$none') {
+                    console.log('For widget filter-array $bind must be $none.');
+                }
+                if (!that.fieldOptions.bind) {
+                    console.log("Invalid filter-array element, options.bind is missing.");
+                }
+                else {
+                    var schema = that.form.getSchema(that.fieldOptions.bind);
+                    if (!schema || schema.type !== 'array')
+                        console.log("Invalid filter-array element, options.bind is invalid.");
+                }
+                return _this;
+            }
+            FilterBtn.prototype.customOptions = function (options) {
+                var that = this;
+                _super.prototype.customOptions.call(this, options);
+                options.icon = 'filter';
+                options.titleIsHidden = true;
+                options.onChange = function () {
+                    that._openFilter();
+                };
+            };
+            FilterBtn.prototype._getGroupsFromSchema = function () {
+                var that = this;
+                var schema = that.form.getSchema(that.fieldOptions.bind);
+                var schemaItems = _sutils.expand$Ref(schema.items, that.form.$rootSchema);
+                if (schema && schema.type === "array" && schemaItems && schemaItems.type === "object" && schemaItems.groups) {
+                    return schemaItems.groups;
+                }
+                return {};
+            };
+            FilterBtn.prototype._filtrableColumns = function () {
+                var that = this;
+                var schema = that.form.getSchema(that.fieldOptions.bind);
+                var schemaItems = _sutils.expand$Ref(schema.items, that.form.$rootSchema);
+                if (schema && schema.type === "array" && schemaItems && schemaItems.type === "object") {
+                    return _sutils.filtrableFields(schemaItems, that.form.$rootSchema, that.form.$locale);
+                }
+                return [];
+            };
+            FilterBtn.prototype._getColumnsForFilter = function (mongoFilter) {
+                var that = this;
+                var list = that.form.getValue(that.renderOptions.bind);
+                var res = {
+                    schemaGroups: that._getGroupsFromSchema(),
+                    schemaColumns: that._filtrableColumns(),
+                    locale: that.form.$locale,
+                    mongoFilter: mongoFilter,
+                    filters: undefined
+                };
+                if (mongoFilter && _ctrlsinterfaces.glbMongoFilter2Filter) {
+                    res.filters = _ctrlsinterfaces.glbMongoFilter2Filter(list.filter, that._filtrableColumns());
+                }
+                return res;
+            };
+            FilterBtn.prototype._openFilter = function () {
+                var that = this;
+                var list = that.form.getValue(that.renderOptions.bind);
+                var isComposition = !list.isQuery;
+                return _ctrlsinterfaces.glbGridFilter(that._getColumnsForFilter(isComposition), function (filter) {
+                    list.filterManager = list.filterManager || (_ui.filterManagerFactory ? _ui.filterManagerFactory() : null);
+                    if (isComposition) {
+                        if (list) {
+                            list.filterManager.filterExpress = null;
+                            list.filter = filter.value;
+                        }
+                    }
+                    else {
+                        list.filterManager.filterComplex = filter;
+                        list.filter = list.filterManager.constructeFilter();
+                    }
+                }, null, { large: true });
+            };
+            return FilterBtn;
+        }(Phoenix.formlink.Link));
+        _ui.registerControl(FilterBtn, '*', true, 'filter-array', null);
+    })(filterlink || (filterlink = {}));
 })(Phoenix || (Phoenix = {}));
 /// <reference path="../../../core/core-refs.ts" />
 /// <reference path="../../../data/datasets.ts" />
@@ -27689,7 +30226,7 @@ var Phoenix;
 (function (Phoenix) {
     var formlookup;
     (function (formlookup) {
-        var _p = Phoenix, _serial = _p.serial, _ui = _p.ui, _sutils = _p.Observable.SchemaUtils, _data = _p.data, _utils = _p.utils, _gridlookup = Phoenix.gridlookup, _dom = _p.dom, _formedit = _p.formedit, _locale = _p.locale;
+        var _p = Phoenix, _ui = _p.ui, _sutils = _p.Observable.SchemaUtils, _data = _p.data, _utils = _p.utils, _customData = _p.customData, _gridlookup = Phoenix.gridlookup, _dom = _p.dom;
         var withModifier = function ($event) {
             return $event.altKey || $event.ctrlKey || $event.metaKey || $event.shiftKey;
         }, defOptions = {
@@ -27752,8 +30289,8 @@ var Phoenix;
             //TEST
             Lookup.prototype._getSource = function (options) {
                 var that = this;
+                options.$bind = that.$bind;
                 var pm = that.form.getParentModel(that.$bind);
-                //options: {search: '', select: false,  find: false, findFirst: true}
                 if (!that.$lookup.data || !that.$lookup.data.$type) {
                     return _utils.dataAsPromise(null);
                 }
@@ -27785,7 +30322,9 @@ var Phoenix;
                 }
                 else if (ldata && ldata.documents) {
                     if (opts.findFirst && that.$lookup.data && that.$lookup.data.$params && (that.$lookup.data.$params.$allData || that.$lookup.data.$type === 'relation')) {
-                        var lookup = _gridlookup.utils.checkGridLookup(that.$lookup, that.form.$model);
+                        var segments = that.$bind.split('.');
+                        segments.pop();
+                        var lookup = _gridlookup.utils.checkGridLookup(that.$lookup, that.form.$model, null, that._schemaInput(), segments.join('.'));
                         var fi = _sutils.findFirst(opts.search, _sutils.remoteSearch(_sutils.lastSegment(that.$bind, that.$display), lookup), ldata.documents);
                         if (fi)
                             return { value: [fi.item] };
@@ -27805,7 +30344,9 @@ var Phoenix;
                         return null;
                     if (opts.search && ldata && ldata.value) {
                         if (opts.findFirst) {
-                            var lookup = _gridlookup.utils.checkGridLookup(that.$lookup, that.form.$model);
+                            var segments = that.$bind.split('.');
+                            segments.pop();
+                            var lookup = _gridlookup.utils.checkGridLookup(that.$lookup, that.form.$model, null, that._schemaInput(), segments.join('.'));
                             var fi = _sutils.findFirst(opts.search, that.isEnum ? 'title' : _sutils.remoteSearch(_sutils.lastSegment(that.$bind, that.$display), lookup), ldata.value);
                             if (fi)
                                 return { value: [fi.item] };
@@ -27818,7 +30359,9 @@ var Phoenix;
             Lookup.prototype._findselected = function (ldata, opts) {
                 var that = this;
                 if (opts.search && opts.select && ldata && ldata.value) {
-                    var lookup = _gridlookup.utils.checkGridLookup(that.$lookup, that.form.$model);
+                    var segments = that.$bind.split('.');
+                    segments.pop();
+                    var lookup = _gridlookup.utils.checkGridLookup(that.$lookup, that.form.$model, null, that._schemaInput(), segments.join('.'));
                     var fi = _sutils.findFirst(opts.search, that.isEnum ? 'title' : _sutils.remoteSearch(_sutils.lastSegment(that.$bind, that.$display), lookup), ldata.value);
                     if (fi)
                         return fi.index;
@@ -27859,10 +30402,20 @@ var Phoenix;
                             }
                         }
                     });
-                    if (changed)
+                    if (changed) {
                         empty.forEach(function (key) {
                             that.form.setValue(base + key, that.$lookup.mapping[key]);
                         });
+                    }
+                    if (that.$lookup.customMapping) {
+                        var func = _customData.get("lookup.mappings." + that.$lookup.customMapping);
+                        if (func) {
+                            if (base)
+                                base = base.substr(0, base.length - 1);
+                            var ci = that.form.$model.getValue(base, null);
+                            func(ci, ldata);
+                        }
+                    }
                     var input = that._input();
                     if (input.value != that._value2Text())
                         that._value2Input(input);
@@ -27876,7 +30429,9 @@ var Phoenix;
                     if (that.renderOptions.columns) {
                         $parent = $(that._colParent());
                     }
-                    var lookup = _gridlookup.utils.checkGridLookup(that.$lookup, that.form.$model);
+                    var segments = that.$bind.split('.');
+                    segments.pop();
+                    var lookup = _gridlookup.utils.checkGridLookup(that.$lookup, that.form.$model, null, that._schemaInput(), segments.join('.'));
                     that.menu = new Phoenix.formdropitems.DropItems($parent, input, {
                         primaryKey: lookup.primaryKey,
                         search: that.isEnum ? 'title' : _sutils.remoteSearch(_sutils.lastSegment(that.$bind, that.$display), lookup),
@@ -27900,10 +30455,16 @@ var Phoenix;
                     event.stopPropagation();
                 }
             };
+            Lookup.prototype._afterElement = function () {
+                var that = this, e = that.$element ? that.$element.get(0) : null;
+                if (!e)
+                    return null;
+                return _dom.find(e, that.id + '_after');
+            };
             Lookup.prototype.click = function (event) {
                 var that = this;
                 var input = that._input();
-                if (_dom.isChildOf(input.parentNode.lastChild, event.target)) {
+                if (_dom.isChildOf(that._afterElement(), event.target)) {
                     if (that.renderOptions.paginated)
                         that._toggleGridLookup();
                     else
@@ -28008,14 +30569,14 @@ var Phoenix;
                 if (that.menu && that.menu.opened) {
                     switch (event) {
                         case 'inputChanged':
-                            var opts = { search: input.value, select: true, find: false, findFirst: false };
-                            this.eventBus.push(that._getSource(opts), function (ldata) {
+                            var opts_3 = { search: input.value, select: true, find: false, findFirst: false };
+                            that.eventBus.push(that._getSource(opts_3), function (ldata) {
                                 if (that.menu && that.menu.opened) {
-                                    opts.search = input.value;
-                                    ldata = that._filterResult(ldata, opts);
+                                    opts_3.search = input.value;
+                                    ldata = that._filterResult(ldata, opts_3);
                                     var si = -1;
-                                    if (opts.select)
-                                        si = that._findselected(ldata, opts);
+                                    if (opts_3.select)
+                                        si = that._findselected(ldata, opts_3);
                                     that.menu.show(ldata, si, true);
                                 }
                             }, false);
@@ -28043,7 +30604,9 @@ var Phoenix;
                 var that = this;
                 if (!that.gc || !that.gc.opened) {
                     that._checkGridPopup();
-                    var lookup = _gridlookup.utils.checkGridLookup(that.$lookup, that.form.$model);
+                    var segments = that.$bind.split('.');
+                    segments.pop();
+                    var lookup = _gridlookup.utils.checkGridLookup(that.$lookup, that.form.$model, null, that._schemaInput(), segments.join('.'));
                     _gridlookup.utils.openGridLookup(that, {
                         lookup: lookup,
                         parentControl: that,
@@ -28182,7 +30745,7 @@ var Phoenix;
     // TODO  statechanged / select 
     var multifield;
     (function (multifield) {
-        var _ui = Phoenix.ui, _utils = Phoenix.utils, _uiutils = Phoenix.uiutils, _dom = Phoenix.dom, _locale = Phoenix.locale, _su = Phoenix.Observable.SchemaUtils, _ulocale = Phoenix.ulocale, _ui = Phoenix.ui;
+        var _p = Phoenix, _ui = Phoenix.ui, _utils = Phoenix.utils, _uiutils = Phoenix.uiutils, _dom = Phoenix.dom, _locale = Phoenix.locale, _su = Phoenix.Observable.SchemaUtils, _ulocale = Phoenix.ulocale, _eu = _p.Observable.errorsUtils;
         ;
         var _createSelect = function (html, enums, enumsNames) {
             html.push('<div class="input-group-prepend" tabindex="-1">');
@@ -28195,31 +30758,35 @@ var Phoenix;
             });
             html.push('</div>');
             html.push('</div>');
-        }, _createAfter = function (id, afterDef) {
+        }, _createAfter = function (id, afterDef, search) {
             var html = [];
-            html.push('<span  id="{0}_after" tabindex="-1" class="bs-grp-btn input-group-append input-group-addon');
+            var suffix = search ? 'search' : 'after';
+            html.push('<span  id="{0}_' + suffix + '" tabindex="-1" class="bs-grp-btn input-group-append' + (afterDef.button ? '' : ' input-group-addon'));
             if (afterDef.icon)
                 html.push(' bs-icon-input');
             html.push('">');
-            html.push('<span class="input-group-text">');
+            if (afterDef.button)
+                html.push('<button tabindex="-1" id="{0}_' + suffix + 'text" class="bs-button btn btn-' + _dom.bootstrapStyles(true).secondary + '">');
+            else
+                html.push('<span id="{0}_' + suffix + 'text" class="input-group-text">');
             if (afterDef.icon) {
                 html.push('<span class="' + _dom.iconClass(afterDef.icon) + '"></span>');
             }
             else
                 html.push(afterDef.value);
-            html.push('</span>');
+            if (afterDef.button)
+                html.push('</button>');
+            else
+                html.push('</span>');
             html.push('</span>');
             return $(_utils.format(html.join(''), id)).get(0);
         }, _createMultiselectInput = function (id, options, enums, enumsNames, authoring, title) {
             title = title || '';
             options = $.extend({ titleIsHidden: false, placeHolder: false, columns: false, labelCol: 3 }, options);
             var html = [];
-            if (options.titleIsHidden) {
-                options.columns = false;
-            }
             options.placeHolder = false;
             _uiutils.utils.fieldWrapper(html, options, authoring, function () {
-                if (!options.titleIsHidden) {
+                if (!options.titleIsHidden || options.columns) {
                     html.push('<label for="{0}_input" id="{0}_label"');
                     var css = ['bs-label'];
                     if (options.columns) {
@@ -28229,8 +30796,7 @@ var Phoenix;
                             css.push('text-left');
                     }
                     if (options.inline) {
-                        css.push('form-check-inline');
-                        css.push('bs-cursor-d no-x-padding');
+                        css.push('form-check-inline bs-cursor-d no-x-padding');
                     }
                     if (css.length)
                         html.push(' class="' + css.join(' ') + '"');
@@ -28251,11 +30817,16 @@ var Phoenix;
                     html.push('  style="' + style.join("") + '"');
                 html.push('>');
                 _createSelect(html, enums, enumsNames);
-                if (options.readOnly) {
+                if (options.readOnly)
                     html.push('<div id="{0}_input" class="form-control"></div>');
-                }
                 else {
-                    html.push('<input type="text" id="{0}_input" class="form-control">');
+                    var inputCss = ['form-control'];
+                    if (options.mask === 'uppercase')
+                        inputCss.push('text-uppercase');
+                    html.push('<input type="text" id="{0}_input" class="' + inputCss.join(' ') + '"');
+                    if (options.maxLength)
+                        html.push('  maxLength="' + options.maxLength + '"');
+                    html.push('>');
                 }
                 html.push('</div>');
                 _uiutils.utils.addErrorDiv(html);
@@ -28272,7 +30843,6 @@ var Phoenix;
                 var _this = _super.call(this, fp, options, form) || this;
                 var that = _this;
                 that._state();
-                that._stateOfField();
                 if (that.renderOptions.useBind) {
                     that.renderOptions.field = that.form.getValue(that.$bind);
                 }
@@ -28281,8 +30851,10 @@ var Phoenix;
                     that._schemaField = that.form.getSchema(that.renderOptions.field);
                 }
                 else {
-                    that._schemaField = null;
+                    that._schemaField = that._customSchemaField();
+                    that._customStateOfField();
                 }
+                that._stateOfField();
                 return _this;
             }
             BaseMultiField.prototype.destroy = function () {
@@ -28292,17 +30864,23 @@ var Phoenix;
                     that.form.unRegisterListenerFor(that.renderOptions.field, that);
                 _super.prototype.destroy.call(this);
             };
+            BaseMultiField.prototype._customSchemaField = function () {
+                return null;
+            };
+            BaseMultiField.prototype._customStateOfField = function () {
+            };
             BaseMultiField.prototype._changeField = function (value) {
                 var that = this;
-                if (that.renderOptions.field)
-                    that.form.unRegisterListenerFor(that.renderOptions.field, that);
-                that.renderOptions.field = value;
                 if (that.renderOptions.field) {
+                    if (that.renderOptions.field)
+                        that.form.unRegisterListenerFor(that.renderOptions.field, that);
+                    that.renderOptions.field = value;
                     that.form.registerListenerFor(that.renderOptions.field, that);
                     that._schemaField = that.form.getSchema(that.renderOptions.field);
                 }
                 else {
-                    that._schemaField = null;
+                    that._schemaField = that._customSchemaField();
+                    that._customStateOfField();
                 }
                 that._stateOfField();
                 that._afterFieldChanged();
@@ -28323,8 +30901,24 @@ var Phoenix;
                 var that = this;
                 return that._schemaField && _su.isNumber(that._schemaField);
             };
+            BaseMultiField.prototype._isPassword = function () {
+                return _su.isPassword(this._schemaInput());
+            };
+            BaseMultiField.prototype._isMoney = function () {
+                var that = this;
+                return that._schemaField && _su._isMoney(that._schemaField);
+            };
             BaseMultiField.prototype._schemaInput = function () {
                 return this._schemaField;
+            };
+            BaseMultiField.prototype._places = function () {
+                var that = this;
+                var res = that._stateField.decimals || 0;
+                if (that.form.moneyUnitCoef === 1000)
+                    return 0;
+            };
+            BaseMultiField.prototype._afterSearch = function () {
+                return null;
             };
             BaseMultiField.prototype._afterIcon = function () {
                 var that = this;
@@ -28341,8 +30935,8 @@ var Phoenix;
                         return { icon: 'calendar' };
                 }
                 else if (that._isNumber()) {
-                    if (that._stateField.symobol)
-                        return { value: that._stateField.symobol };
+                    if (that._stateField.symbol)
+                        return { value: that._stateField.symbol };
                 }
                 return null;
             };
@@ -28365,9 +30959,19 @@ var Phoenix;
                         _dom.remove(after);
                 }
             };
+            BaseMultiField.prototype._removeSearch = function () {
+                var that = this;
+                var e = that.$element ? that.$element.get(0) : null;
+                if (e) {
+                    var after = _dom.find(e, that.id + '_search');
+                    if (after)
+                        _dom.remove(after);
+                }
+            };
             BaseMultiField.prototype._updateType = function () {
                 var that = this;
                 that._removeAfter();
+                that._removeSearch();
                 var after = that._afterIcon();
                 var input = that._input();
                 var element = that.$element.get(0);
@@ -28375,9 +30979,74 @@ var Phoenix;
                     _dom.addClass(input, 'bs-edit-number');
                 else
                     _dom.removeClass(input, 'bs-edit-number');
+                var last = input;
                 if (after) {
-                    var afterElement = _createAfter(that.id, after);
+                    var afterElement = _createAfter(that.id, after, false);
                     _dom.after(input, afterElement);
+                    last = afterElement;
+                }
+                var afterSearch = that._afterSearch();
+                if (afterSearch) {
+                    var afterElement = _createAfter(that.id, afterSearch, true);
+                    _dom.after(last, afterElement);
+                }
+            };
+            BaseMultiField.prototype.notifyGlobalChanged = function (globalName) {
+                var that = this;
+                if (globalName === 'money-unit') {
+                    that._stateField.moneyUnitCoef = that.form.moneyUnitCoef;
+                    that._unitChanged();
+                }
+            };
+            BaseMultiField.prototype._unitChanged = function () {
+                var that = this;
+                var input = that._input();
+                var element = that.$element ? that.$element.get(0) : null;
+                if (input) {
+                    that._value2Input(input);
+                    that._setSymbol();
+                }
+            };
+            BaseMultiField.prototype._setErrors = function (input, element) {
+                var that = this;
+                if (that.renderOptions.readOnly)
+                    return;
+                var errors = that.fieldState().errors;
+                var errorClass = 'is-invalid';
+                if (errors && errors.length) {
+                    _dom.addClass(element, errorClass);
+                    _dom.addClass(input, errorClass);
+                }
+                else {
+                    _dom.removeClass(element, errorClass);
+                    _dom.removeClass(input, errorClass);
+                }
+                that.showErrors(element, errors);
+            };
+            BaseMultiField.prototype._setSymbol = function () {
+                var that = this;
+                var input = that._input();
+                if (!input)
+                    return;
+                if (!that._isNumber())
+                    return;
+                var cs = that._isMoney() ? _su.moneyUnitSymbol(that._stateField.moneyUnitCoef) + (that._stateField.symbol || '') : that._stateField.symbol;
+                var after = _dom.find(that.$element.get(0), that.id + '_after');
+                if (after) {
+                    if (!cs) {
+                        _dom.remove(after);
+                    }
+                    else {
+                        after = _dom.find(that.$element.get(0), that.id + '_aftertext');
+                        _dom.text(after, cs);
+                    }
+                }
+                else {
+                    if (cs) {
+                        var afterElement = _createAfter(that.id, { value: cs }, false);
+                        after = _createAfter(that.id, { value: cs }, false);
+                        _dom.after(input, after);
+                    }
                 }
             };
             BaseMultiField.prototype._setPlugins = function () {
@@ -28425,7 +31094,10 @@ var Phoenix;
             };
             BaseMultiField.prototype._input2Model = function (isFocusOut) {
                 var that = this, input = that._input();
-                var nv = that._text2value(input.value);
+                var av = _uiutils.utils.maskCheckValue(that.renderOptions.mask || that._mask, input.value);
+                if (av != input.value)
+                    input.value = av;
+                var nv = that._text2value(av);
                 var schema = that._schemaInput();
                 if (!that._equals(nv)) {
                     that.checkValue(nv, function (cv) {
@@ -28466,16 +31138,21 @@ var Phoenix;
                 that._setPlugins();
                 var element = that.$element ? that.$element.get(0) : null;
                 var input = that._input();
+                if (that._isMoney())
+                    that.fieldState().moneyUnitCoef = that.form.moneyUnitCoef;
                 if (input) {
                     that._value2Input(input);
-                    /*
                     that._setDisabled(input, element);
                     that._setReadOnly(input, element);
                     that.setHidden(element);
                     that._setMandatory(input, element);
                     that._setErrors(input, element);
-                    that._setSymbol(element);
-                    */
+                    that._setSymbol();
+                }
+                that._mask = '';
+                if (that._schemaField) {
+                    if (that._schemaField.format === 'phone')
+                        that._mask = 'phone';
                 }
             };
             BaseMultiField.prototype._stateOfField = function () {
@@ -28493,9 +31170,17 @@ var Phoenix;
             BaseMultiField.prototype.changed = function (propName, ov, nv, op, params) {
                 var that = this;
                 if (propName === that.$bind) {
-                    if (that.state.value !== nv) {
-                        that._changedBind(ov, nv, op, params);
-                        that.state.value = nv;
+                    if (that._isBinded) {
+                        if (that.state.value !== nv) {
+                            that._changedBind(ov, nv, op, params);
+                            that.state.value = nv;
+                        }
+                    }
+                    else {
+                        if (that._internalValue !== nv) {
+                            that._changedBind(ov, nv, op, params);
+                            that._internalValue = nv;
+                        }
                     }
                 }
                 else if (that.renderOptions.field && propName === that.renderOptions.field) {
@@ -28505,15 +31190,97 @@ var Phoenix;
                     }
                     else if (!that.renderOptions.readOnly && that._schemaField && !that._schemaField.enum) {
                         var input = that._input();
-                        var av = input.value;
+                        var av = _uiutils.utils.maskCheckValue(that.renderOptions.mask, input.value);
                         var cv = that._value2Text();
                         if (av !== cv)
                             that._value2Input(input);
                     }
                 }
             };
+            BaseMultiField.prototype._patchState = function (state) {
+            };
+            BaseMultiField.prototype.fieldState = function () {
+                return this._stateField;
+            };
+            BaseMultiField.prototype._setReadOnly = function (input, element) {
+                var that = this;
+                if (that.renderOptions.readOnly)
+                    return;
+                input.readOnly = that.fieldState().isReadOnly;
+            };
+            BaseMultiField.prototype._setDisabled = function (input, element) {
+                var that = this;
+                if (that.renderOptions.readOnly)
+                    return;
+                input.disabled = that.fieldState().isDisabled;
+            };
+            BaseMultiField.prototype._setMandatory = function (input, element) {
+                var that = this;
+                if (that.renderOptions.readOnly)
+                    return;
+                var v = that.fieldState().isMandatory;
+                input.required = v;
+                if (v)
+                    _dom.addClass(input, "bs-mandatory");
+                else
+                    _dom.removeClass(input, "bs-mandatory");
+                if (that.renderOptions.placeHolder) {
+                    input.placeholder = (that.renderOptions.placeHolder === true ? that.renderOptions.title : that.renderOptions.placeHolder) + (v ? ' *' : '');
+                }
+                if (!that.renderOptions.titleIsHidden) {
+                    var label = _dom.find(element, that.id + '_label');
+                    if (label) {
+                        _dom.text(label, (that.renderOptions.title || '') + (v ? ' *' : '') + (that.renderOptions.inline ? String.fromCharCode(160) : ''));
+                    }
+                }
+            };
             BaseMultiField.prototype.stateChanged = function (propName, params) {
-                // TODO
+                var that = this;
+                if (params && params.property === that.renderOptions.field) {
+                    var state = that.form.getState(that.renderOptions.field);
+                    that._patchState(state);
+                    var element = that.$element ? that.$element.get(0) : null;
+                    var input = that._input();
+                    if (!propName || (propName === 'decimals')) {
+                        if (state.decimals !== that.fieldState().decimals) {
+                            that.fieldState().decimals = state.decimals;
+                        }
+                    }
+                    if (!propName || (propName === 'isHidden')) {
+                        if (state.isHidden !== that.fieldState().isHidden) {
+                            that.fieldState().isHidden = state.isHidden;
+                            if (input)
+                                that.setHidden(element);
+                        }
+                    }
+                    if (!propName || (propName === 'isDisabled')) {
+                        if (state.isDisabled !== that.fieldState().isDisabled) {
+                            that.fieldState().isDisabled = state.isDisabled;
+                            if (input)
+                                that._setDisabled(input, element);
+                        }
+                    }
+                    if (!propName || (propName === 'isReadOnly')) {
+                        if (state.isReadOnly !== that.fieldState().isReadOnly) {
+                            that.fieldState().isReadOnly = state.isReadOnly;
+                            if (input)
+                                that._setReadOnly(input, element);
+                        }
+                    }
+                    if (!propName || (propName === 'isMandatory')) {
+                        if (state.isMandatory !== that.fieldState().isMandatory) {
+                            that.fieldState().isMandatory = state.isMandatory;
+                            if (input)
+                                that._setMandatory(input, element);
+                        }
+                    }
+                    if (!propName || (propName === 'errors')) {
+                        if (_eu.errorChanged(that.fieldState().errors, state.errors)) {
+                            that.fieldState().errors = state.errors;
+                            that._setErrors(input, element);
+                        }
+                    }
+                }
             };
             BaseMultiField.prototype._changedBind = function (ov, nv, op, params) {
                 this._setSelectValue(nv);
@@ -28549,7 +31316,30 @@ var Phoenix;
                     value = String.fromCharCode(160);
                 _dom.text(select, value);
             };
-            BaseMultiField.prototype._ignoreKeys = function (event, keyPress) {
+            BaseMultiField.prototype.paste = function (event) {
+                var that = this;
+                if (that.renderOptions.readOnly)
+                    return;
+                var input = that._input();
+                if (that._stateField.isReadOnly || that._stateField.isDisabled)
+                    return true;
+                var schema = that._schemaInput();
+                if (that._isNumber() && !that.$lookup) {
+                    if (_uiutils.utils.doPasteNumber(event, input, { decimalSep: _locale.number.decimal, thousandSep: _locale.number.thousand, places: _su.places(that._stateField), schema: schema }) === false)
+                        return false;
+                }
+                else if (that._isDate()) {
+                    if (_uiutils.utils.doPasteDate(event, input, { sep: _locale.date.daySep, format: _locale.date.dateShort, schema: schema }) === false)
+                        return false;
+                }
+                else if (that._isPassword()) {
+                    if (_uiutils.utils.doPastePassword(event, input, { schema: schema }) === false)
+                        return false;
+                }
+                return true;
+            };
+            BaseMultiField.prototype._ignoreKeys = function (event, keyPress, input) {
+                var that = this;
                 if (event.which === _dom.keys.VK_TAB)
                     return true;
                 if (event.which === _dom.keys.VK_DELETE)
@@ -28561,6 +31351,11 @@ var Phoenix;
                         return true;
                     if (_dom.arrowKeys.indexOf(event.which) >= 0)
                         return true;
+                    if (that.renderOptions.mask) {
+                        event.which = _uiutils.utils.maskKeys(that.renderOptions.mask, event, input, keyPress);
+                        if (event.which === 0)
+                            return true;
+                    }
                     return false;
                 }
                 else {
@@ -28577,15 +31372,19 @@ var Phoenix;
                 if (state.isReadOnly || state.isDisabled)
                     return true;
                 var input = that._input();
-                if (that._ignoreKeys(event, true))
+                if (that._ignoreKeys(event, true, input))
                     return true;
                 var schema = that._schemaInput();
                 if (that._isNumber() && !that.$lookup) {
-                    if (_uiutils.utils.keyPressNumber(event, input, { decimalSep: _locale.number.decimal, thousandSep: _locale.number.thousand, places: that.state.decimals, schema: schema }) === false)
+                    if (_uiutils.utils.keyPressNumber(event, input, { decimalSep: _locale.number.decimal, thousandSep: _locale.number.thousand, places: _su.places(that._stateField), schema: schema }) === false)
                         return false;
                 }
                 else if (that._isDate()) {
                     if (_uiutils.utils.keyPressDate(event, input, { sep: _locale.date.daySep, format: _locale.date.dateShort, schema: schema }) === false)
+                        return false;
+                }
+                else if (that._isPassword()) {
+                    if (_uiutils.utils.keyPressPassword(event, input, { schema: schema }) === false)
                         return false;
                 }
                 return true;
@@ -28597,6 +31396,14 @@ var Phoenix;
                     that.form.execAction(that.renderOptions.after.$bind, that.state.value);
                 }
             };
+            BaseMultiField.prototype.focusInControl = function (activeFocusElement) {
+                var that = this;
+                var p = _super.prototype.focusInControl.call(this, activeFocusElement);
+                if (!p && that._isDate() && _uiutils.utils.useDatePicker()) {
+                    return _uiutils.utils.elementInDatePicker(activeFocusElement, that.$element);
+                }
+                return p;
+            };
             BaseMultiField.prototype.keydown = function (event) {
                 var that = this;
                 if (!that._schemaField || that.renderOptions.readOnly)
@@ -28605,7 +31412,7 @@ var Phoenix;
                 if (state.isReadOnly || state.isDisabled)
                     return true;
                 var input = that._input();
-                if (that._ignoreKeys(event, false)) {
+                if (that._ignoreKeys(event, false, input)) {
                     if (event.which === _dom.keys.VK_ENTER) {
                         that._afterEnter();
                     }
@@ -28613,21 +31420,30 @@ var Phoenix;
                 }
                 var schema = that._schemaInput();
                 if (that._isNumber() && !that.$lookup) {
-                    if (_uiutils.utils.keyDownNumber(event, input, { decimalSep: _locale.number.decimal, thousandSep: _locale.number.thousand, places: that.state.decimals, schema: schema }) === false)
+                    if (_uiutils.utils.keyDownNumber(event, input, { decimalSep: _locale.number.decimal, thousandSep: _locale.number.thousand, places: _su.places(that._stateField), schema: schema }) === false)
                         return false;
                 }
                 else if (that._isDate()) {
                     if (_uiutils.utils.keyDownDate(event, input, { sep: _locale.date.daySep, format: _locale.date.dateShort, schema: schema }) === false)
                         return false;
                 }
+                else if (that._isPassword()) {
+                    if (_uiutils.utils.keyDownPassword(event, input, { schema: schema }) === false)
+                        return false;
+                }
                 return true;
             };
             BaseMultiField.prototype._equals = function (nv) {
                 var that = this;
+                var cv = that._stateField.value;
                 var schema = that._schemaInput();
-                var res = (that._stateField.value === nv);
-                if (!res && that._stateField.value === undefined) {
-                    if (schema.type === 'string') {
+                if (that._isMoney()) {
+                    cv = that._value2Text();
+                    nv = _su.value2Text(nv, schema, that._stateField);
+                }
+                var res = (cv === nv);
+                if (!res && cv === undefined) {
+                    if (schema.type === "string") {
                         if (nv === '')
                             return true;
                     }
@@ -28650,6 +31466,10 @@ var Phoenix;
                 if (input)
                     input.focus();
             };
+            BaseMultiField.prototype._clickAfter = function () {
+            };
+            BaseMultiField.prototype._clickSearch = function () {
+            };
             BaseMultiField.prototype.click = function (event) {
                 var that = this, target = event.target;
                 var href = _dom.attr(target, 'data-phoenix-href') || _dom.attr(target, 'href');
@@ -28657,22 +31477,49 @@ var Phoenix;
                     event.preventDefault();
                 var selected = _dom.attr(event.target, 'data-select');
                 if (selected) {
-                    that.form.setValue(that.$bind, selected);
+                    if (that._isBinded)
+                        that.form.setValue(that.$bind, selected);
+                    else {
+                        if (that.getInternalValue() === selected)
+                            return;
+                        that.setInternalValue(selected, true);
+                        that._notifyChanged('select', selected);
+                        that._changeField(that._internalValue);
+                    }
                     if (that.canEdit())
                         that.setFocus();
                 }
+                else {
+                    var btn = _dom.parentById(that.$element.get(0), event.target, that.id + '_aftertext');
+                    if (btn) {
+                        that._clickAfter();
+                        if (that.canEdit())
+                            that.setFocus();
+                    }
+                    else {
+                        var btn_1 = _dom.parentById(that.$element.get(0), event.target, that.id + '_searchtext');
+                        if (btn_1) {
+                            that._clickSearch();
+                            if (that.canEdit())
+                                that.setFocus();
+                        }
+                    }
+                }
                 if (!that.canEdit())
                     return;
+            };
+            BaseMultiField.prototype._notifyChanged = function (source, value) {
             };
             BaseMultiField.prototype.render = function ($parent) {
                 var that = this;
                 var opts = that._initOptions(_uiutils.utils.defaultOptions);
                 if (!that.$element) {
-                    opts.title = _ulocale.tt(that.$schema.title, that.form.$locale);
-                    if (that.$schema.description)
-                        opts.description = _ulocale.tt(that.$schema.description, that.form.$locale);
+                    opts.title = _ulocale.tt(that._schemaInput().title, that.form.$locale);
+                    if (that._schemaInput().description)
+                        opts.description = _ulocale.tt(that._schemaInput().description, that.form.$locale);
                     var enumNames = that.$schema.enumNames || that.$schema.enum;
                     enumNames = enumNames.map(function (v) { return _ulocale.tt(v + '', that.form.$locale); });
+                    opts.maxLength = that._schemaInput().maxLength;
                     that.$element = $(_createMultiselectInput(that.id, opts, that.$schema.enum, enumNames, that.options.design, opts.title));
                     that._state2UI();
                     that.setEvents(opts);
@@ -28740,6 +31587,7 @@ var Phoenix;
             };
             return BaseMultiField;
         }(Phoenix.ui.AbsField));
+        multifield.BaseMultiField = BaseMultiField;
         _ui.registerControl(BaseMultiField, '*', true, 'multifield', null);
     })(multifield = Phoenix.multifield || (Phoenix.multifield = {}));
 })(Phoenix || (Phoenix = {}));
@@ -28753,17 +31601,31 @@ var Phoenix;
 (function (Phoenix) {
     var multivalue;
     (function (multivalue) {
-        var _ui = Phoenix.ui, _utils = Phoenix.utils, _formedit = Phoenix.formedit, _uiutils = Phoenix.uiutils, _dom = Phoenix.dom, _locale = Phoenix.locale, _su = Phoenix.Observable.SchemaUtils, _ulocale = Phoenix.ulocale, _ui = Phoenix.ui;
+        var _p = Phoenix, _ui = Phoenix.ui, _utils = Phoenix.utils, _formedit = Phoenix.formedit, _uiutils = Phoenix.uiutils, _dom = _p.dom, _customData = _p.customData, _sutils = _p.Observable.SchemaUtils, _locale = Phoenix.locale, _gridlookup = Phoenix.gridlookup, _su = Phoenix.Observable.SchemaUtils, _ulocale = Phoenix.ulocale, _ui = Phoenix.ui;
         ;
         var _createTag = function (item, title, isReadOnly) {
             return $(_utils.format(' <span id="{0}" class="bs-tag badge badge-info">{1}<span data-close-id="{0}" class="bs-tag-close" aria-hidden="true">&times;</span></span>', item.$id, title)).get(0);
+        }, _addAfter = function (html, afterDef) {
+            html.push('<span  id="{0}_after" tabindex="-1" class="bs-grp-btn input-group-append input-group-addon');
+            if (afterDef.icon)
+                html.push(' bs-icon-input');
+            html.push('">');
+            html.push('<span class="input-group-text">');
+            if (afterDef.icon) {
+                html.push('<span class="' + _dom.iconClass(afterDef.icon) + '"></span>');
+            }
+            else
+                html.push(afterDef.value);
+            html.push('</span>');
+            html.push('</span>');
+        }, _createAfter = function (id, afterDef) {
+            var html = [];
+            _addAfter(html, afterDef);
+            return $(_utils.format(html.join(''), id)).get(0);
         }, _createMultiselectInput = function (id, options, authoring, title) {
             title = title || '';
             options = $.extend({ titleIsHidden: false, placeHolder: false, columns: false, labelCol: 3 }, options);
             var html = [];
-            if (options.titleIsHidden) {
-                options.columns = false;
-            }
             options.placeHolder = false;
             _uiutils.utils.fieldWrapper(html, options, authoring, function () {
                 if (!options.titleIsHidden) {
@@ -28788,72 +31650,21 @@ var Phoenix;
                 }
                 if (options.columns)
                     html.push('<div class="no-x-padding col-sm-' + (12 - options.labelCol) + '">');
-                if (options.readOnly) {
-                    html.push('<div class="bs-mv-container form-control bs-read-only');
-                    if (options.size)
-                        html.push(' form-control-' + options.size);
-                    html.push('" id="{0}_array"');
-                    var style = [];
-                    if (options.maxWidth)
-                        style.push('max-width: ' + options.maxWidth + ';');
-                    if (options.minWidth)
-                        style.push('min-width: ' + options.minWidth + ';');
-                    if (style.length)
-                        html.push(' style="' + style.join('') + '"');
-                    html.push('>');
-                    html.push('<input type="text" id="{0}_input" class="bs-tag-input">');
-                    html.push('</div>');
-                }
-                else {
-                    if (options.after) {
-                        html.push('<div class="input-group" id="{0}_group"');
-                        var style_1 = [];
-                        if (options.minWidth)
-                            style_1.push('min-width: ' + options.minWidth + ';');
-                        if (options.maxWidth)
-                            style_1.push('max-width: ' + options.maxWidth + ';');
-                        if (style_1.length)
-                            html.push('  style="' + style_1.join("") + '"');
-                        html.push('>');
-                    }
-                    html.push('<div class="bs-mv-container form-control');
-                    if (!options.after) {
-                        var style_2 = [];
-                        if (options.minWidth)
-                            style_2.push('min-width: ' + options.minWidth + ';');
-                        if (options.maxWidth)
-                            style_2.push('max-width: ' + options.maxWidth + ';');
-                        if (style_2.length)
-                            html.push('  style="' + style_2.join("") + '"');
-                    }
-                    if (options.size)
-                        html.push(' form-control-' + options.size);
-                    html.push('" id="{0}_array"');
-                    var style = [];
-                    if (options.maxWidth)
-                        style.push('max-width: ' + options.maxWidth + ';');
-                    if (options.minWidth)
-                        style.push('min-width: ' + options.minWidth + ';');
-                    if (style.length)
-                        html.push(' style="' + style.join('') + '"');
-                    html.push('>');
-                    html.push('<input type="text" id="{0}_input" class="bs-tag-input">');
-                    html.push('</div>');
-                    if (options.after) {
-                        html.push('<span  id="{0}_after" tabindex="-1" class="bs-grp-btn input-group-append input-group-addon');
-                        if (options.after.icon)
-                            html.push(' bs-icon-input');
-                        html.push('">');
-                        html.push('<span class="input-group-text">');
-                        if (options.after.icon) {
-                            html.push('<span class="' + _dom.iconClass(options.after.icon) + '"></span>');
-                        }
-                        else
-                            html.push(options.after.value);
-                        html.push('</span>');
-                        html.push('</span>');
-                    }
-                }
+                html.push('<div class="input-group" id="{0}_group"');
+                var style = [];
+                if (options.minWidth)
+                    style.push('min-width: ' + options.minWidth + ';');
+                if (options.maxWidth)
+                    style.push('max-width: ' + options.maxWidth + ';');
+                if (style.length)
+                    html.push('  style="' + style.join("") + '"');
+                html.push('>');
+                html.push('<div class="bs-mv-container form-control" id="{0}_array">');
+                html.push('<input type="text" id="{0}_input" class="bs-tag-input">');
+                html.push('</div>');
+                if (options.after && options.after.icon)
+                    _addAfter(html, options.after);
+                html.push('</div>');
                 _uiutils.utils.addErrorDiv(html);
                 if (options.columns)
                     html.push('</div>');
@@ -28861,24 +31672,189 @@ var Phoenix;
                     _uiutils.utils.addTooltipAndRule(html, options);
             });
             return _utils.format(html.join(''), id);
+        }, _lookupEnumValue2Text = function (value, $lookup) {
+            if (value === "" || value === null || value === undefined)
+                return '';
+            if ($lookup && $lookup.data && $lookup.data.$value) {
+                var values = $lookup.data.$value;
+                for (var i = 0, len = values.length; i < len; i++) {
+                    var item = values[i];
+                    if (item.code === value)
+                        return item.title;
+                }
+                return value || '';
+            }
+            return value || '';
         };
         var MultiValue = /** @class */ (function (_super) {
             __extends(MultiValue, _super);
             function MultiValue(fp, options, form) {
                 var _this = this;
-                if (!fp.options || fp.options.field) {
+                if (!fp.options || !fp.options.field) {
                     console.log('Invalid multivalue Field options.field is missing');
                 }
                 _this = _super.call(this, fp, options, form) || this;
                 var that = _this;
-                that._schemaInputField = form.getSchema(that.$bind + '.' + fp.options.field);
+                that._schemaInputField = form.getSchema(that.$bind + '.' + (that.$schema.type === 'array' ? '$item.' : '') + fp.options.field);
+                if (that._isEnum()) {
+                    that.$lookup = { data: { $type: 'enum', $value: [] }, mapping: that.fieldOptions.mapping || { value: 'code', title: 'title' }, isEnum: true };
+                    that.fieldOptions.lookupColumns = ['title'];
+                    that._schemaInputField.enum.forEach(function (item, index) {
+                        that.$lookup.data.$value.push({ code: item, title: that._schemaInputField.enumNames[index] });
+                    });
+                }
+                if (that.$lookup) {
+                    that.lookupOptions = {
+                        autoComplete: false,
+                        maxItems: -1
+                    };
+                    that.eventBus = new Phoenix.serial.SingleEventBus(50);
+                    that.onselectItemHandler = that._onselectItem.bind(that);
+                }
+                if (that.form.syncViewId() && that.fieldOptions.addMethod) {
+                    that._syncCallBack = function (item) {
+                        that.form.execAction(that.$bind + '.$links.' + that.fieldOptions.addMethod, item);
+                    };
+                }
                 return _this;
             }
+            MultiValue.prototype.beforeAfter = function () {
+                return _dom.find(this.$element.get(0), this.id + '_array');
+            };
+            MultiValue.prototype._onselectItem = function (value) {
+                var that = this;
+                that.eventBus.push(value, function (ldata) {
+                    var input = that._input();
+                    input.value = '';
+                    if (!ldata)
+                        return;
+                    var mapping = Object.keys(that.$lookup.mapping);
+                    if (that._isEnum()) {
+                        var ti = mapping.indexOf('title');
+                        if (ti >= 0)
+                            mapping.splice(ti, 1);
+                    }
+                    var ii = { $create: true };
+                    mapping.forEach(function (key) {
+                        ii[key] = ldata[that.$lookup.mapping[key]];
+                    });
+                    if (that.$lookup.customMapping) {
+                        var func = _customData.get("lookup.mappings." + that.$lookup.customMapping);
+                        if (func)
+                            func(ii, ldata);
+                    }
+                    that.state.value.push(ii, Phoenix.Observable.Duplicates.dupSilent, that._syncCallBack);
+                }, true);
+            };
+            MultiValue.prototype._patchState = function (state) {
+                var that = this;
+                if (that._isNumber()) {
+                    if (state.decimals === undefined && that._schemaInputField.decimals !== undefined)
+                        state.decimals = that._schemaInputField.decimals;
+                    if (that._schemaInputField.symbol === undefined && that._schemaInputField.symbol !== undefined)
+                        state.symbol = that._schemaInputField.symbol;
+                    if (that._isMoney()) {
+                        if (state.decimals === undefined)
+                            state.decimals = _locale.number.places;
+                        if (state.symbol === undefined)
+                            state.symbol = _locale.number.symbol;
+                    }
+                }
+            };
+            MultiValue.prototype.focusOut = function (event) {
+                var that = this;
+                _gridlookup.utils.closeGridLookup(that, that.eventBus, 'gc');
+                _super.prototype.focusOut.call(this, event);
+            };
+            MultiValue.prototype._toggleGridLookup = function () {
+                var that = this;
+                if (that.gc && that.gc.opened) {
+                    _gridlookup.utils.closeGridLookup(that, that.eventBus, 'gc');
+                }
+                else if (!that.gc || !that.gc.opened) {
+                    that._openGridLookup();
+                }
+            };
+            MultiValue.prototype._checkGridPopup = function () {
+                var that = this;
+                var input = that._input();
+                var parent = that.$element.get(0);
+                if (that.renderOptions.columns) {
+                    parent = that._colParent();
+                }
+                that.gc = _gridlookup.utils.checkGridPopup(that, that.$lookup, input, parent);
+            };
+            MultiValue.prototype.focusInControl = function (activeFocusElement) {
+                var that = this;
+                var p = _super.prototype.focusInControl.call(this, activeFocusElement);
+                if (!p && that.gc && that.gc.opened)
+                    return that.gc.focusInCombo(activeFocusElement);
+                return p;
+            };
+            MultiValue.prototype._searchText = function () {
+                var that = this, input = that._input();
+                var nv = that._text2value(input.value);
+                if (that.equals(nv))
+                    return '';
+                return nv;
+            };
+            MultiValue.prototype.checkFocus = function (focusParams) {
+                var that = this;
+                _utils.nextTick(function () {
+                    var ae = window.document.activeElement;
+                    if (!ae || !that.targetInControl(ae)) {
+                        that.focusOut(null);
+                        that.focused = false;
+                    }
+                });
+            };
+            MultiValue.prototype.focusIn = function (event) {
+            };
+            MultiValue.prototype._openGridLookup = function () {
+                var that = this;
+                if (!that.gc || !that.gc.opened) {
+                    that._checkGridPopup();
+                    var segments = that.$bind.split('.');
+                    segments.pop();
+                    var lookup = _gridlookup.utils.checkGridLookup(that.$lookup, that.form.$model, null, that._schemaInput(), segments.join('.'));
+                    _gridlookup.utils.openGridLookup(that, {
+                        lookup: lookup,
+                        parentControl: that,
+                        formControl: that.form,
+                        display: that._isEnum() ? 'title' : that.renderOptions.display || that.renderOptions.field,
+                        bind: that.renderOptions.field,
+                        containerId: that.form.syncTransactionId(),
+                        viewId: that.form.syncViewId(),
+                        align: that.id + '_group',
+                        openerId: that.id + '_after',
+                        searchText: that._searchText(),
+                        onselect: that.onselectItemHandler,
+                        lookupColumns: that.fieldOptions ? that.fieldOptions.lookupColumns : undefined,
+                        propertyName: 'gc',
+                        minWidth: that.fieldOptions ? that.fieldOptions.lookupMinWidth : 0
+                    });
+                }
+            };
+            MultiValue.prototype._state = function () {
+                var that = this;
+                if (!that._schemaInputField)
+                    that._schemaInputField = that.form.getSchema(that.$bind + '.' + (that.$schema.type === 'array' ? '$item.' : '') + that.fieldOptions.field);
+                _super.prototype._state.call(this);
+                that._patchState(that.state);
+            };
+            MultiValue.prototype._schemaInput = function () {
+                return this._schemaInputField;
+            };
             MultiValue.prototype._setDisabled = function (input, element) {
                 input.disabled = this.state.isDisabled || this.state.isReadOnly;
             };
             MultiValue.prototype._setReadOnly = function (input, element) {
                 input.disabled = this.state.isDisabled || this.state.isReadOnly;
+            };
+            MultiValue.prototype.validateList = function () {
+                var that = this;
+                var list = that.state.value;
+                list.parent.partialValidate([list.path]);
             };
             MultiValue.prototype.changed = function (propName, ov, nv, op, params) {
                 var that = this;
@@ -28892,19 +31868,22 @@ var Phoenix;
                     forceRender = true;
                     that.state.value = that.form.getValue(that.$bind);
                 }
-                if (!that.state.value) {
+                if (!that.state.value)
                     op = 'none';
-                }
                 switch (op) {
                     case 'propchange':
-                        if (propName === that.$bind)
+                        if (propName === that.$bind || propName.indexOf(that.$bind + '.$item') === 0) {
                             forceRender = true;
+                            that.validateList();
+                        }
                         break;
                     case 'add':
                         that._addTag(params.$value);
+                        that.validateList();
                         break;
                     case 'remove':
                         that._removeTag(params.$id);
+                        that.validateList();
                         break;
                 }
                 if (forceRender)
@@ -28918,20 +31897,29 @@ var Phoenix;
             MultiValue.prototype._addTag = function (item) {
                 var that = this;
                 var input = that._input();
-                var tag = _createTag(item, item[that.renderOptions.field], false);
+                var v = _uiutils.utils.displayValue(item[that.renderOptions.field], that._schemaInput(), null, { false: true, useSymbol: false, state: that.fieldState(), form: that.form }, null, that.renderOptions.field);
+                var tag = _createTag(item, v.value, false);
                 _dom.before(input, tag);
             };
             MultiValue.prototype._renderAllItems = function () {
                 var that = this;
                 var input = that._input();
-                var value = this.state.value;
+                var value = that.state.value;
                 var p = input.parentNode;
                 while (p.firstChild !== input)
                     p.removeChild(p.firstChild);
                 value.forEach(function (item, index, level) {
-                    var tag = _createTag(item, item[that.renderOptions.field], false);
+                    var v = _uiutils.utils.displayValue(item[that.renderOptions.field], that._schemaInput(), null, { false: true, useSymbol: false, state: that.fieldState(), form: that.form }, null, that.renderOptions.field);
+                    var tag = _createTag(item, v.value, false);
                     _dom.before(input, tag);
                 });
+            };
+            MultiValue.prototype._unitChanged = function () {
+                var that = this;
+                _super.prototype._unitChanged.call(this);
+                if (that._isMoney() && that.$element) {
+                    that._renderAllItems();
+                }
             };
             MultiValue.prototype._state2UI = function () {
                 var that = this;
@@ -28963,30 +31951,147 @@ var Phoenix;
                     });
                 }
             };
+            MultiValue.prototype._group = function () {
+                var that = this, e = that.$element ? that.$element.get(0) : null;
+                if (!e)
+                    return null;
+                return _dom.find(e, that.id + '_group');
+            };
+            MultiValue.prototype.checkValue = function (nv, after) {
+                var that = this;
+                if (that.$lookup) {
+                    var input = that._input();
+                    nv = nv || '';
+                    if (nv.trim() === '') {
+                        input.value = '';
+                        after('');
+                        return;
+                    }
+                    that._findValue(input.value, function (val) {
+                        that._onselectItem(val);
+                    });
+                }
+                else {
+                    _super.prototype.checkValue.call(this, nv, after);
+                }
+            };
+            MultiValue.prototype._findValue = function (search, after) {
+                var that = this;
+                if (!search && search === '') {
+                    that.eventBus.push(null, function (ldata) { after(null); }, true);
+                    return;
+                }
+                var opts = { search: search, select: false, findFirst: true, find: false, paginated: true };
+                that.eventBus.push(that._getSource(opts), function (ldata) {
+                    ldata = that._filterResult(ldata, opts);
+                    if (ldata && ldata.value && ldata.value.length)
+                        after(ldata.value[0]);
+                    else
+                        after(null);
+                }, true);
+            };
+            MultiValue.prototype._getSource = function (options) {
+                var that = this;
+                options.$bind = that.$bind;
+                var pm = that.form.getParentModel(that.$bind);
+                if (_sutils.allData(that.$lookup)) {
+                    options.containerId = that.form.syncTransactionId();
+                    options.viewId = that.form.syncViewId();
+                    return _sutils.executeLookup(that.$lookup, that.form.getParentModel(that.$bind + '.$item'), options);
+                }
+                else {
+                    options.fieldName = that.$lookup.mapping[that.$display];
+                    options.paginated = true;
+                    options.containerId = that.form.syncTransactionId();
+                    options.viewId = that.form.syncViewId();
+                    return _sutils.executeLookup(that.$lookup, that.form.getParentModel(that.$bind + '.$item'), options);
+                }
+            };
+            MultiValue.prototype.keydown = function (event) {
+                var that = this;
+                if (that.$lookup) {
+                    var keyCode = event.which || event.keyCode;
+                    if ((keyCode === _dom.keys.VK_DOWN && event.ctrlKey) || keyCode === _dom.keys.VK_F4) {
+                        event.preventDefault() && event.stopPropagation();
+                        that._toggleGridLookup();
+                        return true;
+                    }
+                }
+                return _super.prototype.keydown.call(this, event);
+            };
+            MultiValue.prototype._filterResult = function (ldata, opts) {
+                var that = this;
+                var bind = that.renderOptions.field;
+                var display = that.renderOptions.display || bind;
+                if (ldata && Array.isArray(ldata)) {
+                    ldata = { value: ldata };
+                }
+                else if (ldata && ldata.documents) {
+                    if (opts.findFirst && that.$lookup.data && that.$lookup.data.$params && (that.$lookup.data.$params.$allData || that.$lookup.data.$type === 'relation')) {
+                        var segments = that.$bind.split('.');
+                        segments.pop();
+                        var lookup = _gridlookup.utils.checkGridLookup(that.$lookup, that.form.$model, null, that._schemaInput(), segments.join('.'));
+                        var fi = _sutils.findFirst(opts.search, _sutils.remoteSearch(_sutils.lastSegment(bind, display), lookup), ldata.documents);
+                        if (fi)
+                            return { value: [fi.item] };
+                        return null;
+                    }
+                    else {
+                        ldata.value = ldata.documents;
+                        delete ldata.documents;
+                    }
+                }
+                if (_sutils.allData(that.$lookup)) {
+                    if (opts.findFirst && !opts.search)
+                        return null;
+                    if (opts.search && ldata && ldata.value) {
+                        if (opts.findFirst) {
+                            var segments = that.$bind.split('.');
+                            segments.pop();
+                            var lookup = _gridlookup.utils.checkGridLookup(that.$lookup, that.form.$model, null, that._schemaInput(), segments.join('.'));
+                            var fi = _sutils.findFirst(opts.search, that._isEnum() ? 'title' : _sutils.remoteSearch(_sutils.lastSegment(bind, display), lookup), ldata.value);
+                            if (fi)
+                                return { value: [fi.item] };
+                            return null;
+                        }
+                    }
+                }
+                return ldata;
+            };
             MultiValue.prototype._input2Model = function (isFocusOut) {
                 var that = this, input = that._input();
-                var nv = that._text2value(input.value).trim() || '';
-                if (nv !== '') {
+                var nv = that._text2value(input.value);
+                if (!that.equals(nv)) {
                     that.checkValue(nv, function (cv) {
                         if (nv) {
                             var m = { $create: true };
                             m[that.renderOptions.field] = nv;
-                            that.state.value.push(m);
+                            that.state.value.push(m, Phoenix.Observable.Duplicates.dupSilent, that._syncCallBack);
                         }
                         input.value = '';
                     });
                 }
+                input.value = '';
             };
             MultiValue.prototype.click = function (event) {
                 var that = this;
                 if (!that.canEdit())
                     return;
+                var group = that._group();
+                if (that.$lookup && _dom.isChildOf(group.lastChild, event.target)) {
+                    that._toggleGridLookup();
+                    return;
+                }
                 var closeId = _dom.attr(event.target, 'data-close-id');
                 if (closeId) {
                     var list = that.state.value;
                     var tag = list.findById(closeId);
-                    if (tag)
-                        list.remove(tag);
+                    if (tag) {
+                        if (that._syncCallBack)
+                            that.form.execAction(that.$bind + '.$links.$remove', [tag.id]);
+                        else
+                            list.remove(tag);
+                    }
                     that.setFocus();
                     return;
                 }
@@ -29007,6 +32112,19 @@ var Phoenix;
             };
             MultiValue.prototype._value2Input = function (input) {
                 var that = this;
+            };
+            MultiValue.prototype.destroy = function () {
+                var that = this;
+                that.onselectItemHandler = null;
+                if (that.eventBus) {
+                    that.eventBus.destroy();
+                    that.eventBus = null;
+                }
+                if (that.gc) {
+                    that.gc.destroy();
+                    that.gc = null;
+                }
+                _super.prototype.destroy.call(this);
             };
             return MultiValue;
         }(Phoenix.formedit.Edit));
@@ -29247,6 +32365,8 @@ var Phoenix;
                 var input = that._upload();
                 if (input) {
                     $(input).on('change', function (event) {
+                        if (that.form.isInProcessing)
+                            return that.form.freeze(event);
                         that._createImage(event);
                     });
                 }
@@ -29455,7 +32575,7 @@ var Phoenix;
 (function (Phoenix) {
     var readonlyctrl;
     (function (readonlyctrl) {
-        var _utils = Phoenix.utils, _ui = Phoenix.ui, _dom = Phoenix.dom, _ulocale = Phoenix.ulocale, _uiutils = Phoenix.uiutils;
+        var _p = Phoenix, _utils = _p.utils, _ui = _p.ui, _su = _p.Observable.SchemaUtils, _dom = _p.dom, _ulocale = _p.ulocale, _uiutils = _p.uiutils;
         function _createReadOnly(id, options, authoring, title, valuepattern) {
             title = title || '';
             options.styles = options.styles ? options.styles : (Phoenix.bootstrap4 ? 'form-control-plaintext' : 'form-control-static');
@@ -29481,13 +32601,16 @@ var Phoenix;
                     that.$expression = _utils.format('{0}: {{{1}}}', _utils.escapeHtml(_ulocale.tt(that.$schema.title, that.form.$locale)), that.$bind);
                     that._map.push({ name: that.$bind });
                 }
+                that._hasMoney = false;
                 that._map.forEach(function (map) {
-                    if (map.name != that.$bind) {
+                    if (map.name !== that.$bind) {
                         map.schema = form.getSchema(map.name);
                         that.form.registerListenerFor(map.name, that);
                     }
                     else
                         map.schema = that.$schema;
+                    if (_su.isMoney(map.schema))
+                        that._hasMoney = true;
                 });
                 _this._state();
                 return _this;
@@ -29501,21 +32624,45 @@ var Phoenix;
                 that.state.isHidden = state.isHidden;
                 that._refreshValues();
             };
+            ReadOnlyField.prototype.notifyGlobalChanged = function (globalName) {
+                var that = this;
+                if (globalName === 'money-unit') {
+                    that._refreshValues();
+                    that._value2UI();
+                }
+            };
             ReadOnlyField.prototype._refreshValues = function () {
                 var that = this;
                 that._map.forEach(function (map) {
                     that.state.values[map.name] = that.form.getValue(map.name);
                     var cs = that.form.getState(map.name);
+                    if (_su.isMoney(map.schema))
+                        cs.moneyUnitCoef = that.form.moneyUnitCoef;
                     that.state.fvalues[map.name] = _uiutils.utils.displayValue(that.state.values[map.name], map.schema, that.form.$locale, { html: false, useSymbol: true, state: cs }, that.state.values, map.name).value;
                 });
             };
             ReadOnlyField.prototype._value2UI = function () {
                 var that = this, element = that.$element ? that.$element.get(0) : null;
-                var nv = _utils.execAngularExpression(that.$expression, that.state.fvalues, true);
-                var r = $('<div>' + _utils.escapeHtml(nv) + '</div>').get(0);
+                var nv = _utils.execAngularExpression(that.$expression, that.state.fvalues, true, true);
+                var r = $('<div>' + nv + '</div>').get(0);
+                if (that.renderOptions.insideStyles)
+                    r.className = that.renderOptions.insideStyles;
+                that._renderIcons(r);
                 _dom.empty(element);
-                while (r.childNodes.length > 0) {
-                    element.appendChild(r.childNodes[0]);
+                element.appendChild(r);
+            };
+            ReadOnlyField.prototype._renderIcons = function (e) {
+                var list = _dom.queryAll(e, '[data-icon]');
+                if (list) {
+                    var _loop_3 = function (i) {
+                        var p = list.item(i);
+                        var icon = _dom.attr(p, 'data-icon').split(' ');
+                        var classes = (icon.length > 1 ? _dom.customIconClass(icon[0], icon[1]) : _dom.iconClass(icon[0])).split(' ');
+                        classes.forEach(function (className) { return _dom.addClass(p, className); });
+                    };
+                    for (var i = 0; i < list.length; i++) {
+                        _loop_3(i);
+                    }
                 }
             };
             ReadOnlyField.prototype._findMap = function (pn) {
@@ -29580,6 +32727,154 @@ var Phoenix;
 /// <reference path="../../../data/datasets.ts" />
 /// <reference path="../schema.data.ts" />
 /// <reference path="./absfield.control.ts" />
+/// <reference path="./multifield.control.ts" />
+var Phoenix;
+(function (Phoenix) {
+    var multifieldSearch;
+    (function (multifieldSearch) {
+        var _p = Phoenix, _utils = _p.utils, _locale = _p.locale, _sutils = _p.Observable.SchemaUtils, _uiutils = _p.uiutils, _formedit = _p.formedit, _filter = _p.filters, _customData = _p.customData, _dom = _p.dom, locale = _p.locale, _ui = _p.ui;
+        /*
+            {
+                "$bind": "$none",
+                "$widget": "multifield-search",
+                "options": {
+                    "bind": "operations",
+                    "fields": ["code", "libelle"],
+                    "onsearch": "fdhkfggfhgfg"
+                }
+            }
+        */
+        var MultiFieldSearch = /** @class */ (function (_super) {
+            __extends(MultiFieldSearch, _super);
+            function MultiFieldSearch(fp, options, form) {
+                var _this = _super.call(this, fp, options, form) || this;
+                var that = _this;
+                if (that.renderOptions.titleIsHidden === undefined)
+                    that.renderOptions.titleIsHidden = true;
+                if (!that.renderOptions.bind) {
+                    console.log("Invalid search element, options.bind is missing.");
+                }
+                else {
+                    var schema = that.form.getSchema(that.renderOptions.bind);
+                    if (!schema || schema.type !== 'array')
+                        console.log("Invalid search element, options.bind is invalid.");
+                }
+                return _this;
+            }
+            MultiFieldSearch.prototype._notifyChanged = function (source, value) {
+                var that = this;
+                if (source === 'search') {
+                    var schema = that._schemaField;
+                    var op = 'in';
+                    if (!schema.enum && schema.type === 'string')
+                        op = 'like';
+                    var list = that.form.getValue(that.renderOptions.bind);
+                    var isComposition = !list.isQuery;
+                    var filter = value ? { code: that._internalValue, op: op, values: [value] } : null;
+                    var filters_2 = filter ? [filter] : null;
+                    var lfilter = isComposition ? _ui.filter.format.toMongoDbFilter(filters_2) : _ui.filter.format.toPhenix(that._fields, filters_2);
+                    var ltitle = lfilter ? _ui.filter.format.toTitle(filters_2, that._fields) : '';
+                    list.filterManager = list.filterManager || (_ui.filterManagerFactory ? _ui.filterManagerFactory() : null);
+                    var ef = { value: lfilter, title: ltitle };
+                    if (isComposition) {
+                        var oldFilterExpress = list.filterManager.filterExpress ? list.filterManager.filterExpress.value : null;
+                        var filterExpress = ef.value;
+                        var oldFilter = list.filter;
+                        if (oldFilter)
+                            oldFilter = _ui.filter.removeMdbFilterExpress(oldFilter, oldFilterExpress);
+                        list.filterManager.filterExpress = ef;
+                        oldFilter = _ui.filter.addMdbFilterExpress(oldFilter, filterExpress);
+                        list.filter = oldFilter;
+                    }
+                    else {
+                        list.filterManager.filterExpress = ef.value;
+                        list.filter = list.filterManager.constructeFilter();
+                    }
+                }
+            };
+            MultiFieldSearch.prototype._afterSearch = function () {
+                return { icon: 'search', button: true };
+            };
+            MultiFieldSearch.prototype._afterEnter = function () {
+                var that = this;
+                _super.prototype._afterEnter.call(this);
+                that._doSearch();
+            };
+            MultiFieldSearch.prototype._doSearch = function () {
+                var that = this;
+                if (that._lastSearch !== that._stateField.value || that._lastSearchField !== that._internalValue) {
+                    if (that._lastSearch === that._stateField.value && that._lastSearch === undefined) {
+                        that._lastSearchField = that._internalValue;
+                        return;
+                    }
+                    that._notifyChanged('search', that._stateField.value);
+                    that._lastSearch = that._stateField.value;
+                    that._lastSearchField = that._internalValue;
+                }
+            };
+            MultiFieldSearch.prototype._clickSearch = function () {
+                var that = this;
+                that.focusOut(null);
+                that._doSearch();
+            };
+            MultiFieldSearch.prototype._customSchemaField = function () {
+                var that = this;
+                var field = that._internalValue;
+                return that._internalValue ? _sutils.getSchema(field, that._baseSchema, that.form.$rootSchema, true) : null;
+            };
+            MultiFieldSearch.prototype.updateModel = function () {
+                var that = this;
+                that._notifyChanged('input', that._stateField.value);
+            };
+            MultiFieldSearch.prototype._customStateOfField = function () {
+                var that = this;
+                that._stateField = that._stateField || {};
+                if (that._isMoney()) {
+                    that._stateField.decimals = _locale.number.places;
+                    that._stateField.symbol = _locale.number.symbol;
+                }
+                else {
+                    that._stateField.symbol = '',
+                        that._stateField.decimals = 0;
+                }
+            };
+            MultiFieldSearch.prototype._customSchema = function () {
+                var that = this;
+                that._baseSchema = that.fieldOptions.bind ? that.form.getSchema(that.fieldOptions.bind) : that.form.$schema;
+                if (that._baseSchema.type === 'array')
+                    that._baseSchema = _sutils.expand$Ref(that._baseSchema.items, that.form.$rootSchema);
+                var enumValues = [];
+                var enumNames = [];
+                that._fields = [];
+                that.fieldOptions.fields = that.fieldOptions.fields || [];
+                that.fieldOptions.fields.forEach(function (fieldName) {
+                    var schema = _sutils.getSchema(fieldName, that._baseSchema, that.form.$rootSchema, true);
+                    if (!schema) {
+                        console.log('Schema not found for ' + fieldName);
+                        return;
+                    }
+                    enumValues.push(fieldName);
+                    enumNames.push(schema.title || fieldName);
+                    that._fields.push({ code: fieldName, lib: schema.title || fieldName, type: schema.type });
+                });
+                if (enumValues.length)
+                    that.setInternalValue(enumValues[0], false);
+                return {
+                    type: "string",
+                    enum: enumValues,
+                    enumNames: enumNames
+                };
+            };
+            return MultiFieldSearch;
+        }(Phoenix.multifield.BaseMultiField));
+        multifieldSearch.MultiFieldSearch = MultiFieldSearch;
+        _ui.registerControl(MultiFieldSearch, 'string', false, 'multi-search', null);
+    })(multifieldSearch = Phoenix.multifieldSearch || (Phoenix.multifieldSearch = {}));
+})(Phoenix || (Phoenix = {}));
+/// <reference path="../../../core/core-refs.ts" />
+/// <reference path="../../../data/datasets.ts" />
+/// <reference path="../schema.data.ts" />
+/// <reference path="./absfield.control.ts" />
 /// <reference path="./edit.control.ts" />
 var Phoenix;
 (function (Phoenix) {
@@ -29639,7 +32934,8 @@ var Phoenix;
                         return true;
                     }
                 }
-                return _super.prototype._ignoreKeys.call(this, event, keyPress);
+                var input = that._input();
+                return _super.prototype._ignoreKeys.call(this, event, keyPress, input);
             };
             return Search;
         }(Phoenix.formedit.Edit));
@@ -29657,9 +32953,9 @@ var Phoenix;
 (function (Phoenix) {
     var select;
     (function (select) {
-        var _ui = Phoenix.ui, _utils = Phoenix.utils, _formedit = Phoenix.formedit, _uiutils = Phoenix.uiutils, _dom = Phoenix.dom, _locale = Phoenix.locale, _su = Phoenix.Observable.SchemaUtils, _ulocale = Phoenix.ulocale, _ui = Phoenix.ui;
+        var _p = Phoenix, _ui = _p.ui, _sutils = _p.Observable.SchemaUtils, _utils = Phoenix.utils, _uiutils = Phoenix.uiutils, _dom = Phoenix.dom, _ulocale = Phoenix.ulocale;
         ;
-        var _createSelectInput = function (id, options, authoring, title, enums, enumsNames) {
+        var _createSelectInput = function (id, options, authoring, title) {
             title = title || '';
             options = $.extend({ titleIsHidden: false, placeHolder: false, columns: false, labelCol: 3 }, options);
             var html = [];
@@ -29714,9 +33010,6 @@ var Phoenix;
                     if (style.length)
                         html.push(' style="' + style.join('') + '"');
                     html.push('>');
-                    enums.forEach(function (en, index) {
-                        html.push('<option value="' + en + '">' + enumsNames[index] + '</option>');
-                    });
                     html.push('</select>');
                 }
                 _uiutils.utils.addErrorDiv(html);
@@ -29732,7 +33025,7 @@ var Phoenix;
             function Select(fp, options, form) {
                 return _super.call(this, fp, options, form) || this;
             }
-            Select.prototype.fillSelect = function (enums) {
+            Select.prototype._fillSelect = function (enums) {
                 var that = this;
                 if (that.renderOptions.readOnly)
                     return;
@@ -29757,7 +33050,7 @@ var Phoenix;
                 if (inRender && !cf)
                     return;
                 var enums = cf ? that.$schema.filters[cf] || [] : that.$schema.enum;
-                that.fillSelect(enums);
+                that._fillSelect(enums);
                 if (!inRender) {
                     var ii = enums.indexOf(that.state.value);
                     if (ii < 0) {
@@ -29781,20 +33074,21 @@ var Phoenix;
                     }
                 }
             };
+            Select.prototype._renderSelect = function () {
+                var that = this;
+                var cf = that.state.filter;
+                var enums = cf ? that.$schema.filters[cf] || [] : that.$schema.enum;
+                that._fillSelect(enums);
+            };
             Select.prototype.render = function ($parent) {
                 var that = this;
                 var opts = that._initOptions(_uiutils.utils.defaultOptions);
                 if (!that.$element) {
-                    var enumNames = that.$schema.enumNames || that.$schema.enum;
-                    enumNames = enumNames.map(function (v) { return _ulocale.tt(v + '', that.form.$locale); });
                     opts.title = _ulocale.tt(that.$schema.title, that.form.$locale);
                     if (that.$schema.description)
                         opts.description = _ulocale.tt(that.$schema.description, that.form.$locale);
-                    var cf = that.state.filter;
-                    var enums = cf ? that.$schema.filters[cf] || [] : that.$schema.enum;
-                    if (cf) {
-                    }
-                    that.$element = $(_createSelectInput(that.id, opts, that.options.design, opts.title, enums, enumNames));
+                    that.$element = $(_createSelectInput(that.id, opts, that.options.design, opts.title));
+                    that._renderSelect();
                     that._state2UI();
                     that.setEvents(opts);
                 }
@@ -29812,12 +33106,20 @@ var Phoenix;
                 var that = this;
                 if (that.renderOptions.readOnly) {
                     var enumNames = that.$schema.enumNames || that.$schema.enum;
-                    enumNames = enumNames.map(function (v) { return _ulocale.tt(v + '', that.form.$locale); });
                     var ii = that.$schema.enum.indexOf(that.state.value);
                     _dom.text(input, enumNames[ii] || String.fromCharCode(160));
                 }
                 else {
                     input.selectedIndex = that.state.filter ? that.$schema.filters[that.state.filter].indexOf(that.state.value) : that.$schema.enum.indexOf(that.state.value);
+                }
+            };
+            Select.prototype._input2Value = function () {
+                var that = this;
+                var ii = that._input();
+                var iv = that.state.filter ? that.$schema.filters[that.state.filter][ii.selectedIndex] : that.$schema.enum[ii.selectedIndex];
+                if (that.state.value !== iv) {
+                    that.state.value = iv;
+                    that.form.setValue(that.$display, that.state.value);
                 }
             };
             Select.prototype.setEvents = function (opts) {
@@ -29826,17 +33128,139 @@ var Phoenix;
                     return;
                 var input = that._input();
                 $(input).on('change', function (event) {
-                    var ii = that._input();
-                    var iv = that.state.filter ? that.$schema.filters[that.state.filter][ii.selectedIndex] : that.$schema.enum[ii.selectedIndex];
-                    if (that.state.value !== iv) {
-                        that.state.value = iv;
-                        that.form.setValue(that.$display, that.state.value);
-                    }
+                    if (that.form.isInProcessing)
+                        return that.form.freeze(event);
+                    that._input2Value();
                 });
             };
             return Select;
         }(Phoenix.formedit.BaseEdit));
-        _ui.registerControl(Select, "*", true, '', null);
+        var SelectRelation = /** @class */ (function (_super) {
+            __extends(SelectRelation, _super);
+            function SelectRelation(fp, options, form) {
+                var _this = _super.call(this, fp, options, form) || this;
+                var that = _this;
+                that._values = [];
+                if (!that.$lookup || !that.$lookup.data || !that.$lookup.data.$params || !that.$lookup.data.$params.relation) {
+                    console.log('Invalid select-relation widget config.');
+                }
+                that._relationName = that.$lookup.data.$params.relation;
+                that._codeProperty = that.renderOptions.code;
+                that._titleProperty = that.renderOptions.title;
+                if (!that._titleProperty && that._codeProperty)
+                    that._titleProperty = that._codeProperty;
+                if (!that._codeProperty && that._titleProperty)
+                    that._codeProperty = that._titleProperty;
+                if (!that._codeProperty)
+                    console.log('Invalid select-relation widget config: options.code or options.title is missing');
+                that.form.registerListenerFor(that._relationName, that);
+                return _this;
+            }
+            SelectRelation.prototype.destroy = function () {
+                var that = this;
+                that.form.unRegisterListenerFor(that._relationName, that);
+                _super.prototype.destroy.call(this);
+            };
+            SelectRelation.prototype._renderSelect = function () {
+                var that = this;
+                if (that.renderOptions.readOnly)
+                    return;
+                that._createSelectItems();
+            };
+            SelectRelation.prototype._state2UI = function () {
+                var that = this;
+                _super.prototype._state2UI.call(this);
+            };
+            SelectRelation.prototype.stateChanged = function (propName, params) {
+                var that = this;
+                if (params && params.property === that.$bind) {
+                    _super.prototype.stateChanged.call(this, propName, params);
+                }
+            };
+            SelectRelation.prototype.changed = function (propName, ov, nv, op, params) {
+                var that = this;
+                if (propName === that.$bind) {
+                    _super.prototype.changed.call(this, propName, ov, nv, op, params);
+                }
+                else {
+                    var fillSelect = false;
+                    if (!that.$element)
+                        return;
+                    var pp = propName.substr(that._relationName);
+                    if (pp.indexOf('.$selected') >= 0)
+                        return;
+                    if (params.checkChildren && op === 'propchange' && propName === that._relationName) {
+                        fillSelect = true;
+                    }
+                    switch (op) {
+                        case 'propchange':
+                            if (propName === that.$bind || propName.indexOf(that.$bind + '.$item') === 0) {
+                                fillSelect = true;
+                            }
+                            break;
+                        case 'add':
+                            fillSelect = true;
+                            break;
+                        case 'remove':
+                            fillSelect = true;
+                            break;
+                    }
+                    if (fillSelect)
+                        that._renderSelect();
+                }
+            };
+            SelectRelation.prototype._getSource = function () {
+                var that = this;
+                var options = {};
+                options.containerId = that.form.syncTransactionId();
+                options.viewId = that.form.syncViewId();
+                return _sutils.executeLookup(that.$lookup, that.form.getParentModel(that.$bind), options);
+            };
+            SelectRelation.prototype._createSelectItems = function () {
+                var that = this;
+                var input = that._input();
+                if (!input)
+                    return;
+                that._getSource().then(function (data) {
+                    that._values = [];
+                    that._names = [];
+                    var frag = document.createDocumentFragment();
+                    data.documents.forEach(function (item) {
+                        var o = document.createElement('option');
+                        _dom.attr(o, "value", item[that.$lookup.mapping[that._codeProperty]]);
+                        o.textContent = item[that.$lookup.mapping[that._titleProperty]];
+                        that._values.push(item[that.$lookup.mapping[that._codeProperty]]);
+                        that._names.push(item[that.$lookup.mapping[that._titleProperty]]);
+                        _dom.append(frag, o);
+                    });
+                    _dom.empty(input);
+                    _dom.append(input, frag);
+                    input.selectedIndex = that._values.indexOf(that.state.value);
+                });
+            };
+            SelectRelation.prototype._value2Input = function (input) {
+                var that = this;
+                var ii = that._values.indexOf(that.state.value);
+                if (that.renderOptions.readOnly) {
+                    _dom.text(input, (ii >= 0 ? that._names[ii] : '') || String.fromCharCode(160));
+                }
+                else {
+                    input.selectedIndex = ii;
+                }
+            };
+            SelectRelation.prototype._input2Value = function () {
+                var that = this;
+                var ii = that._input();
+                var iv = ii.selectedIndex >= 0 ? that._values[ii.selectedIndex] : undefined;
+                if (that.state.value !== iv) {
+                    that.state.value = iv;
+                    that.form.setValue(that.$display, that.state.value);
+                }
+            };
+            return SelectRelation;
+        }(Select));
+        _ui.registerControl(Select, '*', true, '', null);
+        _ui.registerControl(SelectRelation, '*', false, 'select-relation', null);
     })(select = Phoenix.select || (Phoenix.select = {}));
 })(Phoenix || (Phoenix = {}));
 /// <reference path="../../../core/core-refs.ts" />
@@ -29851,10 +33275,7 @@ var Phoenix;
             options = $.extend({ titleIsHidden: false, placeHolder: false, columns: false }, options);
             var html = [];
             _uiutils.utils.fieldWrapper(html, options, authoring, function () {
-                var _bootstrap4 = Phoenix.bootstrap4;
-                //add label: 
-                var css = ['btn-group'];
-                html.push('<div class="' + css.join(' ') + '">');
+                html.push('<div class="btn-group">');
                 enums.forEach(function (enumName, index) {
                     html.push('<button tabindex="-1" type="button" id="{0}_item_' + index + '" class="btn btn-' + _dom.bootstrapStyles(true).secondary + '"');
                     if (options.width) {
@@ -29882,7 +33303,7 @@ var Phoenix;
                     item.tabIndex = 0;
                 });
             };
-            WizardSteps.prototype.changed = function (propName, ov, nv, op) {
+            WizardSteps.prototype.changed = function (propName, ov, nv, op, params) {
                 var that = this;
                 if (that.state.value != nv) {
                     that.state.value = nv;
@@ -29921,6 +33342,609 @@ var Phoenix;
         wizardctrl.WizardSteps = WizardSteps;
         _ui.registerControl(WizardSteps, '*', true, 'wizardctrl', null);
     })(wizardctrl = Phoenix.wizardctrl || (Phoenix.wizardctrl = {}));
+})(Phoenix || (Phoenix = {}));
+/// <reference path="../../../core/core-refs.ts" />
+/// <reference path="./absfield.control.ts" />
+var Phoenix;
+(function (Phoenix) {
+    var _p = Phoenix, _utils = _p.utils, _customData = _p.customData, _ui = _p.ui, _dom = _p.dom, _uiutils = _p.uiutils;
+    var tabscontrol;
+    (function (tabscontrol) {
+        var _createContainer = function (id, authoring) {
+            var html = [];
+            _uiutils.utils.fieldWrapper(html, {}, authoring, function () {
+                html.push('<ul class="nav nav-tabs bs-tabs"  id="{0}_parent"></ul>');
+            });
+            return $(_utils.format(html.join(''), id)).get(0);
+        };
+        var Tabs = /** @class */ (function (_super) {
+            __extends(Tabs, _super);
+            function Tabs(fp, options, form) {
+                var _this = _super.call(this, fp, options, form) || this;
+                var that = _this;
+                that.syncClick = that.fieldOptions.syncClick;
+                if (that.fieldOptions.validate) {
+                    that._validateHandler = _customData.get(that.fieldOptions.validate);
+                }
+                that._state();
+                return _this;
+            }
+            Tabs.prototype._tabsParent = function () {
+                var that = this;
+                var e = that.$element.get(0);
+                return _dom.find(e, that.id + '_parent');
+            };
+            Tabs.prototype._createTabs = function () {
+                var that = this;
+                var ul = that._tabsParent();
+                var p = $('<li class="nav-item"><a class="nav-link" href="#"></a></li>').get(0);
+                that.$schema.enum.forEach(function (enumValue, index) {
+                    var ii = p.cloneNode(true);
+                    _dom.attr(ii, 'data-name', enumValue);
+                    _dom.text(ii.firstChild, that.$schema.enumNames[index]);
+                    ul.appendChild(ii);
+                });
+            };
+            Tabs.prototype.stateChanged = function (propName, params) {
+                var that = this;
+                var state = that.form.getState(that.$bind);
+                if (that.$element)
+                    if (propName === 'isHidden') {
+                        if (state.isHidden !== that.state.isHidden) {
+                            that.state.isHidden = state.isHidden;
+                            that.setHidden(that.$element.get(0));
+                        }
+                    }
+            };
+            Tabs.prototype.click = function (event) {
+                var that = this;
+                var element = that.$element.get(0);
+                var item = _dom.parentByAttr(element, event.target, 'data-name');
+                if (item) {
+                    var oldvalue = that.form.getValue(that.$bind);
+                    var newValue_1 = _dom.attr(item, 'data-name');
+                    if (oldvalue === newValue_1)
+                        return;
+                    if (that._validateHandler)
+                        that._validateHandler(that.form.$model, oldvalue, newValue_1);
+                    else if (that.syncClick) {
+                        if (that._sendValidateChildForms(function () {
+                            if (!that._checkHasErrors())
+                                return;
+                            that.form.setValue(that.$bind, newValue_1);
+                        }))
+                            return;
+                        if (!that._checkHasErrors())
+                            return;
+                        that.form.setValue(that.$bind, newValue_1);
+                    }
+                    else
+                        that.form.setValue(that.$bind, newValue_1);
+                }
+            };
+            Tabs.prototype._sendValidateChildForms = function (cb) {
+                var that = this;
+                var res = false;
+                var forms = that.form.visibleChildForms();
+                if (forms) {
+                    for (var i = 0; i < forms.length; i++) {
+                        var form = forms[i];
+                        if (form.data.$validate) {
+                            res = true;
+                            form.execAction(form.data.$validate, null);
+                        }
+                    }
+                }
+                if (res)
+                    that.form.execAction('$after', { $after: cb });
+                return res;
+            };
+            Tabs.prototype._checkHasErrors = function () {
+                var that = this;
+                var forms = that.form.visibleChildForms();
+                if (forms) {
+                    for (var i = 0; i < forms.length; i++) {
+                        if (forms[i].$model.hasErrors())
+                            return false;
+                    }
+                }
+                return true;
+            };
+            Tabs.prototype.changed = function (propName, ov, nv, op) {
+                var that = this;
+                if (propName === that.$bind) {
+                    if (that.syncClick && that.state.value != nv) {
+                        Phoenix.utils.nextTick(function () {
+                            var forms = that.form.visibleChildForms();
+                            forms.forEach(function (form) {
+                                form.formManager.pushSyncAction(form.data.$id, { op: "$empty" });
+                                form.formManager.sendSyncData();
+                            });
+                        });
+                    }
+                    that.state.value = nv;
+                    that._value2UI();
+                }
+            };
+            Tabs.prototype._value2UI = function () {
+                var that = this;
+                var parent = that._tabsParent();
+                for (var i = 0; i < parent.childNodes.length; i++) {
+                    var child = parent.childNodes[i];
+                    var aa = child.firstChild;
+                    var value = _dom.attr(child, 'data-name');
+                    if (that.state.value === value) {
+                        _dom.addClass(aa, 'show');
+                        _dom.addClass(aa, 'active');
+                    }
+                    else {
+                        _dom.removeClass(aa, 'show');
+                        _dom.removeClass(aa, 'active');
+                    }
+                }
+            };
+            Tabs.prototype._state2UI = function () {
+                var that = this, element = that.$element ? that.$element.get(0) : null;
+                if (element) {
+                    that._value2UI();
+                    that.setHidden(element);
+                }
+            };
+            Tabs.prototype.render = function ($parent) {
+                var that = this;
+                var opts = that._initOptions(_uiutils.utils.defaultOptions);
+                if (!that.$element) {
+                    that.$element = $(_createContainer(that.id, that.options.design));
+                    that._createTabs();
+                    that._state2UI();
+                }
+                that.setHidden(that.$element.get(0));
+                that.appendElement($parent, opts);
+                return that.$element;
+            };
+            return Tabs;
+        }(Phoenix.ui.AbsField));
+        _ui.registerControl(Tabs, "*", true, "tabs");
+    })(tabscontrol || (tabscontrol = {}));
+})(Phoenix || (Phoenix = {}));
+/// <reference path="../../../core/core-refs.ts" />
+/// <reference path="./complex.control.ts" />
+/// <reference path="./array.control.ts" />
+var Phoenix;
+(function (Phoenix) {
+    var formarraytemplate;
+    (function (formarraytemplate) {
+        var _p = Phoenix, _uiutils = _p.uiutils, _customData = _p.customData, _formcomplex = _p.formcomplex, _ui = _p.ui, _utils = _p.utils, _dom = _p.dom, _ctrlsinterfaces = _p.ctrlsinterfaces, _observable = Phoenix.Observable, _sutils = _observable.SchemaUtils, _formarray = Phoenix.formarray, _link = _p.link;
+        var GRID_COLUMNS = 4;
+        var TemplateRender = /** @class */ (function () {
+            function TemplateRender() {
+            }
+            TemplateRender.prototype.renderField = function (e, fieldName, item) {
+                var that = this;
+                var col = that.parent.fields[fieldName];
+                if (!col)
+                    return;
+                var schema = col.schema;
+                var co = that.renderOptions.fields ? that.renderOptions.fields[fieldName] || {} : {};
+                var list = _dom.queryAll(e, '[data-bind="' + fieldName + '"]');
+                var rl = [];
+                if (list) {
+                    for (var i = 0; i < list.length; i++) {
+                        rl.push({ element: list.item(i), bind: true });
+                    }
+                }
+                list = _dom.queryAll(e, '[data-visibility="' + fieldName + '"]');
+                if (list) {
+                    for (var i = 0; i < list.length; i++) {
+                        rl.push({ element: list.item(i), bind: false });
+                    }
+                }
+                list = _dom.queryAll(e, '[data-bind-title="' + fieldName + '"]');
+                if (list) {
+                    for (var i = 0; i < list.length; i++) {
+                        rl.push({ element: list.item(i), bind: false });
+                    }
+                }
+                var state = item.getState(fieldName, null);
+                if (col.isLink) {
+                    for (var i = 0; i < rl.length; i++) {
+                        var p = rl[i].element;
+                        if (state.isHidden)
+                            _dom.addClass(p, 'bs-none');
+                        else
+                            _dom.removeClass(p, 'bs-none');
+                        if (rl[i].bind) {
+                            _dom.empty(p);
+                            _uiutils.utils.renderButton(fieldName, co, state, schema, p, item);
+                            if (schema.description && schema.description) {
+                                p.title = schema.description;
+                                _dom.attr(p, 'data-toggle', 'tooltip');
+                                _dom.attr(p, 'data-placement', 'auto');
+                                _dom.attr(p, 'data-phoenix-tooltip', 'true');
+                            }
+                        }
+                    }
+                }
+                else {
+                    var dv = null;
+                    if (co.display && co.displaySchema)
+                        dv = _uiutils.utils.displayValue(item.getRelativeValue(co.display), co.displaySchema, null, { html: true, avanced: co.displayOptions || {}, state: item.getState(co.display, null), form: that.parent.form }, item, co.display);
+                    var v = _uiutils.utils.displayValue(item.getRelativeValue(fieldName), schema, null, { html: true, avanced: co, display: dv, state: state, form: that.parent.form }, item, fieldName);
+                    for (var i = 0; i < rl.length; i++) {
+                        var p = rl[i].element;
+                        if (state.isHidden)
+                            _dom.addClass(p, 'bs-none');
+                        else
+                            _dom.removeClass(p, 'bs-none');
+                        if (rl[i].bind) {
+                            _dom.empty(p);
+                            if (v.html) {
+                                var $c = $(v.value);
+                                _dom.append(p, $c.get(0));
+                            }
+                            else
+                                _dom.append(p, document.createTextNode(v.value || ''));
+                        }
+                    }
+                }
+            };
+            TemplateRender.prototype._renderIcons = function (e) {
+                var list = _dom.queryAll(e, '[data-icon]');
+                if (list) {
+                    var _loop_4 = function (i) {
+                        var p = list.item(i);
+                        var icon = _dom.attr(p, 'data-icon').split(' ');
+                        var classes = (icon.length > 1 ? _dom.customIconClass(icon[0], icon[1]) : _dom.iconClass(icon[0])).split(' ');
+                        classes.forEach(function (className) { return _dom.addClass(p, className); });
+                    };
+                    for (var i = 0; i < list.length; i++) {
+                        _loop_4(i);
+                    }
+                }
+            };
+            TemplateRender.prototype.render = function (itemContainer, data, map, item, index) {
+                var that = this;
+                map[item.$id] = item;
+                var e = that.parent.templateElement.cloneNode(true);
+                e.id = item.$id;
+                _dom.attr(e, 'data-row-id', item.$id);
+                Object.keys(that.parent.fields).forEach(function (fieldName) {
+                    that.renderField(e, fieldName, item);
+                });
+                that._renderIcons(e);
+                that.parent.fieldsTitles.forEach(function (fieldName) {
+                    var schema = that.parent.fields[fieldName].schema;
+                    _uiutils.utils.updateTitle(e, fieldName, schema.title || '');
+                });
+                var options = that.parent.renderOptions;
+                var classSelected = options.item && options.item.selectedClass ? options.item.selectedClass : 'bs-field-selected';
+                var selectedTarget = options.item && options.item.selectedTarget ? options.item.selectedTarget : 'self';
+                if (item.$select && options.selecting && options.selecting.row) {
+                    var pTarget = e;
+                    if (selectedTarget === 'parent')
+                        pTarget = itemContainer;
+                    _dom.addClass(pTarget, classSelected);
+                }
+                _dom.append(itemContainer, e);
+            };
+            TemplateRender.prototype.replace = function (old, item) {
+                var that = this;
+                var e = that.parent.templateElement.cloneNode(true);
+                e.id = item.$id;
+                _dom.attr(e, 'data-row-id', item.$id);
+                Object.keys(that.parent.fields).forEach(function (fieldName) {
+                    that.renderField(e, fieldName, item);
+                });
+                that._renderIcons(e);
+                that.parent.fieldsTitles.forEach(function (fieldName) {
+                    var schema = that.parent.fields[fieldName].schema;
+                    _uiutils.utils.updateTitle(e, fieldName, schema.title || '');
+                });
+                var options = that.parent.renderOptions;
+                var classSelected = options.item && options.item.selectedClass ? options.item.selectedClass : 'bs-field-selected';
+                var selectedTarget = options.item && options.item.selectedTarget ? options.item.selectedTarget : 'self';
+                if (item.$select && options.selecting && options.selecting.row) {
+                    var pTarget = e;
+                    if (selectedTarget === 'parent')
+                        pTarget = null;
+                    if (pTarget)
+                        _dom.addClass(pTarget, classSelected);
+                }
+                old.parentNode.replaceChild(e, old);
+            };
+            TemplateRender.prototype.selectRow = function (e, value, item) {
+                var that = this;
+                var options = that.parent.renderOptions;
+                var classSelected = options.item && options.item.selectedClass ? options.item.selectedClass : 'bs-field-selected';
+                var selectedTarget = options.item && options.item.selectedTarget ? options.item.selectedTarget : 'self';
+                var pTarget = e;
+                if (selectedTarget === 'parent')
+                    pTarget = e.parentNode;
+                if (value)
+                    _dom.addClass(pTarget, classSelected);
+                else
+                    _dom.removeClass(pTarget, classSelected);
+            };
+            return TemplateRender;
+        }());
+        var ArrayTemplateControl = /** @class */ (function (_super) {
+            __extends(ArrayTemplateControl, _super);
+            function ArrayTemplateControl(fp, options, form) {
+                var _this = _super.call(this, fp, options, form) || this;
+                var that = _this;
+                return _this;
+            }
+            ArrayTemplateControl.prototype.destroy = function () {
+                var that = this;
+                that.templateElement = null;
+                if (that.pager) {
+                    that.pager.destroy();
+                    that.pager = null;
+                }
+                _super.prototype.destroy.call(this);
+            };
+            ArrayTemplateControl.prototype._state = function () {
+                _super.prototype._state.call(this);
+                var that = this;
+                var opts = that.fieldOptions;
+                if (!that.state.value)
+                    return;
+                that.state.value.allowSelecting = that.renderOptions.selecting && (that.renderOptions.selecting.row);
+                that.state.value.expandingProperty = that.renderOptions.expandingProperty;
+                if (that.state.value.isQueryable() || that.state.value.$states.pageSize) {
+                    // create pager
+                    var options = $.extend({ size: "default", selectPage: that._onselectPage.bind(that), noPagesCount: that.state.value.noPagesCount() }, opts.pager || {});
+                    that.pager = new _ui.Pager(options);
+                    var p = that.pager;
+                    p.props.hasNext = that.state.value.hasNext();
+                    p.props.hasPrev = that.state.value.hasPrev();
+                    p.props.totalPages = that.state.value.totalPages();
+                    p.props.currentPage = that.state.value.currentPage();
+                }
+            };
+            ArrayTemplateControl.prototype._selectRow = function (id, multiselect) {
+                var that = this, opts = that.renderOptions;
+                if (!that.state.value)
+                    return;
+                var item = that._map[id];
+                if (item) {
+                    var list = item.parentArray;
+                    list.selecting(true, opts.expandingProperty);
+                    try {
+                        var newValue = multiselect ? !item.$select : true;
+                        item.select(newValue, multiselect, that.state.value, opts.expandingProperty);
+                    }
+                    finally {
+                        list.selecting(false, opts.expandingProperty);
+                    }
+                }
+            };
+            ArrayTemplateControl.prototype.click = function (event) {
+                var that = this;
+                if (!that.state.value)
+                    return;
+                var opts = that.renderOptions;
+                var e = _dom.parentByAttr(that.$element.get(0), event.target, 'data-row-id');
+                if (e) {
+                    var item = that._map[e.id];
+                    if (!item)
+                        return;
+                    var fe = _dom.parentByAttr(that.$element.get(0), event.target, 'data-bind');
+                    if (fe) {
+                        var fieldName = _dom.attr(fe, 'data-bind');
+                        if (_sutils.isLink(fieldName)) {
+                            var state = item.getState(fieldName);
+                            if (state && !state.isDisabled) {
+                                that.form.execAction(that.$bind + '.$item.' + fieldName, item);
+                            }
+                            return;
+                        }
+                        else {
+                            if (that.renderOptions.fields && that.renderOptions.fields[fieldName] && that.renderOptions.fields[fieldName].link) {
+                                that.form.execAction(that.$bind + '.$item.$links.' + that.renderOptions.fields[fieldName].link, item);
+                                return;
+                            }
+                        }
+                    }
+                    // selected
+                    if (opts.selecting) {
+                        that._selectRow(item.$id, opts.selecting.multiselect && event.ctrlKey);
+                    }
+                }
+            };
+            ArrayTemplateControl.prototype.customOptions = function (options) {
+                var that = this;
+                that._render = new TemplateRender();
+                that._render.parent = that;
+                that._render.renderOptions = options;
+                _super.prototype.customOptions.call(this, options);
+                if (!options.template) {
+                    throw 'Template is null. Use options: { template: "<div></div>" }';
+                }
+                that.templateElement = $(options.template).get(0);
+                options.templateFields = _uiutils.utils.extractFieldsFromDom(that.templateElement);
+                that.fields = {};
+                that.fieldsTitles = _uiutils.utils.extractFieldsTitlesFromDom(that.templateElement);
+                options.templateFields.forEach(function (fieldName) {
+                    var c = { schema: null, isLink: false };
+                    c.schema = _sutils.getSchema(fieldName, that.$schemaItems, that.form.$rootSchema, false);
+                    if (!c.schema) {
+                        console.log('Field (bind) not found : ' + fieldName);
+                        return;
+                    }
+                    if (_sutils.isLink(fieldName)) {
+                        c.isLink = true;
+                    }
+                    that.fields[fieldName] = c;
+                });
+            };
+            ArrayTemplateControl.prototype._onselectPage = function (page) {
+                var that = this;
+                switch (page) {
+                    case 'next':
+                        that._moveToPage(that.pager.options.noPagesCount ? that.pager.props.currentPage + 1 : Math.min(that.pager.props.totalPages, that.pager.props.currentPage + 1));
+                        break;
+                    case 'prev':
+                        that._moveToPage(Math.max(0, that.pager.props.currentPage - 1));
+                        break;
+                    case 'first':
+                        that._moveToPage(1);
+                        break;
+                    case 'last':
+                        that._moveToPage(that.pager.props.totalPages);
+                        break;
+                    default:
+                        that._moveToPage(page);
+                        break;
+                }
+            };
+            ArrayTemplateControl.prototype._moveToPage = function (page) {
+                var that = this;
+                if (that.state.value)
+                    that.state.value.currentPage(page);
+            };
+            ArrayTemplateControl.prototype._containerContent = function (html) {
+                var that = this;
+                html.push('<div><div id="{0}_header"></div><div id="{0}_items"></div><center id="{0}_pagination"></center></div>');
+            };
+            ArrayTemplateControl.prototype._state2UI = function (inRender) {
+                var that = this, element = that.$element ? that.$element.get(0) : null;
+                if (element) {
+                    that.renderContent(_dom.find(element, that.id + '_items'));
+                    var $ttc = that.$element.find('[data-phoenix-tooltip]');
+                    if ($ttc["tooltip"])
+                        $ttc["tooltip"]({
+                            html: true,
+                            container: 'body',
+                            template: '<div class="tooltip bs-tooltip-help" role="tooltip"><div class="tooltip-arrow"></div><div class="tooltip-inner"></div></div>'
+                        });
+                    if (that.pager) {
+                        var $pp = $(_dom.find(element, that.id + '_pagination'));
+                        that.pager.render($pp);
+                    }
+                }
+            };
+            ArrayTemplateControl.prototype.stateChanged = function (propName, cparams, params) {
+                var that = this;
+                if (!that.$element)
+                    return;
+                var pp = cparams.origProperty.substr(that.$bind.length);
+                if (pp.indexOf('.$selected') >= 0)
+                    return;
+                if (pp.indexOf('.$links') === 0)
+                    return;
+                var state = that.form.getState(that.$bind);
+                var element = that.$element ? that.$element.get(0) : null;
+                if ((propName === 'columns')) {
+                }
+                if (!propName && cparams.isState) {
+                    var instPath = _sutils.parsePath(that.$bind, cparams.property, that.renderOptions.expandingProperty);
+                    var item = params[instPath];
+                    if (item) {
+                        var cp = cparams.property.substr(instPath.length + 1);
+                        var stateName = cparams.origProperty.substr(cparams.property.length + 1);
+                        //that._modifyCell(item, cp, stateName, null);
+                    }
+                    return;
+                }
+                else {
+                    if (!propName || (propName === 'isHidden')) {
+                        if (state.isHidden !== that.state.isHidden) {
+                            that.state.isHidden = state.isHidden;
+                            that.setHidden(element);
+                        }
+                    }
+                    if (!propName || (propName === 'isDisabled')) {
+                        if (state.isDisabled != that.state.isDisabled) {
+                            that.state.isDisabled = state.isDisabled;
+                        }
+                    }
+                    //if (!propName || (propName === 'errors')) {
+                    //    if (_eu.errorChanged(that.state.errors, state.errors)) {
+                    //        that.state.errors = state.errors;
+                    //    }
+                    //}
+                }
+            };
+            ArrayTemplateControl.prototype.changed = function (propName, ov, nv, op, params) {
+                var that = this;
+                if (!that.$element)
+                    return;
+                var pp = propName.substr(that.$bind.length);
+                if (pp.indexOf('.$selected') >= 0)
+                    return;
+                var rOptions = that.renderOptions;
+                var rowToSelect = null;
+                var doRenderAll = false;
+                if (params.checkChildren && op === 'propchange' && propName === that.$bind) {
+                    that.state.value = that.form.getValue(that.$bind);
+                    that.state.value.allowSelecting = rOptions.selecting && (rOptions.selecting.row || rOptions.selecting.cell);
+                    that.state.value.expandingProperty = rOptions.expandingProperty;
+                }
+                var doResize = false;
+                if (!that.state.value) {
+                    op = 'none';
+                }
+                switch (op) {
+                    case "count":
+                        //let t = that.toolBar;
+                        // if (t && t.setValue)
+                        //    t.setValue("count", that.state.value.totalCount());
+                        break;
+                    case "pagination":
+                        var p = that.pager;
+                        if (p) {
+                            p.props.totalPages = that.state.value.totalPages();
+                            p.props.currentPage = that.state.value.currentPage();
+                            p.props.hasNext = that.state.value.hasNext();
+                            p.props.hasPrev = that.state.value.hasPrev();
+                        }
+                        break;
+                    case 'sorting':
+                        break;
+                    case 'propchange':
+                        if (propName === that.$bind) {
+                            doRenderAll = true;
+                            doResize = true;
+                        }
+                        else {
+                            var prop = propName;
+                            var instPath = _sutils.parsePath(that.$bind, prop, rOptions.expandingProperty);
+                            var item = params[instPath];
+                            if (item) {
+                                var cp = propName.substr(instPath.length + 1);
+                                if (!cp)
+                                    return;
+                                var p_4 = _dom.find(that.$element.get(0), item.$id);
+                                if (p_4) {
+                                    if (cp === '*') {
+                                        that._render.replace(p_4, item);
+                                    }
+                                    else if (_sutils.isSelectField(cp))
+                                        that._render.selectRow(p_4, item.$select, item);
+                                    else
+                                        that._render.renderField(p_4, cp, item);
+                                }
+                                doResize = true;
+                            }
+                        }
+                        break;
+                    case 'remove':
+                    case 'add':
+                        doRenderAll = true;
+                        doResize = true;
+                        break;
+                }
+                if (doRenderAll) {
+                    that._state2UI(false);
+                }
+                if (doResize)
+                    that.resize();
+            };
+            return ArrayTemplateControl;
+        }(Phoenix.formarray.ArrayControl));
+        _ui.registerControl(ArrayTemplateControl, 'array', false, 'template-array-control', null);
+    })(formarraytemplate = Phoenix.formarraytemplate || (Phoenix.formarraytemplate = {}));
 })(Phoenix || (Phoenix = {}));
 /// <reference path="../../../core/core-refs.ts" />
 /// <reference path="./absfield.control.ts" />
@@ -29981,26 +34005,17 @@ var Phoenix;
             options = $.extend({ titleIsHidden: false, placeHolder: false, columns: false }, options);
             var html = [];
             _uiutils.utils.fieldWrapper(html, options, authoring, function () {
-                var _bootstrap4 = Phoenix.bootstrap4;
                 if (!options.titleIsHidden) {
                     var css = ['bs-label'];
                     html.push('<label for="{0}_input" id="{0}_label"');
                     if (options.columns) {
-                        if (_bootstrap4) {
-                            css.push('col-form-label');
-                        }
-                        else {
-                            css.push('checkbox-inline');
-                        }
+                        css.push('col-form-label');
                         css.push('bs-lib-col col-sm-' + options.labelCol);
                         if (options.labelLeft)
                             css.push('text-left');
                     }
                     if (options.inline) {
-                        if (_bootstrap4)
-                            css.push('form-check-inline');
-                        else
-                            css.push('checkbox-inline');
+                        css.push('form-check-inline');
                         css.push('bs-cursor-d no-x-padding');
                     }
                     if (css.length)
@@ -30043,6 +34058,10 @@ var Phoenix;
             };
             Toggle.prototype.click = function (event) {
                 var that = this, input = that._check(), value = input.checked || false;
+                if (that.renderOptions.readOnly || that.state.isDisabled || that.state.isReadOnly) {
+                    event.preventDefault();
+                    return;
+                }
                 if (event.target != input)
                     return;
                 if (that.state.value != value) {
@@ -30057,10 +34076,10 @@ var Phoenix;
             };
             Toggle.prototype._setDisabled = function (input, element) {
                 var that = this, check = that._check();
-                if (that.state.isDisabled || that.state.isReadOnly)
-                    _dom.addClass(check, "disabled");
+                if (that.state.isDisabled || that.state.isReadOnly || that.renderOptions.readOnly)
+                    _dom.removeClass(check, 'active');
                 else
-                    _dom.removeClass(check, "disabled");
+                    _dom.addClass(check, 'active');
                 input.disabled = that.state.isDisabled;
             };
             Toggle.prototype._setReadOnly = function (input, element) {
@@ -30171,6 +34190,7 @@ var Phoenix;
                 }
                 else if (that.fieldOptions.step)
                     that._step = that.fieldOptions.step;
+                that.syncClick = that.fieldOptions.syncClick;
                 that._state();
                 that._init();
                 return _this;
@@ -30251,6 +34271,7 @@ var Phoenix;
             };
             Steppers.prototype.click = function (event) {
                 var that = this;
+                var doValidate = false;
                 if (that._step === 0)
                     return;
                 var code;
@@ -30270,25 +34291,86 @@ var Phoenix;
                 else
                     code = _dom.attr(event.target, 'data-step-code');
                 if (code) {
+                    var cv = that.state.value;
+                    var oi = that.$schema.enum.indexOf(that.state.value);
+                    var ni = that.$schema.enum.indexOf(code);
                     if (that._step === 1) {
-                        var cv = that.state.value;
-                        var oi = that.$schema.enum.indexOf(that.state.value);
                         if (oi >= 0) {
-                            var ni = that.$schema.enum.indexOf(code);
-                            if (ni) {
-                                if (ni > oi)
+                            var ni_1 = that.$schema.enum.indexOf(code);
+                            if (ni_1) {
+                                if (ni_1 > oi)
                                     code = that.$schema.enum[oi + 1];
                             }
                         }
                         else
                             code = that.state.value;
                     }
-                    that.form.setValue(that.$bind, code);
+                    doValidate = ni > oi && code !== that.state.value;
+                    if (doValidate) {
+                        if (that._sendValidateChildForms(that.state.value + '', function () {
+                            if (!that._checkHasErrors())
+                                return;
+                            that.form.setValue(that.$bind, code);
+                        }))
+                            return;
+                        if (!that._checkHasErrors())
+                            return;
+                        that.form.setValue(that.$bind, code);
+                    }
+                    else
+                        that.form.setValue(that.$bind, code);
                 }
+            };
+            Steppers.prototype._checkHasErrors = function () {
+                var that = this;
+                if (that._checkSelf) {
+                    that._checkSelf = false;
+                    if (that.form.$model.hasRootErrors())
+                        return false;
+                }
+                var forms = that.form.visibleChildForms();
+                if (forms) {
+                    for (var i = 0; i < forms.length; i++) {
+                        if (forms[i].$model.hasErrors())
+                            return false;
+                    }
+                }
+                return true;
+            };
+            Steppers.prototype._sendValidateChildForms = function (newValue, cb) {
+                var that = this;
+                var res = false;
+                var forms = that.form.visibleChildForms();
+                if (forms) {
+                    for (var i = 0; i < forms.length; i++) {
+                        var form = forms[i];
+                        if (form.data.$validate) {
+                            res = true;
+                            form.execAction(form.data.$validate, null);
+                        }
+                    }
+                }
+                if (that.renderOptions.validation && that.renderOptions.validation[newValue]) {
+                    that._checkSelf = true;
+                    that.form.execAction(that.renderOptions.validation[newValue], { $after: cb });
+                    return true;
+                }
+                if (res)
+                    that.form.execAction('$after', { $after: cb });
+                return res;
             };
             Steppers.prototype.changed = function (propName, ov, nv, op) {
                 var that = this;
                 if (propName === that.$bind) {
+                    if (that.syncClick && that.state.value != nv) {
+                        Phoenix.utils.nextTick(function () {
+                            var forms = that.form.visibleChildForms();
+                            forms.forEach(function (form) {
+                                form.formManager.pushSyncAction(form.data.$id, { op: "$empty" });
+                                form.formManager.sendSyncData();
+                            });
+                        });
+                    }
                     that.state.value = nv;
                     var valueFound = false;
                     if (that._steps && that._steps.length) {
@@ -30521,15 +34603,17 @@ var Phoenix;
             if (meta) {
                 return _ui.getRegisteredControl('meta', false, meta.widget, '', {});
             }
-            if (!schema)
-                return null;
-            var options;
+            if (!schema) {
+                if (fd.$bind === '$none')
+                    schema = {};
+                else
+                    return;
+            }
+            var options = {};
             if (fd.$readOnly) {
-                options = options || {};
                 options.readOnly = true;
             }
             if (lookup) {
-                options = options || {};
                 options.lookup = true;
             }
             return _ui.getRegisteredControl(schema.type, schema.enum ? true : false, fd.$widget, schema.format, options);
@@ -30755,16 +34839,16 @@ var Phoenix;
                     that.$element.on('click', function (event) {
                         var c = _link.isCustomLink(e, event);
                         if (c && c.protocol === "click") {
-                            var link_3 = that._options.link;
+                            var link_5 = that._options.link;
                             var ctx = _link.context();
-                            if (typeof link_3 === 'string') {
-                                if (that.module && that.module.links && that.module.links[link_3])
-                                    _link.execLink(that.module.links[link_3], ctx, null);
+                            if (typeof link_5 === 'string') {
+                                if (that.module && that.module.links && that.module.links[link_5])
+                                    _link.execLink(that.module.links[link_5], ctx, null);
                                 else
-                                    _link.execLink({ $page: link_3 }, ctx, null);
+                                    _link.execLink({ $page: link_5 }, ctx, null);
                             }
-                            else if (link_3.$page) {
-                                _link.execLink(link_3, ctx, null);
+                            else if (link_5.$page) {
+                                _link.execLink(link_5, ctx, null);
                             }
                         }
                     });
@@ -30802,6 +34886,29 @@ var Phoenix;
         ui.ImageMenuItem = ImageMenuItem;
         ;
     })(ui = Phoenix.ui || (Phoenix.ui = {}));
+})(Phoenix || (Phoenix = {}));
+/// <reference path="../core/core-refs.ts" />
+/// <reference path="../ui/form/modalform.control.ts" />
+var Phoenix;
+(function (Phoenix) {
+    var _p = Phoenix, _locale = _p.locale, _dom = _p.dom, _utils = _p.utils, _pagecontrol = _p.pagecontrol, _autoclose = _p.autoclose;
+    _utils.info = function (title, message, type) {
+        var cr = function ($element, autoclose, cb) {
+            var html = [];
+            html.push('<div class="no-y-margin alert alert-' + type + '" role="alert">');
+            html.push('<h4 class="alert-heading">' + title + '</h4>');
+            html.push('<p>' + message + '</p>');
+            html.push('</div>');
+            var e = $(html.join('')).get(0);
+            _dom.append($element.get(0), e);
+            window.setTimeout(function () {
+                var page = _pagecontrol.Page();
+                page.setPopup(null);
+            }, 2000);
+            cb();
+        };
+        _autoclose.open(_autoclose.SCREEN_CENTER, { width: '400px', style: "$white", contentRender: cr, parent: null, alignElement: null, beforeClose: null });
+    };
 })(Phoenix || (Phoenix = {}));
 /// <reference path="../core/core-refs.ts" />
 /// <reference path="../data/odata-provider.ts" />
@@ -31096,6 +35203,92 @@ var Phoenix;
     })(Data = Phoenix.Data || (Phoenix.Data = {}));
 })(Phoenix || (Phoenix = {}));
 /// <reference path="../core/core-refs.ts" />
+/// <reference path="../ui/form/modalform.control.ts" />
+var Phoenix;
+(function (Phoenix) {
+    var _p = Phoenix, _locale = _p.locale, _utils = _p.utils, _dom = _p.dom, _ajax = _p.ajax, _ui = _p.ui;
+    var layout = {
+        name: "confirm",
+        $type: "block",
+        $items: [
+            {
+                $type: "block",
+                $items: [
+                    { $bind: 'title' }
+                ]
+            },
+            {
+                $type: "block",
+                $items: [
+                    { $bind: 'fileName', options: { titleIsHidden: true, readOnly: true, showErrors: true, minWidth: "25em" } },
+                    { $bind: 'fileName', $name: 'upload', $widget: 'upload', options: { type: 'primary' } }
+                ],
+                $inline: true
+            }
+        ]
+    };
+    var _upload = function (options, onsuccess) {
+        var opt = {
+            title: options.formTitle,
+            noClose: true,
+            buttons: [{ pattern: 'validate' }, { pattern: 'abandon' }]
+        };
+        var ldata = {
+            $errors: { $: [] },
+            $states: { title: { isHidden: !options.showUploadTitle } }
+        };
+        var schema = {
+            type: "object",
+            properties: {
+                title: {
+                    title: options.title,
+                    type: "string"
+                },
+                fileName: {
+                    title: _locale.ui.FileUpload,
+                    type: "string"
+                }
+            }
+        };
+        if (options.infoMessage)
+            ldata.$errors.$.push({ message: options.infoMessage, severity: "warning" });
+        _ui.OpenModalForm(opt, layout, schema, ldata, null, function (modal, action, model, formcontrol) {
+            if (action.operation === "modal-action") {
+                switch (action.property) {
+                    case "fileName":
+                        var rootErrors = model.$errors.$;
+                        if (rootErrors)
+                            rootErrors.clear(true);
+                        break;
+                    case "validate":
+                        if (model.hasErrors() || !model.fileName)
+                            return;
+                        var uploadBtn = formcontrol.controlByName('upload', false)[0];
+                        var formData = new FormData();
+                        formData.append('title', model.title);
+                        // Attach file
+                        formData.append('file', uploadBtn.uploadInput().files[0]);
+                        _dom.processing(true);
+                        _ajax.post(options.url, formData, {
+                            processData: false,
+                            headers: { contentType: false }
+                        }).then(function (cdata) {
+                            _dom.processing(false);
+                            if (onsuccess)
+                                onsuccess(cdata, formcontrol);
+                            modal.close();
+                        }).catch(function (e) {
+                            _dom.processing(false);
+                            model.addAjaxException(e);
+                        });
+                        break;
+                }
+            }
+        });
+    };
+    _utils.upload = _upload;
+})(Phoenix || (Phoenix = {}));
+/// <reference path="../core/core-refs.ts" />
 var Phoenix;
 (function (Phoenix) {
     var iframe;
@@ -31142,523 +35335,6 @@ var Phoenix;
         iframe.IFrame = IFrame;
         ;
     })(iframe = Phoenix.iframe || (Phoenix.iframe = {}));
-})(Phoenix || (Phoenix = {}));
-var Phoenix;
-(function (Phoenix) {
-    var ui;
-    (function (ui) {
-        var _ulocale = Phoenix.ulocale, _utils = Phoenix.utils, _ajax = Phoenix.ajax, _dom = Phoenix.dom, _link = Phoenix.link;
-        var RenderFiltreExpress = /** @class */ (function () {
-            function RenderFiltreExpress(fields, callback, options) {
-                var that = this;
-                that._fieldList = fields || [];
-                that._oldFilter = [];
-                that._cb = callback || null;
-                that._options = options || {};
-                that._nodeMain = $("<div class='form-inline bs-filterexpress' id='" + that._options.id + "'></div>");
-            }
-            Object.defineProperty(RenderFiltreExpress.prototype, "fields", {
-                get: function () {
-                    return this._fieldList;
-                },
-                set: function (value) {
-                    var that = this;
-                    that._fieldList = value && Array.isArray(value) && value.length ? value : that._fieldList;
-                    that.renderFieldsList();
-                    that.renderSelectedFields();
-                },
-                enumerable: true,
-                configurable: true
-            });
-            RenderFiltreExpress.prototype._getFieldByCode = function (code) {
-                var that = this;
-                var result = null;
-                that._fieldList.forEach(function (field) {
-                    if (field.code === code)
-                        result = field;
-                });
-                return result;
-            };
-            RenderFiltreExpress.prototype._getEditField = function (field) {
-                var textNode;
-                switch (field.format) {
-                    case FilterExpress.FORMAT_INTEGER:
-                        textNode = "<input type='number' class='form-control' aria-label='...'>";
-                        break;
-                    case FilterExpress.FORMAT_STRING:
-                        textNode = "<input type='text' class='form-control' aria-label='...'>";
-                        break;
-                    case FilterExpress.FORMAT_ENUM:
-                        textNode = "<select class='form-control'>";
-                        if (field.enum) {
-                            field.enum.forEach(function (option, index) {
-                                var elib = field.enumNames && field.enumNames[index] ? field.enumNames[index] : option;
-                                textNode += "<option value='" + option + "'>" + elib + "</option>";
-                            });
-                        }
-                        textNode += "</select>";
-                        break;
-                }
-                return $(textNode);
-            };
-            RenderFiltreExpress.prototype._getOpField = function (field) {
-                var op;
-                switch (field.format) {
-                    case FilterExpress.FORMAT_INTEGER:
-                        op = FilterExpress.OP_INTEGER;
-                        break;
-                    case FilterExpress.FORMAT_STRING:
-                        op = FilterExpress.OP_STRING;
-                        break;
-                    case FilterExpress.FORMAT_ENUM:
-                        op = FilterExpress.OP_ENUM;
-                        break;
-                    default:
-                        op = "";
-                        break;
-                }
-                return op;
-            };
-            RenderFiltreExpress.prototype._checkFilter = function (filter) {
-                if (!filter)
-                    return true;
-                if (filter.code == "")
-                    return false;
-                if (filter.op == "")
-                    return false;
-                return true;
-            };
-            RenderFiltreExpress.prototype.destroy = function () {
-                // Events
-                var that = this;
-                that._nodeValidate.off("click");
-                that._nodeMain.off("blur");
-                //supprimer les events du render focus, keyup, change
-                // Nodes
-                // Variables
-                that._fieldList = null;
-                that._cb = null;
-                //that._selectedField = null;
-                that._nodeMain = null;
-                that._nodeValidate = null;
-                that._options = null;
-            };
-            RenderFiltreExpress.prototype.renderFieldsList = function () { };
-            RenderFiltreExpress.prototype.renderSelectedFields = function () { };
-            RenderFiltreExpress.prototype.validerFilter = function () { };
-            ;
-            RenderFiltreExpress.prototype.setEvents = function () {
-                var that = this;
-                that._nodeValidate.click(function () {
-                    that.validerFilter();
-                });
-            };
-            return RenderFiltreExpress;
-        }());
-        var RenderFiltreExpressOne = /** @class */ (function (_super) {
-            __extends(RenderFiltreExpressOne, _super);
-            function RenderFiltreExpressOne(fields, callback, options) {
-                var _this = _super.call(this, fields, callback, options) || this;
-                var that = _this;
-                var _bootstrap4 = Phoenix.bootstrap4;
-                var nodeGroup = $('<div class="input-group"></div>');
-                var nodeGroupBtn = $('<div class="input-group-prepend"></div>');
-                var txtNodeButton = '<button type="button" ';
-                txtNodeButton += 'class="bs-button btn btn-' + _dom.bootstrapStyles(true).secondary + ' dropdown-toggle" data-toggle="dropdown" ';
-                txtNodeButton += 'aria-haspopup="true" aria-expanded="false"></button>';
-                var nodeSelectButton = $(txtNodeButton);
-                that._nodeSelectButtonTxt = $('<span>' + FilterExpress.FIELD_SELECT_TEXT_DEFAULT + '</span>');
-                var nodeSelectButtonGlyph = $('<span class="caret"></span>');
-                that._nodeSelectList = _bootstrap4 ? $('<div class="dropdown-menu"></div>') : $('<ul class="dropdown-menu"></ul>');
-                // Add editNode
-                that._nodeEdit = $('<input type="text" class="form-control" aria-label="...">');
-                // Add validateNode
-                var nodeGroupBtnValidate = $("<div class='input-group-apppend'></div>");
-                that._nodeValidate = $('<button class="bs-button btn btn-' + _dom.bootstrapStyles(true).secondary + '" type="button"><span class="' + _dom.iconClass(FilterExpress.VALIDATE_ICON_DEFAULT) + '"></span> ' + FilterExpress.VALIDATE_TEXT_DEFAULT + '</button>');
-                // Append nodes to mainNode
-                that._nodeMain.append(nodeGroup);
-                nodeGroup.append(nodeGroupBtn);
-                nodeGroup.append(that._nodeEdit);
-                nodeGroup.append(nodeGroupBtnValidate);
-                nodeGroupBtn.append(nodeSelectButton);
-                nodeGroupBtn.append(that._nodeSelectList);
-                nodeSelectButton.append(that._nodeSelectButtonTxt);
-                nodeSelectButton.append(nodeSelectButtonGlyph);
-                nodeGroupBtnValidate.append(that._nodeValidate);
-                that.renderFieldsList();
-                that.renderSelectedFields();
-                that.setEvents();
-                return _this;
-            }
-            RenderFiltreExpressOne.prototype.renderSelectedFields = function () {
-                var that = this;
-                var field = null;
-                var _bootstrap4 = Phoenix.bootstrap4;
-                that._fieldList.every(function (item) {
-                    if (item.selected) {
-                        field = item;
-                        return false;
-                    }
-                    return true;
-                });
-                if (!field && that._fieldList && that._fieldList.length) {
-                    that._fieldList[0].selected = true;
-                    field = that._fieldList[0];
-                }
-                if (field) {
-                    that._nodeSelectButtonTxt.text(field.lib + " ");
-                    that._changeEditField(field);
-                }
-                // Style changed
-                if (that._nodeSelectedLi)
-                    that._nodeSelectedLi.removeClass("active");
-                if (field) {
-                    var liNode = _dom.query(that._nodeSelectList.get(0), (_bootstrap4 ? "a[data-value='" : "li[data-value='") + field.code + "']");
-                    if (liNode) {
-                        that._nodeSelectedLi = $(liNode);
-                        that._nodeSelectedLi.addClass("active");
-                    }
-                }
-            };
-            RenderFiltreExpressOne.prototype._changeEditField = function (field) {
-                var that = this;
-                that._removeEvents();
-                var oldHTMLNodeEdit;
-                var newHTMLNodeEdit;
-                newHTMLNodeEdit = that._getEditField(field).get(0);
-                oldHTMLNodeEdit = that._nodeEdit.get(0);
-                var parent = oldHTMLNodeEdit.parentNode;
-                parent.replaceChild(newHTMLNodeEdit, oldHTMLNodeEdit);
-                that._nodeEdit = $(newHTMLNodeEdit);
-                newHTMLNodeEdit.focus();
-                // events 
-                if (field.enum) {
-                    _dom.addClass(that._nodeValidate.get(0), "bs-none");
-                    that._nodeEdit.change(function (e) {
-                        if (e.target === that._nodeEdit.get(0))
-                            that.validerFilter();
-                    });
-                    that._nodeEdit.get(0).style.borderTopRightRadius = "4px";
-                    that._nodeEdit.get(0).style.borderBottomRightRadius = "4px";
-                }
-                else {
-                    _dom.removeClass(that._nodeValidate.get(0), "bs-none");
-                    // touch enter event
-                    that._nodeEdit.keyup(function (e) {
-                        if (e.keyCode == 13)
-                            that.validerFilter();
-                    });
-                    // input focus event
-                    that._nodeEdit.focus(function (e) {
-                        that._nodeEdit.get(0).select();
-                    });
-                }
-            };
-            RenderFiltreExpressOne.prototype._removeEvents = function () {
-                var that = this;
-                that._nodeEdit.off("focus");
-                that._nodeEdit.off("keyup");
-                that._nodeEdit.off("change");
-            };
-            RenderFiltreExpressOne.prototype.renderFieldsList = function () {
-                var that = this;
-                var _bootstrap4 = Phoenix.bootstrap4;
-                _dom.empty(that._nodeSelectList.get(0));
-                that._fieldList.forEach(function (field) {
-                    if (_bootstrap4)
-                        that._nodeSelectList.append('<a class="bs-cursor-p dropdown-item" data-value="' + field.code + '">' + field.lib + '</a>');
-                    else
-                        that._nodeSelectList.append("<li class='bs-cursor-p' data-value='" + field.code + "'><a>" + field.lib + "</a></li>");
-                });
-            };
-            RenderFiltreExpressOne.prototype.setEvents = function () {
-                var that = this;
-                _super.prototype.setEvents.call(this);
-                // Change field event
-                that._nodeSelectList.click(function (e) {
-                    var targetParent = _dom.findByAttribute(e.target, that._nodeSelectList.get(0), "data-value");
-                    if (!targetParent)
-                        return;
-                    var code = targetParent.attributes["data-value"].value;
-                    if (!code)
-                        return;
-                    var field = that._getFieldByCode(code);
-                    that._fieldList = that._fieldList.map(function (item) {
-                        item.selected = (item.code == code);
-                        return item;
-                    });
-                    if (field)
-                        that.renderSelectedFields();
-                });
-                var blurevent = false;
-                that._nodeMain.get(0).addEventListener("focusout", function (e) {
-                    blurevent = true;
-                    var parent = false;
-                    var src = e["relatedTarget"];
-                    if (src) {
-                        var node = src;
-                        do {
-                            if (!node)
-                                break;
-                            if (_dom.hasClass(node, "bs-filterexpress")) {
-                                parent = true;
-                                break;
-                            }
-                            node = node.parentNode;
-                        } while (node && !parent);
-                    }
-                    if (!parent && e.target == that._nodeEdit.get(0) && that._oldFilter && that._oldFilter.length && that._oldFilter[0]["code"]) {
-                        var selected = that._getSelected();
-                        if (selected && selected.code !== that._oldFilter[0]["code"]) {
-                            that._fieldList = that._fieldList.map(function (item) {
-                                item.selected = item.code == that._oldFilter[0]["code"];
-                                return item;
-                            });
-                            that.renderSelectedFields();
-                        }
-                        that._nodeEdit.val(that._oldFilter[0]["values"][0]);
-                    }
-                }, true);
-                that._nodeMain.get(0).addEventListener("blur", function (e) {
-                    if (blurevent)
-                        return;
-                    var parent = false;
-                    var src = e["relatedTarget"] || e["explicitOriginalTarget"];
-                    if (src) {
-                        var node = src;
-                        do {
-                            if (!node)
-                                break;
-                            if (_dom.hasClass(node, "bs-filterexpress")) {
-                                parent = true;
-                                break;
-                            }
-                            node = node.parentNode;
-                        } while (node && !parent);
-                    }
-                    if (!parent && e.target == that._nodeEdit.get(0) && that._oldFilter && that._oldFilter.length && that._oldFilter[0]["code"]) {
-                        var selected = that._getSelected();
-                        if (selected && selected.code !== that._oldFilter[0]["code"]) {
-                            that._fieldList = that._fieldList.map(function (item) {
-                                item.selected = item.code == that._oldFilter[0]["code"];
-                                return item;
-                            });
-                            that.renderSelectedFields();
-                        }
-                        that._nodeEdit.val(that._oldFilter[0]["values"][0]);
-                    }
-                }, true);
-            };
-            RenderFiltreExpressOne.prototype.validerFilter = function () {
-                var that = this;
-                if (!that._cb)
-                    return;
-                var selected = that._getSelected();
-                var filter = that._nodeEdit.val() ? { code: selected.code, op: that._getOpField(selected), values: [that._nodeEdit.val()] } : null;
-                if (filter && !that._checkFilter(filter))
-                    filter = null;
-                that._oldFilter.splice(0);
-                if (filter)
-                    that._oldFilter.push(filter);
-                that._cb(filter);
-            };
-            RenderFiltreExpressOne.prototype._getSelected = function () {
-                var that = this;
-                var selected = null;
-                that._fieldList.every(function (field) {
-                    if (field.selected) {
-                        selected = field;
-                        return false;
-                    }
-                    return true;
-                });
-                return selected;
-            };
-            return RenderFiltreExpressOne;
-        }(RenderFiltreExpress));
-        var RenderFiltreExpressMultiple = /** @class */ (function (_super) {
-            __extends(RenderFiltreExpressMultiple, _super);
-            function RenderFiltreExpressMultiple(fields, callback, options) {
-                var _this = _super.call(this, fields, callback, options) || this;
-                var that = _this;
-                var _bootstrap4 = Phoenix.bootstrap4;
-                that.leftTools = $('<div class="input-group-prepend"></div>');
-                that.rightTools = $('<div class="input-group-append"></div>');
-                that._nodeValidate = $("<button class='btn btn-default' type='button'><span class='" + _dom.iconClass(FilterExpress.VALIDATE_ICON_DEFAULT) + "'></span> " + FilterExpress.VALIDATE_TEXT_DEFAULT + "</button>");
-                var nodeSelectBtn = $('<button type="button" class="btn btn-default dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false"><span class="caret"></span>&nbsp;<span class="sr-only">Toggle Dropdown</span></button>');
-                that._nodeSelectList = _bootstrap4 ? $('<div class="dropdown-menu dropdown-menu-left"></div>') : $('<ul class="dropdown-menu dropdown-menu-left"></ul>');
-                that.rightTools.append(that._nodeValidate);
-                that.leftTools.append(nodeSelectBtn);
-                that.leftTools.append(that._nodeSelectList);
-                that.renderFieldsList();
-                that.renderSelectedFields();
-                that.setEvents();
-                return _this;
-            }
-            RenderFiltreExpressMultiple.prototype.renderSelectedFields = function () {
-                var that = this;
-                _dom.empty(that._nodeMain.get(0));
-                that._fieldList.forEach(function (field) {
-                    if (field.selected)
-                        that.addField(field);
-                });
-                var lleftTools;
-                var lrightTools;
-                if (that._nodeMain.get(0).childNodes.length) {
-                    lleftTools = $(that._nodeMain.get(0).firstChild);
-                    lrightTools = $(that._nodeMain.get(0).lastChild);
-                }
-                else {
-                    lleftTools = $('<div class="input-group"></div>');
-                    lrightTools = lleftTools;
-                    that._nodeMain.append(lleftTools);
-                }
-                lrightTools.append(that.rightTools);
-                $(lleftTools.get(0).firstChild).before(that.leftTools);
-            };
-            RenderFiltreExpressMultiple.prototype.addField = function (field) {
-                var that = this;
-                field.composant = {
-                    label: $('<span class="input-group-prepend" id="sizing-addon2"><span class="input-group-text">' + (field.lib || field.libelle || field.code) + '</span></span>'),
-                    value: that._getEditField(field)
-                };
-                var container = $('<div class="input-group"></div>');
-                container.append(field.composant.label);
-                container.append(field.composant.value);
-                that._nodeMain.append(container);
-                field.selected = true;
-            };
-            RenderFiltreExpressMultiple.prototype.renderFieldsList = function () {
-                var that = this;
-                var _bootstrap4 = Phoenix.bootstrap4;
-                _dom.empty(that._nodeSelectList.get(0));
-                that._fieldList.forEach(function (field) {
-                    if (_bootstrap4)
-                        that._nodeSelectList.append('<a href="#" tabIndex="-1" class="bs-cursor-p dropdown-item" data-value="' + field.code + '"><input type="checkbox" ' + (field.selected ? "checked" : "") + ' />&nbsp;' + (field.lib || field.libelle || field.code) + '</a></li>');
-                    else
-                        that._nodeSelectList.append('<li class="bs-cursor-p" data-value="' + field.code + '"><a href="#" tabIndex="-1"><input type="checkbox" ' + (field.selected ? "checked" : "") + ' />&nbsp;' + (field.lib || field.libelle || field.code) + '</a></li>');
-                });
-            };
-            RenderFiltreExpressMultiple.prototype.setEvents = function () {
-                var that = this;
-                _super.prototype.setEvents.call(this);
-                that._nodeSelectList.on('click', function (event) {
-                    var targetParent = _dom.findByAttribute(event.target, that._nodeSelectList.get(0), "data-value");
-                    if (!targetParent)
-                        return;
-                    var target = $(targetParent);
-                    var code = target.attr('data-value');
-                    if (!code)
-                        return;
-                    var checkboxView = target.find('input');
-                    var field = that._getFieldByCode(target.attr('data-value'));
-                    if (field) {
-                        if (field.selected) {
-                            setTimeout(function () { checkboxView.prop('checked', false); }, 0);
-                            field.selected = false;
-                        }
-                        else {
-                            setTimeout(function () { checkboxView.prop('checked', true); }, 0);
-                            field.selected = true;
-                        }
-                        that.renderSelectedFields();
-                    }
-                    $(event.target).blur();
-                    return false;
-                });
-            };
-            RenderFiltreExpressMultiple.prototype.validerFilter = function () {
-                var that = this;
-                if (!that._cb)
-                    return;
-                var filters = [];
-                that._fieldList.forEach(function (field) {
-                    if (!field.selected)
-                        return;
-                    var value = field.composant.value.val();
-                    if (value) {
-                        var filter_1 = { code: field.code, op: that._getOpField(field), values: [value] };
-                        if (that._checkFilter(filter_1))
-                            filters.push(filter_1);
-                    }
-                });
-                that._oldFilter.splice(0);
-                that._oldFilter = filters;
-                that._cb(filters.length ? filters : null);
-            };
-            return RenderFiltreExpressMultiple;
-        }(RenderFiltreExpress));
-        var FilterExpress = /** @class */ (function () {
-            /*******************************
-            ************ METHODS
-            *******************************/
-            function FilterExpress(fieldList, cb, options) {
-                var that = this;
-                fieldList = that._completeFieldList($.extend(true, [], fieldList));
-                that._cb = cb;
-                var defaultOptions = {
-                    id: _utils.allocID(),
-                    multiple: false
-                };
-                that._options = $.extend(true, defaultOptions, options);
-                if (that._options.multiple)
-                    that._render = new RenderFiltreExpressMultiple(fieldList, that._cb, that._options);
-                else
-                    that._render = new RenderFiltreExpressOne(fieldList, that._cb, that._options);
-            }
-            Object.defineProperty(FilterExpress.prototype, "fields", {
-                get: function () {
-                    return this._render.fields;
-                },
-                set: function (values) {
-                    var that = this;
-                    that._render.fields = values && Array.isArray(values) ? that._completeFieldList($.extend(true, [], values)) : [];
-                },
-                enumerable: true,
-                configurable: true
-            });
-            FilterExpress.prototype.destroy = function () {
-                var that = this;
-                // Events
-                that._render.destroy();
-                _dom.find(this._nodeParent[0], that._options.id).remove();
-                that._render = null;
-                that._cb = null;
-                that._options = null;
-            };
-            // Called at instanciation of component
-            FilterExpress.prototype.render = function ($parent) {
-                var that = this;
-                that._nodeParent = $parent;
-                $parent.append(that._render._nodeMain);
-            };
-            FilterExpress.prototype._completeFieldList = function (fields) {
-                fields.forEach(function (field) {
-                    if (field.enum && Array.isArray(field.enum)) {
-                        field.format = "enum";
-                        field.enum.splice(0, 0, "");
-                        if (field.enumNames)
-                            field.enumNames.splice(0, 0, "");
-                    }
-                    else
-                        field.format = field.type === "number" ? "integer" : field.type;
-                });
-                return fields;
-            };
-            // Constants
-            FilterExpress.FIELD_SELECT_TEXT_DEFAULT = "Choix du champ";
-            FilterExpress.VALIDATE_TEXT_DEFAULT = ""; // "Valider"
-            FilterExpress.VALIDATE_ICON_DEFAULT = "search";
-            FilterExpress.FORMAT_STRING = "string";
-            FilterExpress.FORMAT_INTEGER = "integer";
-            FilterExpress.FORMAT_ENUM = "enum";
-            FilterExpress.OP_STRING = "like";
-            FilterExpress.OP_INTEGER = "in";
-            FilterExpress.OP_ENUM = "in";
-            return FilterExpress;
-        }());
-        ui.FilterExpress = FilterExpress;
-    })(ui = Phoenix.ui || (Phoenix.ui = {}));
 })(Phoenix || (Phoenix = {}));
 /// <reference path="../../js/core/core-refs.ts" />
 var Phoenix;
@@ -32120,7 +35796,7 @@ var Phoenix;
                                 that.callBack("VALIDE", {});
                                 break;
                         }
-                    });
+                    }, null, null, null);
             };
             return FilterListView;
         }());
@@ -32681,7 +36357,7 @@ var Phoenix;
                                 }
                                 break;
                         }
-                    });
+                    }, null, null, null);
                 }
             };
             FilterEditView.prototype.renderValue = function (op) {
@@ -32711,7 +36387,7 @@ var Phoenix;
                                         that.data.values = that.modelType.getValues();
                                         break;
                                 }
-                            });
+                            }, null, null, null);
                         }
                         else
                             that.data.values = that.modelType.getValues();
@@ -32766,7 +36442,7 @@ var Phoenix;
                                 }
                                 break;
                         }
-                    });
+                    }, null, null, null);
                 }
             };
             FilterEditView.prototype.render = function (parent) {
@@ -32886,9 +36562,9 @@ var Phoenix;
             RenderModel1.prototype.showFilterList = function (that, filter) {
                 var editView = new FilterListView(that.listeChamps, that.listeFilters, that.listeOperateurs, function (action, data) {
                     if (action == "EDIT") {
-                        var filter_2 = that.listeFilters.get(data.id);
-                        if (filter_2)
-                            that.selecteChamp(that, filter_2.code);
+                        var filter_1 = that.listeFilters.get(data.id);
+                        if (filter_1)
+                            that.selecteChamp(that, filter_1.code);
                     }
                     else if (action == "REMOVE")
                         that.removeFilter(that, data.id);
@@ -33243,42 +36919,50 @@ var Phoenix;
             return CheckBoxList;
         }());
         ui.CheckBoxList = CheckBoxList;
-        var LookupList = /** @class */ (function (_super) {
-            __extends(LookupList, _super);
-            function LookupList(fp, options, form) {
-                var _this = _super.call(this, fp, options, form) || this;
-                var that = _this;
+        /*
+        class LookupList extends AbsField {
+            state: any;
+            _toolbar: ToolBar;
+            _list: CheckBoxList;
+            _pager: Pager;
+            _lookup: DsLookup;
+            constructor(fp, options, form) {
+                super(fp, options, form);
+                let that = this;
                 //form.registerListenerFor(that.$bind + ".$item", that);
-                _this._state();
-                return _this;
+                this._state();
+
             }
-            LookupList.prototype._state = function () {
-                var that = this;
+            _state() {
+                let that = this;
                 that.state = that.state || {};
-                var state = that.form.getState(that.$bind);
+                let state = that.form.getState(that.$bind);
                 Object.keys(state).forEach(function (pn) {
                     that.state[pn] = state[pn];
                 });
                 that.state.value = that.form.getValue(that.$bind);
-            };
-            LookupList.prototype.click = function (event) {
-            };
-            LookupList.prototype._state2UI = function () {
-            };
-            LookupList.prototype.destroy = function () {
-                var that = this;
+            }
+            click(event) {
+
+            }
+            _state2UI() {
+
+            }
+            destroy() {
+                let that = this;
                 //that.form.unRegisterListenerFor(that.$bind + ".$item", that);
-                _super.prototype.destroy.call(this);
-            };
-            LookupList.prototype.changed = function (propName, ov, nv, op, obj) {
+                super.destroy();
+            }
+            changed(propName, ov, nv, op, obj) {
                 //let that = this;
                 //that._list.values = that._getValues();
-            };
-            LookupList.prototype.stateChanged = function (propName, params) {
-            };
-            LookupList.prototype._createContainer = function (id, authoring, title, options) {
-                var that = this;
-                var html = [
+            }
+            stateChanged(propName, params) {
+
+            }
+            _createContainer(id, authoring, title, options) {
+                let that = this;
+                let html = [
                     '<div id="{0}" data-render="{0}">',
                     '<label for="{0}_input" id="{0}_label" class="' + (!title ? "bs-none" : "") + '">' + (title || '') + '</label>',
                     '<div id="{0}_toolbar"></div>',
@@ -33288,32 +36972,30 @@ var Phoenix;
                     '</div>'
                 ];
                 return _utils.format(html.join(''), id);
-            };
-            LookupList.prototype._onSelectToolElement = function (toolElement) {
-                var that = this;
+            }
+            _onSelectToolElement(toolElement) {
+                let that = this;
                 if (toolElement.name === "search")
                     that._lookup.search(toolElement.value);
-            };
-            LookupList.prototype.createToolBar = function (id, options) {
-                var that = this;
-                if (!that.$element)
-                    return;
+            }
+            createToolBar(id, options) {
+                let that = this;
+                if (!that.$element) return;
                 if (!that._toolbar) {
-                    var toolElements = [{
-                            "name": "search",
-                            "type": "search",
-                            "right": false
-                        }];
+                    let toolElements = [{
+                        "name": "search",
+                        "type": "search",
+                        "right": false
+                    }];
                     options = $.extend(true, {}, { selectToolElement: that._onSelectToolElement.bind(that) });
                     that._toolbar = new _ui.ToolBar(toolElements, options);
-                    var container = _dom.query(that.$element.get(0), "#" + id + "_toolbar");
-                    if (!container)
-                        return;
-                    that._toolbar.render($(container));
+                    let container = _dom.query(that.$element.get(0), "#" + id + "_toolbar");
+                    if (!container) return;
+                    that._toolbar.render(options, $(container));
                 }
-            };
-            LookupList.prototype._onSelectPaginer = function (page) {
-                var that = this;
+            }
+            _onSelectPaginer(page) {
+                let that = this;
                 switch (page) {
                     case "next":
                         that._lookup.nextPage();
@@ -33331,55 +37013,51 @@ var Phoenix;
                         that._lookup.toPage(page - 1);
                         break;
                 }
-            };
-            LookupList.prototype.createPaginer = function (id, options) {
-                var that = this;
-                if (!that.$element)
-                    return;
+            }
+            createPaginer(id, options) {
+                let that = this;
+                if (!that.$element) return;
                 if (!that._pager) {
                     options = $.extend({ size: "default", boundaryLinks: true, selectPage: that._onSelectPaginer.bind(that) }, options);
                     that._pager = new _ui.Pager(options);
-                    var container = _dom.query(that.$element.get(0), "#" + id + "_paginer");
-                    if (!container)
-                        return;
+                    let container = _dom.query(that.$element.get(0), "#" + id + "_paginer");
+                    if (!container) return;
                     that._pager.render($(container));
                 }
-                var p = that._pager;
+                let p = that._pager;
                 p.props.totalPages = that._lookup.getNbPages();
                 p.props.currentPage = that._lookup.currentPage() + 1;
-            };
-            LookupList.prototype._onSelectCheckBoxList = function (action, data) {
-                var that = this;
+            }
+            _onSelectCheckBoxList(action, data) {
+                let that = this;
                 if (action === "add")
                     that.state.value.push({ code: data.value.code, lib: data.value.libelle });
                 else if (action === "remove")
                     that.state.value.remove(that.state.value.find("code", data.value.code));
-            };
-            LookupList.prototype._getValues = function () {
-                var that = this;
-                var ld = $.extend(true, {}, that.state.value);
+            }
+            _getValues() {
+                let that = this;
+                let ld = $.extend(true, {}, that.state.value);
                 ld._items = ld._items.map(function (item) {
                     return item.code;
                 });
                 return ld._items;
-            };
-            LookupList.prototype.createList = function (id, options) {
-                var that = this;
-                if (!that.$element)
-                    return;
+            }
+            createList(id, options) {
+                let that = this;
+                if (!that.$element) return;
                 if (!that._list) {
                     that._list = new _ui.CheckBoxList({ onSelectItem: that._onSelectCheckBoxList.bind(that) });
                     that._list.values = that._getValues();
-                    var container = _dom.query(that.$element.get(0), "#" + id + "_list");
-                    if (!container)
-                        return;
+                    let container = _dom.query(that.$element.get(0), "#" + id + "_list");
+                    if (!container) return;
                     that._list.render($(container));
                 }
-            };
-            LookupList.prototype.createLookup = function (options) {
-                var that = this;
+            }
+            createLookup(options) {
+                let that = this;
                 if (that.$schema.ds) {
-                    var notify = function (data, options) {
+                    let notify = function (data, options) {
                         options = options || {};
                         if (options.inited && options.updated)
                             that._lookup.firthPage();
@@ -33393,10 +37071,10 @@ var Phoenix;
                     };
                     that._lookup = new _ui.DsLookup(that.$schema.ds, { notify: notify });
                 }
-            };
-            LookupList.prototype.render = function ($parent) {
-                var that = this;
-                var opts = that._initOptions(_uiutils.utils.defaultOptions);
+            }
+            render($parent) {
+                let that = this;
+                let opts = that._initOptions(_uiutils.utils.defaultOptions);
                 if (!that.$element) {
                     that.setEvents(null);
                     that.$element = $(that._createContainer(that.id, _ulocale.tt(that.$schema.title, that.form.$locale), that.options.design, opts));
@@ -33405,10 +37083,10 @@ var Phoenix;
                 }
                 that.appendElement($parent, opts);
                 return that.$element;
-            };
-            return LookupList;
-        }(ui.AbsField));
+            }
+        }
         _ui.registerControl(LookupList, "array", false, 'lookup-list', null);
+        */
         var ComposantFilter = /** @class */ (function (_super) {
             __extends(ComposantFilter, _super);
             function ComposantFilter(fp, options, form) {
@@ -33581,19 +37259,20 @@ var Phoenix;
                 .replace(/\\\+/g, "+").replace(/\\\./g, ".").replace(/\\\^/g, "^")
                 .replace(/\\\[/g, "[").replace(/\\\]/g, "]").replace(/\\\{/g, "{")
                 .replace(/\\\}/g, "}").replace(/\\\(/g, "(").replace(/\\\)/g, ")").replace(/\\\|/g, "|");
-        }, _removeFilterExpress = function (filter, expressFilters, fields) {
+        }, _removeFilterExpress = function (filter, filterExpress) {
             return filter;
-        }, _addFilterExpress = function (filter, expressFilters, filterExpress) {
+        }, _addFilterExpress = function (filter, expressFilters) {
             return expressFilters;
-        }, _toMongoDbFilter2Filter = function (filter, fields) {
+        }, _toMongoDbFilter2Filter = function (filter, fields, addTitles) {
             if (!filter)
                 return null;
             if (filter && filter.$and) {
-                var filters_1 = [];
+                var map_2 = {};
+                var filters_3 = [];
+                fields.forEach(function (item) { map_2[item.name] = item; });
                 filter.$and.forEach(function (item) {
                     var a = Object.keys(item);
                     var fieldName = a[0];
-                    var field = fields.find(function (fieldName) { return item.code == fieldName; });
                     item = item[fieldName];
                     var ii = { op: '', values: [], code: fieldName };
                     if (typeof item === 'object') {
@@ -33652,19 +37331,40 @@ var Phoenix;
                         ii.values.push(item);
                     }
                     if (ii)
-                        filters_1.push(ii);
+                        filters_3.push(ii);
                 });
-                if (filters_1 && filters_1.length)
-                    return filters_1;
+                if (filters_3 && filters_3.length) {
+                    if (addTitles) {
+                        filters_3.forEach(function (item) {
+                            var schema = map_2[item.code].schema;
+                            var values = item.values ? item.values.map(function (value) {
+                                if (schema.enum && schema.enumNames) {
+                                    var ii = schema.enum.indexOf(value);
+                                    if (ii >= 0)
+                                        return schema.enumNames[ii];
+                                }
+                                return value;
+                            }) : [];
+                            var format = (map_2[item.code].schema.title || item.code) + ' ' + (_locale.operators[item.op].symbol || '');
+                            if (item.op === OPERATORS.empty || item.op === OPERATORS.nempty)
+                                format += ' vide';
+                            else if (item.op === OPERATORS.between || item.op === OPERATORS.nbetween)
+                                format += ' ' + values[0] + ' et ' + values[1];
+                            else
+                                format += ' ' + values.join(',');
+                            item.title = format;
+                        });
+                    }
+                    return filters_3;
+                }
             }
             return null;
-        }, _toMongoDbFilter = function (fields, filters) {
-            if (!fields || !filters)
+        }, _toMongoDbFilter = function (filters) {
+            if (!filters)
                 return null;
             var oFilters = [];
             //filters
             filters.forEach(function (filter) {
-                var field = fields.find(function (item) { return item.code == filter.code; });
                 var cf = {}, val = null;
                 var values = filter.values.map(function (item) {
                     if (item.code !== undefined)
@@ -34185,7 +37885,7 @@ var Phoenix;
                         }
                         for (var i = 1; i <= item.level; i++)
                             _dom.append(item.component, $(that._template().indent).get(0));
-                        if (item.items) {
+                        if (item.items) { // item de type group
                             var iconDisplay = that._createIcon(item.component, options.expandIcon, "icon-group bs-cursor-p");
                             _dom.attr(iconDisplay, "data-event", "click");
                             _dom.attr(iconDisplay, "data-action", "expand");
@@ -34344,13 +38044,13 @@ var Phoenix;
                 that._check(name, isCheck, callback);
                 var item = that._getItem(that._nodes, name);
                 if (item && item.parent) {
-                    var parent_4 = that._getItem(that._data, item.parent[that._name]);
-                    if (!parent_4)
+                    var parent_6 = that._getItem(that._data, item.parent[that._name]);
+                    if (!parent_6)
                         return;
-                    if (isCheck && that._itemsIsSelected(parent_4.items))
-                        that._checkG(parent_4[that._name], isCheck, callback, false);
-                    else if (!isCheck && that._itemsIsUnselected(parent_4.items))
-                        that._checkG(parent_4[that._name], isCheck, callback, false);
+                    if (isCheck && that._itemsIsSelected(parent_6.items))
+                        that._checkG(parent_6[that._name], isCheck, callback, false);
+                    else if (!isCheck && that._itemsIsUnselected(parent_6.items))
+                        that._checkG(parent_6[that._name], isCheck, callback, false);
                 }
             };
             MultiSelectList.prototype._check = function (name, isCheck, callback) {
@@ -34400,13 +38100,13 @@ var Phoenix;
                 var that = this;
                 var item = that._getItem(that._nodes, name);
                 if (item) {
-                    var parent_5 = item.parent;
-                    while (parent_5) {
-                        displayItem(parent_5.items, true);
-                        var gHTML = _dom.query(parent_5.component, ".icon-group");
+                    var parent_7 = item.parent;
+                    while (parent_7) {
+                        displayItem(parent_7.items, true);
+                        var gHTML = _dom.query(parent_7.component, ".icon-group");
                         that._addIcon(gHTML, that._options.collapseIcon, "icon-group bs-cursor-p");
                         _dom.attr(gHTML, "data-action", "collapse");
-                        parent_5 = parent_5.parent;
+                        parent_7 = parent_7.parent;
                     }
                     that._renderItems(that._nodes);
                 }
@@ -34626,6 +38326,7 @@ var Phoenix;
                 if (that._container) {
                     that._container.addEventListener("click", function (event) {
                         var target = event.target;
+                        var isRemoveTag = false;
                         if (target["href"]) {
                             var href = _dom.attr(target, 'href');
                             if (href === '#') {
@@ -34639,13 +38340,14 @@ var Phoenix;
                                 var parentHTML = _dom.parentByTag(that._container, target, "LI");
                                 var name_3 = _dom.attr(parentHTML, "data-id");
                                 that._removeTag(name_3, that._callback);
+                                isRemoveTag = true;
                             }
                         }
                         else if (that._menu && that._menu.opened && that._menu.inMenu(event.target)) {
                             that._menu.click(event);
                         }
                         var input = _dom.query(that._input, "input");
-                        if (input)
+                        if (input && !isRemoveTag)
                             input.focus();
                     });
                     that._container.addEventListener("keyup", function (event) {
@@ -34845,9 +38547,8 @@ var Phoenix;
                         that._callback({ action: "drag", srcIndex: srcIndex, destIndex: destIndex, data: src });
                 }
                 that._renderItems();
-                var input = _dom.query(that._input, "input");
-                if (input)
-                    input.focus();
+                //let input = <HTMLInputElement>_dom.query(that._input, "input");
+                // if (input) input.focus();
             };
             PillBox.prototype._onMenuSelectItemHandler = function (v) {
                 var that = this;
@@ -35152,110 +38853,12 @@ var Phoenix;
     })(ui = Phoenix.ui || (Phoenix.ui = {}));
 })(Phoenix || (Phoenix = {}));
 /// <reference path="../../js/core/core-refs.ts" />
-/// <reference path="../filter-express/filter-express.control.ts" />
+/// <reference path="../../js/ui/form/controls/controls.ts" />
 var Phoenix;
 (function (Phoenix) {
-    var _formgrid = Phoenix.formgrid, _ui = Phoenix.ui;
+    var _ctrlsinterfaces = Phoenix.ctrlsinterfaces, _ui = Phoenix.ui;
     var gridHandlers;
     (function (gridHandlers) {
-        function _onSelectToolElement(toolElement) {
-            var that = this;
-            var toolName = toolElement.name || toolElement.id;
-            if (toolElement.type === 'filter' && Phoenix.formgrid.glbGridFilter) {
-                var isComposition_1 = !that.state.value.isQuery;
-                return Phoenix.formgrid.glbGridFilter(that.getColumnsForFilter(isComposition_1), function (filter) {
-                    if (isComposition_1) {
-                        if (that.state.value) {
-                            that.state.value.filterManager.filterExpress = null;
-                            that.state.value.filter = filter.value;
-                        }
-                    }
-                    else {
-                        that.state.value.filterManager.filterComplex = filter;
-                        that.state.value.filter = that.state.value.filterManager.constructeFilter();
-                    }
-                });
-            }
-            else if (toolElement.type === 'filterexpress') {
-                var isComposition = !that.state.value.isQuery;
-                if (isComposition) {
-                    var cfg = that.getColumnsForFilter(isComposition);
-                    var oldFilterExpress = that.state.value.filterManager.filterExpress ? that.state.value.filterManager.filterExpress.value : null;
-                    var filterExpress = toolElement.value.value;
-                    var oldFilter = that.state.value.filter;
-                    if (oldFilter)
-                        oldFilter = _ui.filter.removeMdbFilterExpress(oldFilter, oldFilterExpress, cfg.schemaColumns);
-                    that.state.value.filterManager.filterExpress = toolElement.value;
-                    oldFilter = _ui.filter.addMdbFilterExpress(oldFilter, filterExpress, cfg.schemaColumns);
-                    that.state.value.filter = oldFilter;
-                }
-                else {
-                    that.state.value.filterManager.filterExpress = toolElement.value;
-                    that.state.value.filter = that.state.value.filterManager.constructeFilter();
-                }
-            }
-            else if (toolElement.type === 'settings' && Phoenix.formgrid.glbGridSettings) {
-                var params = that.getColumnsForSettings();
-                params.options = toolElement.toolData;
-                return Phoenix.formgrid.glbGridSettings(params, function (columns) {
-                    that.setColumns(columns);
-                });
-            }
-            else if (toolElement.type === 'multiselect') {
-                that.toggleMultiselect();
-            }
-            else
-                that.form.execAction(that.$bind + ".$toolbar." + toolName, { toolElement: toolElement, control: that });
-        }
-        function toolbarRenderHandler($parent, toolbar, $parentBottom) {
-            toolbar.render($parent, $parentBottom);
-        }
-        function toolBarFactoryHandler(grid) {
-            var toolbar = null;
-            var opts = grid.fieldOptions;
-            var toolElements = [];
-            if (opts.toolbar && opts.toolbar.items) {
-                var toolbarOptions = $.extend(true, {}, opts.toolbar);
-                toolbarOptions.items.forEach(function (te) {
-                    te.name = te.name || te.type;
-                    if (te.lookup) {
-                        var dsLookup_1 = null;
-                        var notify = function (data, options) {
-                            options = options || {};
-                            if (options.inited && options.updated)
-                                dsLookup_1.firthPage();
-                            else if (data) {
-                                te.value = te.value || {};
-                                var value = { default: te.value.default, items: [], upd: true };
-                                value.items = data || [];
-                                grid.toolBar.setValue(te.name, value);
-                            }
-                        };
-                        dsLookup_1 = new _ui.DsLookup(grid.$schemaItems.lookups[te.lookup], { notify: notify });
-                    }
-                    if (te.type === 'count')
-                        te = $.extend({ right: true, value: grid.state.value.totalCount() }, te);
-                    else if (te.type === 'filter') {
-                        te = $.extend({ value: "", icon: 'filter' }, te);
-                        grid.state.value.filterManager = grid.state.value.filterManager || (_ui.filterManagerFactory ? _ui.filterManagerFactory() : null);
-                    }
-                    else if (te.type === 'multiselect') {
-                        var cv = !!(opts.selecting && opts.selecting.row && opts.selecting.multiselect);
-                        te = $.extend(te, { style: "default", icon: 'check', value: cv });
-                    }
-                    else if (te.type === 'filterexpress') {
-                        te = $.extend(te, { fields: grid.getColumnsForFilterExpress(te.fields) });
-                        grid.state.value.filterManager = grid.state.value.filterManager || (_ui.filterManagerFactory ? _ui.filterManagerFactory() : null);
-                    }
-                    toolElements.push(te);
-                });
-            }
-            if (toolElements.length) {
-                var toptions = { selectToolElement: _onSelectToolElement.bind(grid), gridControl: grid, composition: !grid.state.value.isQuery, schema: grid.$schema, form: grid.form, bind: grid.$bind, schemaItems: grid.$schemaItems };
-                toolbar = new _ui.ToolBar(toolElements, toptions);
-            }
-            return toolbar;
-        }
         var filterData = {
             filter: {
                 champs: [],
@@ -35263,7 +38866,8 @@ var Phoenix;
                 entree: []
             }
         };
-        function toolBarFilterComplexe(params, callback, locale) {
+        function toolBarFilterComplexe(params, callback, locale, options) {
+            options = options || {};
             if (!params.schemaColumns.length)
                 return;
             if (params.filters !== undefined)
@@ -35383,6 +38987,8 @@ var Phoenix;
             if (filterData.filter.entree)
                 filterData.filter.entree = _ui.multiSelectUtils.transformPropsToMultiselectFormat(params.schemaColumns, params.schemaGroups);
             var opts = { "title": "Filtre", "buttons": [{ "pattern": "validate" }] };
+            if (options.large)
+                opts.size = 'lg';
             _ui.OpenModalForm(opts, layout, model, filterData, locale, function (form, action, model, formControl) {
                 switch (action.property) {
                     case "validate":
@@ -35392,7 +38998,7 @@ var Phoenix;
                         var $filter = null;
                         if (filterData.filter.filters.length) {
                             if (params.mongoFilter)
-                                $filter = _ui.filter.format.toMongoDbFilter(filterData.filter.champs, filterData.filter.filters);
+                                $filter = _ui.filter.format.toMongoDbFilter(filterData.filter.filters);
                             else
                                 $filter = _ui.filter.format.toPhenix(filterData.filter.champs, filterData.filter.filters);
                         }
@@ -35494,1099 +39100,8 @@ var Phoenix;
             });
         }
         ;
-        _formgrid.toolBarFactory = toolBarFactoryHandler;
-        _formgrid.toolBarRender = toolbarRenderHandler;
-        _formgrid.glbGridFilter = toolBarFilterComplexe;
-        _formgrid.glbGridSettings = tooBarSettings;
-        _formgrid.glbMongoFilter2Filter = _ui.filter.mongoDbFilter2Filter;
+        _ctrlsinterfaces.glbGridFilter = toolBarFilterComplexe;
+        _ctrlsinterfaces.glbGridSettings = tooBarSettings;
+        _ctrlsinterfaces.glbMongoFilter2Filter = _ui.filter.mongoDbFilter2Filter;
     })(gridHandlers = Phoenix.gridHandlers || (Phoenix.gridHandlers = {}));
-})(Phoenix || (Phoenix = {}));
-/// <reference path="../../js/core/core-refs.ts" />
-/// <reference path="../filter-express/filter-express.control.ts" />
-var Phoenix;
-(function (Phoenix) {
-    var ui;
-    (function (ui) {
-        var _dom = Phoenix.dom, _ui = ui, _utils = Phoenix.utils, _locale = Phoenix.locale, _uiutils = Phoenix.uiutils, _observable = Phoenix.Observable, _sutils = _observable.SchemaUtils, _link = Phoenix.link;
-        var ToolElement = /** @class */ (function () {
-            function ToolElement(config, options) {
-                var that = this;
-                that.id = _utils.allocID();
-                that.config = config || {};
-                that.options = options || {};
-            }
-            ToolElement.prototype.getValue = function () {
-                return this.config.value;
-            };
-            ToolElement.prototype.setValue = function (value) {
-                var that = this;
-                that.config.value = value;
-                that.update();
-            };
-            ToolElement.prototype.setOptions = function (value) {
-                var that = this;
-                that.options = $.extend(true, that.options, value);
-                that.updateRender();
-            };
-            ToolElement.prototype.createElement = function (index, config, data) {
-                return _utils.format('<div data-tool-id="{0}" class="bs-toolbar-item">A</div>', this.id);
-            };
-            ToolElement.prototype.refresh = function () {
-                var that = this;
-                this.update();
-                that.updateRender();
-            };
-            ToolElement.prototype.beforeAppend = function () { };
-            ToolElement.prototype.after = function () { };
-            ToolElement.prototype.render = function ($parent) {
-                var that = this;
-                if (!that.$element) {
-                    that.$element = $(that.createElement(that.config.id, that.config, that.config.value));
-                    that._setEvents();
-                    that.beforeAppend();
-                }
-                if ($parent)
-                    _dom.append($parent.get(0), that.$element.get(0));
-                return that.$element;
-            };
-            ToolElement.prototype.destroy = function () {
-                var that = this;
-                that._removeEvents();
-                that.$element = null;
-                that.options = null;
-                that.config = null;
-            };
-            ToolElement.prototype._setEvents = function () { };
-            ToolElement.prototype._removeEvents = function () { };
-            ToolElement.prototype.update = function () { };
-            ToolElement.prototype.updateRender = function () { };
-            return ToolElement;
-        }());
-        ui.ToolElement = ToolElement;
-        var ToolElementTitle = /** @class */ (function (_super) {
-            __extends(ToolElementTitle, _super);
-            function ToolElementTitle(config, options) {
-                return _super.call(this, config, options) || this;
-            }
-            ToolElementTitle.prototype.createElement = function (index, config, data) {
-                var css = [];
-                if (config.style)
-                    css.push(config.style);
-                var balise = config.widget = config.widget || "h4";
-                var html = [
-                    '<div data-tool-id="{0}" class="bs-toolbar-item">',
-                    '<' + balise + ' class="' + css.join(' ') + '" style="display:inline-block" data-id="title">',
-                    config.value || "",
-                    '</' + balise + '>',
-                    '</div>'
-                ];
-                return _utils.format(html.join(''), this.id);
-            };
-            ToolElementTitle.prototype.update = function () {
-                var that = this;
-                if (!that.$element)
-                    return;
-                var titleElement = _dom.query(that.$element.get(0), that.config.widget + '[data-id="title"]');
-                _dom.text(titleElement, that.config.value);
-            };
-            return ToolElementTitle;
-        }(ToolElement));
-        ui.ToolElementTitle = ToolElementTitle;
-        var ToolElementIcon = /** @class */ (function (_super) {
-            __extends(ToolElementIcon, _super);
-            function ToolElementIcon(config, options) {
-                return _super.call(this, config, options) || this;
-            }
-            ToolElementIcon.prototype.createElement = function (index, config, data) {
-                var css = [];
-                if (config.style)
-                    css.push(config.style);
-                var balise = config.widget = config.widget || "h4";
-                var html = [
-                    '<div data-tool-id="{0}" class="bs-toolbar-item">',
-                    '<span class="' + css.join(' ') + ' ' + (config.value || "") + '"></span>',
-                    '</div>'
-                ];
-                return _utils.format(html.join(''), this.id);
-            };
-            return ToolElementIcon;
-        }(ToolElement));
-        ui.ToolElementIcon = ToolElementIcon;
-        var ToolElementButton = /** @class */ (function (_super) {
-            __extends(ToolElementButton, _super);
-            function ToolElementButton(config, options) {
-                return _super.call(this, config, options) || this;
-            }
-            ToolElementButton.prototype.createElement = function (index, config, data) {
-                var css = ["bs-button btn"];
-                var style = _dom.bootstrapStyles().secondary;
-                config.style = config.style.trim();
-                if (config.style) {
-                    style = config.style;
-                    style = _dom.bootstrapStyles(true).secondary;
-                    if (style === 'default')
-                        style = _dom.bootstrapStyles(true).secondary;
-                }
-                css.push('btn-' + style);
-                var html = [
-                    '<div data-tool-id="{0}" class="bs-toolbar-item">',
-                    '<button id="toolbar-item' + (config.name ? "-" + config.name : "") + '" toolClick="' + index + '" type="button" class="' + css.join(" ") + '">',
-                    (config.icon ? '<span class="' + _dom.iconClass(config.icon) + '" toolClick="' + index + '" ></span>' : ''),
-                    (config.title ? '&nbsp;' + config.title : ''),
-                    '</button>',
-                    '</div>'
-                ];
-                return _utils.format(html.join(''), this.id);
-            };
-            return ToolElementButton;
-        }(ToolElement));
-        ui.ToolElementButton = ToolElementButton;
-        var ToolElementCount = /** @class */ (function (_super) {
-            __extends(ToolElementCount, _super);
-            function ToolElementCount(config, options) {
-                return _super.call(this, config, options) || this;
-            }
-            ToolElementCount.prototype.createElement = function (index, config, data) {
-                var css = ['badge-secondary', 'form-control-plaintext', 'bs-toolbar-item', "bs-toolbar-item-count"];
-                var html = ['<span data-tool-id="{0}" tool="' + index + '" class="' + css.join(' ') + '">' + data + '</span>'];
-                return _utils.format(html.join(''), this.id);
-            };
-            ToolElementCount.prototype.update = function () {
-                var that = this;
-                if (!that.$element)
-                    return;
-                _dom.text(that.$element.get(0), that.config.value);
-            };
-            return ToolElementCount;
-        }(ToolElement));
-        ui.ToolElementCount = ToolElementCount;
-        var ToolElementDropdownAction = /** @class */ (function (_super) {
-            __extends(ToolElementDropdownAction, _super);
-            function ToolElementDropdownAction(config, options) {
-                return _super.call(this, config, options) || this;
-            }
-            ToolElementDropdownAction.prototype.createElement = function (index, config, data) {
-                var css = ["bs-toolbar-item dropdown"];
-                var actionsView = [];
-                // action : {name, events}
-                config.actions && config.actions.forEach(function (action) {
-                    if (Phoenix.bootstrap4)
-                        actionsView.push('<a href="#" class="dropdown-item" data-id="' + action.code + '">' + (action.lib || action.code) + '</a>');
-                    else
-                        actionsView.push('<li data-id="' + action.code + '"><a href="#" data-id="' + action.code + '">' + (action.lib || action.code) + '</a></li>');
-                });
-                var title = [];
-                if (!config.title && !config.icon)
-                    title.push('<span class="' + _dom.iconClass("bars") + '"></span> ');
-                if (config.icon)
-                    title.push('<span class="' + _dom.iconClass(config.icon) + '"></span> ');
-                if (config.title)
-                    title.push(' ' + config.title + " ");
-                var html = [
-                    '<div  data-tool-id="{0}" tabindex="' + index + '" class="' + css.join(" ") + '">',
-                    '<button class="bs-button btn btn-' + _dom.bootstrapStyles(true).secondary + ' dropdown-toggle" id="tooltip-dropdown-' + index + '" type="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">',
-                    title.join(''),
-                    '</button>',
-                    Phoenix.bootstrap4 ? '<div class="dropdown-menu dropdown-menu-right" aria-labelledby="tooltip-dropdown-' + index + '" data-id="toolCommands">'
-                        : '<ul class="dropdown-menu dropdown-menu-right" aria-labelledby="tooltip-dropdown-' + index + '" data-id="toolCommands">',
-                    actionsView.join(''),
-                    Phoenix.bootstrap4 ? '</div>' : '</ul>',
-                    '</div>'
-                ];
-                return _utils.format(html.join(''), this.id);
-            };
-            ToolElementDropdownAction.prototype.click = function (event) {
-                var that = this;
-                var target = event.target;
-                var commandCode = _dom.attr(target, "data-id");
-                if (commandCode && that.options.callback)
-                    that.options.callback({ id: that.config.id, name: that.config.name, type: that.config.type, value: commandCode, toolData: that.config });
-            };
-            return ToolElementDropdownAction;
-        }(ToolElement));
-        ui.ToolElementDropdownAction = ToolElementDropdownAction;
-        var ToolElementArrayAction = /** @class */ (function (_super) {
-            __extends(ToolElementArrayAction, _super);
-            function ToolElementArrayAction(config, options) {
-                var _this = _super.call(this, config, options) || this;
-                var that = _this;
-                that._form = that.options.form;
-                that._schema = that.options.schema;
-                that._schemaItems = that.options.schemaItems;
-                that._bind = that.options.bind;
-                that._grid = that.options.gridControl;
-                that._selected = [];
-                config.links = config.links || [];
-                config.title = config.title || _locale.ui.Actions;
-                config.options = config.options || {};
-                if (config.options.caret === undefined)
-                    config.options.caret = true;
-                config.options.type = config.options.type || 'secondary';
-                if (config.options.titleIsHidden) {
-                    config.options.icon = config.options.icon || config.right ? 'ellipsis-v' : 'bars';
-                }
-                var schemaLinks = that._schema.links || {};
-                config.links.forEach(function (link) {
-                    link.id = _utils.allocID();
-                    if (!schemaLinks[link.name]) {
-                        console.log('Invalid link name: ' + link.name);
-                        return;
-                    }
-                    link.options = link.options || {};
-                    link.options.type = link.options.type || 'secondary';
-                    link.schema = schemaLinks[link.name];
-                    link.bind = that._bind + '.$links.' + link.name;
-                    link.isHidden = false;
-                    that._form.registerListenerFor(link.bind, that);
-                });
-                that._form.registerListenerFor(that._bind, that);
-                that._updateselected();
-                that._state();
-                return _this;
-            }
-            ToolElementArrayAction.prototype.beforeAppend = function () {
-                this._state2Ui();
-            };
-            ToolElementArrayAction.prototype._state2Ui = function () {
-                var that = this;
-                var actionsVisible = 0;
-                that.config.links.forEach(function (link) {
-                    var isVisible = !link.state.isHidden;
-                    if (isVisible) {
-                        if (link.schema.select) {
-                            if (that._selected.length) {
-                                if (!link.schema.select.multiselect)
-                                    isVisible = that._selected.length === 1;
-                            }
-                            else
-                                isVisible = false;
-                        }
-                    }
-                    if (isVisible && !link.important)
-                        actionsVisible++;
-                    if (that.$element) {
-                        var ei = _dom.find(that.$element.get(0), link.id);
-                        if (isVisible)
-                            _dom.removeClass(ei, 'bs-none');
-                        else if (!_dom.hasClass(ei, 'bs-none'))
-                            _dom.addClass(ei, 'bs-none');
-                        if (isVisible) {
-                            if (link.state.isDisabled) {
-                                if (!_dom.hasClass(ei, 'disabled'))
-                                    _dom.addClass(ei, 'disabled');
-                            }
-                            else {
-                                _dom.removeClass(ei, 'disabled');
-                            }
-                        }
-                    }
-                });
-                if (that.$element) {
-                    var ei = _dom.find(that.$element.get(0), 'actions_' + that.id);
-                    if (actionsVisible)
-                        _dom.removeClass(ei, 'bs-none');
-                    else if (!_dom.hasClass(ei, 'bs-none'))
-                        _dom.addClass(ei, 'bs-none');
-                }
-            };
-            ToolElementArrayAction.prototype._updateselected = function () {
-                var that = this;
-                var value = that._form.getValue(that._bind);
-                if (value)
-                    that._selected = value.getSelectedItems(that._grid.renderOptions.expandingProperty);
-            };
-            ToolElementArrayAction.prototype._stateOfLink = function (link) {
-                var that = this;
-                var state = that._form.getState(link.bind);
-                link.state = link.state || {};
-                Object.keys(state).forEach(function (pn) { link.state[pn] = state[pn]; });
-            };
-            ToolElementArrayAction.prototype._state = function () {
-                var that = this;
-                that.config.links.forEach(function (link) {
-                    that._stateOfLink(link);
-                });
-            };
-            ToolElementArrayAction.prototype.findLinkByBind = function (bind) {
-                var that = this;
-                for (var i = 0; i < that.config.links.length; i++) {
-                    if (that.config.links[i].bind === bind)
-                        return that.config.links[i];
-                }
-                return null;
-            };
-            ToolElementArrayAction.prototype.findLinkById = function (id) {
-                var that = this;
-                for (var i = 0; i < that.config.links.length; i++) {
-                    if (that.config.links[i].id === id)
-                        return that.config.links[i];
-                }
-                return null;
-            };
-            ToolElementArrayAction.prototype.stateChanged = function (propName, params) {
-                var that = this;
-                if (propName && params && params.property && params.property.indexOf('.$links') >= 0) {
-                    var link_4 = that.findLinkByBind(params.property);
-                    if (link_4) {
-                        that._stateOfLink(link_4);
-                        that._state2Ui();
-                    }
-                }
-            };
-            ToolElementArrayAction.prototype.changed = function (propName, ov, nv, op, params) {
-                var that = this;
-                if (!that.$element)
-                    return;
-                var pp = propName.substr(that._bind.length);
-                if (pp.indexOf('.$selected') >= 0)
-                    return;
-                if (pp.indexOf('.$links') >= 0)
-                    return;
-                if (op === 'propchange' || op === 'add' || op === 'remove') {
-                    if (propName === that._bind) {
-                        that._updateselected();
-                        that._state2Ui();
-                    }
-                    else {
-                        var prop = propName;
-                        var instPath = _sutils.parsePath(that._bind, prop, that._grid.renderOptions.expandingProperty);
-                        var item = params[instPath];
-                        if (item) {
-                            var cp = propName.substr(instPath.length + 1);
-                            if (!cp)
-                                return;
-                            if (_sutils.isSelectField(cp)) {
-                                that._updateselected();
-                                that._state2Ui();
-                            }
-                        }
-                    }
-                }
-            };
-            ToolElementArrayAction.prototype._createImportantActions = function (html) {
-                var that = this;
-                that.config.links.forEach(function (link) {
-                    if (link.important) {
-                        html.push('<div id="' + link.id + '" class="bs-toolbar-item' + (that.config.right ? ' right' : '') + ' " title="' + _utils.escapeHtml(link.schema.title) + '">');
-                        var outline = false;
-                        if (link.options.outline !== undefined)
-                            outline = link.options.outline;
-                        else if (['default', 'info', 'secondary', 'danger'].indexOf(link.options.type) >= 0)
-                            outline = true;
-                        html.push('<button data-action-id="' + link.id + '" class="bs-button btn btn-' + _dom.bootstrapStyles(outline)[link.options.type] + '" type="button">');
-                        var hasIcon = false;
-                        if (link.options.icon) {
-                            hasIcon = true;
-                            html.push('<span data-action-id="' + link.id + '" class="' + _dom.iconClass(link.options.icon) + '"></span>');
-                        }
-                        if (!link.options.titleIsHidden && link.schema.title) {
-                            html.push('<span data-action-id="' + link.id + '" ' + (hasIcon ? 'class="d-none d-md-inline-block">&nbsp;' : '>') + _utils.escapeHtml(link.schema.title) + '</span>');
-                        }
-                        html.push('</button>');
-                        html.push('</div>');
-                    }
-                });
-            };
-            ToolElementArrayAction.prototype._createMenuActions = function (html) {
-                var that = this;
-                that.config.links.forEach(function (link) {
-                    if (!link.important) {
-                        html.push('<a id="' + link.id + '" data-action-id="' + link.id + '" href="#" class="dropdown-item">' + _utils.escapeHtml(link.schema.title) + '</a>');
-                    }
-                });
-            };
-            ToolElementArrayAction.prototype.createElement = function (index, config, data) {
-                var that = this;
-                var html = [];
-                html.push('<div  data-tool-id="{0}" tabindex="{1}" class="bs-toolbar-item ' + (that.config.right ? ' right' : '') + (that.config.bottom ? ' bottom' : '') + '">');
-                that._createImportantActions(html);
-                html.push('<div class="dropdown">');
-                html.push('<button id="actions_{0}" title="' + _utils.escapeHtml(config.title) + '" class="bs-button btn btn-' + _dom.bootstrapStyles(true)[config.options.type] + (config.options.caret ? ' dropdown-toggle' : '') + '" id="tooltip-dropdown-{1}" type="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">');
-                if (config.options.icon)
-                    html.push('<span class="' + _dom.iconClass(config.options.icon) + '"></span>');
-                if (!config.options.titleIsHidden)
-                    html.push('<span class="d-none d-md-inline-block">&nbsp;' + _utils.escapeHtml(config.title) + ' </span>');
-                html.push('</button>');
-                html.push('<div class="dropdown-menu dropdown-menu-right" aria-labelledby="tooltip-dropdown-{1}" data-id="toolCommands">');
-                that._createMenuActions(html);
-                html.push('</div>');
-                html.push('</div>');
-                html.push('</div>');
-                return _utils.format(html.join(''), that.id, index);
-            };
-            ToolElementArrayAction.prototype.destroy = function () {
-                var that = this;
-                if (that._bind) {
-                    that._form.unRegisterListenerFor(that._bind, that);
-                    that._bind = null;
-                }
-                if (that.config) {
-                    that.config.links.forEach(function (link) {
-                        that._form.unRegisterListenerFor(link.bind, that);
-                    });
-                }
-                that._grid = null;
-                that._form = null;
-                that._schema = null;
-                that._schemaItems = null;
-                _super.prototype.destroy.call(this);
-            };
-            ToolElementArrayAction.prototype.click = function (event) {
-                var that = this;
-                var target = event.target;
-                if (target.href) {
-                    event.preventDefault();
-                }
-                var actionId = _dom.attr(target, 'data-action-id');
-                if (actionId) {
-                    var link_5 = that.findLinkById(actionId);
-                    if (link_5) {
-                        if (!link_5.isHidden && !link_5.state.isDisabled && !link_5.state.isHidden)
-                            that._form.execAction(link_5.bind, link_5.schema.select ? that._selected : null);
-                        if (that._grid)
-                            that._grid.setFocus();
-                    }
-                }
-            };
-            return ToolElementArrayAction;
-        }(ToolElement));
-        ui.ToolElementArrayAction = ToolElementArrayAction;
-        var ToolElementSelect = /** @class */ (function (_super) {
-            __extends(ToolElementSelect, _super);
-            function ToolElementSelect(config, options) {
-                var _this = _super.call(this, config, options) || this;
-                var that = _this;
-                config.value = config.value || {};
-                // Test
-                config.value.default = _link.context().$url.idTra;
-                // Test
-                config.value.items = config.value.items || [];
-                return _this;
-            }
-            ToolElementSelect.prototype.createElement = function (index, config, data) {
-                var css = ["bs-toolbar-item"];
-                var actionsView = [];
-                // action : {name, events}
-                config.value.items && config.value.items.forEach(function (action) {
-                    actionsView.push('<option value="' + action.code + '" ' + (config.value.default == action.code ? "selected" : "") + '>' + (action.lib || action.code) + '</option>');
-                });
-                var html = [
-                    '<div data-tool-id="{0}" tabindex="' + index + '" class="' + css.join(" ") + '">',
-                    '<div class="input-group">',
-                    '<span class="input-group-prepend">',
-                    '<span class="input-group-text">',
-                    (config.title || ""),
-                    '</span>',
-                    '</span>',
-                    '<select class="form-control" data-id="toolSelect">',
-                    actionsView.join(""),
-                    '</select>',
-                    '</div>',
-                    '</div>'
-                ];
-                return _utils.format(html.join(''), this.id);
-            };
-            ToolElementSelect.prototype._select = function () {
-                var that = this;
-                if (that.$element) {
-                    var e = that.$element.get(0);
-                    if (e) {
-                        return _dom.query(that.$element.get(0), "select[data-id='toolSelect']");
-                    }
-                }
-            };
-            ToolElementSelect.prototype.update = function () {
-                var that = this;
-                if (!that.$element)
-                    return;
-                var frag = document.createDocumentFragment();
-                that.config.value.items && that.config.value.items.forEach(function (action) {
-                    _dom.append(frag, $('<option value="' + action.code + '" ' + (that.config.value.default == action.code ? "selected" : "") + '>' + (action.lib || action.libelle || action.code) + '</option>').get(0));
-                });
-                var selectView = that._select();
-                if (selectView) {
-                    _dom.empty(selectView);
-                    _dom.append(selectView, frag);
-                }
-            };
-            ToolElementSelect.prototype._setEvents = function () {
-                var that = this;
-                var selectView = that._select();
-                if (selectView)
-                    $(selectView).change(function (event) {
-                        var target = event.target;
-                        var optionView = target.options[target.selectedIndex];
-                        if (that.options.callback)
-                            that.options.callback({ id: that.config.id, name: that.config.name, type: that.config.type, value: optionView.value, toolData: that.config });
-                    });
-            };
-            ToolElementSelect.prototype._removeEvents = function () {
-                var that = this;
-                var selectView = that._select();
-                if (selectView)
-                    $(selectView).off('change');
-            };
-            return ToolElementSelect;
-        }(ToolElement));
-        ui.ToolElementSelect = ToolElementSelect;
-        var ToolElementSearch = /** @class */ (function (_super) {
-            __extends(ToolElementSearch, _super);
-            function ToolElementSearch(config, options) {
-                var _this = _super.call(this, config, options) || this;
-                _this.config.value = "";
-                _this.oldValue = "";
-                return _this;
-            }
-            ToolElementSearch.prototype.createElement = function (index, config, data) {
-                var css = [];
-                var html = [
-                    '<div data-tool-id="{0}" tabindex="' + index + '" class="bs-toolbar-item input-group' + css.join(" ") + '">',
-                    '<input toolKeyup="' + index + '" type="text" class="form-control" placeholder="' + (config.title || "Recherche") + '" />',
-                    '<span class="input-group-append">',
-                    '<button toolClick="' + index + '" class="bs-button btn btn-' + _dom.bootstrapStyles(true).secondary + '" type="button">',
-                    '<span toolClick="' + index + '" class="' + _dom.iconClass(config.icon || "search") + '"> </span>',
-                    '</button>',
-                    '</span>',
-                    '</div>'
-                ];
-                return _utils.format(html.join(''), this.id);
-            };
-            ToolElementSearch.prototype.update = function () {
-                var that = this;
-                if (!that.$element)
-                    return;
-                var input = _dom.query(that.$element.get(0), "input");
-                if (input)
-                    input.value = that.config.value;
-            };
-            ToolElementSearch.prototype.getValue = function () {
-                var that = this;
-                that.oldValue = that._getInputValue();
-                return that.oldValue;
-            };
-            ToolElementSearch.prototype._getInputValue = function () {
-                var that = this;
-                if (!that.$element)
-                    return;
-                var input = _dom.query(that.$element.get(0), "input");
-                if (input)
-                    return input.value;
-                return null;
-            };
-            ToolElementSearch.prototype._setEvents = function () {
-                var that = this;
-                if (!that.$element)
-                    return;
-                var div = that.$element.get(0);
-                if (div) {
-                    var input_4 = _dom.query(div, "input");
-                    var btn_1 = _dom.query(div, "button");
-                    input_4.addEventListener('focus', function (event) {
-                        input_4.select();
-                    });
-                    div.addEventListener('blur', function (event) {
-                        var isNotBtnSearch = event.explicitOriginalTarget && event.explicitOriginalTarget != btn_1 && event.relatedTarget == null;
-                        isNotBtnSearch = isNotBtnSearch || (event.relatedTarget == null || (event.relatedTarget && event.relatedTarget != btn_1)) && event.explicitOriginalTarget == undefined;
-                        if (event.target == input_4 && isNotBtnSearch) {
-                            //if (!that._getInputValue() && that.filtering){
-                            that.config.value = " ";
-                            that.setValue(that.oldValue);
-                        }
-                    }, true);
-                }
-            };
-            return ToolElementSearch;
-        }(ToolElement));
-        ui.ToolElementSearch = ToolElementSearch;
-        var ToolElementFilterExpress = /** @class */ (function (_super) {
-            __extends(ToolElementFilterExpress, _super);
-            function ToolElementFilterExpress(config, options) {
-                var _this = _super.call(this, config, options) || this;
-                var that = _this;
-                that.config.value = config.fields || that.config.value;
-                that._init();
-                return _this;
-            }
-            ToolElementFilterExpress.prototype._init = function () {
-                var that = this;
-                var options = that.options || {};
-                that.filterExpress = new _ui.FilterExpress(that.config.fields || [], function (filters) {
-                    if (that.options.callback) {
-                        filters = filters ? (Array.isArray(filters) ? filters : [filters]) : null;
-                        var lfilter = null;
-                        if (filters && filters.length) {
-                            lfilter = that.options.mongoDbFilter ? ui.filter.format.toMongoDbFilter(that.config.fields, filters) : _ui.filter.format.toPhenix(that.config.fields, filters);
-                        }
-                        var ltitle = "";
-                        if (lfilter)
-                            ltitle = that._formatTitle(that.config.fields, filters);
-                        that.options.callback({ id: that.config.id, name: that.config.name, type: that.config.type, value: { title: ltitle, value: lfilter }, toolData: that.config });
-                    }
-                }, options);
-            };
-            ToolElementFilterExpress.prototype.createElement = function (index, config, data) {
-                var css = [];
-                return Phoenix.utils.format('<div data-tool-id="{0}" class="bs-toolbar-item ' + css.join(" ") + '"></div>', this.id);
-            };
-            ToolElementFilterExpress.prototype.render = function ($parent) {
-                var that = this;
-                if (!that.$element) {
-                    that.$element = $(that.createElement(that.config.id, that.config, that.config.value));
-                    if (that.filterExpress)
-                        that.filterExpress.render(that.$element);
-                }
-                if ($parent)
-                    _dom.append($parent.get(0), that.$element.get(0));
-                return that.$element;
-            };
-            ToolElementFilterExpress.prototype.updateRender = function () {
-                var that = this;
-                _dom.empty(that.$element.get(0));
-                that._init();
-                if (that.filterExpress)
-                    that.filterExpress.render(that.$element);
-            };
-            ToolElementFilterExpress.prototype._formatTitle = function (fields, filters) {
-                return ui.filter.format.toTitle(filters, fields);
-            };
-            ToolElementFilterExpress.prototype.update = function () {
-                var that = this;
-                if (!that.$element)
-                    return;
-                that.config.value = that.config.fields || that.config.value || [];
-                that.filterExpress.fields = that.config.value;
-            };
-            return ToolElementFilterExpress;
-        }(ToolElement));
-        ui.ToolElementFilterExpress = ToolElementFilterExpress;
-        var ToolElementFilter = /** @class */ (function (_super) {
-            __extends(ToolElementFilter, _super);
-            function ToolElementFilter(config, options) {
-                return _super.call(this, config, options) || this;
-            }
-            ToolElementFilter.prototype.createElement = function (index, config, data) {
-                var css = ["bs-button btn btn-" + _dom.bootstrapStyles(true).secondary];
-                var html = [
-                    '<div data-tool-id="{0}" class="bs-toolbar-item">',
-                    '<button toolClick="' + index + '" type="button" class="' + css.join(" ") + '">',
-                    (config.icon ? '<span toolClick="' + index + '" class="' + _dom.iconClass(config.icon) + '"></span>' : ''),
-                    (config.title ? '&nbsp;' + config.title : ''),
-                    '</button>',
-                    '<span class="bs-toolbar-item-filter ' + (Phoenix.bootstrap4 ? 'form-control-plaintext' : 'form-control-static') + ' bs-cursor-h"></span>',
-                    '</div>'
-                ];
-                return _utils.format(html.join(''), this.id);
-            };
-            ToolElementFilter.prototype.addTooltip = function (data) {
-                var that = this;
-                var tooltip = $('<span data-toggle="tooltip" data-phoenix-tooltip="true" data-placement="auto" title= "' + data + '"> ' + data + ' </span>');
-                var tt = _dom.query(that.$element.get(0), ".bs-toolbar-item-filter");
-                _dom.empty(tt);
-                _dom.append(tt, tooltip.get(0));
-                if (tooltip["tooltip"])
-                    tooltip["tooltip"]({
-                        html: true,
-                        container: 'body',
-                        template: '<div class="tooltip bs-tooltip-help" role="tooltip"><div class="tooltip-arrow"></div><div class="tooltip-inner" style="text-align:left"></div></div>'
-                    });
-            };
-            ToolElementFilter.prototype.update = function () {
-                var that = this;
-                if (!that.$element)
-                    return;
-                that.addTooltip(that.config.value);
-            };
-            ToolElementFilter.prototype.render = function ($parent) {
-                _super.prototype.render.call(this, $parent);
-                var that = this;
-                that.addTooltip(that.config.value);
-            };
-            return ToolElementFilter;
-        }(ToolElement));
-        ui.ToolElementFilter = ToolElementFilter;
-        var ToolBar = /** @class */ (function () {
-            function ToolBar(toolElements, options) {
-                var that = this;
-                that.id = _utils.allocID();
-                that.options = options || {};
-                that._map = {};
-                that.toolElements = toolElements || [];
-                that._schema = options.schema;
-                that._form = options.form;
-                that._schemaItems = options.schemaItems;
-                that._bind = options.bind;
-            }
-            // subcontrols
-            ToolBar.prototype.getSubControls = function () {
-                var that = this;
-                var res = null;
-                that.toolElements.forEach(function (item) {
-                    if (item.type === 'control') {
-                        res = res || [];
-                        item.options = item.options || {};
-                        item.options.inline = true;
-                        item.options._parentId = _utils.allocID();
-                        res.push(item);
-                    }
-                });
-                return res;
-            };
-            ToolBar.prototype.addSubControls = function (control) {
-                var that = this;
-                that._subcontrols = that._subcontrols || [];
-                that._subcontrols.push(control);
-            };
-            ToolBar.prototype.getChildren = function () {
-                var that = this;
-                if (!that._subcontrols) {
-                    return null;
-                }
-                var res = [];
-                that._subcontrols.forEach(function (item) {
-                    res.push({ control: item, parent: item.fieldOptions._parentId });
-                });
-                that._subcontrols = null;
-                return res;
-            };
-            Object.defineProperty(ToolBar.prototype, "form", {
-                // end subcontrols
-                get: function () {
-                    return this._form;
-                },
-                enumerable: true,
-                configurable: true
-            });
-            Object.defineProperty(ToolBar.prototype, "schema", {
-                get: function () {
-                    return this._schema;
-                },
-                enumerable: true,
-                configurable: true
-            });
-            Object.defineProperty(ToolBar.prototype, "schemaItems", {
-                get: function () {
-                    return this._schemaItems;
-                },
-                enumerable: true,
-                configurable: true
-            });
-            ToolBar.prototype.htmlRoots = function () {
-                var that = this;
-                var res = [];
-                if (that.$elementTop)
-                    res.push({ position: 'top', element: that.$elementTop.get(0) });
-                if (that.$elementBottom)
-                    res.push({ position: 'bottom', element: that.$elementBottom.get(0) });
-                return res;
-            };
-            ToolBar.prototype.execClick = function (event) {
-                var that = this;
-                var index = _dom.attr(event.target, "toolClick");
-                if (index !== null)
-                    that._onToolElement('click', index);
-                else {
-                    var control = that._idComponent(event.target);
-                    if (control && control.click)
-                        control.click(event);
-                }
-            };
-            ToolBar.prototype._idComponent = function (el) {
-                var that = this;
-                if (!that.$elementTop)
-                    return null;
-                var t = el, root = that.$elementTop.get(0), id;
-                while (t) {
-                    if (!t.getAttribute)
-                        return null;
-                    id = t.getAttribute('data-tool-id');
-                    if (id)
-                        return that._map[id];
-                    t = (t === root || t === document.body) ? null : t.parentNode;
-                }
-                if (that.$elementTop)
-                    return null;
-            };
-            ToolBar.prototype.getToolElement = function (indexOrName) {
-                var e = null;
-                this.toolElements.forEach(function (item, i) {
-                    if (i == indexOrName || item.name === indexOrName) {
-                        e = item.$component;
-                        return false;
-                    }
-                });
-                return e;
-            };
-            ToolBar.prototype.setValue = function (name, value) {
-                var that = this;
-                var te = that.getToolElement(name);
-                if (te)
-                    te.setValue(value);
-            };
-            ToolBar.prototype.getValue = function (name) {
-                var that = this;
-                var te = that.getToolElement(name);
-                if (te)
-                    return te.getValue();
-                return;
-            };
-            ToolBar.prototype.refresh = function () {
-                this.toolElements.forEach(function (item) {
-                    var te = item.$component;
-                    if (te)
-                        te.refresh();
-                });
-            };
-            ToolBar.prototype.setOptions = function (name, value) {
-                var that = this;
-                var te = that.getToolElement(name);
-                if (te)
-                    te.setOptions(value);
-            };
-            ToolBar.prototype.getOptions = function (name) {
-                var that = this;
-                var te = that.getToolElement(name);
-                if (te)
-                    return te.getOptions();
-                return;
-            };
-            ToolBar.prototype._onToolElement = function (action, id) {
-                var that = this;
-                if (id >= 0) {
-                    var toolData = that.getToolElement(id);
-                    if (toolData && that.options.selectToolElement) {
-                        var value = toolData.getValue();
-                        toolData.after();
-                        that.options.selectToolElement({ id: toolData.config.id, type: toolData.config.type, name: toolData.config.name, value: value, toolData: toolData.config }, action);
-                    }
-                }
-            };
-            ToolBar.prototype._setEvents = function () {
-                var that = this;
-                if (that.$elementTop && !that.options.gridControl) {
-                    that.$elementTop.on('click', function (event) {
-                        that.execClick(event);
-                    });
-                }
-                if (that.$elementTop) {
-                    that.$elementTop.on('keyup', function (event) {
-                        if (event.keyCode == 13) {
-                            var index = _dom.attr(event.target, "toolKeyup");
-                            that._onToolElement("keyup", index);
-                        }
-                    });
-                }
-                if (that.$elementBottom && !that.options.gridControl) {
-                    that.$elementBottom.on('click', function (event) {
-                        that.execClick(event);
-                    });
-                }
-            };
-            ToolBar.prototype._controlById = function (id) {
-                return this._map[id];
-            };
-            ToolBar.prototype._removeEvents = function () {
-                var that = this;
-                if (that.$elementTop)
-                    that.$elementTop.off('click');
-                if (that.$elementBottom)
-                    that.$elementBottom.off('click');
-            };
-            ToolBar.prototype._renderToolElements = function (toolElements) {
-                var that = this;
-                if (!toolElements.length)
-                    return;
-                if (!that.$elementTop)
-                    return;
-                var e = that.$elementTop.get(0);
-                var eLeft = _dom.find(e, that.id + '_top_left');
-                var eRight = _dom.find(e, that.id + '_top_right');
-                var eb = that.$elementBottom ? that.$elementBottom.get(0) : null;
-                var eBottomLeft = eb ? _dom.find(eb, that.id + '_bottom_left') : null;
-                var eBottomRight = eb ? _dom.find(eb, that.id + '_bottom_right') : null;
-                that._map = {};
-                toolElements.forEach(function (item, index) {
-                    item.id = index;
-                    var type = item.type;
-                    var options = $.extend(true, { callback: that.options.selectToolElement }, item.options || {});
-                    options.form = that._form;
-                    options.schema = that._schema;
-                    options.schemaItems = that._schemaItems;
-                    options.bind = that._bind;
-                    options.gridControl = that.options.gridControl;
-                    switch (type.toLowerCase()) {
-                        case 'control':
-                            break;
-                        case "count":
-                            item.$component = new ToolElementCount(item, options);
-                            break;
-                        case "filter":
-                            item.$component = new ToolElementFilter(item, options);
-                            break;
-                        case "search":
-                            item.$component = new ToolElementSearch(item, options);
-                            break;
-                        case "filterexpress":
-                            options.mongoDbFilter = that.options.composition;
-                            item.$component = new ToolElementFilterExpress(item, options);
-                            break;
-                        case "dropdownaction":
-                            item.$component = new ToolElementDropdownAction(item, options);
-                            break;
-                        case "links":
-                            item.$component = new ToolElementArrayAction(item, options);
-                            break;
-                        case "select":
-                            item.$component = new ToolElementSelect(item, options);
-                            break;
-                        case "title":
-                            item.$component = new ToolElementTitle(item, options);
-                            break;
-                        case "icon":
-                            item.$component = new ToolElementIcon(item, options);
-                            break;
-                        default:
-                            item.style = item.style || item.type;
-                            item.$component = new ToolElementButton(item, options);
-                            break;
-                    }
-                    if (item.$component) {
-                        that._map[item.$component.id] = item.$component;
-                        var $p = item.bottom ? (eb ? (item.right ? $(eBottomRight) : $(eBottomLeft)) : null) : (item.right ? $(eRight) : $(eLeft));
-                        if ($p)
-                            item.$component.render($p);
-                    }
-                    else if (type.toLowerCase() === 'control') {
-                        var $p = item.bottom ? (eb ? (item.right ? $(eBottomRight) : $(eBottomLeft)) : null) : (item.right ? $(eRight) : $(eLeft));
-                        if ($p) {
-                            $p.append($(_utils.format('<div id="{0}" class="bs-toolbar-item"></div>', item.options._parentId)));
-                        }
-                    }
-                });
-            };
-            ToolBar.prototype.render = function ($parentTop, $parentBottom) {
-                var that = this;
-                var doRender = false;
-                var _bootstrap4 = Phoenix.bootstrap4;
-                var html = [
-                    '<div class="container-fluid no-x-padding no-x-margin">',
-                    '<div class="bs-island bs-toolbar" data-render="{2}">',
-                    '<div class="bs-toolbar-left mr-auto form-inline" id="{0}_{1}_left"></div>',
-                    '<div class="bs-toolbar-right form-inline" id="{0}_{1}_right"></div>',
-                    '</div>',
-                    '</div>'
-                ];
-                if ($parentTop && !that.$elementTop) {
-                    that.$elementTop = $(_utils.format(html.join(''), that.id, 'top', that.options.gridControl ? that.options.gridControl.id : that.id));
-                    doRender = true;
-                }
-                if ($parentBottom && !that.$elementBottom) {
-                    that.$elementBottom = $(_utils.format(html.join(''), that.id, 'bottom', that.options.gridControl ? that.options.gridControl.id : that.id));
-                    doRender = true;
-                }
-                if (doRender) {
-                    that._renderToolElements(that.toolElements);
-                    if ($parentTop) {
-                        var parent_6 = $parentTop;
-                        if (that.options.replaceParent) {
-                            parent_6 = $("<div></div>");
-                            parent_6.append(that.$elementTop);
-                            $parentTop.replaceWith(parent_6);
-                        }
-                        else
-                            parent_6.append(that.$elementTop);
-                    }
-                    if ($parentBottom) {
-                        $parentBottom.append(that.$elementBottom);
-                    }
-                    that._setEvents();
-                }
-            };
-            ToolBar.prototype.destroy = function () {
-                var that = this;
-                that._removeEvents();
-                that.$elementTop = null;
-                that.options = null;
-                that.toolElements = null;
-                that._map = null;
-                if (that.toolElements) {
-                    that.toolElements.forEach(function (item) {
-                        if (item.$component) {
-                            item.$component.destroy();
-                            item.$component = null;
-                        }
-                    });
-                    that.toolElements = null;
-                }
-                that._form = null;
-                that._schema = null;
-                that._schemaItems = null;
-                that._subcontrols = null;
-            };
-            return ToolBar;
-        }());
-        ui.ToolBar = ToolBar;
-        var ToolbarForm = /** @class */ (function (_super) {
-            __extends(ToolbarForm, _super);
-            function ToolbarForm(fp, options, form) {
-                var _this = _super.call(this, fp, options, form) || this;
-                _this._state();
-                return _this;
-            }
-            ToolbarForm.prototype.getValue = function (name) {
-                return this._toolbar.getValue(name);
-            };
-            ToolbarForm.prototype.setValue = function (name, value) {
-                this._toolbar.setValue(name, value);
-            };
-            ToolbarForm.prototype.refresh = function () {
-                this._toolbar.refresh();
-            };
-            ToolbarForm.prototype.getOptions = function (name) {
-                return this._toolbar.getOptions(name);
-            };
-            ToolbarForm.prototype.setOptions = function (name, value) {
-                this._toolbar.setOptions(name, value);
-            };
-            ToolbarForm.prototype.changed = function (propName, ov, nv, op) {
-                var that = this;
-                that.refresh();
-            };
-            ToolbarForm.prototype.destroy = function () {
-                var that = this;
-                _super.prototype.destroy.call(this);
-            };
-            ToolbarForm.prototype.click = function (event) { };
-            ToolbarForm.prototype._createContainer = function (id) {
-                var style = this.renderOptions.style || "";
-                return _utils.format('<div id="{0}" data-render="{0}" class="bs-tile ' + style + '"></div>', id);
-            };
-            ToolbarForm.prototype._onSelectToolElement = function (toolElement) {
-                var that = this;
-                var toolName = toolElement.name || toolElement.id;
-                that.form.execAction(that.$bind + ".$toolbar." + toolName, { toolElement: toolElement, control: that });
-            };
-            ToolbarForm.prototype.render = function ($parent) {
-                var that = this;
-                var opts = that._initOptions(_uiutils.utils.defaultOptions);
-                if (!that.$element) {
-                    that.$element = $(that._createContainer(that.id));
-                    var toolElements = that.state.value || [];
-                    toolElements.forEach(function (item) {
-                        item = $.extend(true, item, item.data, { options: item.options });
-                        delete item.data;
-                        delete item.options;
-                        return item;
-                    });
-                    var toptions = { selectToolElement: that._onSelectToolElement.bind(that) };
-                    that._toolbar = new _ui.ToolBar(toolElements, toptions);
-                    that._toolbar.render(that.$element);
-                }
-                that.appendElement($parent, opts);
-                return that.$element;
-            };
-            return ToolbarForm;
-        }(ui.AbsField));
-        ui.ToolbarForm = ToolbarForm;
-        _ui.registerControl(ToolbarForm, "array", false, "toolbar");
-    })(ui = Phoenix.ui || (Phoenix.ui = {}));
 })(Phoenix || (Phoenix = {}));

@@ -1,39 +1,3 @@
-var Phoenix;
-(function (Phoenix) {
-    var ui;
-    (function (ui) {
-        var _ulocale = Phoenix.ulocale, _locale = Phoenix.locale;
-        var tdp = function (lang) {
-            if (window["Highcharts"] && window["Highcharts"].setOptions) {
-                window["Highcharts"].setOptions({
-                    lang: {
-                        months: _locale.date.months,
-                        weekdays: _locale.date.weekdays,
-                        shortMonths: _locale.date.monthsShort,
-                        decimalPoint: _locale.number.decimal,
-                        thousandsSep: _locale.number.thousand,
-                        resetZoom: _locale.charts.resetZoom,
-                        resetZoomTitle: _locale.charts.resetZoomTitle,
-                        rangeSelectorZoom: _locale.charts.rangeSelectorZoom,
-                        rangeSelectorFrom: _locale.charts.rangeSelectorFrom,
-                        rangeSelectorTo: _locale.charts.rangeSelectorTo
-                    }
-                });
-            }
-        };
-        var _ensureLang = function () {
-            var lastLang = "";
-            return function () {
-                if (_ulocale.currentLang != lastLang) {
-                    lastLang = _ulocale.currentLang;
-                    tdp(_ulocale.currentLang);
-                }
-            };
-        };
-        ui.translateHighcharts = _ensureLang();
-    })(ui = Phoenix.ui || (Phoenix.ui = {}));
-})(Phoenix || (Phoenix = {}));
-
 var __extends = (this && this.__extends) || (function () {
     var extendStatics = Object.setPrototypeOf ||
         ({ __proto__: [] } instanceof Array && function (d, b) { d.__proto__ = b; }) ||
@@ -50,7 +14,7 @@ var Phoenix;
     (function (ui) {
         var _utils = Phoenix.utils, _dom = Phoenix.dom, _locale = Phoenix.locale, _mem = Phoenix.$mem, _link = Phoenix.link, _ui = ui, _customData = Phoenix.customData, _render = Phoenix.render;
         var FormContainer = (function () {
-            function FormContainer(options, layout, schema, formData, module) {
+            function FormContainer(options, layout, schema, formData, module, preferences) {
                 var that = this;
                 options = options || {};
                 that.formData = formData || { $create: true };
@@ -58,6 +22,7 @@ var Phoenix;
                 that.layout = layout;
                 that.schema = schema;
                 that.module = module;
+                that.preferences = preferences;
             }
             FormContainer.prototype.render = function ($parent) {
                 var that = this;
@@ -72,11 +37,12 @@ var Phoenix;
                         settingsHandler: that.options.onSettings,
                         storageName: that.options.storageName,
                         validators: that.options.validators,
-                        module: that.module
+                        module: that.module,
+                        preferences: that.preferences
                     };
                     var llocale = that.module && that.module.data && that.module.data.data && that.module.data.data.ds && that.module.data.data.ds.view ?
                         that.module.data.data.ds.view.$view : null;
-                    _ui.OpenForm($parent, that.layout, that.schema, that.formData || {}, llocale, that.action, fo, function (form) {
+                    _ui.OpenForm($parent, that.layout, that.schema, that.formData || {}, llocale, that.action, null, fo, function (form) {
                         that.form = form;
                         that.$element = that.form.$element;
                     });
@@ -97,7 +63,7 @@ var Phoenix;
         _render.register("javascript", "widget.content.control.form", FormContainer);
         var FormContainerController = (function (_super) {
             __extends(FormContainerController, _super);
-            function FormContainerController(options, formName, metaName, controllerName, parentModule) {
+            function FormContainerController(options, formName, metaName, controllerName, parentModule, preferences) {
                 var _this = this;
                 if (!formName)
                     throw 'Form name is empty.';
@@ -110,7 +76,7 @@ var Phoenix;
                     throw _utils.format('Controller not found "{0}". Use customData.register(controllerName, ctrlConfig).', controllerName);
                 ui.formController2Options(options, config);
                 var d = (config.data ? config.data() : null);
-                _this = _super.call(this, options, formName, metaName, d, parentModule) || this;
+                _this = _super.call(this, options, formName, metaName, d, parentModule, preferences) || this;
                 if (config.isFormController) {
                     _this.action = config.modelChanged.bind(config);
                 }
@@ -122,272 +88,6 @@ var Phoenix;
             return FormContainerController;
         }(FormContainer));
         ui.FormContainerController = FormContainerController;
-    })(ui = Phoenix.ui || (Phoenix.ui = {}));
-})(Phoenix || (Phoenix = {}));
-
-var Phoenix;
-(function (Phoenix) {
-    var ui;
-    (function (ui) {
-        var _ulocale = Phoenix.ulocale, _utils = Phoenix.utils, _ajax = Phoenix.ajax, _render = Phoenix.render, _html = '<div id="{0}" class="" style="width:{1};height:{2}"></div>', _data2Timeline = function (cdata, options, config) {
-            var gdata = new window["google"].visualization.DataTable();
-            gdata.addColumn('string', 'Id');
-            gdata.addColumn('string', 'Name');
-            gdata.addColumn('date', 'Start');
-            gdata.addColumn('date', 'End');
-            var rows = [];
-            for (var i = 1, len = cdata.cols.length; i < len; i++) {
-                var cr = new Array(4);
-                cr[0] = i + '';
-                cr[1] = cdata.cols[i].label;
-                var v = cdata.rows[0][i];
-                v = (typeof v === "object") ? v.value : v;
-                if (v)
-                    cr[2] = _ulocale.parseISODate(v);
-                else
-                    cr[2] = null;
-                v = cdata.rows[1][i];
-                v = (typeof v === "object") ? v.value : v;
-                if (v)
-                    cr[3] = _ulocale.parseISODate(v);
-                else
-                    cr[3] = null;
-                rows.push(cr);
-            }
-            options.timeline = { showRowLabels: false };
-            options.colors = config.colors;
-            gdata.addRows(rows);
-            return gdata;
-        }, _data2Pie = function (cdata, options, config) {
-            var isCurrency = (config.valueType == "money");
-            var data = new window["google"].visualization.DataTable();
-            cdata.titles = cdata.titles || {};
-            cdata.rows = cdata.rows || [];
-            data.addColumn('string', cdata.cols[0].label);
-            data.addColumn('number', cdata.titles.seriesTitle || '');
-            var rows = [];
-            for (var i = 1, len = cdata.cols.length; i < len; i++) {
-                var cr = [cdata.cols[i].label, { v: 0.0, f: '' }];
-                for (var j = 0, ll = cdata.rows.length; j < ll; j++) {
-                    var value = cdata.rows[j][i];
-                    if (value)
-                        cr[1].v += (typeof value === "object") ? value.value : value;
-                }
-                cr[1].v = parseFloat(cr[1].v.toFixed(6));
-                if (isCurrency)
-                    cr[1].f = _ulocale.money(cr[1].v, true);
-                rows.push(cr);
-            }
-            data.addRows(rows);
-            if (config.colors) {
-                options.slices = {};
-                config.colors.forEach(function (color, index) {
-                    options.slices[index] = { color: color };
-                });
-            }
-            return data;
-        }, _data2AreaOrLine = function (cdata, options, config) {
-            var isCurrency = (config.valueType == "money");
-            var ldata = new window["google"].google.visualization.DataTable();
-            var rows = [];
-            cdata.titles = cdata.titles || {};
-            cdata.rows = cdata.rows || [];
-            for (var i = 0, len = cdata.cols.length; i < len; i++) {
-                ldata.addColumn(i ? 'number' : 'string', cdata.cols[i].label);
-            }
-            for (var j = 0, ll = cdata.rows.length; j < ll; j++) {
-                var cr = new Array(cdata.cols.length);
-                for (var i = 0, len = cdata.cols.length; i < len; i++) {
-                    var value = cdata.rows[j][i];
-                    if (i == 0) {
-                        cr[i] = (typeof value === "object") ? value.value : value;
-                    }
-                    else {
-                        cr[i] = { v: (typeof value === "object") ? value.value : value };
-                        if (isCurrency)
-                            cr[i].f = _ulocale.money(cr[i].v, true);
-                    }
-                }
-                rows.push(cr);
-            }
-            options.colors = config.colors;
-            ldata.addRows(rows);
-            return ldata;
-        };
-        var GoogleChart = (function () {
-            function GoogleChart(options) {
-                var that = this;
-                that.options = options || {};
-                that.props = {};
-                that.data = {};
-                that.chartId = _utils.allocID();
-                that._defineProps();
-            }
-            GoogleChart.prototype._defineProps = function () {
-                var self = this;
-                var _dp = _utils.defineProperty;
-                _dp("data", self);
-                _dp("config", self);
-            };
-            GoogleChart.prototype._notifyChange = function (propertyName) {
-                var that = this;
-                switch (propertyName) {
-                    case "data":
-                        that.renderChart();
-                        break;
-                }
-            };
-            GoogleChart.prototype._onresize = function () {
-                var that = this;
-                that._internalRenderChart();
-            };
-            GoogleChart.prototype._setEvents = function () {
-                var that = this;
-                if (that.$element) {
-                    $(window).on('resize.' + that.chartId, function () {
-                        if (!that.canResize)
-                            return;
-                        clearTimeout(that.doResize);
-                        that.doResize = setTimeout(that._onresize.bind(that), 100);
-                    });
-                }
-            };
-            GoogleChart.prototype._removeEvents = function () {
-                var that = this;
-                if (that.$element) {
-                    $(window).off("resize." + that.chartId);
-                }
-            };
-            GoogleChart.prototype._getConfig = function () {
-                var that = this;
-                var config = that.data.config || {};
-                config.width = (config.width || "100%") + '';
-                config.height = (config.height || "400px") + '';
-                if (config.height.indexOf("px") < 0 || config.height.indexOf("%") < 0)
-                    config.height = config.height + "px";
-                return config;
-            };
-            GoogleChart.prototype._append = function ($parent) {
-                var that = this;
-                if ($parent) {
-                    if (that.options.beforeAdd)
-                        that.options.beforeAdd(that.$element);
-                    if (that.options.replaceParent)
-                        $parent.replaceWith(that.$element);
-                    else
-                        $parent.append(that.$element);
-                }
-            };
-            GoogleChart.prototype.renderChart = function () {
-                var that = this;
-                if (!that.$element)
-                    return;
-                if (that.rto)
-                    return;
-                that.rto = window.setTimeout(function () {
-                    that.rto = null;
-                    that._internalRenderChart();
-                }, 0);
-            };
-            GoogleChart.prototype._internalRenderChart = function () {
-                var that = this;
-                var config = that.data.config || {};
-                config.valueType = config.valueType || "money";
-                config.colors = config.colors || ["#f03558", "#fad32d", "#45cebd", "#f99f46", "#6A5ACD", "#A0522D", "#000000", "#696969"];
-                config.colors = ["#f03558", "#fad32d", "#45cebd", "#f99f46", "#6A5ACD", "#A0522D", "#000000", "#696969"];
-                var cdata = that.data.data;
-                var ldata, tc, options = {
-                    legend: { position: 'top', alignment: 'center', maxLines: 2 },
-                    tooltip: { showColorCode: true, text: 'value' },
-                    pieHole: 0,
-                    vAxis: null, hAxis: null, bars: '',
-                };
-                that.$element.empty();
-                if (!cdata || !cdata.cols || !cdata.cols.length)
-                    return;
-                if (!cdata.rows || !cdata.rows.length)
-                    return;
-                switch (config.type) {
-                    case "pie":
-                        tc = 'PieChart';
-                        ldata = _data2Pie(cdata, options, config);
-                        break;
-                    case "donut":
-                        tc = 'PieChart';
-                        ldata = _data2Pie(cdata, options, config);
-                        options.pieHole = 0.4;
-                        break;
-                    case "line":
-                        tc = 'LineChart';
-                        options.hAxis = { title: cdata.cols[0].label || '' };
-                        options.vAxis = { title: cdata.titles.valuesTitle || '' };
-                        ldata = _data2AreaOrLine(cdata, options, config);
-                        break;
-                    case "area":
-                        tc = 'AreaChart';
-                        options.hAxis = { title: cdata.cols[0].label || '' };
-                        options.vAxis = { title: cdata.titles.valuesTitle || '' };
-                        ldata = _data2AreaOrLine(cdata, options, config);
-                        break;
-                    case "bar":
-                        tc = 'BarChart';
-                        options.hAxis = { title: cdata.titles.valuesTitle || '' };
-                        options.vAxis = { title: cdata.cols[0].label || '' };
-                        options.bars = 'horizontal';
-                        ldata = _data2AreaOrLine(cdata, options, config);
-                        break;
-                    case "column":
-                        tc = 'ColumnChart';
-                        options.hAxis = { title: cdata.cols[0].label || '' };
-                        options.vAxis = { title: cdata.titles.valuesTitle || '' };
-                        ldata = _data2AreaOrLine(cdata, options, config);
-                        break;
-                    case "columnrange":
-                        tc = 'Timeline';
-                        if (cdata.rows.length != 2)
-                            return null;
-                        ldata = _data2Timeline(cdata, options, config);
-                        break;
-                    default:
-                        return null;
-                }
-                var chart = tc == 'Bar' ? new window["google"].charts.Bar(that.$element.get(0)) : new window["google"].visualization[tc](that.$element.get(0));
-                chart.draw(ldata, options);
-                that.canResize = true;
-            };
-            GoogleChart.prototype.render = function ($parent) {
-                var that = this;
-                if (!that.$element) {
-                    _ajax.loadScript("jsapi", "https://www.google.com/jsapi", function (err) {
-                        if (!err) {
-                            var loader = {
-                                execute: function (cb) {
-                                    window["google"].load('visualization', '1', { packages: ['corechart', 'timeline'], callback: cb });
-                                }
-                            };
-                            _ajax.loadScript("gvisualization", "", function (err) {
-                                var cfg = that._getConfig();
-                                that.$element = $(_utils.format(_html, that.chartId, cfg.width, cfg.height));
-                                that._append($parent);
-                                that.renderChart();
-                                that._setEvents();
-                            }, loader);
-                        }
-                    }, null);
-                }
-                else
-                    that._append($parent);
-            };
-            GoogleChart.prototype.destroy = function () {
-                var that = this;
-                that._removeEvents();
-                that.$element = null;
-                that.options = null;
-            };
-            return GoogleChart;
-        }());
-        ui.GoogleChart = GoogleChart;
-        _render.register("javascript", "widget.content.control.googlechart", GoogleChart);
     })(ui = Phoenix.ui || (Phoenix.ui = {}));
 })(Phoenix || (Phoenix = {}));
 
@@ -403,326 +103,327 @@ var __extends = (this && this.__extends) || (function () {
 })();
 var Phoenix;
 (function (Phoenix) {
-    var ui;
-    (function (ui) {
-        var _ui = ui;
-        var Map = (function () {
-            function Map(options, callback) {
-                var that = this;
-                that.options = options || {};
-                that.callback = callback || null;
-                that.map = null;
-                that.markerList = [];
+    var _p = Phoenix, _utils = _p.utils, _dom = _p.dom, _ui = _p.ui, _customData = _p.customData, _uiutils = _p.uiutils;
+    var charts;
+    (function (charts) {
+        function _createContainer(id, options, authoring, cb) {
+            options = $.extend({ titleIsHidden: false, placeHolder: false, columns: false }, options);
+            var html = [];
+            _uiutils.utils.fieldWrapper(html, options, authoring, function () {
+                if (cb)
+                    cb(html);
+            });
+            return _utils.format(html.join(''), id);
+        }
+        var ChartBase = (function (_super) {
+            __extends(ChartBase, _super);
+            function ChartBase(fp, options, form) {
+                var _this = _super.call(this, fp, options, form) || this;
+                _this._state();
+                return _this;
             }
-            Map.prototype.newMap = function () {
-                return new Map();
-            };
-            Map.prototype.getLatLng = function (address, callBack) { };
-            Map.prototype.initMap = function (parent, options) { };
-            Map.prototype.setMapCenter = function (map, lat, lng, options) { };
-            Map.prototype.addMarker = function (map, marker, lat, lng, options) { };
-            Map.prototype.removeMarker = function (marker) { };
-            Map.prototype.addMarkerByAddress = function (adresses) { };
-            Map.prototype.addMarkerByLongLat = function (long, lat, libelle) {
+            ChartBase.prototype.click = function (event) {
                 var that = this;
-                if (!long || !lat)
-                    return that.callback && that.callback(null);
-                if (that.map) {
-                    if (that.markerList[0])
-                        that.removeMarker(that.markerList[0]);
-                    that.setMapCenter(that.map, lat, long);
-                    var message = "<b>Adresse :</b><br />" + (libelle || "longitude : " + long + ", latitude : " + lat);
-                    that.addMarker(that.map, lat, long, { message: message });
-                }
-                that.callback && that.callback({ longitude: long, latitude: lat, libelle: libelle });
             };
-            return Map;
-        }());
-        var google = window["google"];
-        var GoogleMaps = (function (_super) {
-            __extends(GoogleMaps, _super);
-            function GoogleMaps(options, callback) {
-                return _super.call(this, options, callback) || this;
-            }
-            GoogleMaps.prototype.getLatLng = function (adresses, callBack) {
+            ChartBase.prototype._setDisabled = function (element) { };
+            ChartBase.prototype._setReadOnly = function (element) { };
+            ChartBase.prototype._setMandatory = function (element) { };
+            ChartBase.prototype.changed = function (propName, ov, nv, op, params) {
                 var that = this;
-                var geocoder = new google.maps.Geocoder();
-                if (!geocoder)
-                    return;
-                if (!Array.isArray(adresses))
-                    adresses = [adresses];
-                var num = 0;
-                localise(adresses[0], after);
-                function after(cordonnee) {
-                    if (cordonnee)
-                        callBack(cordonnee);
-                    else if (num == adresses.length - 1)
-                        callBack(null);
-                    else {
-                        num++;
-                        localise(adresses[num], after);
-                    }
+                if (propName === that.$bind || !that.form.inSync) {
+                    that.state.value = that.form.getValue(that.$bind);
+                    that._renderChart(false);
                 }
-                function localise(adresse, after) {
-                    geocoder.geocode({ address: adresse }, function (results, status) {
-                        if (status === google.maps.GeocoderStatus.OK)
-                            return after({ latitude: results[0].geometry.location.lat(), longitude: results[0].geometry.location.lng(), libelle: adresse });
-                        after(null);
+                else if (that.form.inSync) {
+                    that.form.forceAfterProcessing();
+                    that.form.execLater({
+                        id: that.id, hnd: function () {
+                            that._renderChart(false);
+                        }
                     });
                 }
             };
-            GoogleMaps.prototype.initMap = function (parent, options) {
+            ChartBase.prototype.destroy = function () {
                 var that = this;
-                if (!parent)
-                    return;
-                options = options || {};
-                options = {
-                    zoom: options.zoom || 16,
-                    mapTypeId: options.type || google.maps.MapTypeId.TERRAIN,
-                    scrollwheel: false
-                };
-                return that.map = new google.maps.Map(parent, options);
-            };
-            GoogleMaps.prototype.setMapCenter = function (map, lat, lng, options) {
-                if (!map)
-                    return;
-                var latLng = new google.maps.LatLng(lat, lng);
-                map.setCenter(latLng);
-            };
-            GoogleMaps.prototype.addMarker = function (map, lat, lng, options) {
-                var that = this;
-                if (!map)
-                    return;
-                options = options || {};
-                var latlng = new google.maps.LatLng(lat, lng);
-                var marker = new google.maps.Marker({
-                    position: latlng,
-                    map: map,
-                    title: options.message || null
-                });
-                if (options.message) {
-                    var infowindow = new google.maps.InfoWindow({
-                        content: options.message,
-                        size: new google.maps.Size(100, 100)
-                    });
-                    google.maps.event.addListener(marker, "click", function () {
-                        infowindow.open(map, marker);
-                    });
+                if (that._chart) {
+                    that._chart.destroy();
+                    that._chart = null;
                 }
-                if (that.markerList[0])
-                    that.markerList[0] = marker;
-                else
-                    that.markerList.push(marker);
-                return marker;
+                _super.prototype.destroy.call(this);
             };
-            GoogleMaps.prototype.removeMarker = function (marker) {
-                if (marker)
-                    marker.setMap(null);
-            };
-            GoogleMaps.prototype.addMarkerByAddress = function (address) {
+            ChartBase.prototype._renderChart = function (inRender) {
                 var that = this;
-                that.getLatLng(address, function (latLng) {
-                    if (!latLng)
-                        return that.callback && that.callback(null);
-                    if (that.map) {
-                        if (that.markerList[0])
-                            that.removeMarker(that.markerList[0]);
-                        that.setMapCenter(that.map, latLng.latitude, latLng.longitude);
-                        that.addMarker(that.map, latLng.latitude, latLng.longitude, { message: "<b>Adresse :</b><br />" + latLng.libelle });
-                    }
-                    that.callback && that.callback(latLng);
-                });
-            };
-            return GoogleMaps;
-        }(Map));
-        var googleMaps = function (options, callback) {
-            google = window["google"];
-            return new GoogleMaps(options, callback);
-        };
-        var L = window["L"];
-        var OpenStreetMap = (function (_super) {
-            __extends(OpenStreetMap, _super);
-            function OpenStreetMap(options, callback) {
-                return _super.call(this, options, callback) || this;
-            }
-            OpenStreetMap.prototype.getLatLng = function (adresses, callBack) {
-                var that = this;
-                var geocoder = new google.maps.Geocoder();
-                if (!geocoder)
-                    return;
-                if (!Array.isArray(adresses))
-                    adresses = [adresses];
-                var num = 0;
-                localise(adresses[0], after);
-                function after(cordonnee) {
-                    if (cordonnee)
-                        callBack(cordonnee);
-                    else if (num == adresses.length - 1)
-                        callBack(null);
-                    else {
-                        num++;
-                        localise(adresses[num], after);
-                    }
+                var model = that.state.value ? that.state.value.model(false) : {};
+                var options = that.renderOptions;
+                if (options.transform) {
+                    var hnd = _customData.get(options.transform);
+                    model = hnd(model, that.form.$model);
                 }
-                function localise(adresse, after) {
-                    geocoder.geocode({ address: adresse }, function (results, status) {
-                        if (status === google.maps.GeocoderStatus.OK)
-                            return after({ latitude: results[0].geometry.location.lat(), longitude: results[0].geometry.location.lng(), libelle: adresse });
-                        after(null);
-                    });
+                if (!model)
+                    model = {};
+                var series = Array.isArray(model) ? model : [model];
+                var config = that.renderOptions.chart || {};
+                var parent = that.$element.get(0);
+                if (that._chart) {
+                    that._chart.destroy();
+                    that._chart = null;
+                    _dom.empty(parent);
+                }
+                that._chart = _p.highcharts.createHighChart(parent, config, series);
+            };
+            ChartBase.prototype.resize = function () {
+                var that = this;
+                if (that._chart)
+                    that._chart.reflow();
+            };
+            ChartBase.prototype.stateChanged = function (propName, params) {
+                var that = this, state = that.form.getState(that.$bind), element = that.$element ? that.$element.get(0) : null;
+                if (state.isHidden !== that.state.isHidden) {
+                    that.state.isHidden = state.isHidden;
+                    that.setHidden(element);
+                }
+                if (state.isDisabled !== that.state.isDisabled) {
+                    that.state.isDisabled = state.isDisabled;
+                    that._setDisabled(element);
+                }
+                if (state.isReadOnly !== that.state.isReadOnly) {
+                    that.state.isReadOnly = state.isReadOnly;
+                    that._setReadOnly(element);
+                }
+                if (state.isMandatory !== that.state.isMandatory) {
+                    that.state.isMandatory = state.isMandatory;
+                    that._setMandatory(element);
                 }
             };
-            OpenStreetMap.prototype.initMap = function (parent, options) {
-                var that = this;
-                if (!parent)
-                    return;
-                options = options || {};
-                var map = L.map(parent, {
-                    center: [0, 0],
-                    zoom: options.zoom || 16
-                });
-                L.tileLayer(options.tile || 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                    maxZoom: options.maxZoom || 18,
-                    attribution: options.attribution || '&copy; <a href="https://osm.org/copyright">OpenStreetMap</a> contributors',
-                    id: options.id || 'mapbox.streets'
-                }).addTo(map);
-                return that.map = map;
+            ChartBase.prototype._containerContent = function (html) {
             };
-            OpenStreetMap.prototype.setMapCenter = function (map, lat, lng, options) {
-                if (!map)
-                    return;
-                var latLng = L.latLng(lat, lng);
-                map.setView(latLng);
-            };
-            OpenStreetMap.prototype.addMarker = function (map, lat, lng, options) {
+            ChartBase.prototype.render = function ($parent) {
                 var that = this;
-                if (!map)
-                    return;
-                options = options || {};
-                var marker = L.marker([lat, lng]).addTo(map);
-                if (options.message)
-                    marker.bindPopup(options.message);
-                if (that.markerList[0])
-                    that.markerList[0] = marker;
-                else
-                    that.markerList.push(marker);
-                return marker;
-            };
-            OpenStreetMap.prototype.removeMarker = function (marker) {
-                var that = this;
-                if (marker && that.map) {
-                    marker.closePopup();
-                    that.map.removeLayer(marker);
-                }
-            };
-            OpenStreetMap.prototype.addMarkerByAddress = function (adresses) {
-                var that = this;
-                that.getLatLng(adresses, function (latLng) {
-                    if (!latLng)
-                        return that.callback && that.callback(null);
-                    if (that.map) {
-                        if (that.markerList[0])
-                            that.removeMarker(that.markerList[0]);
-                        that.setMapCenter(that.map, latLng.latitude, latLng.longitude);
-                        that.addMarker(that.map, latLng.latitude, latLng.longitude, { message: "<b>Adresse :</b><br />" + latLng.libelle });
-                    }
-                    that.callback && that.callback(latLng);
-                });
-            };
-            return OpenStreetMap;
-        }(Map));
-        var openStreetMap = function (options, callback) {
-            google = window["google"];
-            L = window["L"];
-            return new OpenStreetMap(options, callback);
-        };
-        ui.createMapService = function (options, callback) {
-            options = options || {};
-            var type = options.type || "omap";
-            delete options.type;
-            var map = null;
-            switch (type) {
-                case "gmap":
-                    map = googleMaps(options, callback);
-                    break;
-                default:
-                    map = openStreetMap(options, callback);
-                    break;
-            }
-            return map;
-        };
-    })(ui = Phoenix.ui || (Phoenix.ui = {}));
-})(Phoenix || (Phoenix = {}));
-
-var Phoenix;
-(function (Phoenix) {
-    var ui;
-    (function (ui) {
-        var _wu = Phoenix.WidgetUtils, _utils = Phoenix.utils;
-        var ModuleTitle = (function () {
-            function ModuleTitle(options, data) {
-                var that = this;
-                that._options = options || {};
-                that._options.id = that._options.id || _utils.allocID();
-                that._data = data || {};
-            }
-            ModuleTitle.prototype.render = function ($parent) {
-                var that = this;
+                var opts = that._initOptions(_uiutils.utils.defaultOptions);
                 if (!that.$element) {
-                    var html = [];
-                    _wu.widgetTitle(html, that._options.id, that._data, null, true);
-                    that.$element = $(html.join(''));
+                    that.$element = $(_createContainer(that.id, opts, that.options.design, function (html) {
+                        that._containerContent(html);
+                    }));
+                    that._renderChart(true);
+                    that.setEvents(opts);
                 }
-                if ($parent) {
-                    if (that._options.replaceParent)
-                        $parent.replaceWith(that.$element);
-                    else
-                        $parent.append(that.$element);
-                }
-            };
-            ModuleTitle.prototype.destroy = function () {
-                var that = this;
-                that.$element = null;
-                that._options = null;
-                that._data = null;
-            };
-            return ModuleTitle;
-        }());
-        ui.ModuleTitle = ModuleTitle;
-    })(ui = Phoenix.ui || (Phoenix.ui = {}));
-})(Phoenix || (Phoenix = {}));
-
-var Phoenix;
-(function (Phoenix) {
-    var ui;
-    (function (ui) {
-        var _utils = Phoenix.utils, _render = Phoenix.render;
-        var Content = (function () {
-            function Content(ldata, options) {
-                this.data = ldata || {};
-                this.options = options || {};
-            }
-            Content.prototype.render = function ($parent) {
-                var that = this;
-                if (!that.$element) {
-                    that.$element = $('<div></div>');
-                }
-                if ($parent) {
-                    if (that.options.beforeAdd)
-                        that.options.beforeAdd(that.$element);
-                    if (that.options.replaceParent)
-                        $parent.replaceWith(that.$element);
-                    else
-                        $parent.append(that.$element);
-                }
+                that.appendElement($parent, opts);
                 return that.$element;
             };
-            Content.prototype.destroy = function () {
-                var that = this;
-                that.$element = null;
+            return ChartBase;
+        }(Phoenix.ui.AbsField));
+        charts.ChartBase = ChartBase;
+        _ui.registerControl(ChartBase, 'object', false, 'highchart', null);
+    })(charts = Phoenix.charts || (Phoenix.charts = {}));
+})(Phoenix || (Phoenix = {}));
+
+var Phoenix;
+(function (Phoenix) {
+    var highcharts;
+    (function (highcharts) {
+        var _p = Phoenix, _dom = Phoenix.dom, _ulocale = _p.ulocale, _locale = _p.locale;
+        var seriesColors = ["#f03558", "#fad32d", "#45cebd", "#f99f46", "#6A5ACD", "#A0522D", "#000000", "#696969"];
+        var configurationUtils = {
+            addToolTipHeaderFormat: function (config, name) {
+                if (config.tooltip && config.tooltip.headerFormat)
+                    return config.tooltip.headerFormat;
+                else
+                    return '<span style="font-size: 11px;font-weight:normal">{' + name + '}</span><br/>';
+            },
+            addToolTipPointFormat: function (config, byDefault) {
+                if (config.tooltip && config.tooltip.pointFormat)
+                    return config.tooltip.pointFormat;
+                else
+                    return byDefault;
+            },
+            addLabel: function (config, byDefault) {
+                if (!config.label)
+                    return { enabled: true, format: byDefault };
+                else
+                    return {
+                        enabled: typeof config.label.visible === undefined ? true : config.label.visible,
+                        format: config.label.format || byDefault
+                    };
+            },
+            addOptions: function (destination, source) {
+                if (!source)
+                    return;
+                if (Array.isArray(source)) {
+                    destination = Array.isArray(destination) ? destination : [];
+                    for (var i = 0; i < source.length; i++)
+                        destination[i] = configurationUtils.addOptions(destination[i] || {}, source[i]);
+                }
+                else if (typeof source === 'object') {
+                    Object.keys(source).forEach(function (key) {
+                        destination[key] = configurationUtils.addOptions(destination[key] || {}, source[key]);
+                    });
+                }
+                else {
+                    destination = source;
+                }
+                return destination;
+            }
+        };
+        var _formatDatapoints = function (data) {
+            var series = [];
+            if (!data.datapoints.length)
+                return series;
+            if (data.datapoints[0].length > 2) {
+                data.datapoints.forEach(function (ed) {
+                    var si = -1;
+                    series.forEach(function (es, i) {
+                        if (es.name === ed[0])
+                            return si = i;
+                    });
+                    if (si >= 0)
+                        series[si].data.push([ed[1], ed[2]]);
+                    else
+                        series.push({ name: ed[0], data: [[ed[1], ed[2]]] });
+                });
+            }
+            else {
+                series[0] = { name: '', data: [] };
+                data.datapoints.forEach(function (ed) {
+                    series[0].data.push([ed[0], ed[1]]);
+                });
+            }
+            return series;
+        }, _hightChartsOptions = function (config) {
+            var decimals = config.decimals;
+            if (decimals === undefined)
+                decimals = _locale.number.places;
+            var symbol = config.symbol;
+            if (symbol === undefined)
+                symbol = _locale.number.symbol;
+            var type = config.type || 'pie';
+            var chartConfig = {
+                chart: { type: type, plotBackgroundColor: null, plotBorderWidth: 0, plotShadow: false, reflow: true },
+                tooltip: {
+                    pointFormat: configurationUtils.addToolTipPointFormat(config, '<b>{point.y:,.' + decimals + 'f} ' + symbol + '</b>'),
+                    headerFormat: configurationUtils.addToolTipHeaderFormat(config, 'point.key'),
+                    style: { padding: 10, fontWeight: 'bold' }
+                },
+                legend: { itemStyle: { cursor: 'default' } },
+                credits: { enabled: false },
+                lang: { decimalPoint: _locale.number.decimal },
+                plotOptions: { series: { allowPointSelect: false } },
+                colors: [],
+                series: [],
+                title: { text: config.title || '' }
             };
-            return Content;
-        }());
-        _render.register("javascript", "widget.content.control.test", Content);
-    })(ui = Phoenix.ui || (Phoenix.ui = {}));
+            chartConfig.plotOptions[type] = {
+                allowPointSelect: true,
+                cursor: 'pointer',
+                dataLabels: configurationUtils.addLabel(config, '{point.percentage:,.' + decimals + 'f}%'),
+                showInLegend: true,
+                events: { legendItemClick: function (event) { return false; } },
+                point: { events: { legendItemClick: function (event) { return false; } } }
+            };
+            chartConfig.colors = config.colors || seriesColors.slice();
+            return chartConfig;
+        }, _initOptionsByType = function (chartConfig, config) {
+            var type = chartConfig.chart.type;
+            var symbol = config.symbol;
+            if (symbol === undefined)
+                symbol = _locale.number.symbol;
+            var decimals = config.decimals;
+            if (decimals === undefined)
+                decimals = _locale.number.places;
+            switch (type) {
+                case 'column':
+                    chartConfig.tooltip.headerFormat = configurationUtils.addToolTipHeaderFormat(config, 'series.name');
+                    chartConfig.plotOptions[type].dataLabels = configurationUtils.addLabel(config, '{point.y:,.' + decimals + 'f} ' + symbol);
+                    chartConfig.xAxis = {
+                        gridLineWidth: 0,
+                        minorGridLineWidth: 0,
+                        title: {
+                            text: null
+                        },
+                        labels: {
+                            enabled: true
+                        },
+                        minorTickLength: 0,
+                        tickLength: 0
+                    };
+                    chartConfig.yAxis = {
+                        min: 0,
+                        margin: [0, 0, 0, 0],
+                        gridLineWidth: 2,
+                        gridLineDashStyle: 'Dot',
+                        title: {
+                            text: null,
+                            style: {
+                                display: 'none'
+                            },
+                            margin: [0, 0, 0, 0]
+                        }
+                    };
+                    break;
+                case 'columnrange':
+                    chartConfig.chart.inverted = true;
+                    chartConfig.tooltip = {
+                        pointFormat: configurationUtils.addToolTipPointFormat(config, '{point.low:%d/%m/%Y} - {point.high:%d/%m/%Y}'),
+                        style: { padding: 10, fontWeight: 'bold' }
+                    };
+                    chartConfig.exporting = { enabled: false };
+                    chartConfig.legend = chartConfig.legend || {};
+                    chartConfig.legend.enabled = false;
+                    chartConfig.plotOptions.columnrange.dataLabels = configurationUtils.addLabel(config, 'point.y:%d/%m/%Y');
+                    chartConfig.plotOptions.columnrange.colorByPoint = true;
+                    chartConfig.plotOptions.columnrange.borderWidth = 0;
+                    chartConfig.xAxis = { gridLineWidth: 2, gridLineDashStyle: 'Dot' };
+                    chartConfig.yAxis = {
+                        title: { text: null },
+                        type: 'datetime',
+                        tickInterval: 31536000000,
+                        minorTickInterval: 31536000000,
+                        dateTimeLabelFormats: { year: '%Y' },
+                        gridLineWidth: 5,
+                        gridLineColor: '#eee'
+                    };
+                    var dateJour = new Date();
+                    chartConfig.yAxis.plotLines = [{
+                            color: '#747679',
+                            width: 2,
+                            value: dateJour
+                        }];
+                    break;
+            }
+        }, _customOptions = function (chartConfig, config) {
+            chartConfig = configurationUtils.addOptions(chartConfig, config.options);
+        }, _createChart = function (element, config, data) {
+            var chartConfig = _hightChartsOptions(config);
+            _initOptionsByType(chartConfig, config);
+            _customOptions(chartConfig, config);
+            element.style.height = config.height || '300px';
+            chartConfig.chart.renderTo = element;
+            chartConfig.series = data;
+            var lwindow = window;
+            return new lwindow.Highcharts.Chart(chartConfig);
+        };
+        highcharts.createHighChart = _createChart;
+        var tdp = function (lang) {
+            var lwindow = window;
+            if (lwindow.Highcharts && lwindow.Highcharts.setOptions) {
+                lwindow.Highcharts.setOptions({
+                    lang: {
+                        months: _locale.date.months,
+                        weekdays: _locale.date.weekdays,
+                        shortMonths: _locale.date.monthsShort,
+                        decimalPoint: _locale.number.decimal,
+                        thousandsSep: _locale.number.thousand,
+                        resetZoom: _locale.charts.resetZoom,
+                        resetZoomTitle: _locale.charts.resetZoomTitle,
+                        rangeSelectorZoom: _locale.charts.rangeSelectorZoom,
+                        rangeSelectorFrom: _locale.charts.rangeSelectorFrom,
+                        rangeSelectorTo: _locale.charts.rangeSelectorTo
+                    }
+                });
+            }
+        };
+        _dom.readyHandlers.push(function () {
+            tdp(_ulocale.currentLang);
+        });
+        _ulocale.register(tdp);
+    })(highcharts = Phoenix.highcharts || (Phoenix.highcharts = {}));
 })(Phoenix || (Phoenix = {}));

@@ -1390,7 +1390,7 @@ var Phoenix;
                                 return;
                             that._sendLayout(model);
                         }
-                    }, {}, function (form) {
+                    }, null, {}, function (form) {
                         that.form = form;
                     });
                 }
@@ -1412,7 +1412,7 @@ var Phoenix;
                                 return;
                             that._updateFields(model);
                         }
-                    }, {}, function (form) {
+                    }, null, {}, function (form) {
                         that.form = form;
                     });
                 }

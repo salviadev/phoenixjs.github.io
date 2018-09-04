@@ -16,6 +16,40 @@ var Phoenix;
 })(Phoenix || (Phoenix = {}));
 var Ergo;
 (function (Ergo) {
+    var _p = Phoenix, _customData = _p.customData;
+    var tableauSimple = (function (_super) {
+        __extends(tableauSimple, _super);
+        function tableauSimple() {
+            return _super !== null && _super.apply(this, arguments) || this;
+        }
+        tableauSimple.prototype.onModelChanged = function (action, model, form) {
+            switch (action.property) {
+                case '$links.set':
+                    model.Summary = [
+                        {
+                            "Name": "Total One",
+                            "PV": 5872,
+                            "Price": 25368
+                        },
+                        {
+                            "Name": "Total Two",
+                            "PV": 700,
+                            "Price": 8000
+                        }
+                    ];
+                    break;
+                case '$links.upd':
+                    model.Summary.get(0).Price = model.Summary.get(0).Price + 20;
+                    model.Summary.get(0).PV = model.Summary.get(0).PV + 32;
+                    break;
+            }
+        };
+        return tableauSimple;
+    }(Phoenix.ui.FormController));
+    _customData.register('demos.grid-totals.controller', new tableauSimple());
+})(Ergo || (Ergo = {}));
+var Ergo;
+(function (Ergo) {
     var _p = Phoenix, _customData = _p.customData, _dom = _p.dom, _dsPlugin = _p.DatasetPlugin, _link = _p.link, _data = _p.data;
     var tableauSimple = (function (_super) {
         __extends(tableauSimple, _super);

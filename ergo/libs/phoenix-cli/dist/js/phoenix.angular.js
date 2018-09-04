@@ -175,7 +175,7 @@ var Phoenix;
                             }
                         };
                         if (scope.isform) {
-                            _ui_1.OpenForm(element, scope.layout.model, scope.layout.prototype, {}, scope.layout.locale && scope.layout.locale.$view ? scope.layout.locale.$view : scope.layout.locale, null, options, function (form) {
+                            _ui_1.OpenForm(element, scope.layout.model, scope.layout.prototype, {}, scope.layout.locale && scope.layout.locale.$view ? scope.layout.locale.$view : scope.layout.locale, null, null, options, function (form) {
                                 scope.component = form;
                                 setComponentHandlers(scope);
                             });

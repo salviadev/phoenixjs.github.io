@@ -65,6 +65,9 @@ var Phoenix;
             "uniqueColumns": "La combinaison de colonnes '{0}' doit être unique.",
             "passwordMismatch": "Les deux mots de passe sont différents",
             "invalidEmail": "Adresse e-mail incorrecte",
+            "invalidChars": "Certains caractères saisis ne sont pas autorisés.",
+            "invalidPhone": "Le numéro saisi est invalide",
+            "invalidUrl": "Le site internet saisi n'est pas valide (exemple : http://www.google.com).",
             "minLength": "{0} doit comporter au moins {1} caractères"
         },
         "ui": {
@@ -89,10 +92,15 @@ var Phoenix;
             "ApplyDetailChanges": "Appliquer",
             "Selected": "Sel.",
             "Add": "Ajouter",
+            "title": "Libelllé",
             "selectedFilters": "Filtres sélectionnés",
             "OpenNewTab": "Ouvrir dans un nouvel onglet",
             "Search": "Recherche",
-            "Actions": "Actions"
+            "Actions": "Actions",
+            "FileUpload": "Choisir un Fichier",
+            "Apply": "Appliquer",
+            "SaveSuccessful": "L'enregistrement a été effectué avec succès.",
+            "cancelWarning": "Vos modifications seront perdues. Êtes-vous sûr de vouloir continuer ?"
         },
         "errors": {
             "Title": "Oops! Une erreur s'est produite.",
@@ -107,7 +115,9 @@ var Phoenix;
             "Context": "Contexte:",
             "error500": "Erreur de connexion au serveur",
             "unknownError": "Une erreur s'est produite.",
-            "notAuthorized": "Forbidden"
+            "notAuthorized": "Forbidden",
+            "invalidUploadFileName": "Bloqué pour des raisons de sécurité!",
+            "invalidUploadFileSize": "Fichier trop large!"
         },
         "listView": {
             "search": {
@@ -126,6 +136,7 @@ var Phoenix;
             "thousand": " ",
             "places": 2,
             "symbol": "€",
+            "coef": ["U", "K"],
             "format": "%v %s"
         },
         "charts": {
