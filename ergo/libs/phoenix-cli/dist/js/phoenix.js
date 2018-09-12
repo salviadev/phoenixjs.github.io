@@ -3072,6 +3072,8 @@ var Phoenix;
                     return true;
                 if (current.inDragging)
                     current.notifyDragEnd(false, eventObject);
+                else
+                    current.notifyDragEnd(true, eventObject);
                 that.setCurrent(null);
                 current.clear();
                 return false;
@@ -3196,6 +3198,9 @@ var Phoenix;
             }
             DragElement.prototype.clear = function () {
                 var that = this;
+                if (that._startTimer)
+                    clearTimeout(that._startTimer);
+                that._startTimer = null;
                 //save
                 var ose = that.stopEvent;
                 //init
@@ -3243,6 +3248,9 @@ var Phoenix;
             };
             DragElement.prototype.mousedown = function (eventObject) {
                 var that = this;
+                if (that._startTimer)
+                    clearTimeout(that._startTimer);
+                that._startTimer = null;
                 if (!_events.isLeftButton(eventObject)) {
                     drag_1.dragManager.mouseUp(eventObject);
                     return false;
@@ -3254,6 +3262,11 @@ var Phoenix;
                 if (!drag_1.dragManager.setCurrent(that))
                     return true;
                 that.startPoint = _events.point(eventObject);
+                that._startTimer = setTimeout(function () {
+                    that._startTimer = null;
+                    that.mouseMoveCount = 5000;
+                    that.notifyDragStart(eventObject);
+                }, 300);
                 drag_1.dragManager.startMouseMove();
                 if (that.stopEvent)
                     _events.stopEvent(eventObject);
@@ -3261,14 +3274,14 @@ var Phoenix;
             };
             DragElement.prototype.finalize = function () {
                 var that = this;
+                if (that._startTimer)
+                    clearTimeout(that._startTimer);
+                that._startTimer = null;
                 that._removeEvents();
                 _utils.cleanUpObject(that);
             };
             DragElement.prototype.ready = function (eventObject) {
                 var that = this;
-                that.mouseMoveCount++;
-                if (that.mouseMoveCount == 2)
-                    that.notifyDragStart(eventObject);
                 return that.inDragging;
             };
             DragElement.prototype.notifyDrag = function (eventObject) {
@@ -3612,6 +3625,14 @@ var Phoenix;
                 location.href = lhref;
         }, _parseUrl2Hash = function (value) {
             return '#' + (Phoenix.history.locationPrefix ? Phoenix.history.locationPrefix : '') + value.path + _obj2Search(value.search);
+        }, _updateSearchEntry = function (key, value) {
+            var parsedUrl = _parseUrl(window.location.hash, false);
+            var oldSearch = _parseUrl2Hash(parsedUrl);
+            parsedUrl.search = parsedUrl.search || {};
+            parsedUrl.search[key] = value;
+            var newHash = _parseUrl2Hash(parsedUrl);
+            _history.updateLast(oldSearch, newHash);
+            _setHash(newHash, true, false, true, false);
         }, _changeSearch = function (search, replace, checkHistory) {
             var parsedUrl = _parseUrl(window.location.hash, false);
             var oldSearch = _parseUrl2Hash(parsedUrl);
@@ -3796,6 +3817,7 @@ var Phoenix;
         link_1.context = _context;
         link_1.changeSearch = _changeSearch;
         link_1.removeFromSearch = _removeFromSearch;
+        link_1.updateSearchEntry = _updateSearchEntry;
     })(link = Phoenix.link || (Phoenix.link = {}));
 })(Phoenix || (Phoenix = {}));
 /// <reference path="./dom.ts" />
@@ -8778,7 +8800,7 @@ var Phoenix;
                         var cp = prefix ? prefix + '.' + name : name;
                         if (_sutils.canShowField(ps)) {
                             var v = { name: cp, schema: _utils.copy(ps) };
-                            v.schema.title = _ulocale.tt(v.schema.title || '', locale);
+                            v.schema.title = _ulocale.tt(v.schema.title || '', locale) || name;
                             res.push(v);
                         }
                     });
@@ -13559,7 +13581,7 @@ var Phoenix;
                     o.selected = false;
                     that._showSelected($e, o);
                     that._onSelectedChanged($e.get(0), o, false);
-                    if (o.$id == id) {
+                    if (o.$id === id) {
                         that._onSelectedChanged($e.get(0), null, true);
                         return;
                     }
@@ -20267,8 +20289,14 @@ var Phoenix;
                     return event.which;
                 }
                 var rm = _registeredMask[mask];
-                if (rm && rm.maskKeys)
-                    return rm.maskKeys(event, input, isKeyPress);
+                if (rm && rm.maskKeys) {
+                    var res = rm.maskKeys(event, input, isKeyPress);
+                    if (res === 0) {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        return 0;
+                    }
+                }
                 return event.which;
             },
             maskCheckValue: function (mask, value) {
@@ -20830,7 +20858,8 @@ var Phoenix;
             function AbsField(fp, options, form) {
                 var that = this;
                 that._isBinded = true;
-                that.config = fp;
+                that.config = $.extend(true, {}, fp);
+                fp = that.config;
                 that.form = form;
                 that.options = options || {};
                 fp.options = $.extend(true, {}, fp.options || {});
@@ -21944,6 +21973,7 @@ var Phoenix;
                     }, null, col.$bind);
                     if (v.html) {
                         var $c = $(v.value);
+                        th.style.textAlign = 'center';
                         _dom.append(p, $c.get(0));
                     }
                     else {
@@ -21951,7 +21981,7 @@ var Phoenix;
                     }
                 }
                 else {
-                    _dom.append(p, document.createTextNode(_ulocale.tt(((col.isLink && !col.options.titleIsHidden) ? '' : col.title) || String.fromCharCode(160), locale)));
+                    _dom.append(p, document.createTextNode(_ulocale.tt(((col.isLink || col.options.titleIsHidden) ? '' : col.title) || String.fromCharCode(160), locale)));
                 }
                 if (options.allowColumnResize && _isPixel(col.options.width)) {
                     var re = document.createElement('div');
@@ -23375,7 +23405,7 @@ var Phoenix;
                 var copts = {
                     firstDelta: 0,
                     lastDelta: -10,
-                    delta: -4,
+                    delta: -6,
                     top: drag.startOffset.top,
                     height: cloned.offsetHeight
                 };
@@ -24895,7 +24925,7 @@ var Phoenix;
                                                         slist.selecting(true, opts.expandingProperty);
                                                     }
                                                     item.select(true, opts.selecting && opts.selecting.row && opts.selecting.multiselect, that.state.value, opts.expandingProperty, false);
-                                                });
+                                                }, opts.expandingProperty, true);
                                             }
                                             else {
                                                 var selectedItems = that._getMultiselectdItems(false);
@@ -25799,7 +25829,9 @@ var Phoenix;
                 var schema = that.$schema;
                 var schemaItems = that.$schemaItems;
                 if (schema && schema.type === "array" && schemaItems && schemaItems.type === "object") {
-                    return _sutils.columns(schemaItems, that.form.$rootSchema, that.form.$locale);
+                    return _sutils.columns(schemaItems, that.form.$rootSchema, that.form.$locale).sort(function (a, b) {
+                        return a.schema.title.localeCompare(b.schema.title);
+                    });
                 }
                 return [];
             };
@@ -26299,6 +26331,8 @@ var Phoenix;
             };
             BaseEdit.prototype._value2Text = function () {
                 var that = this;
+                if (that.options.design)
+                    return;
                 var input = that._input();
                 if (that._isDate()) {
                     if (_uiutils.utils.useDatePicker())
@@ -26333,6 +26367,18 @@ var Phoenix;
             };
             BaseEdit.prototype._isEnum = function () {
                 return !!this._schemaInput().enum;
+            };
+            BaseEdit.prototype.focusIn = function (event) {
+                var that = this;
+                var opts = that.renderOptions;
+                if (opts.focus && opts.focus.in)
+                    that.form.execAction(opts.focus.in, null, null);
+            };
+            BaseEdit.prototype.focusOut = function (event) {
+                var that = this;
+                var opts = that.renderOptions;
+                if (opts.focus && opts.focus.out)
+                    that.form.execAction(opts.focus.out, null, null);
             };
             BaseEdit.prototype._isNumber = function () {
                 var schema = this._schemaInput();
@@ -26449,13 +26495,15 @@ var Phoenix;
             BaseEdit.prototype.focusInControl = function (activeFocusElement) {
                 var that = this;
                 var p = _super.prototype.focusInControl.call(this, activeFocusElement);
-                if (!p && that._isDate() && _uiutils.utils.useDatePicker()) {
+                if (!p && that._isDate() && _uiutils.utils.useDatePicker() && !that.options.design) {
                     return _uiutils.utils.elementInDatePicker(activeFocusElement, that.$element);
                 }
                 return p;
             };
             BaseEdit.prototype._value2Input = function (input) {
                 var that = this;
+                if (that.options.design)
+                    return;
                 if (that.renderOptions.readOnly) {
                     if (that._isDate()) {
                         _dom.text(input, _ulocale.shortDate(that.state.value || '') || String.fromCharCode(160));
@@ -26743,14 +26791,14 @@ var Phoenix;
             };
             Edit.prototype._removeEventsDate = function () {
                 var that = this;
-                if (_uiutils.utils.useDatePicker())
+                if (!that.options.design && _uiutils.utils.useDatePicker())
                     _uiutils.utils.datePickerDestroy(that.$element);
             };
             Edit.prototype._setEventsDate = function () {
                 var that = this;
                 if (that.renderOptions.readOnly)
                     return;
-                if (_uiutils.utils.useDatePicker()) {
+                if (!that.options.design && _uiutils.utils.useDatePicker()) {
                     _uiutils.utils.datePickerInitialize(that.$element, { showOnFocus: true }, function (e) {
                         that.focusOut(null);
                     });
@@ -26760,14 +26808,14 @@ var Phoenix;
                 var that = this;
                 if (that.renderOptions.readOnly)
                     return;
-                if (_uiutils.utils.useDateTimePicker())
+                if (!that.options.design && _uiutils.utils.useDateTimePicker())
                     _uiutils.utils.dateTimePickerDestroy($(_dom.find(that.$element.get(0), that.id + '_group')));
             };
             Edit.prototype._setEventsDateTime = function () {
                 var that = this;
                 if (that.renderOptions.readOnly)
                     return;
-                if (_uiutils.utils.useDateTimePicker()) {
+                if (!that.options.design && _uiutils.utils.useDateTimePicker()) {
                     _uiutils.utils.dateTimePickerInitialize($(_dom.find(that.$element.get(0), that.id + '_group')), {}, function (e) {
                         that.focusOut(null);
                     });
@@ -26952,6 +27000,7 @@ var Phoenix;
                 }
             };
             Edit.prototype.focusOut = function (event) {
+                _super.prototype.focusOut.call(this, event);
                 var that = this;
                 if (that.renderOptions.readOnly)
                     return;
@@ -29899,7 +29948,8 @@ var Phoenix;
                 _uiutils.utils.addContainerId(html, authoring);
                 html.push('>');
             }
-            html.push('<button type="button"');
+            options.buttonTag = options.buttonTag || 'button';
+            html.push('<' + options.buttonTag + ' type="button"');
             html.push(' class="bs-button btn btn-' + _dom.bootstrapStyles(options.outline || options.type === 'secondary' || options.type === 'default')[options.type]);
             if (options.color) {
                 html.push(' text-' + _dom.bootstrapStyles()[options.color]);
@@ -29946,7 +29996,7 @@ var Phoenix;
             if (upload) {
                 html.push('<input class="bs-hidden-upload" type="file" id="{0}_upload" name="{0}_upload" />');
             }
-            html.push('</button>');
+            html.push('</' + options.buttonTag + '>');
             if (!options.inline) {
                 html.push('</div>');
             }
@@ -29992,6 +30042,7 @@ var Phoenix;
             };
             UploadLink.prototype._renderButton = function () {
                 var that = this;
+                that.renderOptions.buttonTag = 'div';
                 return $(_createButton(that.id, that.renderOptions, that.options.design, _ulocale.tt(that.title, that.form.$locale), true));
             };
             UploadLink.prototype.setEvents = function (opts) {
@@ -30737,6 +30788,85 @@ var Phoenix;
 /// <reference path="../../../core/core-refs.ts" />
 /// <reference path="../../../core/modules/locale.ts" />
 /// <reference path="./absfield.control.ts" />
+var Phoenix;
+(function (Phoenix) {
+    var _p = Phoenix, _utils = _p.utils, _ui = _p.ui, _dom = _p.dom, _uiutils = _p.uiutils;
+    var msgcontrol;
+    (function (msgcontrol) {
+        var _createMessage = function (id, options, authoring) {
+            var html = [];
+            _uiutils.utils.fieldWrapper(html, options, authoring, function () {
+                options.type = options.type || 'info';
+                html.push('<div class="no-y-margin alert alert-' + options.type + '" role="alert">');
+                html.push('<p id="{0}_message"></p>');
+                html.push('</div>');
+            }, null);
+            return _utils.format(html.join(''), id);
+        };
+        var MessageControl = /** @class */ (function (_super) {
+            __extends(MessageControl, _super);
+            function MessageControl(fp, options, form) {
+                var _this = _super.call(this, fp, options, form) || this;
+                _this._state();
+                return _this;
+            }
+            MessageControl.prototype._state2UI = function () {
+                var that = this, element = that.$element ? that.$element.get(0) : null;
+                if (element) {
+                    that._showMessage();
+                    that.setHidden(element);
+                }
+            };
+            MessageControl.prototype._showMessage = function () {
+                var that = this;
+                var input = that._input();
+                if (input) {
+                    _dom.empty(input);
+                    if (that.state.value)
+                        input.innerHTML = that.state.value;
+                }
+            };
+            MessageControl.prototype._input = function () {
+                var that = this, e = that.$element ? that.$element.get(0) : null;
+                if (!e)
+                    return null;
+                return _dom.find(e, that.id + '_message');
+            };
+            MessageControl.prototype.changed = function (propName, ov, nv, op) {
+                var that = this;
+                if (that.state.value !== nv) {
+                    that.state.value = nv;
+                    that._showMessage();
+                }
+            };
+            MessageControl.prototype.stateChanged = function (propName, params) {
+                var that = this, state = that.form.getState(that.$bind), element = that.$element ? that.$element.get(0) : null;
+                if (state.isHidden !== that.state.isHidden) {
+                    that.state.isHidden = state.isHidden;
+                    if (element)
+                        that.setHidden(element);
+                }
+            };
+            MessageControl.prototype.render = function ($parent) {
+                var that = this;
+                var opts = that._initOptions(_uiutils.utils.defaultOptions);
+                if (!that.$element) {
+                    opts.src = that.state.value;
+                    that.$element = $(_createMessage(that.id, opts, that.options.design));
+                    that._state2UI();
+                    that.setEvents(opts);
+                }
+                that.appendElement($parent, opts);
+                return that.$element;
+            };
+            return MessageControl;
+        }(Phoenix.ui.AbsField));
+        _ui.registerControl(MessageControl, "string", false, 'message', {});
+    })(msgcontrol = Phoenix.msgcontrol || (Phoenix.msgcontrol = {}));
+})(Phoenix || (Phoenix = {}));
+/// <reference path="../../../core/core-refs.ts" />
+/// <reference path="../../../core/modules/locale.ts" />
+/// <reference path="./absfield.control.ts" />
 /// <reference path="../schema.data.ts" />
 /// <reference path="../errors.data.ts" />
 /// <reference path="./edit.control.ts" />
@@ -30780,6 +30910,42 @@ var Phoenix;
                 html.push('</span>');
             html.push('</span>');
             return $(_utils.format(html.join(''), id)).get(0);
+        }, _createOptions = function (schema, input) {
+            var frag = document.createDocumentFragment();
+            var o = document.createElement('option');
+            _dom.append(frag, o);
+            schema.enum.forEach(function (item, index) {
+                var o = document.createElement('option');
+                _dom.attr(o, "value", item);
+                o.textContent = schema.enumNames[index];
+                _dom.append(frag, o);
+            });
+            _dom.append(input, frag);
+        }, _createInput = function (id, options, schema) {
+            var html = [];
+            if (options.readOnly)
+                html.push('<div id="{0}_input" class="form-control"></div>');
+            else {
+                var inputCss = ['form-control'];
+                if (options.mask === 'uppercase')
+                    inputCss.push('text-uppercase');
+                if (schema.enum) {
+                    html.push('<select class="form-control custom-select');
+                    html.push('" id="{0}_input"');
+                    html.push('>');
+                    html.push('</select>');
+                }
+                else {
+                    html.push('<input type="text" id="{0}_input" class="' + inputCss.join(' ') + '"');
+                    if (options.maxLength)
+                        html.push('  maxLength="' + options.maxLength + '"');
+                    html.push('>');
+                }
+            }
+            var res = $(Phoenix.utils.format(html.join(''), id)).get(0);
+            if (schema.enum)
+                _createOptions(schema, res);
+            return res;
         }, _createMultiselectInput = function (id, options, enums, enumsNames, authoring, title) {
             title = title || '';
             options = $.extend({ titleIsHidden: false, placeHolder: false, columns: false, labelCol: 3 }, options);
@@ -30973,7 +31139,13 @@ var Phoenix;
                 that._removeAfter();
                 that._removeSearch();
                 var after = that._afterIcon();
+                var schema = that.form.getSchema(that.renderOptions.bind);
+                var ci = _createInput(that.id, that.renderOptions, that._schemaField);
                 var input = that._input();
+                if (ci.tagName !== input.tagName) {
+                    input.parentElement.replaceChild(ci, input);
+                    input = ci;
+                }
                 var element = that.$element.get(0);
                 if (that._isNumber())
                     _dom.addClass(input, 'bs-edit-number');
@@ -34147,7 +34319,7 @@ var Phoenix;
 /// <reference path="./absfield.control.ts" />
 var Phoenix;
 (function (Phoenix) {
-    var _p = Phoenix, _utils = _p.utils, _ui = _p.ui, _dom = _p.dom, _uiutils = _p.uiutils;
+    var _p = Phoenix, _utils = _p.utils, _ui = _p.ui, _link = _p.link, _dom = _p.dom, _uiutils = _p.uiutils;
     var wizard;
     (function (wizard) {
         var _arrowHiddenClass = false ? 'bs-none' : 'invisible', _createStep = function (id, stepNumber, stepCode, stepTilte, stepState, isLast) {
@@ -34372,6 +34544,8 @@ var Phoenix;
                         });
                     }
                     that.state.value = nv;
+                    if (that.renderOptions.searchKey)
+                        _link.updateSearchEntry(that.renderOptions.searchKey, that.state.value);
                     var valueFound = false;
                     if (that._steps && that._steps.length) {
                         for (var i = 0; i < that._steps.length; i++) {
@@ -38430,7 +38604,7 @@ var Phoenix;
                 return {
                     list: '<ul class="bs-pillbox noborder"></ul>',
                     itemTag: '<li class="bs-pillbox-item bs-pillbox-item-tag" data-drag="move"></li>',
-                    icon: '<span class="icon float-right ' + _dom.iconClass(that._options.removeIcon) + ' icon-remove bs-cursor-p" data-event="click" data-action="remove"></span>',
+                    icon: '<span class="icon-remove ' + _dom.iconClass(that._options.removeIcon) + ' bs-cursor-p" data-event="click" data-action="remove"></span>',
                     itemInput: '<li class="bs-pillbox-item bs-pillbox-item-edit"><input autocomplete="off" autofocus="true" placeholder="..." data-event="keyup" data-action="add,remove" /></li>'
                 };
             };
@@ -38466,7 +38640,8 @@ var Phoenix;
                 var children;
                 var copts = {
                     top: 0,
-                    height: cloned.offsetHeight
+                    height: cloned.offsetHeight,
+                    delta: -6
                 };
                 var nodesSelected = [];
                 that.selectedItems.forEach(function (item) {
@@ -38487,6 +38662,7 @@ var Phoenix;
                     return false;
                 var eltHTML = _dom.find(that._container, drag.data.cloneId);
                 var cloneHTML = eltHTML.cloneNode(true);
+                _dom.addClass(cloneHTML, 'moving');
                 var p = _dom.position(eltHTML, null);
                 cloneHTML.style.top = p.top + "px";
                 cloneHTML.style.left = p.left + "px";
@@ -38496,6 +38672,12 @@ var Phoenix;
                 cloneHTML.style.position = 'absolute';
                 cloneHTML.style.cursor = "move";
                 drag.floatElement = cloneHTML;
+                var pos = _dom.position(that._container, document.body);
+                var delta = 10;
+                drag.minLeft = pos.left - delta;
+                drag.maxLeft = pos.left + pos.width + delta;
+                drag.minTop = pos.top - delta;
+                drag.maxTop = pos.top + pos.height + delta;
                 _dom.append(document.body, drag.floatElement);
                 return true;
             };
@@ -38513,7 +38695,7 @@ var Phoenix;
                         width: best.width,
                         height: best.height
                     };
-                    drag.data.mdiv = _dom.showMove(drag.data.mdiv, best.vertical, pos, 'bs-drag-color-info');
+                    drag.data.mdiv = _dom.showMove(drag.data.mdiv, best.vertical, pos, 'bs-drag-color-danger');
                 }
                 drag.data.best = best;
                 return true;
@@ -38637,7 +38819,7 @@ var Phoenix;
                     multiSelect: true,
                     pillBox: true,
                     renderModel: "top",
-                    maxHeight: "300px"
+                    maxHeight: "250px"
                 };
                 var entree = that.state.value.model().entree || [];
                 entree = entree.map(function (v) {
@@ -38765,11 +38947,11 @@ var Phoenix;
                             '<div id="{0}" data-render="{0}">',
                             '<div class="row">',
                             '<div id="{0}_multiselect" class="col-sm-8">',
-                            '<h5 class="bs-block-title">Choix de colonnes</h5>',
+                            '<h5 class="bs-block-title bs-style-spo-h2 bs-block-title-no-space">Choix de colonnes</h5>',
                             '<div data-id="pillbox"></div>',
                             '</div>',
                             '<div id="{0}_pillbox" class="col-sm-4">',
-                            '<h5 class="bs-block-title">Liste de champs</h5>',
+                            '<h5 class="bs-block-title bs-style-spo-h2 bs-block-title-no-space">Liste de champs</h5>',
                             '<div data-id="multiselect" style="overflow-y:auto;max-height:' + that._options.maxHeight + ';border: 1px solid #dddddd;"></div>',
                             '</div>',
                             '</div>',
@@ -38781,11 +38963,11 @@ var Phoenix;
                             '<div id="{0}" data-render="{0}">',
                             '<div class="row">',
                             '<div id="{0}_pillbox" class="col-sm-4">',
-                            '<h5 class="bs-block-title">Liste de champs</h5>',
+                            '<h5 class="bs-block-title bs-style-spo-h2 bs-block-title-no-space>Liste de champs</h5>',
                             '<div data-id="multiselect" style="overflow-y:auto;max-height:' + that._options.maxHeight + ';border: 1px solid #dddddd;"></div>',
                             '</div>',
                             '<div id="{0}_multiselect" class="col-sm-8">',
-                            '<h5 class="bs-block-title">Choix de colonnes</h5>',
+                            '<h5 class="bs-block-title bs-style-spo-h2 bs-style-no-margin-y">Choix de colonnes</h5>',
                             '<div data-id="pillbox"></div>',
                             '</div>',
                             '</div>',
@@ -38796,11 +38978,11 @@ var Phoenix;
                         html = [
                             '<div id="{0}" data-render="{0}">',
                             '<div id="{0}_multiselect">',
-                            '<h5 class="bs-block-title">Liste de champs</h5>',
+                            '<h5 class="bs-block-title bs-style-spo-h2 bs-block-title-no-space">Liste de champs</h5>',
                             '<div data-id="multiselect" style="overflow-y:auto;max-height:' + that._options.maxHeight + ';border: 1px solid #dddddd;"></div>',
                             '</div>',
                             '<div id="{0}_pillbox">',
-                            '<h5 class="bs-block-title">Choix de colonnes</h5>',
+                            '<h5 class="bs-block-title bs-style-spo-h2">Choix de colonnes</h5>',
                             '<div data-id="pillbox"></div>',
                             '</div>',
                             '</div>'
@@ -38811,11 +38993,11 @@ var Phoenix;
                         html = [
                             '<div id="{0}" data-render="{0}">',
                             '<div id="{0}_pillbox">',
-                            '<h5 class="bs-block-title">Choix de colonnes</h5>',
+                            '<h5 class="bs-block-title bs-style-spo-h2 bs-block-title-no-space">Choix de colonnes</h5>',
                             '<div data-id="pillbox"></div>',
                             '</div>',
                             '<div id="{0}_multiselect">',
-                            '<h5 class="bs-block-title">Liste de champs</h5>',
+                            '<h5 class="bs-block-title bs-style-spo-h2 bs-block-title-no-space">Liste de champs</h5>',
                             '<div data-id="multiselect" style="overflow-y:auto;max-height:' + that._options.maxHeight + ';border: 1px solid #dddddd;"></div>',
                             '</div>',
                             '</div>'
@@ -39022,7 +39204,7 @@ var Phoenix;
                                 "$bind": "mselect",
                                 "$widget": "multiselectlist",
                                 "options": {
-                                    multiSelect: true
+                                    "multiSelect": true
                                 }
                             }
                         ]
@@ -39082,7 +39264,7 @@ var Phoenix;
                     sortie: _ui.multiSelectUtils.transformSelectedColumnsToMultiSelectFormat(params.schemaColumns, params.selectedColumns, params.schemaGroups, params.options.columnsLimited)
                 }
             };
-            var opts = { "title": params.locale && params.locale.settingsTitle ? params.locale.settingsTitle : "Options", "buttons": [{ "pattern": "validate" }] };
+            var opts = { noClose: true, size: 'lg', "title": params.locale && params.locale.settingsTitle ? params.locale.settingsTitle : "Options", "buttons": [{ "pattern": "abandon" }, { "pattern": "validate" }] };
             _ui.OpenModalForm(opts, layout, model, ldata, locale, function (form, action, model, formControl) {
                 switch (action.property) {
                     case "validate":

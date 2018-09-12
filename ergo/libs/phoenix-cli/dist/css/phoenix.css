@@ -12699,6 +12699,12 @@ div.drop-target-col {
   margin-bottom: 0px;
 }
 
+.bs-block-title-no-space {
+  padding-top: 0px;
+  padding-bottom: 0px;
+  margin-bottom: 0.3rem;
+}
+
 .bs-rt-button {
   position: absolute;
   cursor: default;
@@ -13579,15 +13585,15 @@ ul.bs-nav-button.bs-right-nav {
 }
 
 .bs-pillbox-item {
-  line-height: 30px;
+  line-height: 1.8rem;
   display: inline-block;
   position: relative;
+  font-size: 11px;
 }
 
 .bs-pillbox-item-tag {
   margin: 2px 2px 2px 0;
-  padding: 0 10px;
-  padding-right: 40px;
+  padding: 0 0.5rem;
   background-color: #0188d1;
   color: white;
   border-radius: 4px;
@@ -13612,15 +13618,13 @@ ul.bs-nav-button.bs-right-nav {
   outline: none;
 }
 
-.bs-pillbox-item-tag span.icon.icon-remove {
-  width: 30px;
-  height: 30px;
-  position: absolute;
-  top: 50%;
-  margin-top: -15px;
-  padding-top: 8px;
-  right: 0;
-  text-align: center;
+.bs-pillbox-item-tag > span.icon-remove {
+  padding-left: 0.5rem;
+}
+
+.bs-pillbox-item-tag.moving > span.icon-remove {
+  display: none;
+  white-space: nowrap;
 }
 
 .is-invalid div.invalid-feedback {
@@ -14632,10 +14636,17 @@ body {
 
 .bs-drag-color-info {
   color: #17a2b8;
+  font-size: 2em;
+}
+
+.bs-drag-color-danger {
+  color: #d9534f;
+  font-size: 2em;
 }
 
 .bs-drag-color-success {
   color: #5cb85d;
+  font-size: 2em;
 }
 
 .bs-va-middle {

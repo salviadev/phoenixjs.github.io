@@ -401,6 +401,7 @@ declare namespace Phoenix {
             private _mdEvent;
             private _lastDropTarget;
             private _targets;
+            private _startTimer;
             inDragging: boolean;
             coverDocument: boolean;
             cursor: string;
@@ -467,6 +468,7 @@ declare namespace Phoenix {
         };
         var changeSearch: (search: any, replace: boolean, checkHistory?: boolean) => void;
         var removeFromSearch: (toRemove: string[]) => void;
+        let updateSearchEntry: (key: string, value: string) => void;
     }
 }
 declare namespace Phoenix {
@@ -2456,6 +2458,8 @@ declare namespace Phoenix {
             protected _isDateTime(): boolean;
             protected _isMemo(): boolean;
             protected _isEnum(): boolean;
+            focusIn(event: any): void;
+            focusOut(event: any): void;
             protected _isNumber(): boolean;
             setFocus(focusParams?: any): void;
             protected _isMoney(): boolean;
@@ -2764,6 +2768,10 @@ declare namespace Phoenix {
             destroy(): void;
             checkFocus(focusParams?: any): void;
         }
+    }
+}
+declare namespace Phoenix {
+    module msgcontrol {
     }
 }
 declare namespace Phoenix {
