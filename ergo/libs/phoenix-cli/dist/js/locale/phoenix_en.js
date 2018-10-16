@@ -99,8 +99,11 @@ var Phoenix;
             "Actions": "Actions",
             "FileUpload": "Choose File",
             "Apply": "Apply",
+            "Remove": "Remove",
+            "ExportCsv": "Export as CSV",
             "SaveSuccessful": "Changes saved successfully.",
-            "cancelWarning": "All changes will be lost if you leave this page without saving. Are you sure to continue ?"
+            "cancelWarning": "All changes will be lost if you leave this page without saving. Are you sure to continue ?",
+            "removeWarning": "Are you sure you want to delete this item?"
         },
         "errors": {
             "Title": "Oops! An unknown error has occurred.",

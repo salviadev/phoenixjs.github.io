@@ -1711,11 +1711,6 @@ pre code {
   opacity: 1;
 }
 
-.form-control:-ms-input-placeholder {
-  color: #6c757d;
-  opacity: 1;
-}
-
 .form-control::-ms-input-placeholder {
   color: #6c757d;
   opacity: 1;
@@ -13695,6 +13690,10 @@ div.bs-read-only:empty:before {
   margin-right: 3px;
   margin-left: 4px;
   cursor: help;
+  margin-top: -0.15em;
+}
+
+.bs-tooltip-icon.edit, .bs-rules.edit {
   color: #3b768c;
 }
 
@@ -13762,10 +13761,6 @@ div.bs-read-only:empty:before {
 }
 
 ::-webkit-input-placeholder {
-  font-style: italic;
-}
-
-:-ms-input-placeholder {
   font-style: italic;
 }
 
@@ -14497,7 +14492,7 @@ body {
 
 .bs-content {
   position: relative;
-  min-height: 100%;
+  min-height: 99%;
 }
 
 .bs-focus-outline-none:focus {
@@ -14757,7 +14752,14 @@ body {
   padding-left: 1rem !important;
   padding-right: 1rem !important;
   padding-bottom: 1rem !important;
+  padding-top: 1rem;
   background-color: #fafafa;
+}
+
+.bs-style-disabled {
+  box-shadow: 0 0px 0px 0 !important;
+  border: 1px solid #fafafa !important;
+  background-color: #f3f3f3 !important;
 }
 
 .bs-style-upper {

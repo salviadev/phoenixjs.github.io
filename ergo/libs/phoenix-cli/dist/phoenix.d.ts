@@ -57,7 +57,8 @@ declare namespace Phoenix {
         var gmapsKey: string;
         var gGeodecodeKey: string;
         var confirm: (title: any, message: any, success: any, cancel?: any) => void;
-        var info: (title: string, message: string, type: string) => void;
+        var info: (title: string, message: string, type: string, after?: any) => void;
+        let message: (element: HTMLElement, message: string, type: string, visible: boolean) => void;
         var upload: (options: {
             infoMessage: string;
             formTitle: string;
@@ -70,6 +71,7 @@ declare namespace Phoenix {
         var prompt: (title: string, defaultValue: string, success: (res: string) => void) => void;
         var cleanUpObject: (src: any) => void;
         var getValue: (value: any, path: string) => any;
+        let glbDisclaimerMessage: string;
     }
 }
 declare namespace Phoenix {
@@ -96,6 +98,7 @@ declare namespace Phoenix {
         version: string;
         release: boolean;
         authMode: string;
+        releaseVersion: string;
     };
 }
 declare namespace Phoenix {
@@ -276,7 +279,6 @@ declare namespace Phoenix {
         var empty: (element: HTMLElement) => void;
         var remove: (element: Node) => void;
         var detach: (element: HTMLElement) => HTMLElement;
-        var downloadFrame: () => any;
         var attr: (element: HTMLElement, attr: string, value?: string) => any;
         var text: (node: Element, text?: string) => string;
         var findByAttribute: (el: any, root: any, attr: any) => any;
@@ -335,6 +337,8 @@ declare namespace Phoenix {
             height: number;
             src: string;
         }>;
+        let downloadContentHandler: (content: string, fileName: string) => void;
+        let downloadUriHandler: (uri: string) => void;
     }
 }
 declare namespace Phoenix {
@@ -960,6 +964,7 @@ declare namespace Phoenix {
             schema2Authoring: (schema: any, rootSchema: any, locale: any) => any[];
             extractClassNames(schema: any, rootSchema: any): any;
             expandRules(rules: any[], names: any): any;
+            getMaxLength(schema: any): number;
             filtrableFields(schema: any, rootSchema: any, locale: any): any[];
             searchableFields: (schema: any, rootSchema: any, locale: any) => any[];
             isFwField: (fieldName: string) => boolean;
@@ -1339,7 +1344,8 @@ declare namespace Phoenix {
             _cleanIds(item: any): void;
             _blockToCols(layout: any): void;
             _changeType(layout: any, newtype: any): void;
-            updateIsHidden(layout: any, isHidden: any): void;
+            updateIsHidden(layout: any, isHidden: boolean): void;
+            updateIsDisabled(layout: any, isDisabled: boolean): void;
             updateLayout(id: string, data: any): void;
         }
         class PageLayout extends BaseLayout implements DatasetPlugin.DatasetMethods {
@@ -1933,6 +1939,13 @@ declare namespace Phoenix {
             syncDataSet(): any;
             constructor(layoutData: any, options: any, ldata: any, schema: any, locale: any, preferences: any);
             protected _getFormLData(): any;
+            navigate(pageName: string, options: {
+                checkForChanges: boolean;
+                canGoBack: boolean;
+                urlSearch: any;
+            }): void;
+            back(checkForChanges: boolean): void;
+            disclaimer(options: any, visible: boolean): void;
             private _activateTab;
             setData(ldata: any): void;
             processing(value: boolean): void;
@@ -2007,6 +2020,7 @@ declare namespace Phoenix {
             private _doKeyDown;
             private _doKeyPress;
             private delayClick;
+            focusedControl(): any;
             protected _addBaseEvents(): void;
             visibleChildForms(): Form[];
             private _resizeControls;
@@ -2051,11 +2065,12 @@ declare namespace Phoenix {
             containerBaseClass: (groupClass: string, authoring: boolean, options: any) => string;
             align2Css: (align: string) => "" | "align-center" | "align-end";
             fieldWrapper: (html: string[], options: any, authoring: boolean, after: Function, customizer?: any) => void;
-            fillSelect(enums: any[], input: any, schema: any): void;
+            fillSelect(enums: any[], input: any, schema: any, allowEmpty: boolean): void;
             datePickerSetValue: ($element: JQuery<HTMLElement>, value: string) => void;
             elementInDatePicker: (element: HTMLElement, $element: JQuery<HTMLElement>) => boolean;
             datePickerInitialize: ($element: JQuery<HTMLElement>, opts: any, onHide: any) => void;
             datePickerDestroy: ($element: JQuery<HTMLElement>) => void;
+            datePickerClose: ($element: JQuery<HTMLElement>) => void;
             dateTimePickerSetValue: ($element: JQuery<HTMLElement>, value: string) => void;
             dateTimePickerInitialize: ($element: JQuery<HTMLElement>, opts: any, onHide: any) => void;
             dateTimePickerDestroy: ($element: JQuery<HTMLElement>) => void;
@@ -2067,7 +2082,7 @@ declare namespace Phoenix {
             };
             display: (value: any, schema: any, form: ui.Form) => any;
             displayValue: (value: any, schema: any, locale: any, options: any, item: any, fieldName?: string) => any;
-            addTooltipAndRule: (html: any, options: any) => void;
+            addTooltipAndRule(html: any, options: any): void;
             extractFields: (template: string) => string[];
             extractFieldsFromDom: (e: HTMLElement) => string[];
             extractFieldsTitlesFromDom: (e: HTMLElement) => string[];
@@ -2203,7 +2218,7 @@ declare namespace Phoenix {
             }, form: any) => HTMLTableRowElement;
             setRowsSelected: (id: string, value: boolean, options: any, parent: HTMLElement) => void;
             createGridRows: (id: any, rows: any, values: any, columns: any, options: any, authoring: any, locale: any, form: any) => DocumentFragment;
-            createInplaceEdit: (svalue: string, value: any, state: any, parent: HTMLElement, cell: any, col: any, opts: any) => {
+            createInplaceEdit: (grid: any, svalue: string, value: any, state: any, parent: HTMLElement, cell: any, col: any, opts: any) => {
                 input: HTMLInputElement;
                 parent: HTMLElement;
                 td: HTMLElement;
@@ -2427,6 +2442,7 @@ declare namespace Phoenix {
             getColumnsFromSchema(): any[];
             getSelectedColumns(): any;
             private _updateSorting;
+            exportAsCsv(): void;
             private _renderColumns;
             private _refreshGrid;
             toggleMultiselect(): void;
@@ -2688,7 +2704,7 @@ declare namespace Phoenix {
     module formlinkbase {
         class LinkBase extends ui.AbsField {
             constructor(fp: any, options: any, form: any);
-            protected _button(): void;
+            protected _button(): any;
             private _execClick;
             protected click(event: any): void;
             customOptions(opts: any): void;
@@ -2705,11 +2721,11 @@ declare namespace Phoenix {
 declare namespace Phoenix {
     module formlink {
         class Link extends formlinkbase.LinkBase {
-            protected _button(): Node;
+            protected _button(): ChildNode;
             protected _renderButton(): JQuery;
         }
         class UploadLink extends formlinkbase.LinkBase {
-            protected _button(): Node;
+            protected _button(): ChildNode;
             uploadInput(): HTMLElement;
             protected _renderButton(): JQuery;
             setEvents(opts: any): void;
@@ -2880,6 +2896,7 @@ declare namespace Phoenix {
                 enum: any[];
                 enumNames: any[];
             };
+            static beforeCreateControl(fieldOptions: any): any;
         }
     }
 }

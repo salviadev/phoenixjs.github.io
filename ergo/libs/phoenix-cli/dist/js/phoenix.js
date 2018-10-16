@@ -1,7 +1,10 @@
 var __extends = (this && this.__extends) || (function () {
-    var extendStatics = Object.setPrototypeOf ||
-        ({ __proto__: [] } instanceof Array && function (d, b) { d.__proto__ = b; }) ||
-        function (d, b) { for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p]; };
+    var extendStatics = function (d, b) {
+        extendStatics = Object.setPrototypeOf ||
+            ({ __proto__: [] } instanceof Array && function (d, b) { d.__proto__ = b; }) ||
+            function (d, b) { for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p]; };
+        return extendStatics(d, b);
+    }
     return function (d, b) {
         extendStatics(d, b);
         function __() { this.constructor = d; }
@@ -409,9 +412,9 @@ var Phoenix;
             };
         }, _getNextTick = function () {
             var nextTickFn;
-            if (window.setImmediate) {
+            if (window['setImmediate']) {
                 nextTickFn = function nextTickSetImmediate(fn) {
-                    setImmediate(function () {
+                    window['setImmediate'](function () {
                         fn();
                     });
                 };
@@ -489,7 +492,9 @@ var Phoenix;
                 cancel();
             }
         };
-        utils.info = function (title, message, type) {
+        utils.info = function (title, message, type, after) {
+        };
+        utils.message = function (element, message, type, visible) {
         };
         utils.upload = function (options, onsuccess) {
         };
@@ -502,6 +507,7 @@ var Phoenix;
         };
         utils.cleanUpObject = _cleanUpObject;
         utils.getValue = _getValue;
+        utils.glbDisclaimerMessage = '';
     })(utils = Phoenix.utils || (Phoenix.utils = {}));
     (function _polyfill() {
         if (!Math.trunc) {
@@ -670,7 +676,7 @@ var Phoenix;
         }
     }
     Phoenix.preferences = preferences;
-    Phoenix.build = { version: '0.1.0.0', release: false, authMode: 'dev' };
+    Phoenix.build = { version: '0.1.0.0', release: false, authMode: 'dev', releaseVersion: '' };
 })(Phoenix || (Phoenix = {}));
 /// <reference path="./globals.ts" />
 var Phoenix;
@@ -838,6 +844,13 @@ var Phoenix;
                 a.disabled = !value;
         }, _isFunction = function (obj) {
             return obj && typeof obj === 'function';
+        }, _get500ErrorString = function (jqXHR) {
+            if (jqXHR.responseJSON && jqXHR.responseJSON.error && jqXHR.responseJSON.error.message)
+                return jqXHR.responseJSON.error.message;
+            if (!jqXHR.responseJSON) {
+                return jqXHR.responseText;
+            }
+            return _locale.errors.error500;
         }, _parseError = function (jqXHR) {
             var res = null;
             if (jqXHR.responseText) {
@@ -928,8 +941,9 @@ var Phoenix;
                 }).fail(function (jqXHR, textStatus, errorThrown) {
                     if (options && options.ignore && options.ignore['' + jqXHR.status])
                         return resolve({});
-                    if (errors && errors[jqXHR.status + '']) {
-                        var errCode = jqXHR.status + '';
+                    var status = jqXHR.status || 500;
+                    if (errors && errors[status + '']) {
+                        var errCode = status + '';
                         if (typeof errors[errCode] === 'string') {
                             var hnd = _customData.get(errors[errCode]);
                             if (hnd)
@@ -938,12 +952,12 @@ var Phoenix;
                         else
                             return resolve(errors[errCode]);
                     }
-                    var ii = _intercept(jqXHR.status);
+                    var ii = _intercept(status);
                     if (ii) {
                         return ii.error ? reject({}) : resolve({});
                     }
-                    if (jqXHR.status >= 500 && _locale && _locale.errors) {
-                        textStatus = _locale.errors.error500;
+                    if (status >= 500 && _locale && _locale.errors) {
+                        textStatus = _get500ErrorString(jqXHR);
                         errorThrown = null;
                     }
                     var detail = _parseError(jqXHR);
@@ -998,13 +1012,14 @@ var Phoenix;
                 $.ajax(opts).done(function (data, textStatus, jqXHR) {
                     resolve(data);
                 }).fail(function (jqXHR, textStatus, errorThrown) {
-                    if (options && options.ignore && options.ignore['' + jqXHR.status])
+                    var status = jqXHR.status || 500;
+                    if (options && options.ignore && options.ignore['' + status])
                         return resolve({});
-                    if (_intercept(jqXHR.status)) {
+                    if (_intercept(status)) {
                         return resolve({});
                     }
-                    if (jqXHR.status >= 500 && _locale && _locale.errors) {
-                        textStatus = _locale.errors.error500;
+                    if (status >= 500 && _locale && _locale.errors) {
+                        textStatus = _get500ErrorString(jqXHR);
                         errorThrown = null;
                     }
                     var detail = _parseError(jqXHR);
@@ -1179,8 +1194,9 @@ var Phoenix;
                                 filename = matches[1].replace(/['"]/g, '');
                         }
                         var type = xhr.getResponseHeader('Content-Type');
+                        var blob = null;
                         try {
-                            var blob = new Blob([that.response], { type: type });
+                            blob = new Blob([that.response], { type: type });
                         }
                         catch (ex) {
                             return reject(ex);
@@ -1190,17 +1206,17 @@ var Phoenix;
                             resolve({});
                         }
                         else {
-                            var URL = window['URL'] || window['webkitURL'];
-                            var downloadUrl = URL.createObjectURL(blob);
+                            var URL_1 = window['URL'] || window['webkitURL'];
+                            var downloadUrl_1 = URL_1.createObjectURL(blob);
                             if (filename) {
                                 // use HTML5 a[download] attribute to specify filename
                                 var a = document.createElement('a');
                                 // safari doesn't support this yet
                                 if (typeof a['download'] === 'undefined') {
-                                    window.location.href = downloadUrl;
+                                    window.location.href = downloadUrl_1;
                                 }
                                 else {
-                                    a.href = downloadUrl;
+                                    a.href = downloadUrl_1;
                                     a['download'] = filename;
                                     document.body.appendChild(a);
                                     a.click();
@@ -1208,10 +1224,10 @@ var Phoenix;
                                 }
                             }
                             else {
-                                window.location.href = downloadUrl;
+                                window.location.href = downloadUrl_1;
                             }
                             setTimeout(function () {
-                                URL.revokeObjectURL(downloadUrl);
+                                URL_1.revokeObjectURL(downloadUrl_1);
                                 resolve({});
                             }, 300);
                         }
@@ -1770,8 +1786,11 @@ var Phoenix;
             "Actions": "Actions",
             "FileUpload": "Choose File",
             "Apply": "Apply",
+            "Remove": "Remove",
+            "ExportCsv": "Export as CSV",
             "SaveSuccessful": "Changes saved successfully.",
-            "cancelWarning": "All changes will be lost if you leave this page without saving. Are you sure to continue ?"
+            "cancelWarning": "All changes will be lost if you leave this page without saving. Are you sure to continue ?",
+            "removeWarning": "Are you sure you want to delete this item?"
         },
         "errors": {
             "Title": "Oops! An unknown error has occurred.",
@@ -2146,6 +2165,7 @@ var Phoenix;
             'plus': 'add',
             'plus-circle': 'add-circle',
             'question-circle': 'info',
+            'help-circle': 'help',
             'search': 'search',
             'square-o': 'check-box-outline-blank',
             'th': 'apps',
@@ -2161,6 +2181,15 @@ var Phoenix;
             'heart': 'favorite',
             'map-marker': 'location-on',
             'paperclip': 'attach-file',
+            'file-export': 'import-export',
+            'comment': 'comment',
+            'euro-sign': 'euro-symbol',
+            'history': 'history',
+            'address-card': 'contacts',
+            'calendar-alt': 'event',
+            'archive': 'archive',
+            'credit-card': 'payment',
+            'file-invoice': 'description',
             'cloud-download': 'cloud-download'
         };
         var _bootstrapBtnCache = null;
@@ -2758,6 +2787,21 @@ var Phoenix;
                 _append(document.body, frame);
             }
             return frame;
+        }, _downloadText = function (content, fileName) {
+            var a = document.createElement('a');
+            a.style.display = 'none';
+            var blob = new Blob(['\ufeff' + content], { type: "text/csv;charset=utf-8" });
+            if (window.navigator.msSaveBlob) {
+                window.navigator.msSaveBlob(blob, fileName);
+            }
+            else {
+                var url = window.URL.createObjectURL(blob);
+                a.href = url;
+                a.href = url;
+                a.download = fileName;
+                a.click();
+                window.URL.revokeObjectURL(url);
+            }
         }, _iFrameAsPromise = function (id, uri, message, cb) {
             var _this = this;
             var promiseClass = Phoenix.utils.Promise;
@@ -2890,7 +2934,6 @@ var Phoenix;
         dom.empty = _empty;
         dom.remove = _remove;
         dom.detach = _detach;
-        dom.downloadFrame = _downloadFrame;
         dom.attr = _attr;
         dom.text = _text;
         dom.findByAttribute = _elemByAttribute;
@@ -2925,6 +2968,11 @@ var Phoenix;
         dom.getCookie = _getCookie;
         dom.iframeAsPromise = _iFrameAsPromise;
         dom.loadPlan = _loadPlan;
+        dom.downloadContentHandler = _downloadText;
+        dom.downloadUriHandler = function (uri) {
+            var frame = _downloadFrame();
+            frame.src = uri;
+        };
     })(dom = Phoenix.dom || (Phoenix.dom = {}));
     $(document).ready(function () {
         if (dom.readyHandlers.length) {
@@ -2940,7 +2988,7 @@ var Phoenix;
                     hnd();
                 }
                 catch (e) {
-                    console.log();
+                    console.log(e);
                 }
             });
         }
@@ -3768,6 +3816,18 @@ var Phoenix;
                 if (_external.logoutHandler)
                     _external.logoutHandler();
             }
+            else if (clink.$back) {
+                if (clink.$checkForChanges && clink.$form && clink.$form.$model.containerHasChanges) {
+                    _utils.confirm(clink.$form.title || _locale.ui.Warning, _locale.ui.cancelWarning, function () {
+                        _history.removeLast();
+                        window.history.back();
+                    });
+                }
+                else {
+                    _history.removeLast();
+                    window.history.back();
+                }
+            }
             else if (clink.$form) {
                 _doOpenForm(clink.$form);
             }
@@ -3781,9 +3841,6 @@ var Phoenix;
             }
             else if (clink.$authoring) {
                 _doAuthoring();
-            }
-            else if (clink.$back) {
-                window.history.back();
             }
             else if (clink.href) {
                 var a = document.createElement('a');
@@ -4409,10 +4466,9 @@ var Phoenix;
                             return _ajax.remove(lurl, opts);
                     default:
                         if (isDownload) {
-                            var frame_2 = _dom.downloadFrame();
                             if (addAuth)
                                 lurl = _ajax.addAuthToUrl(lurl);
-                            frame_2.src = lurl;
+                            _dom.downloadUriHandler(lurl);
                             if (waitForCookie) {
                                 return new _utils.Promise(function (resolve, reject) {
                                     _waitForCookie(waitForCookie, resolve);
@@ -8331,7 +8387,10 @@ var Phoenix;
         Observable.INDEX_FIELD_NAME = '$index';
         Observable.SELECTED_FIELD_NAME = '$select';
         Observable.EXPANDED_FIELD_NAME = '$expand';
-        var _ulocale = Phoenix.ulocale, _external = Phoenix.external, _application = Phoenix.application, _ajax = Phoenix.ajax, _dom = Phoenix.dom, _link = Phoenix.link, _data = Phoenix.data, _utils = Phoenix.utils, _ulocale = Phoenix.ulocale, _locale = Phoenix.locale, _customData = Phoenix.customData, _localeSchema = Phoenix.locale.schema, _dsPlugin = Phoenix.DatasetPlugin, _fwFields = [Observable.INDEX_FIELD_NAME, Observable.SELECTED_FIELD_NAME, Observable.EXPANDED_FIELD_NAME], _isFwField = function (fieldName) {
+        var MAX_LENGTH_CODE = 32;
+        var MAX_LENGTH_STRING = 256;
+        var MAX_LENGTH_COMMENT = 4000;
+        var _ulocale = Phoenix.ulocale, _external = Phoenix.external, _application = Phoenix.application, _dom = Phoenix.dom, _data = Phoenix.data, _utils = Phoenix.utils, _locale = Phoenix.locale, _customData = Phoenix.customData, _localeSchema = Phoenix.locale.schema, _dsPlugin = Phoenix.DatasetPlugin, _fwFields = [Observable.INDEX_FIELD_NAME, Observable.SELECTED_FIELD_NAME, Observable.EXPANDED_FIELD_NAME], _isFwField = function (fieldName) {
             if (fieldName.indexOf(Observable.EXPANDED_FIELD_NAME) >= 0)
                 return true;
             return _fwFields.indexOf(fieldName) >= 0;
@@ -8343,7 +8402,6 @@ var Phoenix;
                 },
                 get: function (name) {
                     return _enumsManager[name];
-                    ;
                 }
             };
         }, _registerValidator = function () {
@@ -8728,6 +8786,18 @@ var Phoenix;
                     });
                 });
                 return res;
+            },
+            getMaxLength: function (schema) {
+                if (schema.type === 'string') {
+                    if (schema.maxLength !== undefined)
+                        return schema.maxLength;
+                    if (schema.format === 'code')
+                        return MAX_LENGTH_CODE;
+                    if (schema.format === 'json' || schema.format === 'memo')
+                        return MAX_LENGTH_COMMENT;
+                    return MAX_LENGTH_STRING;
+                }
+                return undefined;
             },
             filtrableFields: function (schema, rootSchema, locale) {
                 var res = [];
@@ -11944,6 +12014,9 @@ var Phoenix;
             if (!options.design && layout.$isHidden) {
                 css.push('bs-none');
             }
+            if (!options.design && layout.$isDisabled) {
+                css.push('bs-style-disabled');
+            }
         }, _onlyFields = function (layout) {
             return !layout.$items || !layout.$items.length || layout.$items[0].$bind;
         }, _css = function (layout, parent, options, css, style) {
@@ -12632,6 +12705,7 @@ var Phoenix;
                         if (clearIds)
                             delete item.$id;
                         delete item.$fields;
+                        delete item.$isDisabled;
                         delete item.$render;
                         delete item.$idDesign;
                         delete item.$idDrag;
@@ -13742,6 +13816,13 @@ var Phoenix;
                         that._activateLayout(layout, true);
                         //
                     }
+                }
+            };
+            BaseLayout.prototype.updateIsDisabled = function (layout, isDisabled) {
+                var that = this;
+                if (layout.$isDisabled !== isDisabled) {
+                    layout.$isDisabled = isDisabled;
+                    that._afterPropsChanged(layout);
                 }
             };
             BaseLayout.prototype.updateLayout = function (id, data) {
@@ -15484,6 +15565,11 @@ var Phoenix;
                 else if (segment.indexOf('$links') >= 0) {
                     res.type = JSONJPATCH_METHOD;
                     var methodName = segments.pop();
+                    if (methodName === '$links' && res.lastSegment.indexOf('.') > 0) {
+                        methodName = res.lastSegment;
+                        segments.push('$links');
+                        res.lastSegment = '';
+                    }
                     var m = methodName.split('.');
                     if (m.length > 1) {
                         var arrayPropName = m.shift();
@@ -15731,6 +15817,7 @@ var Phoenix;
                         that._selected = value;
                         if (notify && that._parent && !that.simulateSelecting) {
                             that._parent.notifyChanged(that._path + '.$selected', os, that._selected, 'propchange', { framework: '$selected', checkChildren: true, instance: that._parent }, false);
+                            that._parent.notifyStateChanged(that._path + '.$selected', { instance: that, checkChildren: true });
                         }
                     }
                 }
@@ -15763,6 +15850,7 @@ var Phoenix;
                     that._selected = ns_1;
                     if (notify && that._parent && !that.simulateSelecting) {
                         that._parent.notifyChanged(that._path + '.$selected', os, that._selected, 'propchange', { framework: '$selected', checkChildren: true, instance: that._parent }, false);
+                        that._parent.notifyStateChanged(that._path + '.$selected', { instance: that, checkChildren: true });
                     }
                 }
             };
@@ -17349,7 +17437,14 @@ var Phoenix;
                             try {
                                 if (parent.type === JSONJPATCH_METHOD) {
                                     if (parent.value) {
-                                        parent.value[parent.lastSegment] = item.value;
+                                        if (typeof item.value === 'object') {
+                                            var lp_1 = parent.lastSegment ? parent.value[parent.lastSegment] : parent.value;
+                                            Object.keys(item.value).forEach(function (key) {
+                                                lp_1[key] = item.value[key];
+                                            });
+                                        }
+                                        else
+                                            parent.value[parent.lastSegment] = item.value;
                                     }
                                     return;
                                 }
@@ -18199,6 +18294,8 @@ var Phoenix;
                     }
                     after = schema.links[link].after || (actionParams ? actionParams.$after : undefined);
                     successMessage = schema.links[link].successMessage;
+                    if (successMessage === undefined && schema.links[link].isSave)
+                        successMessage = true;
                 }
                 return { path: '/' + segments.join('/'), params: actionParams, after: after, successMessage: successMessage };
             };
@@ -18230,6 +18327,8 @@ var Phoenix;
                         break;
                     }
                 }
+                if (res)
+                    return res;
                 props = Object.keys(that._schema.properties || {});
                 var rs = that._rootParent._schema;
                 for (var _a = 0, props_2 = props; _a < props_2.length; _a++) {
@@ -18553,22 +18652,26 @@ var Phoenix;
                     if (ca) {
                         ca.forEach(function (action) {
                             var aform = that._formsById[action.formId];
+                            var _doAfter = function () {
+                                if (action && action.after) {
+                                    if (!aform.$model.hasErrors()) {
+                                        if (typeof action.after === 'string')
+                                            aform.execAction(action.after, {}, { $nosync: true });
+                                        else
+                                            action.after();
+                                    }
+                                }
+                            };
                             if (action && action.successMessage) {
                                 if (!aform.$model.hasErrors()) {
                                     var msgCfg = typeof action.successMessage === 'object' ? action.successMessage : { title: '', content: '' };
                                     var title = msgCfg.title || aform.$schema.title || _locale.ui.Info;
                                     var content = msgCfg.content || _locale.ui.SaveSuccessful;
-                                    _utils.info(title, content, 'success');
+                                    _utils.info(title, content, 'success', _doAfter);
+                                    return;
                                 }
                             }
-                            if (action && action.after) {
-                                if (!aform.$model.hasErrors()) {
-                                    if (typeof action.after === 'string')
-                                        aform.execAction(action.after, {}, { $nosync: true });
-                                    else
-                                        action.after();
-                                }
-                            }
+                            _doAfter();
                         });
                     }
                 });
@@ -18747,9 +18850,9 @@ var Phoenix;
                         that._bindStates[l.$bindState] = that._bindStates[l.$bindState] || [];
                         that._bindStates[l.$bindState].push(layoutId);
                     }
-                    if (l.$bindValue) {
-                        that._bindValues[l.$bindValue] = that._bindValues[l.$bindValue] || [];
-                        that._bindValues[l.$bindValue].push(layoutId);
+                    if (l.bindVisibility) {
+                        that._bindValues[l.bindVisibility] = that._bindValues[l.bindVisibility] || [];
+                        that._bindValues[l.bindVisibility].push(layoutId);
                     }
                     if (l.$title && l.$title.value && !l.$title.isHidden) {
                         var fields = [];
@@ -18778,7 +18881,8 @@ var Phoenix;
                     if (state && state.isHidden) {
                         var l = that._bindStates[propName];
                         l.forEach(function (layoutId) {
-                            that.map[layoutId].$isHidden = true;
+                            that.map[layoutId].$isHidden = state.isHidden;
+                            that.map[layoutId].$isDisabled = state.isDisabled;
                         });
                     }
                     that.registerListenerFor(propName, that, 'layout-state');
@@ -18796,12 +18900,17 @@ var Phoenix;
                             else
                                 layout.$isHidden = true;
                         }
-                        else if (schema.type !== 'string')
-                            layout.$isHidden = !!!value;
-                        else
-                            layout.$isHidden = value !== that.map[layoutId].$name;
-                        if (layout.$bindValueInv)
-                            layout.$isHidden = !layout.$isHidden;
+                        else {
+                            if ((layout.bindVisibilityValue !== undefined)) {
+                                layout.$isHidden = layout.bindVisibilityValue != value;
+                            }
+                            else {
+                                if (schema.type !== 'string')
+                                    layout.$isHidden = !!!value;
+                                else
+                                    layout.$isHidden = value !== that.map[layoutId].$name;
+                            }
+                        }
                     });
                     that.registerListenerFor(propName, that, 'layout-value');
                 });
@@ -19013,6 +19122,35 @@ var Phoenix;
             };
             Form.prototype._getFormLData = function () {
                 return this.$model;
+            };
+            Form.prototype.navigate = function (pageName, options) {
+                _link.execLink({
+                    $page: pageName,
+                    $replace: !options.canGoBack,
+                    $isDetail: options.canGoBack,
+                    $form: this,
+                    $checkForChanges: options.checkForChanges
+                }, {}, options.urlSearch);
+            };
+            Form.prototype.back = function (checkForChanges) {
+                _link.execLink({
+                    $back: true,
+                    $form: this,
+                    $checkForChanges: this.useSync && checkForChanges
+                }, {}, {});
+            };
+            Form.prototype.disclaimer = function (options, visible) {
+                var that = this;
+                if (!that.$element || that.options.design)
+                    return;
+                var message = options.message || _utils.glbDisclaimerMessage;
+                if (!message || !options.where)
+                    return;
+                var layout = that.getLayoutByName(options.where);
+                if (layout) {
+                    var e = _dom.find(that.$element.get(0), layout.$id);
+                    _utils.message(e, message, 'info', visible);
+                }
             };
             Form.prototype._activateTab = function (l) {
                 var that = this;
@@ -19400,14 +19538,17 @@ var Phoenix;
                                     isHidden = true;
                             }
                             else {
-                                isHidden = !!!value;
-                                if (schema.type !== 'string')
+                                if (layout.bindVisibilityValue !== undefined) {
+                                    isHidden = layout.bindVisibilityValue != value;
+                                }
+                                else {
                                     isHidden = !!!value;
-                                else
-                                    isHidden = value !== that.map[layoutId].$name;
+                                    if (schema.type !== 'string')
+                                        isHidden = !!!value;
+                                    else
+                                        isHidden = value !== that.map[layoutId].$name;
+                                }
                             }
-                            if (layout.$bindValueInv)
-                                isHidden = !isHidden;
                             that.updateIsHidden(layout, isHidden);
                         });
                     }
@@ -19458,14 +19599,16 @@ var Phoenix;
                     }
                 }
                 else if (params.targetId === 'layout-state') {
-                    if (propName === 'isHidden' && params.property) {
+                    if ((propName === 'isHidden' || propName === 'isDisabled') && params.property) {
                         var state_2 = that.$model.getState(params.property, {});
                         var l = that._bindStates[params.property];
                         if (l)
                             l.forEach(function (layoutId) {
                                 var layout = that.map[layoutId];
-                                if (layout)
+                                if (layout) {
                                     that.updateIsHidden(layout, state_2.isHidden);
+                                    that.updateIsDisabled(layout, state_2.isDisabled);
+                                }
                             });
                     }
                 }
@@ -19575,6 +19718,14 @@ var Phoenix;
                     var cl = {};
                     var link_2 = segments.join('.');
                     cl[link_2] = true;
+                    if (link_2 === '$back') {
+                        cl.$form = that;
+                        cl.$checkForChanges = false;
+                    }
+                    else if (link_2 === '$checkForChangeAndBack') {
+                        cl.$form = that;
+                        cl.$checkForChanges = true;
+                    }
                     return _link.execLink(cl, actionParams, null);
                 }
                 that._modelChanged(propName, null, null, 'execute', params, actionParams);
@@ -19863,6 +20014,15 @@ var Phoenix;
                 }
                 return false;
             };
+            Form.prototype.focusedControl = function () {
+                var that = this;
+                var focusedControl = null;
+                Object.keys(that.controls).forEach(function (cn) {
+                    if (that.controls[cn].focused)
+                        focusedControl = that.controls[cn];
+                });
+                return focusedControl;
+            };
             Form.prototype._addBaseEvents = function () {
                 var that = this;
                 that.$element.on('focusin', function (event) {
@@ -20043,8 +20203,9 @@ var Phoenix;
                     if (that.isInProcessing)
                         return that.freeze(event);
                     var control = that._event2Field(event);
-                    if (control && control.mousedown)
+                    if (control && control.mousedown) {
                         return control.mousedown(event);
+                    }
                     return true;
                 });
                 $(window).on('global-phoenix-resize', that._resizeHnd);
@@ -20377,21 +20538,28 @@ var Phoenix;
                 after();
                 html.push('</' + tag + '>');
             },
-            fillSelect: function (enums, input, schema) {
+            fillSelect: function (enums, input, schema, allowEmpty) {
                 if (input) {
-                    var enumNames = schema.enumNames || schema.enum;
-                    var oenums = schema.enum;
+                    var enumNames_1 = schema.enumNames || schema.enum;
+                    var oenums_1 = schema.enum;
                     _dom.empty(input);
-                    var frag = document.createDocumentFragment();
+                    var frag_3 = document.createDocumentFragment();
+                    if (allowEmpty) {
+                        var o = document.createElement('option');
+                        _dom.attr(o, "value", '');
+                        _dom.attr(o, "disabled", 'true');
+                        o.textContent = String.fromCharCode(160);
+                        _dom.append(frag_3, o);
+                    }
                     enums.forEach(function (en) {
-                        var i = oenums.indexOf(en);
-                        var et = enumNames[i] || (en + '');
+                        var i = oenums_1.indexOf(en);
+                        var et = enumNames_1[i] || (en + '');
                         var o = document.createElement('option');
                         _dom.attr(o, "value", en);
                         o.textContent = et;
-                        _dom.append(frag, o);
+                        _dom.append(frag_3, o);
                     });
-                    _dom.append(input, frag);
+                    _dom.append(input, frag_3);
                 }
             },
             datePickerSetValue: function ($element, value) {
@@ -20412,9 +20580,14 @@ var Phoenix;
                     $element[DATE_PICKER_NAME]().on('hide', onHide);
             },
             datePickerDestroy: function ($element) {
-                if ($element.data[DATE_PICKER_NAME]) {
+                if ($element.data(DATE_PICKER_NAME)) {
                     _dom.removeClass($element.get(0), 'date');
                     $element[DATE_PICKER_NAME]('destroy');
+                }
+            },
+            datePickerClose: function ($element) {
+                if ($element.data(DATE_PICKER_NAME)) {
+                    $element[DATE_PICKER_NAME]('hide');
                 }
             },
             //date time 
@@ -20535,6 +20708,12 @@ var Phoenix;
                             break;
                         case 'number':
                             var ndv = void 0;
+                            if (schema.format === 'rate') {
+                                if (schema.decimals === undefined)
+                                    schema.decimals = _sutils.RATE_DECIMALS;
+                                if (schema.symbol === undefined)
+                                    schema.symbol = _sutils.RATE_SYMBOL;
+                            }
                             var isMoney = schema.format === 'money';
                             if (options.state) {
                                 var places = options.state.decimals || 0;
@@ -20630,10 +20809,18 @@ var Phoenix;
             addTooltipAndRule: function (html, options) {
                 if (options.description) {
                     html.push('<span id="{0}_tooltip" data-toggle="tooltip" data-phoenix-tooltip="true" data-placement="auto" title="' + options.description + '" class="' + _dom.iconClass("question-circle") + ' bs-tooltip-icon');
+                    if (options.grid)
+                        html.push(' grid');
+                    else
+                        html.push(' edit');
                     html.push('"></span>');
                 }
                 if (options.rules) {
                     html.push('<span id="{0}_rules"  class="' + _dom.iconClass('bolt') + ' bs-rules');
+                    if (options.grid)
+                        html.push(' grid');
+                    else
+                        html.push(' edit');
                     html.push('"></span>');
                 }
             },
@@ -21268,15 +21455,35 @@ var Phoenix;
                 var schemaLinks = that.$schema.links || {};
                 config.links.forEach(function (link) {
                     link.id = _utils.allocID();
-                    if (!schemaLinks[link.name]) {
+                    var cs = link.name === '$exportCsv' ? { title: _locale.ui.ExportCsv } : schemaLinks[link.name];
+                    if (!cs) {
                         console.log('Invalid link name: ' + link.name);
                         return;
                     }
                     link.options = link.options || {};
-                    link.options.type = link.options.type || 'secondary';
-                    link.schema = schemaLinks[link.name];
+                    link.schema = cs;
+                    link.title = link.schema.title;
                     link.bind = that.$bind + '.$links.' + link.name;
                     link.isHidden = false;
+                    if (link.name === '$exportCsv') {
+                        if (link.options.icon === undefined)
+                            link.options.icon = 'file-export';
+                    }
+                    if (link.name === '$remove' || link.schema.isRemove) {
+                        if (link.options.icon === undefined)
+                            link.options.icon = 'trash';
+                        if (link.options.type === undefined)
+                            link.options.type = 'danger';
+                        if (link.title === undefined)
+                            link.title = _locale.ui.Remove;
+                    }
+                    if (link.name === '$new' || link.schema.isNew) {
+                        if (link.options.icon === undefined)
+                            link.options.icon = 'plus-circle';
+                        if (link.options.type === undefined)
+                            link.options.type = 'info';
+                    }
+                    link.options.type = link.options.type || 'secondary';
                     that.form.registerListenerFor(link.bind, that);
                 });
                 that._updateselected();
@@ -21310,6 +21517,8 @@ var Phoenix;
                         else if (!_dom.hasClass(ei, 'bs-none'))
                             _dom.addClass(ei, 'bs-none');
                         if (isVisible) {
+                            if (link.important)
+                                ei = ei.firstChild;
                             if (link.state.isDisabled) {
                                 if (!_dom.hasClass(ei, 'disabled'))
                                     _dom.addClass(ei, 'disabled');
@@ -21419,8 +21628,8 @@ var Phoenix;
                             hasIcon = true;
                             html.push('<span data-action-id="' + link.id + '" class="' + _dom.iconClass(link.options.icon) + '"></span>');
                         }
-                        if (!link.options.titleIsHidden && link.schema.title) {
-                            html.push('<span data-action-id="' + link.id + '" ' + (hasIcon ? 'class="d-none d-md-inline-block">&nbsp;' : '>') + _utils.escapeHtml(link.schema.title) + '</span>');
+                        if (!link.options.titleIsHidden && link.title) {
+                            html.push('<span data-action-id="' + link.id + '" ' + (hasIcon ? 'class="d-none d-md-inline-block">&nbsp;' : '>') + _utils.escapeHtml(link.title) + '</span>');
                         }
                         html.push('</button>');
                         html.push('</div>');
@@ -21431,7 +21640,7 @@ var Phoenix;
                 var that = this;
                 that.renderOptions.links.forEach(function (link) {
                     if (!link.important) {
-                        html.push('<a id="' + link.id + '" data-action-id="' + link.id + '" href="#" class="dropdown-item">' + _utils.escapeHtml(link.schema.title) + '</a>');
+                        html.push('<a id="' + link.id + '" data-action-id="' + link.id + '" href="#" class="dropdown-item">' + _utils.escapeHtml(link.title) + '</a>');
                     }
                 });
             };
@@ -21486,8 +21695,37 @@ var Phoenix;
                 if (actionId) {
                     var link_4 = that.findLinkById(actionId);
                     if (link_4) {
-                        if (!link_4.isHidden && !link_4.state.isDisabled && !link_4.state.isHidden)
-                            that.form.execAction(link_4.bind, link_4.schema.select ? that._selected : null);
+                        if (!link_4.isHidden && !link_4.state.isDisabled && !link_4.state.isHidden) {
+                            if (link_4.schema && (link_4.schema.isRemove || link_4.name === '$remove') && link_4.schema.confirm) {
+                                var message = link_4.schema.confirm.message ? link_4.schema.confirm.message : Phoenix.locale.ui.removeWarning;
+                                Phoenix.utils.confirm(this.form.$schema.title || _locale.ui.Warning, message, function () {
+                                    that.form.execAction(link_4.bind, link_4.schema.select ? that._selected : null);
+                                });
+                            }
+                            else {
+                                if (link_4.name === '$exportCsv') {
+                                    if (!that.renderOptions.gridName) {
+                                        console.log('options.gridName is missing.');
+                                        return;
+                                    }
+                                    var grid = that.form.controlByName(that.renderOptions.gridName, false);
+                                    if (!grid || !grid.length) {
+                                        console.log('Can\'t find grid' + that.renderOptions.gridName);
+                                        return;
+                                    }
+                                    grid[0].exportAsCsv();
+                                }
+                                else {
+                                    if (link_4.options.confirm) {
+                                        _utils.confirm(link_4.options.confirm.title, link_4.options.confirm.message, function () {
+                                            that.form.execAction(link_4.bind, link_4.schema.select ? that._selected : null);
+                                        });
+                                    }
+                                    else
+                                        that.form.execAction(link_4.bind, link_4.schema.select ? that._selected : null);
+                                }
+                            }
+                        }
                         if (that.renderOptions.gridName) {
                             var grid = that.form.controlByName(that.renderOptions.gridName, false);
                             if (grid && grid.length)
@@ -21981,7 +22219,18 @@ var Phoenix;
                     }
                 }
                 else {
-                    _dom.append(p, document.createTextNode(_ulocale.tt(((col.isLink || col.options.titleIsHidden) ? '' : col.title) || String.fromCharCode(160), locale)));
+                    var titleEmpty = col.isLink || col.options.titleIsHidden || !col.title;
+                    if (titleEmpty)
+                        _dom.append(p, document.createTextNode(String.fromCharCode(160)));
+                    else {
+                        _dom.append(p, document.createTextNode(col.title));
+                        if (col.schema && col.schema.description) {
+                            var html = [];
+                            _uiutils.utils.addTooltipAndRule(html, { description: col.schema.description, grid: true });
+                            var tt = $(_utils.format(html.join(''), id + '_' + col.$bind)).get(0);
+                            _dom.append(p, tt);
+                        }
+                    }
                 }
                 if (options.allowColumnResize && _isPixel(col.options.width)) {
                     var re = document.createElement('div');
@@ -22323,7 +22572,7 @@ var Phoenix;
                     css.push('headernowrap');
             }
             css.push('bs-theme');
-            if (options.border)
+            if (options.border || options.border === undefined)
                 css.push('table-bordered');
             if (options.small)
                 css.push('bs-style-small-table');
@@ -22656,11 +22905,10 @@ var Phoenix;
         }, _updateInplaceSelect = function (inplace, svalue, value, state, parent, cell, col, opts) {
             var enums = state.filter ? col.schema.filters[state.filter] || [] : col.schema.enum;
             var ii = enums.indexOf(value);
+            if (inplace.emptyValue)
+                ii++;
             if (ii < 0) {
-                _utils.nextTick(function () {
-                    cell.item.setValue(col.$bind, enums[0]);
-                });
-                inplace.input.selectedIndex = 0;
+                inplace.input.selectedIndex = ii;
             }
             else {
                 inplace.input.selectedIndex = ii;
@@ -22691,22 +22939,17 @@ var Phoenix;
             input.className = css.join(' ');
             var enums = state.filter ? col.schema.filters[state.filter] || [] : col.schema.enum;
             var ii = enums.indexOf(value);
-            _uiutils.utils.fillSelect(enums, input, col.schema);
+            if (ii < 0)
+                ii = enums.indexOf('');
+            var emptyValue = ii < 0;
+            _uiutils.utils.fillSelect(enums, input, col.schema, emptyValue);
             _setRowSize(input, parent, false);
             _dom.empty(parent);
             _dom.addClass(parent, 'focused');
             _dom.append(parent, input);
-            if (ii < 0) {
-                _utils.nextTick(function () {
-                    cell.item.setValue(col.$bind, enums[0]);
-                });
-                input.selectedIndex = 0;
-            }
-            else {
-                input.selectedIndex = ii;
-            }
-            return { input: input, parent: input, td: parent, combo: null, isInputElement: true, canSelect: false, schema: col.schema };
-        }, _createInplaceLookup = function (svalue, value, state, parent, cell, col, opts) {
+            input.selectedIndex = ii;
+            return { input: input, parent: input, td: parent, combo: null, isInputElement: true, canSelect: false, schema: col.schema, emptyValue: emptyValue };
+        }, _createInplaceLookup = function (grid, svalue, value, state, parent, cell, col, opts) {
             var pp = document.createElement("div");
             pp.className = 'bs-inplace-parent bs-edit-border ';
             var cp = pp;
@@ -22740,7 +22983,18 @@ var Phoenix;
             _dom.append(parent, pp);
             if (_su.isDate(col.schema)) {
                 if (isDatePicker) {
-                    _uiutils.utils.datePickerInitialize($(pp), { showOnFocus: false }, function (e) { });
+                    _uiutils.utils.datePickerInitialize($(pp), { showOnFcous: true }, function (e) {
+                        var doFocusOut = false;
+                        if (document.activeElement === document.body) {
+                            input.focus();
+                        }
+                        else {
+                            doFocusOut = true;
+                        }
+                        if (doFocusOut && (!document.activeElement || !grid.focusInControl(document.activeElement))) {
+                            grid.doFocusOut();
+                        }
+                    });
                     _uiutils.utils.datePickerSetValue($(pp), value);
                 }
                 else
@@ -22763,7 +23017,7 @@ var Phoenix;
                     }
                 }
             }
-        }, _createInplaceEdit = function (svalue, value, state, parent, cell, col, opts) {
+        }, _createInplaceEdit = function (grid, svalue, value, state, parent, cell, col, opts) {
             if (col.schema.enum) {
                 return _createSelectInplaceEdit(svalue, value, state, parent, cell, col, opts);
             }
@@ -22771,15 +23025,16 @@ var Phoenix;
                 return { input: null, parent: null, td: parent, isInputElement: false, canSelect: false, schema: col.schema, combo: null };
             }
             else if (opts.after || opts.before) {
-                return _createInplaceLookup(svalue, value, state, parent, cell, col, opts);
+                return _createInplaceLookup(grid, svalue, value, state, parent, cell, col, opts);
             }
             var input = document.createElement("input");
             input.type = opts.type || 'text';
             var css = ['bs-inplace-edit bs-edit-border bs-inplace-edit-size'];
             if (col.options.align)
                 css.push(_uiutils.utils.align2Css(col.options.align));
-            if (input.type === 'text' && col.schema.maxLength) {
-                input.maxLength = col.schema.maxLength;
+            var maxLength = _su.getMaxLength(col.schema);
+            if (input.type === 'text' && maxLength) {
+                input.maxLength = maxLength;
             }
             input.className = css.join(' ');
             _setRowSize(input, parent, false);
@@ -23051,6 +23306,7 @@ var Phoenix;
                 }
                 else if (_sutils.isDate(that.inplace.schema)) {
                     if (_uiutils.utils.useDatePicker()) {
+                        _uiutils.utils.datePickerClose($(that.inplace.parent));
                         _uiutils.utils.datePickerDestroy($(that.inplace.parent));
                     }
                 }
@@ -23062,7 +23318,13 @@ var Phoenix;
                 var state = cell.item.getState(cell.col.$bind);
                 if (that.inplace.schema.enum) {
                     var si = that.inplace.input.selectedIndex;
-                    return state.filter ? that.inplace.schema.filters[state.filter][si] : that.inplace.schema.enum[si];
+                    if (that.inplace.emptyValue) {
+                        si = si - 1;
+                    }
+                    var res = state.filter ? that.inplace.schema.filters[state.filter][si] : that.inplace.schema.enum[si];
+                    if (res === undefined)
+                        res = '';
+                    return res;
                 }
                 return _uiutils.utils.text2value(that.inplace.input.value, that.inplace.schema, state);
             };
@@ -23087,7 +23349,7 @@ var Phoenix;
                     if (_uiutils.utils.useDatePicker())
                         opts.after = { icon: 'calendar' };
                 }
-                that.inplace = _gu.createInplaceEdit(s, value, state, td, cell, cell.col, opts);
+                that.inplace = _gu.createInplaceEdit(that, s, value, state, td, cell, cell.col, opts);
                 // ---> START LOOKUP
                 if (cell.col.$lookup) {
                     that.inplace.id = opts.id;
@@ -24507,8 +24769,8 @@ var Phoenix;
                         if (item) {
                             var cv = item.getValue(col.$bind, null) || '';
                             var nv = that.inplace.input.value || '';
-                            if (nv !== cv)
-                                return nv;
+                            // if (nv !== cv)
+                            return nv;
                         }
                     }
                 }
@@ -24712,9 +24974,7 @@ var Phoenix;
                     if (that.inplace.combo && that.inplace.combo.opened)
                         return that.inplace.combo.focusInCombo(activeFocusElement);
                     if (that.inplace && _sutils.isDate(that.inplace.schema) && _uiutils.utils.useDatePicker()) {
-                        var dp = _dom.query(document.body, '.datepicker');
-                        if (dp && (_dom.isChildOf(dp, activeFocusElement) || activeFocusElement === document.body))
-                            return true;
+                        return _uiutils.utils.elementInDatePicker(activeFocusElement, $(that.inplace.input.parentNode.parentNode));
                     }
                 }
                 // <--- END LOOKUP 
@@ -24762,6 +25022,11 @@ var Phoenix;
                     var opts = that.renderOptions;
                     var cell = that._td2cell(td);
                     if (cell) {
+                        var focusedControl = that.form.focusedControl();
+                        if (focusedControl && focusedControl !== this && focusedControl.focusOut) {
+                            focusedControl.focusOut(null);
+                            focusedControl.focused = false;
+                        }
                         if (that._selectCell(cell, event, true, false)) {
                             event.preventDefault();
                         }
@@ -24886,6 +25151,23 @@ var Phoenix;
                                         that.form.execAction(that.$bind + '.$item.$links.' + opts.selecting.action, item);
                                 }
                             }
+                        }
+                    }
+                    else if (that._totalProperty && that.fieldOptions.total.action && td.parentElement.id) {
+                        var pt1 = _dom.find(that.$element.get(0), that.id + '_frozen_totals');
+                        var pt2 = _dom.find(that.$element.get(0), that.id + '_totals');
+                        if ((pt1 && _dom.isChildOf(pt1, event.target)) || (pt2 && _dom.isChildOf(pt2, event.target))) {
+                            var totalId_1 = td.parentElement.id;
+                            var totals = that.form.getValue(that._totalProperty);
+                            if (!that._totalIsArray)
+                                totals = totals ? [totals] : [];
+                            var selRow_1 = null;
+                            totals.forEach(function (item) {
+                                if (!selRow_1 && item.$id === totalId_1)
+                                    selRow_1 = item;
+                            });
+                            if (selRow_1)
+                                that.form.execAction(that.fieldOptions.total.action, { id: selRow_1.id });
                         }
                     }
                 }
@@ -25862,6 +26144,70 @@ var Phoenix;
                         _gu.updSorting(opts, pc, that._colByField.bind(that), that.state.value.$orderby());
                 }
             };
+            BasicGrid.prototype.exportAsCsv = function () {
+                var that = this;
+                var allCols = that.frozenColumns.concat(that.columns);
+                var file = [];
+                var sep = ';';
+                var firstLine = [];
+                allCols.forEach(function (column) {
+                    var fieldName = column.$bind;
+                    if (column.isLink)
+                        return;
+                    if (_sutils.isSelectField(column.$bind))
+                        return;
+                    if (_sutils.isExpandField(column.$bind) && !column.options.display)
+                        return;
+                    firstLine.push(column.title);
+                });
+                var rows = that.state.value;
+                var opts = $.extend(true, {}, that.renderOptions);
+                file.push(firstLine.join(sep));
+                rows && rows.forEach(function (row, rowIndex, level) {
+                    var curentRow = [];
+                    level = level || 0;
+                    allCols.forEach(function (column) {
+                        var fieldName = column.$bind;
+                        if (column.isLink)
+                            return;
+                        if (_sutils.isSelectField(column.$bind))
+                            return;
+                        if (_sutils.isExpandField(column.$bind) && !column.options.display)
+                            return;
+                        fieldName = column.options.display ? column.options.display : fieldName;
+                        var value = row[fieldName];
+                        if (value === null || value === undefined) {
+                            curentRow.push('');
+                        }
+                        else {
+                            var schema = column.options.displaySchema ? column.options.displaySchema : column.schema;
+                            if (schema.enum && schema.enumNames) {
+                                var idx = schema.enum.indexOf(value);
+                                if (idx >= 0)
+                                    value = schema.enumNames[idx];
+                            }
+                            if (_sutils.isDate(schema)) {
+                                value = _ulocale.shortDate(value || '');
+                            }
+                            else if (_sutils.isDateTime(schema)) {
+                                value = _ulocale.shortDateTime(value || '');
+                            }
+                            else if (typeof value === 'string') {
+                                value.replace(/\"/g, '""');
+                                value = '"' + value + '"';
+                            }
+                            curentRow.push(value);
+                        }
+                    });
+                    file.push(curentRow.join(sep));
+                }, opts.expandingProperty, true);
+                var fileName;
+                if (that.form.$rootSchema && that.form.$rootSchema.title)
+                    fileName = that.form.$rootSchema.title;
+                else
+                    fileName = 'export';
+                _dom.downloadContentHandler(file.join('\n'), fileName + '.csv');
+            };
             BasicGrid.prototype._renderColumns = function (opts) {
                 var that = this;
                 that._inplaceEditRemove(false, false, true);
@@ -26134,11 +26480,10 @@ var Phoenix;
                 if (that.state.value !== nv) {
                     that.state.value = nv;
                     if (that.state.value) {
-                        var frame_3 = _dom.downloadFrame();
                         var prefix = '';
                         if (that.renderOptions.dataSource)
                             prefix = _data.getUrlBaseByType(that.renderOptions.dataSource, false, false);
-                        frame_3.src = prefix + that.state.value;
+                        _dom.downloadUriHandler(prefix + that.state.value);
                     }
                 }
             };
@@ -26371,14 +26716,14 @@ var Phoenix;
             BaseEdit.prototype.focusIn = function (event) {
                 var that = this;
                 var opts = that.renderOptions;
-                if (opts.focus && opts.focus.in)
-                    that.form.execAction(opts.focus.in, null, null);
+                if (opts.disclaimer)
+                    that.form.disclaimer(opts.disclaimer, true);
             };
             BaseEdit.prototype.focusOut = function (event) {
                 var that = this;
                 var opts = that.renderOptions;
-                if (opts.focus && opts.focus.out)
-                    that.form.execAction(opts.focus.out, null, null);
+                if (opts.disclaimer)
+                    that.form.disclaimer(opts.disclaimer, false);
             };
             BaseEdit.prototype._isNumber = function () {
                 var schema = this._schemaInput();
@@ -26662,17 +27007,22 @@ var Phoenix;
             };
             Edit.prototype.click = function (event) {
                 var that = this;
-                if (that.state.isDisabled || that.state.isReadOnly)
+                if (that.state.isDisabled || that.state.isReadOnly || that.options.design)
                     return;
                 var target = event.target;
+                var after = that._after();
                 if (that.renderOptions.after && that.renderOptions.after.$bind) {
-                    var after = that._after();
                     if (_dom.isChildOf(after, target)) {
                         that._afterEnter();
                         var input = that._input();
                         if (input)
                             input.focus();
                     }
+                }
+                else if (that._isDate() && _uiutils.utils.useDatePicker() && _dom.isChildOf(after, target)) {
+                    var input = that._input();
+                    if (input)
+                        input.focus();
                 }
             };
             Edit.prototype.internalRender = function ($parent) {
@@ -26683,8 +27033,9 @@ var Phoenix;
                     opts.title = _ulocale.tt(that.$schema.title, that.form.$locale);
                     if (opts.placeHolder && opts.placeHolder !== true && !opts.title)
                         opts.title = _ulocale.tt(opts.placeHolder, that.form.$locale);
-                    if (schema.maxLength)
-                        opts.maxLength = schema.maxLength;
+                    var maxLength = _su.getMaxLength(that._schemaInput());
+                    if (maxLength)
+                        opts.maxLength = maxLength;
                     if (that.$schema.description)
                         opts.description = _ulocale.tt(that.$schema.description, that.form.$locale);
                     that.$element = $(_createEditInput(that.id, opts, that.options.design, opts.title, opts.tagName));
@@ -26738,8 +27089,11 @@ var Phoenix;
                 }
             };
             Edit.prototype.customOptionsMemo = function (options) {
-                if (this._schemaInput().format === 'memo')
-                    options.maxLength = options.maxLength || 4000;
+                if (this._schemaInput().format === 'memo') {
+                    var maxLength = _su.getMaxLength(this._schemaInput());
+                    if (maxLength)
+                        options.maxLength = maxLength;
+                }
                 options.tagName = 'textarea';
             };
             Edit.prototype.customOptionsPassword = function (options) {
@@ -26800,7 +27154,21 @@ var Phoenix;
                     return;
                 if (!that.options.design && _uiutils.utils.useDatePicker()) {
                     _uiutils.utils.datePickerInitialize(that.$element, { showOnFocus: true }, function (e) {
-                        that.focusOut(null);
+                        var doFocusOut = false;
+                        if (document.activeElement === document.body) {
+                            var input = that._input();
+                            if (input) {
+                                input.focus();
+                            }
+                            else
+                                doFocusOut = true;
+                        }
+                        else
+                            doFocusOut = true;
+                        if (doFocusOut && (!document.activeElement || !that.focusInControl(document.activeElement))) {
+                            that.focusOut(null);
+                            that.focused = false;
+                        }
                     });
                 }
             };
@@ -26818,6 +27186,7 @@ var Phoenix;
                 if (!that.options.design && _uiutils.utils.useDateTimePicker()) {
                     _uiutils.utils.dateTimePickerInitialize($(_dom.find(that.$element.get(0), that.id + '_group')), {}, function (e) {
                         that.focusOut(null);
+                        that.focused = false;
                     });
                 }
             };
@@ -29655,6 +30024,10 @@ var Phoenix;
             if (simulateCols) {
                 options.styles = 'bs-field-group-labels';
             }
+            else {
+                if (!options.inline)
+                    options.styles = 'no-y-margin';
+            }
             var html = [];
             var customizer = { formGroup: "form-group" };
             if (simulateCols && !_bootstrap4)
@@ -29663,19 +30036,13 @@ var Phoenix;
                 html.push('<label id="{0}_label"');
                 var css = ['bs-label'];
                 if (simulateCols) {
-                    if (_bootstrap4)
-                        css.push('col-form-label');
-                    else
-                        css.push('checkbox-inline bs-cursor-d');
+                    css.push('col-form-label');
                     css.push('col-sm-12 bs-lib-col');
                     if (options.labelLeft)
                         css.push('text-left');
                 }
                 if (options.inline) {
-                    if (_bootstrap4)
-                        css.push('form-check-inline');
-                    else
-                        css.push('checkbox-inline');
+                    css.push('form-check-inline');
                     css.push('bs-cursor-d no-x-padding');
                 }
                 if (css.length)
@@ -29697,7 +30064,10 @@ var Phoenix;
                 _this._state();
                 return _this;
             }
-            Label.prototype.isMeta = function () { return true; };
+            Label.prototype.isMeta = function () {
+                var that = this;
+                return that.config && that.config.options && that.config.options.$bind ? true : false;
+            };
             Label.prototype.setParentId = function (id) { this._parentId = id; };
             Label.prototype.getCustomBind = function () {
                 var that = this;
@@ -29780,6 +30150,8 @@ var Phoenix;
         }(Phoenix.ui.AbsField));
         formlabel.Label = Label;
         _ui.registerControl(Label, 'meta', false, 'label', null);
+        _ui.registerControl(Label, '*', false, 'label', null);
+        _ui.registerControl(Label, '*', true, 'label', null);
     })(formlabel = Phoenix.formlabel || (Phoenix.formlabel = {}));
 })(Phoenix || (Phoenix = {}));
 /// <reference path="../../../core/core-refs.ts" />
@@ -29787,7 +30159,7 @@ var Phoenix;
 /// <reference path="../form.control.ts" />
 var Phoenix;
 (function (Phoenix) {
-    var _utils = Phoenix.utils, _ui = Phoenix.ui, _dom = Phoenix.dom, _history = Phoenix.history, _uiutils = Phoenix.uiutils, _ulocale = Phoenix.ulocale;
+    var _utils = Phoenix.utils, _dom = Phoenix.dom, _history = Phoenix.history, _uiutils = Phoenix.uiutils, _locale = Phoenix.locale;
     var formlinkbase;
     (function (formlinkbase) {
         var LinkBase = /** @class */ (function (_super) {
@@ -29795,7 +30167,6 @@ var Phoenix;
             function LinkBase(fp, options, form) {
                 var _this = _super.call(this, fp, options, form) || this;
                 var that = _this;
-                4;
                 if (that.$schema && that.$schema.isSave) {
                     that.form.registerListenerFor('containerHasChanges', that, 'check-for-changes');
                 }
@@ -29803,6 +30174,7 @@ var Phoenix;
                 return _this;
             }
             LinkBase.prototype._button = function () {
+                return null;
             };
             LinkBase.prototype._execClick = function () {
                 var that = this;
@@ -29811,7 +30183,26 @@ var Phoenix;
                     return;
                 }
                 if (that._isBinded) {
-                    that.form.execAction(that.$bind);
+                    var _after_2 = function () {
+                        that.form.execAction(that.$bind);
+                        if (that.$schema.ux && that.$schema.after)
+                            that.form.execAction(that.$schema.after);
+                    };
+                    if (that.$schema && that.$schema.isRemove) {
+                        Phoenix.utils.confirm(that.form.$schema.title || _locale.ui.Warning, _locale.ui.removeWarning, function () {
+                            _after_2();
+                        });
+                    }
+                    else if (that.$schema && that.$schema.isCancel && that.form.useSync) {
+                        var model = that.form.$model;
+                        if (model.containerHasChanges) {
+                            _utils.confirm(that.form.$schema.title || _locale.ui.Warning, _locale.ui.cancelWarning, function () {
+                                _after_2();
+                            });
+                            return;
+                        }
+                    }
+                    _after_2();
                 }
                 else {
                     if (that.renderOptions.onChange)
@@ -29836,8 +30227,22 @@ var Phoenix;
             LinkBase.prototype.customOptions = function (opts) {
                 var that = this;
                 _super.prototype.customOptions.call(this, opts);
-                if (that.$schema && that.$schema.description && opts.description === undefined)
-                    opts.description = that.$schema.description;
+                if (that.$schema) {
+                    if (that.$schema.description && opts.description === undefined)
+                        opts.description = that.$schema.description;
+                    if (that.$schema.isSave) {
+                        if (opts.icon === undefined)
+                            opts.icon = 'floppy';
+                        if (opts.type === undefined)
+                            opts.type = 'success';
+                    }
+                    else if (that.$schema.isRemove) {
+                        if (opts.icon === undefined)
+                            opts.icon = 'trash';
+                        if (opts.type === undefined)
+                            opts.type = 'danger';
+                    }
+                }
             };
             LinkBase.prototype._setDisabled = function (button, element) {
                 var that = this;
@@ -30016,8 +30421,12 @@ var Phoenix;
             };
             Link.prototype._renderButton = function () {
                 var that = this;
+                if (!that.title && that.$schema && that.$schema.isRemove)
+                    that.title = _locale.ui.Apply;
                 if (!that.title && that.$schema && that.$schema.isSave)
                     that.title = _locale.ui.Apply;
+                if (!that.title && that.$schema && that.$schema.isCancel)
+                    that.title = _locale.ui.Abandon;
                 return $(_createButton(that.id, that.renderOptions, that.options.design, _ulocale.tt(that.title, that.form.$locale), false));
             };
             return Link;
@@ -30104,30 +30513,33 @@ var Phoenix;
         var ColumnsBtn = /** @class */ (function (_super) {
             __extends(ColumnsBtn, _super);
             function ColumnsBtn(fp, options, form) {
-                var _this = _super.call(this, fp, options, form) || this;
+                var _this = this;
+                fp = ColumnsBtn.beforeCreateControl(fp);
+                _this = _super.call(this, fp, options, form) || this;
                 var that = _this;
-                if (that.$bind !== '$none') {
-                    console.log('For widget columns-array $bind must be $none.');
-                }
-                if (!that.fieldOptions.bind) {
-                    console.log("Invalid columns-array element, options.bind is missing.");
-                }
-                else {
-                    var schema = that.form.getSchema(that.fieldOptions.bind);
-                    if (!schema || schema.type !== 'array')
-                        console.log("Invalid columns-array element, options.bind is invalid.");
-                }
+                var schema = that.form.getSchema(that.fieldOptions.bind);
+                if (!schema || schema.type !== 'array')
+                    console.log("Invalid columns-array element, $bind is invalid.");
                 if (!that.fieldOptions.gridName) {
                     console.log("Invalid columns-array element, options.gridName must be  a valid grid name.");
                 }
                 return _this;
             }
+            ColumnsBtn.beforeCreateControl = function (fieldOptions) {
+                var opts = $.extend(true, {}, fieldOptions);
+                opts.options = opts.options || {};
+                opts.options.bind = opts.$bind;
+                opts.$bind = '$none';
+                return opts;
+            };
             ColumnsBtn.prototype.customOptions = function (options) {
                 var that = this;
                 _super.prototype.customOptions.call(this, options);
                 options.icon = 'wrench';
                 options.titleIsHidden = true;
                 options.onChange = function () {
+                    if (that.options.design)
+                        return;
                     that._openColumns();
                 };
             };
@@ -30186,27 +30598,30 @@ var Phoenix;
         var FilterBtn = /** @class */ (function (_super) {
             __extends(FilterBtn, _super);
             function FilterBtn(fp, options, form) {
-                var _this = _super.call(this, fp, options, form) || this;
+                var _this = this;
+                fp = FilterBtn.beforeCreateControl(fp);
+                _this = _super.call(this, fp, options, form) || this;
                 var that = _this;
-                if (that.$bind !== '$none') {
-                    console.log('For widget filter-array $bind must be $none.');
-                }
-                if (!that.fieldOptions.bind) {
-                    console.log("Invalid filter-array element, options.bind is missing.");
-                }
-                else {
-                    var schema = that.form.getSchema(that.fieldOptions.bind);
-                    if (!schema || schema.type !== 'array')
-                        console.log("Invalid filter-array element, options.bind is invalid.");
-                }
+                var schema = that.form.getSchema(that.fieldOptions.bind);
+                if (!schema || schema.type !== 'array')
+                    console.log("Invalid filter-array element $bind is invalid.");
                 return _this;
             }
+            FilterBtn.beforeCreateControl = function (fieldOptions) {
+                var opts = $.extend(true, {}, fieldOptions);
+                opts.options = opts.options || {};
+                opts.options.bind = opts.$bind;
+                opts.$bind = '$none';
+                return opts;
+            };
             FilterBtn.prototype.customOptions = function (options) {
                 var that = this;
                 _super.prototype.customOptions.call(this, options);
                 options.icon = 'filter';
                 options.titleIsHidden = true;
                 options.onChange = function () {
+                    if (that.options.design)
+                        return;
                     that._openFilter();
                 };
             };
@@ -30531,8 +30946,7 @@ var Phoenix;
             Lookup.prototype._searchText = function () {
                 var that = this, input = that._input();
                 var nv = that._text2value(input.value);
-                if (that.equals(nv))
-                    return '';
+                // if (that.equals(nv)) return '';
                 return nv;
             };
             Lookup.prototype._managePreventDefault = function (keyCode, $event) {
@@ -31229,7 +31643,21 @@ var Phoenix;
                         if (select_1)
                             _dom.removeClass(select_1, 'btn');
                         _uiutils.utils.datePickerInitialize(that.$element, { showOnFocus: false }, function (e) {
-                            that.focusOut(null);
+                            var doFocusOut = false;
+                            if (document.activeElement === document.body) {
+                                var input = that._input();
+                                if (input) {
+                                    input.focus();
+                                }
+                                else
+                                    doFocusOut = true;
+                            }
+                            else
+                                doFocusOut = true;
+                            if (doFocusOut && (!document.activeElement || !that.focusInControl(document.activeElement))) {
+                                that.focusOut(null);
+                                that.focused = false;
+                            }
                         });
                         if (select_1)
                             _dom.addClass(select_1, 'btn');
@@ -31239,6 +31667,7 @@ var Phoenix;
                             _dom.removeClass(select_1, 'btn');
                         _uiutils.utils.dateTimePickerInitialize($(_dom.find(that.$element.get(0), that.id + '_group')), {}, function (e) {
                             that.focusOut(null);
+                            that.focused = false;
                         });
                         if (select_1)
                             _dom.addClass(select_1, 'btn');
@@ -31691,7 +32120,7 @@ var Phoenix;
                         opts.description = _ulocale.tt(that._schemaInput().description, that.form.$locale);
                     var enumNames = that.$schema.enumNames || that.$schema.enum;
                     enumNames = enumNames.map(function (v) { return _ulocale.tt(v + '', that.form.$locale); });
-                    opts.maxLength = that._schemaInput().maxLength;
+                    opts.maxLength = _su.getMaxLength(that._schemaInput());
                     that.$element = $(_createMultiselectInput(that.id, opts, that.$schema.enum, enumNames, that.options.design, opts.title));
                     that._state2UI();
                     that.setEvents(opts);
@@ -31966,8 +32395,7 @@ var Phoenix;
             MultiValue.prototype._searchText = function () {
                 var that = this, input = that._input();
                 var nv = that._text2value(input.value);
-                if (that.equals(nv))
-                    return '';
+                // if (that.equals(nv)) return '';
                 return nv;
             };
             MultiValue.prototype.checkFocus = function (focusParams) {
@@ -32459,8 +32887,8 @@ var Phoenix;
                     var f = files[0];
                     if (!f.type.match('image.*'))
                         return;
-                    var URL_1 = window.URL || window['webkitURL'];
-                    if (URL_1) {
+                    var URL_2 = window.URL || window['webkitURL'];
+                    if (URL_2) {
                         var nv_2 = {
                             id: that.state.value ? that.state.value.id : undefined,
                             fileName: f.name,
@@ -32482,7 +32910,7 @@ var Phoenix;
                             var img_1 = document.createElement('img');
                             var canvas_1 = document.createElement("canvas");
                             _dom.processing(true);
-                            img_1.src = URL_1.createObjectURL(f);
+                            img_1.src = URL_2.createObjectURL(f);
                             img_1.onload = function () {
                                 var div = 1;
                                 var v = (img_1.width * img_1.height);
@@ -32907,10 +33335,9 @@ var Phoenix;
         var _p = Phoenix, _utils = _p.utils, _locale = _p.locale, _sutils = _p.Observable.SchemaUtils, _uiutils = _p.uiutils, _formedit = _p.formedit, _filter = _p.filters, _customData = _p.customData, _dom = _p.dom, locale = _p.locale, _ui = _p.ui;
         /*
             {
-                "$bind": "$none",
+                "$bind": "operations",
                 "$widget": "multifield-search",
                 "options": {
-                    "bind": "operations",
                     "fields": ["code", "libelle"],
                     "onsearch": "fdhkfggfhgfg"
                 }
@@ -32919,18 +33346,15 @@ var Phoenix;
         var MultiFieldSearch = /** @class */ (function (_super) {
             __extends(MultiFieldSearch, _super);
             function MultiFieldSearch(fp, options, form) {
-                var _this = _super.call(this, fp, options, form) || this;
+                var _this = this;
+                fp = MultiFieldSearch.beforeCreateControl(fp);
+                _this = _super.call(this, fp, options, form) || this;
                 var that = _this;
                 if (that.renderOptions.titleIsHidden === undefined)
                     that.renderOptions.titleIsHidden = true;
-                if (!that.renderOptions.bind) {
-                    console.log("Invalid search element, options.bind is missing.");
-                }
-                else {
-                    var schema = that.form.getSchema(that.renderOptions.bind);
-                    if (!schema || schema.type !== 'array')
-                        console.log("Invalid search element, options.bind is invalid.");
-                }
+                var schema = that.form.getSchema(that.renderOptions.bind);
+                if (!schema || schema.type !== 'array')
+                    console.log("Invalid search element, $bind is invalid.");
                 return _this;
             }
             MultiFieldSearch.prototype._notifyChanged = function (source, value) {
@@ -32987,6 +33411,7 @@ var Phoenix;
             MultiFieldSearch.prototype._clickSearch = function () {
                 var that = this;
                 that.focusOut(null);
+                that.focused = false;
                 that._doSearch();
             };
             MultiFieldSearch.prototype._customSchemaField = function () {
@@ -33037,10 +33462,17 @@ var Phoenix;
                     enumNames: enumNames
                 };
             };
+            MultiFieldSearch.beforeCreateControl = function (fieldOptions) {
+                var opts = $.extend(true, {}, fieldOptions);
+                opts.options = opts.options || {};
+                opts.options.bind = opts.$bind;
+                opts.$bind = '$none';
+                return opts;
+            };
             return MultiFieldSearch;
         }(Phoenix.multifield.BaseMultiField));
         multifieldSearch.MultiFieldSearch = MultiFieldSearch;
-        _ui.registerControl(MultiFieldSearch, 'string', false, 'multi-search', null);
+        _ui.registerControl(MultiFieldSearch, 'array', false, 'multi-search', null);
     })(multifieldSearch = Phoenix.multifieldSearch || (Phoenix.multifieldSearch = {}));
 })(Phoenix || (Phoenix = {}));
 /// <reference path="../../../core/core-refs.ts" />
@@ -33201,7 +33633,7 @@ var Phoenix;
                 var that = this;
                 if (that.renderOptions.readOnly)
                     return;
-                _uiutils.utils.fillSelect(enums, that._input(), that.$schema);
+                _uiutils.utils.fillSelect(enums, that._input(), that.$schema, that.renderOptions.allowEmpty);
             };
             Select.prototype._setDisabled = function (input, element) {
                 input.disabled = this.state.isDisabled || this.state.isReadOnly;
@@ -33282,13 +33714,25 @@ var Phoenix;
                     _dom.text(input, enumNames[ii] || String.fromCharCode(160));
                 }
                 else {
-                    input.selectedIndex = that.state.filter ? that.$schema.filters[that.state.filter].indexOf(that.state.value) : that.$schema.enum.indexOf(that.state.value);
+                    var index = that.state.filter ? that.$schema.filters[that.state.filter].indexOf(that.state.value) : that.$schema.enum.indexOf(that.state.value);
+                    if (that.renderOptions.allowEmpty)
+                        index++;
+                    input.selectedIndex = index;
                 }
             };
             Select.prototype._input2Value = function () {
                 var that = this;
                 var ii = that._input();
-                var iv = that.state.filter ? that.$schema.filters[that.state.filter][ii.selectedIndex] : that.$schema.enum[ii.selectedIndex];
+                var iv;
+                if (that.renderOptions.allowEmpty && ii.selectedIndex === 0) {
+                    iv = undefined;
+                }
+                else {
+                    var index = ii.selectedIndex;
+                    if (that.renderOptions.allowEmpty)
+                        index--;
+                    iv = that.state.filter ? that.$schema.filters[that.state.filter][index] : that.$schema.enum[index];
+                }
                 if (that.state.value !== iv) {
                     that.state.value = iv;
                     that.form.setValue(that.$display, that.state.value);
@@ -33317,6 +33761,12 @@ var Phoenix;
                     console.log('Invalid select-relation widget config.');
                 }
                 that._relationName = that.$lookup.data.$params.relation;
+                var binds = that.$bind.split('.');
+                if (binds.length > 1) {
+                    binds.pop();
+                    binds.push(that._relationName);
+                    that._relationName = binds.join('.');
+                }
                 that._codeProperty = that.renderOptions.code;
                 that._titleProperty = that.renderOptions.title;
                 if (!that._titleProperty && that._codeProperty)
@@ -33397,6 +33847,13 @@ var Phoenix;
                     that._values = [];
                     that._names = [];
                     var frag = document.createDocumentFragment();
+                    if (that.renderOptions.allowEmpty) {
+                        var o = document.createElement('option');
+                        _dom.attr(o, "value", '');
+                        _dom.attr(o, "disabled", 'true');
+                        o.textContent = String.fromCharCode(160);
+                        _dom.append(frag, o);
+                    }
                     data.documents.forEach(function (item) {
                         var o = document.createElement('option');
                         _dom.attr(o, "value", item[that.$lookup.mapping[that._codeProperty]]);
@@ -33408,6 +33865,9 @@ var Phoenix;
                     _dom.empty(input);
                     _dom.append(input, frag);
                     input.selectedIndex = that._values.indexOf(that.state.value);
+                    if (input.selectedIndex < 0 && that.renderOptions.allowEmpty) {
+                        input.selectedIndex = 0;
+                    }
                 });
             };
             SelectRelation.prototype._value2Input = function (input) {
@@ -33417,13 +33877,20 @@ var Phoenix;
                     _dom.text(input, (ii >= 0 ? that._names[ii] : '') || String.fromCharCode(160));
                 }
                 else {
+                    if (ii < 0 && that.renderOptions.allowEmpty)
+                        ii = 0;
                     input.selectedIndex = ii;
                 }
             };
             SelectRelation.prototype._input2Value = function () {
                 var that = this;
                 var ii = that._input();
-                var iv = ii.selectedIndex >= 0 ? that._values[ii.selectedIndex] : undefined;
+                var si = ii.selectedIndex;
+                if (that.renderOptions.allowEmpty) {
+                    if (si >= 0)
+                        si--;
+                }
+                var iv = si >= 0 ? that._values[si] : undefined;
                 if (that.state.value !== iv) {
                     that.state.value = iv;
                     that.form.setValue(that.$display, that.state.value);
@@ -35066,7 +35533,7 @@ var Phoenix;
 var Phoenix;
 (function (Phoenix) {
     var _p = Phoenix, _locale = _p.locale, _dom = _p.dom, _utils = _p.utils, _pagecontrol = _p.pagecontrol, _autoclose = _p.autoclose;
-    _utils.info = function (title, message, type) {
+    _utils.info = function (title, message, type, after) {
         var cr = function ($element, autoclose, cb) {
             var html = [];
             html.push('<div class="no-y-margin alert alert-' + type + '" role="alert">');
@@ -35078,10 +35545,26 @@ var Phoenix;
             window.setTimeout(function () {
                 var page = _pagecontrol.Page();
                 page.setPopup(null);
+                if (after)
+                    after();
             }, 2000);
             cb();
         };
         _autoclose.open(_autoclose.SCREEN_CENTER, { width: '400px', style: "$white", contentRender: cr, parent: null, alignElement: null, beforeClose: null });
+    };
+    _utils.message = function (element, message, type, visible) {
+        if (!element || !message)
+            return;
+        if (!visible) {
+            _dom.empty(element);
+            return;
+        }
+        var html = [];
+        html.push('<div class="no-y-margin alert alert-' + type + '" role="alert">');
+        html.push('<p>' + message + '</p>');
+        html.push('</div>');
+        var e = $(html.join('')).get(0);
+        _dom.append(element, e);
     };
 })(Phoenix || (Phoenix = {}));
 /// <reference path="../core/core-refs.ts" />

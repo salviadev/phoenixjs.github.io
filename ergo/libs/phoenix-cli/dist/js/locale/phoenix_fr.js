@@ -99,8 +99,11 @@ var Phoenix;
             "Actions": "Actions",
             "FileUpload": "Choisir un Fichier",
             "Apply": "Appliquer",
+            "Remove": "Supprimer",
+            "ExportCsv": "Exporter au format CSV",
             "SaveSuccessful": "L'enregistrement a été effectué avec succès.",
-            "cancelWarning": "Vos modifications seront perdues. Êtes-vous sûr de vouloir continuer ?"
+            "cancelWarning": "Vos modifications seront perdues. Êtes-vous sûr(e) de vouloir continuer ?",
+            "removeWarning": "Êtes-vous sûr(e) de vouloir supprimer cet élément ?"
         },
         "errors": {
             "Title": "Oops! Une erreur s'est produite.",
