@@ -13658,9 +13658,8 @@ div.bs-read-only:empty:before {
   position: relative;
 }
 
-.bs-field-group {
+.bs-field-inline {
   padding-right: 4px;
-  padding-left: 4px;
 }
 
 .bs-field-group-inline {
@@ -13931,6 +13930,12 @@ div.bs-read-only:empty:before {
 
 .bs-error-detail-item {
   padding-left: 1em;
+  margin-bottom: 0;
+}
+
+.bs-error-message:hover {
+  text-decoration: underline;
+  cursor: pointer;
 }
 
 .bs-form-settings {

@@ -1890,9 +1890,9 @@ var Phoenix;
     (function (external) {
         var _defPrefsLoader = function (name) {
             var promiseClass = _utils.Promise;
-            if (window.sessionStorage)
+            if (window.localStorage)
                 return new promiseClass(function (resolve, reject) {
-                    var d = window.sessionStorage.getItem('preferences.' + name);
+                    var d = window.localStorage.getItem('preferences.' + name);
                     if (d)
                         resolve(JSON.parse(d));
                     else
@@ -1904,12 +1904,12 @@ var Phoenix;
                 });
         }, _defPrefsSaver = function (name, data) {
             var promiseClass = _utils.Promise;
-            if (window.sessionStorage)
+            if (window.localStorage)
                 return new promiseClass(function (resolve, reject) {
                     if (data)
-                        window.sessionStorage.setItem('preferences.' + name, JSON.stringify(data));
+                        window.localStorage.setItem('preferences.' + name, JSON.stringify(data));
                     else
-                        window.sessionStorage.setItem('preferences.' + name, '');
+                        window.localStorage.setItem('preferences.' + name, '');
                     resolve();
                 });
             else
@@ -1959,12 +1959,15 @@ var Phoenix;
                     _saveValue();
                 }
             }
-        }, _clearLastData = function () {
+        }, _clearLastData = function (deferClose) {
             _assertValue();
             var toDestroy = [];
             if (_value.length) {
                 var v = _value[_value.length - 1];
-                v.data.forEach(function (ii) { return toDestroy.push(ii); });
+                v.data.forEach(function (ii) {
+                    ii.deferClose = deferClose;
+                    toDestroy.push(ii);
+                });
                 v.data = [];
                 _saveValue();
             }
@@ -1993,7 +1996,7 @@ var Phoenix;
             }
         }, _add = function (hash, reset) {
             if (reset)
-                _clear(true);
+                _clear(true, false);
             _assertValue();
             if (reset) {
                 _value = [{ pageName: hash, data: [] }];
@@ -2037,12 +2040,15 @@ var Phoenix;
                 return res;
             }
             return '';
-        }, _clear = function (notify) {
+        }, _clear = function (notify, deferClose) {
             _assertValue();
             var toDestroy = [];
             if (notify) {
                 _value.forEach(function (item) {
-                    item.data.forEach(function (ii) { return toDestroy.push(ii); });
+                    item.data.forEach(function (ii) {
+                        ii.deferClose = deferClose;
+                        toDestroy.push(ii);
+                    });
                     item.data = [];
                 });
             }
@@ -2632,7 +2638,7 @@ var Phoenix;
             });
         }, _offset = function (element) {
             var rect;
-            if (element.nodeType != 3) {
+            if (element.nodeType !== 3) {
                 rect = element.getBoundingClientRect();
                 // Make sure element is not hidden (display: none)
                 if (rect.width || rect.height) {
@@ -3701,7 +3707,7 @@ var Phoenix;
             parsedUrl.search = search || {};
             var newHash = _parseUrl2Hash(parsedUrl);
             _history.updateLast(oldSearch, newHash);
-            _history.clearLastData();
+            _history.clearLastData(false);
             _setHash(newHash, true, false, false, false);
         }, _setHash = function (newhash, replace, newWindow, noReload, clearHistory) {
             if (!newhash || ('' + newhash).charAt(0) !== '#')
@@ -3718,7 +3724,7 @@ var Phoenix;
                 return;
             }
             if (clearHistory) {
-                _history.clear(true);
+                _history.clear(true, false);
             }
             if (window.location.hash === newhash)
                 return;
@@ -7028,7 +7034,7 @@ var Phoenix;
                     _dom.append(document.body, that.$element.get(0));
                     var modalPluginName = Phoenix.modalPlugin;
                     if (that.$element[modalPluginName]) {
-                        that.$element[modalPluginName]({});
+                        that.$element[modalPluginName]({ keyboard: false, focus: false });
                         that._addEvents();
                     }
                 }
@@ -9235,8 +9241,8 @@ var Phoenix;
                     cs = _expandRefProp(cs.items, rootSchema);
                 return cs;
             },
-            states: ['isHidden', 'isDisabled', 'isReadOnly', 'isMandatory', 'style'],
-            statesAndErrors: ['isHidden', 'isDisabled', 'isReadOnly', 'isMandatory', 'errors', 'filter', 'symbol', 'decimals', 'style', 'search', 'selected', 'columns', 'orderBy', 'filter', 'pageSize', 'totalCount', 'pageNumber'],
+            states: ['isHidden', 'isDisabled', 'isReadOnly', 'isMandatory', 'style', 'maxLength'],
+            statesAndErrors: ['isHidden', 'isDisabled', 'isReadOnly', 'isMandatory', 'errors', 'filter', 'symbol', 'decimals', 'maxLength', 'style', 'search', 'selected', 'columns', 'orderBy', 'filter', 'pageSize', 'totalCount', 'pageNumber'],
             linksStates: ['isHidden', 'isDisabled'],
             isLink: function (path) {
                 return (path.split('.').indexOf('$links') >= 0);
@@ -9602,8 +9608,10 @@ var Phoenix;
                 }
                 return false;
             },
-            checkNumber: function (value, schema, locale, errors, listParent) {
+            checkNumber: function (value, state, schema, locale, errors, listParent) {
                 var res = true;
+                if (schema.nullable && (value === null || value === undefined))
+                    return true;
                 value = value || 0;
                 if (schema.exclusiveMinimum) {
                     if (schema.minimum != undefined && value <= schema.minimum) {
@@ -9759,7 +9767,7 @@ var Phoenix;
                 switch (schema.type) {
                     case "number":
                     case "integer":
-                        res = _sutils.checkNumber(value, schema, locale, errors, listParent);
+                        res = _sutils.checkNumber(value, state, schema, locale, errors, listParent);
                         break;
                     case "string":
                         res = _sutils.checkString(value, state, schema, locale, errors, listParent);
@@ -9926,6 +9934,8 @@ var Phoenix;
             },
             text2Value: function (textValue, schema, state) {
                 if (_sutils.isNumber(schema)) {
+                    if (schema.nullable && (textValue === '' || textValue === undefined || textValue === null))
+                        return undefined;
                     var dec = state.decimals;
                     var float = typeof textValue === 'number' ? textValue : _ulocale.string2Float((textValue || ''));
                     if (state.moneyUnitCoef && state.moneyUnitCoef !== 1) {
@@ -9945,6 +9955,8 @@ var Phoenix;
                 var that = this;
                 if (_sutils.isMoney(schema)) {
                     var decimals = state.decimals || 0;
+                    if (schema.nullable && (value === null || value === undefined))
+                        return '';
                     if (state.moneyUnitCoef && state.moneyUnitCoef !== 1) {
                         decimals = 0;
                         if (typeof value !== 'number')
@@ -14209,6 +14221,9 @@ var Phoenix;
             AutoClose.prototype._alignBottomLeft = function () {
                 var that = this, e = that.$element.get(0), ae = that.$alignElement.get(0);
                 var space = _dom.documentClientDim();
+                var parent = that.$parent.get(0);
+                var isBody = parent === document.body;
+                var crparent = _dom.offset(parent);
                 var cre = _dom.offset(e);
                 var crae = _dom.offset(ae);
                 var docScroll = _dom.documentScroll();
@@ -14217,10 +14232,17 @@ var Phoenix;
                 if (top + cre.height > docScroll.top + viewSize.height) {
                     top = docScroll.top + viewSize.height - cre.height;
                 }
-                e.style.top = Math.max(0, Math.round(Math.max(docScroll.top, top))) + 'px';
+                top = Math.max(0, Math.round(Math.max(docScroll.top, top)));
+                if (!isBody) {
+                    top = Math.max(0, Math.round(top - crparent.top));
+                }
+                e.style.top = top + 'px';
                 var cl = crae.left;
                 if (cl + cre.width > space.width)
                     cl = Math.max(0, space.width - cre.width);
+                if (!isBody) {
+                    cl = Math.max(0, Math.round(cl - crparent.left));
+                }
                 e.style.left = cl + 'px';
             };
             AutoClose.prototype._alignBottomRight = function () {
@@ -17279,6 +17301,8 @@ var Phoenix;
                         return false;
                     if (_su.isCompositionRef(ss, rs)) {
                         var ref = that[name];
+                        if (ref.isNull || ref.isUndefined)
+                            ref = null;
                         if (ref) {
                             if (!ref._validate(validators, isSaving, null, listParent))
                                 error = true;
@@ -17961,8 +17985,10 @@ var Phoenix;
                         }
                     }
                     else if (cs.format === 'rate') {
-                        cs.exclusiveMinimum = true;
-                        cs.exclusiveMaximum = true;
+                        if (cs.exclusiveMinimum === undefined)
+                            cs.exclusiveMinimum = true;
+                        if (cs.exclusiveMaximum === undefined)
+                            cs.exclusiveMaximum = true;
                         if (cs.decimals === undefined)
                             cs.decimals = _su.RATE_DECIMALS;
                         if (cs.maximum === undefined)
@@ -18399,7 +18425,7 @@ var Phoenix;
             };
             var delta = [];
             params.forEach(function (param) {
-                delta.push({ requestType: 'patch', id: param.viewId, viewName: param.viewName, patch: [{ op: "add", path: "/$links/close", value: null }] });
+                delta.push({ requestType: 'patch', id: param.viewId, viewName: param.viewName, patch: [{ op: "add", path: "/$links/close", value: { deferClose: param.deferClose } }] });
             });
             var result = {};
             _dsPlugin.executeDatasets([dataset], delta, result, [], function (sended, ex) { });
@@ -18740,10 +18766,10 @@ var Phoenix;
         ui.formManager = fm();
         _dom.finalizeHandlers.push(function () {
             if (!_history.supportRefresh) {
-                _history.clear(true);
+                _history.clear(true, true);
             }
             else
-                _history.clearLastData();
+                _history.clearLastData(true);
             var fm = ui.formManager();
             if (fm)
                 fm.destroyForms();
@@ -19306,27 +19332,41 @@ var Phoenix;
             };
             Form.prototype._createErrorItem = function (error, show) {
                 var that = this;
+                var details = error.details;
+                if (details && typeof details === 'string') {
+                    details = error.details.split('\n');
+                    details = details.map(function (detail) { return { message: detail.trim() }; });
+                }
+                var hasDetails = details && details.length;
                 var style = (error.severity == 'success' ? 'success' : ((error.severity == 'warning') ? 'info' : 'danger'));
                 var c = show ? '' : 'bs-none ';
-                var html = [_utils.format('<div id="{0}_error" data-error="true" class="' + c + ' alert alert-' + style + ' alert-dismissible fade show">', error.id)];
-                html.push('<button type="button" data-error-close="true" class="close" aria-label="Close">');
-                html.push('<span data-error-close="true" aria-hidden="true">&times;</span>');
-                html.push('</button>');
+                var cid = 'I' + (error.id || '').replace(/-/g, '');
+                var html = [
+                    _utils.format('<div id="{0}_error" data-error="true" class="' + c + ' alert alert-' + style + ' alert-dismissible fade show">', error.id),
+                    '<button type="button" data-error-close="true" class="close" aria-label="Close">',
+                    '<span data-error-close="true" aria-hidden="true">&times;</span>',
+                    '</button>'
+                ];
                 var cm = error.message.split('\n');
-                var msgLen = cm.length;
+                if (hasDetails)
+                    html.push('<div id="{0}_error_message" class="bs-error-message">');
                 cm.forEach(function (msg, index) {
                     if (index > 0)
                         html.push('<br/>');
                     html.push(_utils.escapeHtml(msg));
                 });
-                if (error.details && error.details.length) {
-                    error.details.forEach(function (err) {
+                if (hasDetails)
+                    html.push('</div>');
+                if (hasDetails) {
+                    html.push('<div id="{0}_error_detail" class="bs-none">');
+                    details.forEach(function (err) {
                         if (err.message)
                             html.push('<p class="bs-error-detail-item">' + _utils.escapeHtml(err.message) + '</p>');
                     });
+                    html.push('</div>');
                 }
                 html.push('</div>');
-                return $(html.join('')).get(0);
+                return $(_utils.format(html.join(''), cid)).get(0);
             };
             Form.prototype._getErrorContainer = function () {
                 var that = this;
@@ -20084,13 +20124,24 @@ var Phoenix;
                     }
                 });
                 that.$element.on('click', function (event) {
+                    var target = event.target;
+                    if (_dom.hasClass(target, 'bs-error-message')) {
+                        var id = target.id.replace('_error_message', '_error_detail');
+                        var detail = _dom.find(that.$element.get(0), id);
+                        if (detail) {
+                            if (_dom.hasClass(detail, 'bs-none'))
+                                _dom.removeClass(detail, 'bs-none');
+                            else
+                                _dom.addClass(detail, 'bs-none');
+                        }
+                        return;
+                    }
                     var control = that._event2Field(event);
                     if (that.delayClick(control, event))
                         return;
                     if (that.isInProcessing) {
                         return that.freeze(event);
                     }
-                    var target = event.target;
                     if (control && target.id === control.id + '_rules') {
                         control.showRules();
                         event.preventDefault();
@@ -20522,11 +20573,8 @@ var Phoenix;
                 html.push('<' + tag + ' class="');
                 if (options.size)
                     css.push((_bootstrap4 ? 'form-control' : 'form-group-') + options.size);
-                if (options.columns) {
-                    if (!_bootstrap4)
-                        css.push('form-horizontal');
+                if (options.columns)
                     css.push('row');
-                }
                 if (options.styles)
                     css.push(options.styles);
                 if (options.right)
@@ -20538,16 +20586,17 @@ var Phoenix;
                 after();
                 html.push('</' + tag + '>');
             },
-            fillSelect: function (enums, input, schema, allowEmpty) {
+            fillSelect: function (enums, input, schema, forceAddNull) {
                 if (input) {
                     var enumNames_1 = schema.enumNames || schema.enum;
                     var oenums_1 = schema.enum;
                     _dom.empty(input);
                     var frag_3 = document.createDocumentFragment();
-                    if (allowEmpty) {
+                    if (schema.nullable || forceAddNull) {
                         var o = document.createElement('option');
                         _dom.attr(o, "value", '');
-                        _dom.attr(o, "disabled", 'true');
+                        if (!schema.nullable)
+                            _dom.attr(o, "disabled", 'true');
                         o.textContent = String.fromCharCode(160);
                         _dom.append(frag_3, o);
                     }
@@ -20729,10 +20778,16 @@ var Phoenix;
                                         }
                                     }
                                     if (options.state.moneyUnitCoef) {
-                                        value = value / options.state.moneyUnitCoef;
+                                        if (schema.nullable && (value === null || value === undefined))
+                                            value = value;
+                                        else
+                                            value = value / options.state.moneyUnitCoef;
                                     }
                                 }
-                                ndv = _ulocale.decimal(value, places, symbol);
+                                if (schema.nullable && (value === null || value === undefined))
+                                    ndv = '';
+                                else
+                                    ndv = _ulocale.decimal(value, places, symbol);
                             }
                             else
                                 ndv = isMoney ? _ulocale.money(value || 0, options.useSymbol) : _ulocale.decimal(value || 0, schema.decimals || 0, (options.useSymbol ? schema.symbol : ''));
@@ -22942,13 +22997,16 @@ var Phoenix;
             if (ii < 0)
                 ii = enums.indexOf('');
             var emptyValue = ii < 0;
+            if (col.schema.nullable && ii >= 0) {
+                ii++;
+            }
             _uiutils.utils.fillSelect(enums, input, col.schema, emptyValue);
             _setRowSize(input, parent, false);
             _dom.empty(parent);
             _dom.addClass(parent, 'focused');
             _dom.append(parent, input);
             input.selectedIndex = ii;
-            return { input: input, parent: input, td: parent, combo: null, isInputElement: true, canSelect: false, schema: col.schema, emptyValue: emptyValue };
+            return { input: input, parent: input, td: parent, combo: null, isInputElement: true, canSelect: false, schema: col.schema, emptyValue: emptyValue || col.schema.nullable };
         }, _createInplaceLookup = function (grid, svalue, value, state, parent, cell, col, opts) {
             var pp = document.createElement("div");
             pp.className = 'bs-inplace-parent bs-edit-border ';
@@ -22985,14 +23043,15 @@ var Phoenix;
                 if (isDatePicker) {
                     _uiutils.utils.datePickerInitialize($(pp), { showOnFcous: true }, function (e) {
                         var doFocusOut = false;
-                        if (document.activeElement === document.body) {
+                        if (document.activeElement === document.body || !document.activeElement) {
                             input.focus();
                         }
                         else {
                             doFocusOut = true;
                         }
                         if (doFocusOut && (!document.activeElement || !grid.focusInControl(document.activeElement))) {
-                            grid.doFocusOut();
+                            grid.focusOut(null);
+                            grid.focused = false;
                         }
                     });
                     _uiutils.utils.datePickerSetValue($(pp), value);
@@ -23151,13 +23210,14 @@ var Phoenix;
                     that._settingsName = that.getSettingsName('basicgrid');
                     that._settings = form.getFieldSettings(that._settingsName);
                 }
+                var origColumns = that.fieldOptions.columns;
+                that._originalColsMap = {};
+                origColumns.forEach(function (col) { that._originalColsMap[col.$bind] = col; });
                 if (that._settings) {
-                    var origColumns = that.fieldOptions.columns;
+                    var origColumns_1 = that.fieldOptions.columns;
                     var newColumns = that._settings.columns || [];
-                    var oMap_1 = {};
-                    origColumns.forEach(function (col) { oMap_1[col.$bind] = col; });
                     newColumns.forEach(function (col) {
-                        var old = oMap_1[col.$bind];
+                        var old = _this._originalColsMap[col.$bind];
                         if (old) {
                             var co = col.options || {};
                             var no = old.options || {};
@@ -23201,6 +23261,9 @@ var Phoenix;
                     if (col.$bind === _observable.EXPANDED_FIELD_NAME && col.options.display) {
                         that._originalCols[col.options.display] = $.extend(true, {}, col);
                         that._originalCols[col.options.display].options._expandItem = true;
+                    }
+                    else {
+                        that._originalCols[col.$bind] = that._originalCols[col.$bind] || $.extend(true, {}, col);
                     }
                     if (col.options.bindVisibility && (bindVisibilityFields.indexOf(col.options.bindVisibility) < 0)) {
                         bindVisibilityFields.push(col.options.bindVisibility);
@@ -23415,7 +23478,7 @@ var Phoenix;
                             }
                         }
                         // <--- END LOOKUP
-                        else if (isCancel || !that._inplaceEditValue2Model(s + '', cell_1.item, cell_1.col))
+                        else if (isCancel || !that._inplaceEditValue2Model(s === undefined ? '' : (s + ''), cell_1.item, cell_1.col))
                             that._modifyCell(cell_1.item, cell_1.col.$bind, null, td_1);
                     }
                 }
@@ -23437,8 +23500,6 @@ var Phoenix;
                 if (that._scrollableMaster) {
                     $(that._scrollableMaster).off('scroll');
                 }
-                //if (that._scrollableFrozenContent  && (that.fieldOptions.editing || (that.fieldOptions.selecting && that.fieldOptions.selecting.cell)))
-                //    $(that._scrollableFrozenContent).off('scroll');
                 if (that._scrollableFrozenContent)
                     $(that._scrollableFrozenContent).off('mousewheel');
                 that._scrollableMaster = null;
@@ -23478,8 +23539,6 @@ var Phoenix;
                     that._deltaHScrollContent = hasFrozenColumns ? _dom.find(e, that.id + '_frozen_scroll_delta') : null;
                     if (that._scrollableMaster && that._scrollableHeaderOfMaster)
                         $(that._scrollableMaster).on('scroll', that.syncHeaderAndFrozenScroll.bind(that));
-                    //if (that._scrollableFrozenContent && (that.fieldOptions.editing || (that.fieldOptions.selecting && that.fieldOptions.selecting.cell)))
-                    //    $(that._scrollableFrozenContent).on('scroll', that.syncMasterScroll.bind(that));
                     if (that._scrollableFrozenContent) {
                         $(that._scrollableFrozenContent).on('mousewheel', function (event) {
                             var DELTA_SCROLL = 120;
@@ -23870,6 +23929,7 @@ var Phoenix;
                 that._details = null;
                 that._mapCols = null;
                 that._originalCols = null;
+                that._originalColsMap = null;
                 that._settings = null;
                 that._scroller = null;
                 that._rsTimer = null;
@@ -23917,6 +23977,12 @@ var Phoenix;
                             col.$bind = _observable.EXPANDED_FIELD_NAME;
                         }
                         col.options = oldCol.options;
+                    }
+                    else {
+                        oldCol = that._originalColsMap[col.$bind];
+                        if (oldCol && oldCol.options) {
+                            col.options = $.extend(true, {}, oldCol.options);
+                        }
                     }
                     return col;
                 });
@@ -24466,7 +24532,7 @@ var Phoenix;
                     return;
                 var state = item.getState(field);
                 var co = col.options || {};
-                var editable = (opts.editing || _sutils.isSelectField(field)) && !state.isDisabled && !state.isReadOnly && !state.isHidden && (co.editing !== false) && (co.selecting !== false);
+                var editable = ((opts.editing && !opts.editingDisabled) || _sutils.isSelectField(field)) && !state.isDisabled && !state.isReadOnly && !state.isHidden && (co.editing !== false) && (co.selecting !== false);
                 if (state.isHidden) {
                     _dom.empty(td);
                 }
@@ -24488,7 +24554,7 @@ var Phoenix;
                     return;
                 var state = item.getState(field);
                 var co = col.options || {};
-                var editable = (opts.editing || _sutils.isSelectField(field)) && !state.isDisabled && !state.isReadOnly && !state.isHidden;
+                var editable = ((opts.editing && !opts.editingDisabled) || _sutils.isSelectField(field)) && !state.isDisabled && !state.isReadOnly && !state.isHidden;
                 _dom.empty(td);
                 if (state.isHidden)
                     return;
@@ -24496,9 +24562,16 @@ var Phoenix;
                 var ii = that._viewMap[item.$id];
                 var level = ii ? ii.level || 0 : 0;
                 if (co.display && co.displaySchema) {
-                    dv = _uiutils.utils.displayValue(item.getValue(co.display), co.displaySchema, that.form.$locale, { html: true, tableOptions: opts, avanced: co.displayOptions || {}, state: item.getState(co.display), form: that.form }, item, co.display);
+                    dv = _uiutils.utils.displayValue(item.getValue(co.display), co.displaySchema, that.form.$locale, {
+                        html: true, tableOptions: opts,
+                        avanced: co.displayOptions || {}, state: item.getState(co.display), form: that.form
+                    }, item, co.display);
                 }
-                var v = _uiutils.utils.displayValue(item.getValue(field), col.schema, that.form.$locale, { html: true, useSymbol: false, editable: editable, selectable: !state.isDisabled, check: opts.editing, avanced: co, tableOptions: opts, display: dv, level: level, state: state, form: that.form }, item, field);
+                var v = _uiutils.utils.displayValue(item.getValue(field), col.schema, that.form.$locale, {
+                    html: true, useSymbol: false, editable: editable,
+                    selectable: !state.isDisabled, check: opts.editing, avanced: co,
+                    tableOptions: opts, display: dv, level: level, state: state, form: that.form
+                }, item, field);
                 if (v.html) {
                     var $c = $(v.value);
                     _dom.append(td, $c.get(0));
@@ -24682,7 +24755,7 @@ var Phoenix;
                         }
                         else if (_sutils.isBoolean(that.inplace.schema)) {
                             if (String.fromCharCode(event.which) === ' ') {
-                                if (that.fieldOptions.editing) {
+                                if (that.renderOptions.editing && !that.renderOptions.editingDisabled) {
                                     var state = cell.item.getRelativeState(cell.col.$bind);
                                     if (!state.isDisabled && !state.isReadOnly) {
                                         var ov = cell.item.getValue(cell.col.$bind);
@@ -24769,8 +24842,8 @@ var Phoenix;
                         if (item) {
                             var cv = item.getValue(col.$bind, null) || '';
                             var nv = that.inplace.input.value || '';
-                            // if (nv !== cv)
-                            return nv;
+                            if (nv !== cv)
+                                return nv;
                         }
                     }
                 }
@@ -25124,7 +25197,7 @@ var Phoenix;
                                     if (state && !state.isDisabled)
                                         that.form.execAction(that.$bind + '.$item.$links.' + c.options.actionName, item);
                                 }
-                                else if (_sutils.isSelectField(c.$bind) || (opts.editing && _sutils.isBoolean(c.schema))) {
+                                else if (_sutils.isSelectField(c.$bind) || (opts.editing && !opts.editingDisabled && _sutils.isBoolean(c.schema))) {
                                     if (_dom.attr(event.target, 'data-clickable')) {
                                         var state = item.getRelativeState(c.$bind);
                                         if (!state.isDisabled && !state.isReadOnly && !state.isHidden) {
@@ -25331,7 +25404,8 @@ var Phoenix;
             };
             BasicGrid.prototype.canEdit = function (cell) {
                 var that = this;
-                if (!that.fieldOptions.editing || !that.fieldOptions.selecting || !that.fieldOptions.selecting.cell)
+                if (!that.fieldOptions.editing || !that.fieldOptions.selecting ||
+                    !that.fieldOptions.selecting.cell || that.renderOptions.editingDisabled)
                     return false;
                 var c = that._colByField(cell.col);
                 if (c.options && c.options.editing === false)
@@ -26268,6 +26342,17 @@ var Phoenix;
                     _gu.updateFrozenWidth(that.$element.get(0), that.id, that.frozenColumns);
                 }
             };
+            BasicGrid.prototype.toggleEditing = function () {
+                var that = this;
+                if (!that.$element)
+                    return false;
+                var opts = that.renderOptions;
+                opts.editingDisabled = !opts.editingDisabled;
+                if (opts.editingDisabled) {
+                    that._inplaceEditRemove(false, false, true);
+                }
+                return !opts.editingDisabled;
+            };
             BasicGrid.prototype.toggleMultiselect = function () {
                 var that = this;
                 if (!that.$element)
@@ -26539,10 +26624,12 @@ var Phoenix;
             }
             html.push('<div class="input-group" id="{0}_group"');
             var style = [];
-            if (options.minWidth)
-                style.push('min-width: ' + options.minWidth + ';');
-            if (options.maxWidth)
-                style.push('max-width: ' + options.maxWidth + ';');
+            if (!options.readOnly) {
+                if (options.minWidth)
+                    style.push('min-width: ' + options.minWidth + ';');
+                if (options.maxWidth)
+                    style.push('max-width: ' + options.maxWidth + ';');
+            }
             if (style.length)
                 html.push('  style="' + style.join("") + '"');
             html.push('>');
@@ -26571,6 +26658,15 @@ var Phoenix;
             html.push('" id="{0}_input"');
             if (isTextArea) {
                 html.push(' rows="' + (options.rows || 3) + '"');
+            }
+            if (options.readOnly) {
+                style = [];
+                if (options.minWidth)
+                    style.push('min-width: ' + options.minWidth + ';');
+                if (options.maxWidth)
+                    style.push('max-width: ' + options.maxWidth + ';');
+                if (style.length)
+                    html.push('  style="' + style.join('') + '"');
             }
             if (options.maxLength)
                 html.push('  maxLength="' + options.maxLength + '"');
@@ -26749,6 +26845,15 @@ var Phoenix;
                     return;
                 input.disabled = this.state.isDisabled;
             };
+            BaseEdit.prototype._setMaxLength = function (input, element) {
+                var that = this;
+                if (that.renderOptions.readOnly)
+                    return;
+                if (that.fieldState().maxLength)
+                    input.maxLength = that.fieldState().maxLength;
+                else
+                    delete input.maxLength;
+            };
             BaseEdit.prototype._setReadOnly = function (input, element) {
                 var that = this;
                 if (that.renderOptions.readOnly)
@@ -26921,6 +27026,13 @@ var Phoenix;
                             that._setSymbol(element);
                     }
                 }
+                if (!propName || (propName === 'maxLength')) {
+                    if (state.decimals !== that.fieldState().maxLength) {
+                        that.fieldState().maxLength = state.maxLength;
+                        if (input)
+                            that._setMaxLength(input, element);
+                    }
+                }
                 if (!propName || (propName === 'decimals')) {
                     if (state.decimals !== that.fieldState().decimals) {
                         that.fieldState().decimals = state.decimals;
@@ -27033,7 +27145,7 @@ var Phoenix;
                     opts.title = _ulocale.tt(that.$schema.title, that.form.$locale);
                     if (opts.placeHolder && opts.placeHolder !== true && !opts.title)
                         opts.title = _ulocale.tt(opts.placeHolder, that.form.$locale);
-                    var maxLength = _su.getMaxLength(that._schemaInput());
+                    var maxLength = that.fieldState().maxLength || _su.getMaxLength(that._schemaInput());
                     if (maxLength)
                         opts.maxLength = maxLength;
                     if (that.$schema.description)
@@ -27813,7 +27925,7 @@ var Phoenix;
 /// <reference path="../schema.data.ts" />
 var Phoenix;
 (function (Phoenix) {
-    var _ui = Phoenix.ui, _uiutils = Phoenix.uiutils, _dom = Phoenix.dom, _ulocale = Phoenix.ulocale;
+    var _ui = Phoenix.ui, _uiutils = Phoenix.uiutils, _dom = Phoenix.dom;
     /************************
      *** General methods ***
      ************************/
@@ -27833,12 +27945,13 @@ var Phoenix;
         return result;
     }
     function unformatMontant(val, decimalSep, thousandSep) {
-        var t1 = replaceAll(val, thousandSep, "");
-        var t2 = decimalSep == '.' ? t1 : t1.replace(decimalSep, ".");
-        var t3 = replaceAll(t2, '-', '');
+        var t1 = replaceAll(val, thousandSep, '');
+        var t2 = decimalSep == '.' ? t1 : t1.replace(decimalSep, '.');
         return t2;
     }
-    function formatMontant(val, places, decimalSep, thousandSep) {
+    function formatMontant(val, places, decimalSep, thousandSep, nullable) {
+        if (nullable && (val === '' || val === null || val === undefined))
+            return '';
         if (!val)
             val = '0';
         if (val.indexOf('.') == -1) {
@@ -27905,9 +28018,9 @@ var Phoenix;
         var t3 = t2.join("");
         return t3;
     }
-    function resetSelection(input, val, start, thousandSep, decimalSep, places) {
+    function resetSelection(input, val, start, thousandSep, decimalSep, places, nullable) {
         var formattedNewVal1 = unformatMontant(val, decimalSep, thousandSep);
-        var formattedNewVal2 = formatMontant(formattedNewVal1, places, decimalSep, thousandSep);
+        var formattedNewVal2 = formatMontant(formattedNewVal1, places, decimalSep, thousandSep, nullable);
         input.value = formattedNewVal2;
         setCaretPos(input, unformatMontant(start, decimalSep, thousandSep).length, thousandSep);
     }
@@ -27926,29 +28039,33 @@ var Phoenix;
             return false;
         return true;
     }
-    function limit(val, min, exclusiveMin, max, exclusiveMax, places, decimalSep, thousandSep) {
+    function limit(val, min, exclusiveMin, max, exclusiveMax, places, decimalSep, thousandSep, nullable) {
+        if (nullable && (val === '' || val === undefined || val === null))
+            return '';
         if (val === '')
             val = '0';
         var valFloat = parseFloat(val);
         if (exclusiveMin) {
             if (valFloat <= min)
-                return formatMontant(min.toString(), places, decimalSep, thousandSep);
+                return formatMontant(min.toString(), places, decimalSep, thousandSep, nullable);
         }
         else {
             if (valFloat < min)
-                return formatMontant(min.toString(), places, decimalSep, thousandSep);
+                return formatMontant(min.toString(), places, decimalSep, thousandSep, nullable);
         }
         if (exclusiveMax) {
             if (valFloat >= max)
-                return formatMontant(max.toString(), places, decimalSep, thousandSep);
+                return formatMontant(max.toString(), places, decimalSep, thousandSep, nullable);
         }
         else {
             if (valFloat > max)
-                return formatMontant(max.toString(), places, decimalSep, thousandSep);
+                return formatMontant(max.toString(), places, decimalSep, thousandSep, nullable);
         }
-        return formatMontant(valFloat.toString(), places, decimalSep, thousandSep);
+        return formatMontant(valFloat.toString(), places, decimalSep, thousandSep, nullable);
     }
-    function isInLimits(val, min, exclusiveMin, max, exclusiveMax) {
+    function isInLimits(val, min, exclusiveMin, max, exclusiveMax, nullable) {
+        if (nullable && (val === '' || val === undefined || val === null))
+            return true;
         var valFloat = parseFloat(val);
         if (exclusiveMin) {
             if (valFloat <= min)
@@ -27970,6 +28087,10 @@ var Phoenix;
     }
     function setCaretPos(input, charsBefore, thousandSep) {
         var val = input.value;
+        if (val === '') {
+            _dom.selectRange(input, 0);
+            return;
+        }
         var posCaret = 0;
         if (charsBefore != 0) {
             for (var i = 0; i < val.length; i++) {
@@ -28010,19 +28131,11 @@ var Phoenix;
         var end = oldVal.substr(selectionStart, oldVal.length);
         // Process
         var newVal = unformatMontant(start + data + end, opts.decimalSep, opts.thousandSep);
-        /*let newValIntervalle: string = limit(charNegative + newVal,
-            opts.schema.minimum,
-            opts.schema.exclusiveMinimum,
-            opts.schema.maximum,
-            opts.schema.exclusiveMaximum,
-            opts.places,
-            opts.decimalSep,
-            opts.thousandSep);*/
-        if (!isInLimits(charNegative + newVal, opts.schema.minimum, opts.schema.exclusiveMinimum, opts.schema.maximum, opts.schema.exclusiveMaximum)) {
+        if (!isInLimits(charNegative + newVal, opts.schema.minimum, opts.schema.exclusiveMinimum, opts.schema.maximum, opts.schema.exclusiveMaximum, opts.schema.nullable)) {
             event.preventDefault();
             return false;
         }
-        input.value = formatMontant(charNegative + newVal, opts.places, opts.decimalSep, opts.thousandSep);
+        input.value = formatMontant(charNegative + newVal, opts.places, opts.decimalSep, opts.thousandSep, opts.schema.nullable);
         setCaretPos(input, unformatMontant(start, opts.decimalSep, opts.thousandSep).length + dataStr.length, opts.thousandSep);
         event.preventDefault();
     };
@@ -28059,15 +28172,15 @@ var Phoenix;
             if (oldVal.indexOf('-') != 0) {
                 var nextVal = unformatMontant(oldVal, opts.decimalSep, opts.thousandSep);
                 if (nextVal == getZeroStr(opts.places) || nextVal == '') {
-                    var nv = formatMontant(nextVal, opts.places, opts.decimalSep, opts.thousandSep);
+                    var nv = formatMontant(nextVal, opts.places, opts.decimalSep, opts.thousandSep, opts.schema.nullable);
                     input.value = nv;
                 }
                 else {
-                    if (!isInLimits('-' + nextVal, opts.schema.minimum, opts.schema.exclusiveMinimum, opts.schema.maximum, opts.schema.exclusiveMaximum)) {
+                    if (!isInLimits('-' + nextVal, opts.schema.minimum, opts.schema.exclusiveMinimum, opts.schema.maximum, opts.schema.exclusiveMaximum, opts.schema.nullable)) {
                         event.preventDefault();
                         return false;
                     }
-                    input.value = formatMontant('-' + nextVal, opts.places, opts.decimalSep, opts.thousandSep);
+                    input.value = formatMontant('-' + nextVal, opts.places, opts.decimalSep, opts.thousandSep, opts.schema.nullable);
                 }
             }
             _dom.selectRange(input, 1);
@@ -28086,19 +28199,11 @@ var Phoenix;
         }
         // Process
         var newVal = unformatMontant(start + event.key + end, opts.decimalSep, opts.thousandSep);
-        /*let newValIntervalle: string = limit(charNegative + newVal,
-            opts.schema.minimum,
-            opts.schema.exclusiveMinimum,
-            opts.schema.maximum,
-            opts.schema.exclusiveMaximum,
-            opts.places,
-            opts.decimalSep,
-            opts.thousandSep);*/
-        if (!isInLimits(charNegative + newVal, opts.schema.minimum, opts.schema.exclusiveMinimum, opts.schema.maximum, opts.schema.exclusiveMaximum)) {
+        if (!isInLimits(charNegative + newVal, opts.schema.minimum, opts.schema.exclusiveMinimum, opts.schema.maximum, opts.schema.exclusiveMaximum, opts.schema.nullable)) {
             event.preventDefault();
             return false;
         }
-        input.value = formatMontant(charNegative + newVal, opts.places, opts.decimalSep, opts.thousandSep);
+        input.value = formatMontant(charNegative + newVal, opts.places, opts.decimalSep, opts.thousandSep, opts.schema.nullable);
         var correctionCaret = start == '0' ? 0 : 1;
         setCaretPos(input, unformatMontant(start, opts.decimalSep, opts.thousandSep).length + correctionCaret, opts.thousandSep);
         event.preventDefault();
@@ -28121,7 +28226,7 @@ var Phoenix;
         var end = oldVal.substr(selectionStart, oldVal.length);
         // Reset selection
         if (selection) {
-            resetSelection(input, oldVal, start, opts.thousandSep, opts.decimalSep, opts.places);
+            resetSelection(input, oldVal, start, opts.thousandSep, opts.decimalSep, opts.places, opts.schema.nullable);
             event.preventDefault();
             return true;
         }
@@ -28161,7 +28266,7 @@ var Phoenix;
             else if (event.which == _dom.keys.VK_BACKSPACE) {
                 newVal = unformatMontant(start.substr(0, start.length - 1) + end, opts.decimalSep, opts.thousandSep);
             }
-            var formattedLimitNewVal = limit(newVal, opts.schema.minimum, opts.schema.exclusiveMinimum, opts.schema.maximum, opts.schema.exclusiveMaximum, opts.places, opts.decimalSep, opts.thousandSep);
+            var formattedLimitNewVal = limit(newVal, opts.schema.minimum, opts.schema.exclusiveMinimum, opts.schema.maximum, opts.schema.exclusiveMaximum, opts.places, opts.decimalSep, opts.thousandSep, opts.schema.nullable);
             input.value = formattedLimitNewVal;
             // Set caret position
             var charsBefore = unformatMontant(start, opts.decimalSep, opts.thousandSep).length + offsetCaret;
@@ -29123,6 +29228,9 @@ var Phoenix;
                         }
                     }
                 };
+                // if (!acOptions.parent && acOptions.alignElement) {
+                //     acOptions.parent = _dom.parentByClass(null, acOptions.alignElement, 'modal-body');
+                // }
                 _autoclose.open(ac_1.align, acOptions);
                 return;
             }
@@ -30140,6 +30248,9 @@ var Phoenix;
                         opts.description = _ulocale.tt(that.$schema.description, that.form.$locale);
                     if (that._parentId)
                         opts.parentId = that._parentId;
+                    if (that.parent && that.parent.$type === 'column' && opts.columns === undefined) {
+                        opts.columns = true;
+                    }
                     that.$element = $(_createLabel(that.id, opts, that.options.design, opts.title));
                     that._state2UI();
                 }
@@ -30944,9 +31055,11 @@ var Phoenix;
                 var that = this;
             };
             Lookup.prototype._searchText = function () {
-                var that = this, input = that._input();
+                var that = this;
+                var input = that._input();
                 var nv = that._text2value(input.value);
-                // if (that.equals(nv)) return '';
+                if (that.equals(nv))
+                    return '';
                 return nv;
             };
             Lookup.prototype._managePreventDefault = function (keyCode, $event) {
@@ -32202,7 +32315,7 @@ var Phoenix;
 (function (Phoenix) {
     var multivalue;
     (function (multivalue) {
-        var _p = Phoenix, _ui = Phoenix.ui, _utils = Phoenix.utils, _formedit = Phoenix.formedit, _uiutils = Phoenix.uiutils, _dom = _p.dom, _customData = _p.customData, _sutils = _p.Observable.SchemaUtils, _locale = Phoenix.locale, _gridlookup = Phoenix.gridlookup, _su = Phoenix.Observable.SchemaUtils, _ulocale = Phoenix.ulocale, _ui = Phoenix.ui;
+        var _p = Phoenix, _ui = Phoenix.ui, _utils = Phoenix.utils, _uiutils = Phoenix.uiutils, _dom = _p.dom, _customData = _p.customData, _sutils = _p.Observable.SchemaUtils, _locale = Phoenix.locale, _gridlookup = Phoenix.gridlookup, _ulocale = Phoenix.ulocale, _ui = Phoenix.ui;
         ;
         var _createTag = function (item, title, isReadOnly) {
             return $(_utils.format(' <span id="{0}" class="bs-tag badge badge-info">{1}<span data-close-id="{0}" class="bs-tag-close" aria-hidden="true">&times;</span></span>', item.$id, title)).get(0);
@@ -32393,9 +32506,11 @@ var Phoenix;
                 return p;
             };
             MultiValue.prototype._searchText = function () {
-                var that = this, input = that._input();
+                var that = this;
+                var input = that._input();
                 var nv = that._text2value(input.value);
-                // if (that.equals(nv)) return '';
+                if (that.equals(nv))
+                    return '';
                 return nv;
             };
             MultiValue.prototype.checkFocus = function (focusParams) {
@@ -33633,7 +33748,10 @@ var Phoenix;
                 var that = this;
                 if (that.renderOptions.readOnly)
                     return;
-                _uiutils.utils.fillSelect(enums, that._input(), that.$schema, that.renderOptions.allowEmpty);
+                var isEmpty = enums.indexOf(that.state.value) < 0;
+                if (isEmpty)
+                    isEmpty = enums.indexOf('') < 0;
+                _uiutils.utils.fillSelect(enums, that._input(), that.$schema, isEmpty);
             };
             Select.prototype._setDisabled = function (input, element) {
                 input.disabled = this.state.isDisabled || this.state.isReadOnly;
@@ -33715,23 +33833,25 @@ var Phoenix;
                 }
                 else {
                     var index = that.state.filter ? that.$schema.filters[that.state.filter].indexOf(that.state.value) : that.$schema.enum.indexOf(that.state.value);
-                    if (that.renderOptions.allowEmpty)
+                    if (that.$schema.nullable || index < 0)
                         index++;
                     input.selectedIndex = index;
                 }
             };
             Select.prototype._input2Value = function () {
                 var that = this;
+                var values = that.state.filter ? that.$schema.filters[that.state.filter] : that.$schema.enum;
+                var isEmpty = values.indexOf(that.state.value) < 0;
                 var ii = that._input();
                 var iv;
-                if (that.renderOptions.allowEmpty && ii.selectedIndex === 0) {
+                if ((that.$schema.nullable || isEmpty) && ii.selectedIndex === 0) {
                     iv = undefined;
                 }
                 else {
                     var index = ii.selectedIndex;
-                    if (that.renderOptions.allowEmpty)
+                    if (that.$schema.nullable)
                         index--;
-                    iv = that.state.filter ? that.$schema.filters[that.state.filter][index] : that.$schema.enum[index];
+                    iv = values[index];
                 }
                 if (that.state.value !== iv) {
                     that.state.value = iv;
@@ -33846,11 +33966,17 @@ var Phoenix;
                 that._getSource().then(function (data) {
                     that._values = [];
                     that._names = [];
+                    data.documents.forEach(function (item) {
+                        that._values.push(item[that.$lookup.mapping[that._codeProperty]]);
+                        that._names.push(item[that.$lookup.mapping[that._titleProperty]]);
+                    });
+                    var isEmpty = that._values.indexOf(that.state.value) < 0;
                     var frag = document.createDocumentFragment();
-                    if (that.renderOptions.allowEmpty) {
+                    if (that.$schema.nullable || isEmpty) {
                         var o = document.createElement('option');
                         _dom.attr(o, "value", '');
-                        _dom.attr(o, "disabled", 'true');
+                        if (!that.$schema.nullable)
+                            _dom.attr(o, "disabled", 'true');
                         o.textContent = String.fromCharCode(160);
                         _dom.append(frag, o);
                     }
@@ -33858,14 +33984,12 @@ var Phoenix;
                         var o = document.createElement('option');
                         _dom.attr(o, "value", item[that.$lookup.mapping[that._codeProperty]]);
                         o.textContent = item[that.$lookup.mapping[that._titleProperty]];
-                        that._values.push(item[that.$lookup.mapping[that._codeProperty]]);
-                        that._names.push(item[that.$lookup.mapping[that._titleProperty]]);
                         _dom.append(frag, o);
                     });
                     _dom.empty(input);
                     _dom.append(input, frag);
                     input.selectedIndex = that._values.indexOf(that.state.value);
-                    if (input.selectedIndex < 0 && that.renderOptions.allowEmpty) {
+                    if (input.selectedIndex < 0 && (that.$schema.nullable || isEmpty)) {
                         input.selectedIndex = 0;
                     }
                 });
@@ -33877,7 +34001,7 @@ var Phoenix;
                     _dom.text(input, (ii >= 0 ? that._names[ii] : '') || String.fromCharCode(160));
                 }
                 else {
-                    if (ii < 0 && that.renderOptions.allowEmpty)
+                    if (ii < 0)
                         ii = 0;
                     input.selectedIndex = ii;
                 }
@@ -33886,7 +34010,7 @@ var Phoenix;
                 var that = this;
                 var ii = that._input();
                 var si = ii.selectedIndex;
-                if (that.renderOptions.allowEmpty) {
+                if (that.$schema.nullable) {
                     if (si >= 0)
                         si--;
                 }

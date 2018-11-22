@@ -210,10 +210,10 @@ declare namespace Phoenix {
         }[];
         let lastPage: () => string;
         let locationPrefix: string;
-        let clear: (notify: boolean) => void;
+        let clear: (notify: boolean, deferClose: boolean) => void;
         let updateLast: (oldHash: string, newHash: string) => void;
         let addData: (cd: any) => void;
-        let clearLastData: () => void;
+        let clearLastData: (deferClose: boolean) => void;
     }
     module render {
         let register: (context: any, name: any, handler: any) => void;
@@ -1030,7 +1030,7 @@ declare namespace Phoenix {
             canShowField: (schema: any) => boolean;
             canFilter: (schema: any) => any;
             canSearch: (schema: any) => any;
-            checkNumber: (value: any, schema: any, locale: any, errors: any, listParent: any) => boolean;
+            checkNumber: (value: any, state: any, schema: any, locale: any, errors: any, listParent: any) => boolean;
             validateEmail: (email: string, error: any) => boolean;
             validatePattern: (value: string, pattern: string, error: any) => boolean;
             validatePhone: (uri: string, error: any) => boolean;
@@ -1832,6 +1832,7 @@ declare namespace Phoenix {
             viewId: number;
             transactionId: string;
             viewName: string;
+            deferClose: boolean;
         }[]): void;
         function update(actions: {
             formId: string;
@@ -2065,7 +2066,7 @@ declare namespace Phoenix {
             containerBaseClass: (groupClass: string, authoring: boolean, options: any) => string;
             align2Css: (align: string) => "" | "align-center" | "align-end";
             fieldWrapper: (html: string[], options: any, authoring: boolean, after: Function, customizer?: any) => void;
-            fillSelect(enums: any[], input: any, schema: any, allowEmpty: boolean): void;
+            fillSelect(enums: any[], input: any, schema: any, forceAddNull: boolean): void;
             datePickerSetValue: ($element: JQuery<HTMLElement>, value: string) => void;
             elementInDatePicker: (element: HTMLElement, $element: JQuery<HTMLElement>) => boolean;
             datePickerInitialize: ($element: JQuery<HTMLElement>, opts: any, onHide: any) => void;
@@ -2294,6 +2295,7 @@ declare namespace Phoenix {
             private _details;
             private _onselectItemHandler;
             private _originalCols;
+            private _originalColsMap;
             pager: ui.Pager;
             private _scroller;
             private _rsTimer;
@@ -2445,6 +2447,7 @@ declare namespace Phoenix {
             exportAsCsv(): void;
             private _renderColumns;
             private _refreshGrid;
+            toggleEditing(): boolean;
             toggleMultiselect(): void;
             render($parent: any): JQuery<HTMLElement>;
         }
@@ -2480,6 +2483,7 @@ declare namespace Phoenix {
             setFocus(focusParams?: any): void;
             protected _isMoney(): boolean;
             protected _setDisabled(input: any, element: any): void;
+            protected _setMaxLength(input: any, element: any): void;
             protected _setReadOnly(input: any, element: any): void;
             protected _setErrors(input: any, element: any): void;
             protected _setMandatory(input: any, element: any): void;
