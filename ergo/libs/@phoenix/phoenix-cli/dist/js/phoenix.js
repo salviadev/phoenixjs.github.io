@@ -200,13 +200,62 @@ var Phoenix;
             Object.keys(src).forEach(function (p) {
                 src[p] = null;
             });
+        }, _supportCondition = function (obj, condition) {
+            var keys = Object.keys(condition);
+            var res = true;
+            keys.forEach(function (key) {
+                if (res && obj[key] !== condition[key])
+                    res = false;
+            });
+            return res;
+        }, _findConditionitem = function (list, condition) {
+            var keys = Object.keys(condition);
+            var retValue = null;
+            if (!list)
+                return undefined;
+            list.forEach(function (element) {
+                if (retValue)
+                    return;
+                var found = true;
+                keys.forEach(function (key) {
+                    if (found && element[key] !== condition[key])
+                        found = false;
+                });
+                if (found)
+                    retValue = element;
+            });
+            return retValue ? retValue : undefined;
+        }, _parseCondition = function (condition) {
+            var mapValue = {};
+            condition.split(',').forEach(function (item) {
+                var a = item.split('=').map(function (ii) { return ii.trim(); });
+                var val = a[1];
+                if (val.charAt(0) === '\'')
+                    val = val.substring(1, val.length - 1).replace(/\'\'/g, '\'');
+                else
+                    val = parseFloat(val);
+                mapValue[a[0]] = val;
+            });
+            return mapValue;
+        }, _getPathValue = function (obj, path) {
+            if (!obj)
+                return undefined;
+            var bi = path.indexOf('[');
+            if (bi > 0) {
+                var co = obj[path.substring(0, bi)];
+                var mapValue = _parseCondition(path.substring(bi + 1, path.length - 1));
+                return _findConditionitem(co, mapValue);
+            }
+            else
+                return obj[path];
         }, _getValue = function (value, path) {
             var a = path.split('.');
             if (a.length === 1)
-                return value ? value[path] : undefined;
+                return _getPathValue(value, path);
             var cp = value, cd = null;
             for (var i = 0, len = a.length; i < len; i++) {
-                cd = cp[a[i]];
+                var cpath = a[i];
+                cd = _getPathValue(cp, cpath);
                 if (!cd)
                     return cd;
                 cp = cd;
@@ -507,6 +556,9 @@ var Phoenix;
         };
         utils.cleanUpObject = _cleanUpObject;
         utils.getValue = _getValue;
+        utils.getPathValue = _getPathValue;
+        utils.supportCondition = _supportCondition;
+        utils.parseStringCondition = _parseCondition;
         utils.glbDisclaimerMessage = '';
     })(utils = Phoenix.utils || (Phoenix.utils = {}));
     (function _polyfill() {
@@ -1902,7 +1954,8 @@ var Phoenix;
                 return new promiseClass(function (resolve, reject) {
                     resolve(null);
                 });
-        }, _defPrefsSaver = function (name, data) {
+        };
+        var _defPrefsSaver = function (name, data) {
             var promiseClass = _utils.Promise;
             if (window.localStorage)
                 return new promiseClass(function (resolve, reject) {
@@ -1931,6 +1984,16 @@ var Phoenix;
     })(external = Phoenix.external || (Phoenix.external = {}));
     var history;
     (function (history) {
+        history.useServerState = false;
+        history.setState = function (key, value) {
+            var root = JSON.parse(sessionStorage.getItem('phoenix_history_state') || '{}');
+            root[key] = value;
+            sessionStorage.setItem('phoenix_history_state', JSON.stringify(root));
+        };
+        history.getState = function (key) {
+            var root = JSON.parse(sessionStorage.getItem('phoenix_history_state') || '{}');
+            return root[key];
+        };
         history.supportRefresh = true;
         history.destroyViewHandler = function (cd) {
             console.log(cd);
@@ -1957,6 +2020,18 @@ var Phoenix;
                 if (doAdd_1) {
                     v.data.push(cd);
                     _saveValue();
+                }
+                if (!history.useServerState && _value.length > 1) {
+                    var prevData = _value[_value.length - 2];
+                    if (!prevData.persistent) {
+                        var toDestroy_1 = [];
+                        prevData.data.forEach(function (ii) { return toDestroy_1.push(ii); });
+                        prevData.data = [];
+                        _saveValue();
+                        if (toDestroy_1.length) {
+                            history.destroyViewHandler(toDestroy_1);
+                        }
+                    }
                 }
             }
         }, _clearLastData = function (deferClose) {
@@ -1986,12 +2061,14 @@ var Phoenix;
             }
             if (external.historyChangedHandler)
                 external.historyChangedHandler();
-        }, _updateLast = function (oldHash, newHash) {
+        }, _updateLast = function (oldHash, newHash, persistent) {
             _assertValue();
             var len = _value.length;
             var last = len ? _value[len - 1].pageName : '';
             if (last === oldHash) {
                 _value[len - 1].pageName = newHash;
+                if (persistent !== undefined)
+                    _value[len - 1].persistent = persistent ? true : false;
                 _saveValue();
             }
         }, _add = function (hash, reset) {
@@ -1999,7 +2076,7 @@ var Phoenix;
                 _clear(true, false);
             _assertValue();
             if (reset) {
-                _value = [{ pageName: hash, data: [] }];
+                _value = [{ pageName: hash, data: [], persistent: false }];
                 _saveValue();
                 if (external.historyChangedHandler)
                     external.historyChangedHandler();
@@ -2008,18 +2085,18 @@ var Phoenix;
             var len = _value.length;
             var last = len ? _value[len - 1].pageName : '';
             if (last !== hash) {
-                var toDestroy_1 = [];
+                var toDestroy_2 = [];
                 var prev = (len >= 2) ? _value[len - 2].pageName : '';
                 if (hash === prev) {
                     var last_1 = _value.pop();
-                    last_1.data.forEach(function (ii) { return toDestroy_1.push(ii); });
+                    last_1.data.forEach(function (ii) { return toDestroy_2.push(ii); });
                     last_1.data = [];
                 }
                 else
-                    _value.push({ pageName: hash, data: [] });
+                    _value.push({ pageName: hash, data: [], persistent: false });
                 _saveValue();
-                if (toDestroy_1.length) {
-                    history.destroyViewHandler(toDestroy_1);
+                if (toDestroy_2.length) {
+                    history.destroyViewHandler(toDestroy_2);
                 }
                 if (external.historyChangedHandler)
                     external.historyChangedHandler();
@@ -2163,6 +2240,7 @@ var Phoenix;
             'floppy': 'done',
             'info-circle': 'info',
             'lock': 'lock',
+            'unlock': 'lock-open',
             'minus': 'remove',
             'remove': 'clear',
             'minus-circle': 'remove-circle',
@@ -2322,7 +2400,7 @@ var Phoenix;
             if (element.classList)
                 return element.classList.contains(className);
             else
-                return (element.className || '').split(' ').indexOf(className) >= 0;
+                return ((element.className || '') + '').split(' ').indexOf(className) >= 0;
         }, _remove = function (element) {
             if (element.parentNode)
                 element.parentNode.removeChild(element);
@@ -3687,7 +3765,7 @@ var Phoenix;
             var newHash = _parseUrl2Hash(parsedUrl);
             _history.updateLast(oldSearch, newHash);
             _setHash(newHash, true, false, true, false);
-        }, _changeSearch = function (search, replace, checkHistory) {
+        }, _changeSearch = function (search, replace, checkHistory, persistent) {
             var parsedUrl = _parseUrl(window.location.hash, false);
             var oldSearch = _parseUrl2Hash(parsedUrl);
             if (replace)
@@ -3696,7 +3774,7 @@ var Phoenix;
                 _utils.merge(search, parsedUrl.search);
             var newHash = _parseUrl2Hash(parsedUrl);
             if (checkHistory) {
-                _history.updateLast(oldSearch, newHash);
+                _history.updateLast(oldSearch, newHash, persistent);
             }
             _setHash(newHash, true, false, true, false);
         }, _removeFromSearch = function (toRemove) {
@@ -4917,7 +4995,7 @@ var Phoenix;
 /// <reference path="./odata-provider.ts" />
 var Phoenix;
 (function (Phoenix) {
-    var _p = Phoenix, _link = _p.link, _utils = _p.utils, _data = _p.data, _customData = _p.customData, _application = _p.application;
+    var _p = Phoenix, _link = _p.link, _utils = _p.utils, _data = _p.data, _history = _p.history, _customData = _p.customData, _application = _p.application;
     var data;
     (function (data) {
         var _execTransform = function (cfg, localData) {
@@ -5362,6 +5440,78 @@ var Phoenix;
             }
             else
                 return { value: tree, op: null };
+        }, _tree2mongoDbFilter = function (tree) {
+            if (tree && typeof tree == 'object' && tree.$op) {
+                var left = _tree2mongoDbFilter(tree.$left);
+                var right = _tree2mongoDbFilter(tree.$right);
+                if (tree.$nulls === "ignore" && right.value == null) {
+                    if (tree.op === 'not') {
+                        return { value: null, op: null };
+                    }
+                    return { value: left.value, op: left.op };
+                }
+                //unary operators
+                if (tree.$op === "not") {
+                    return { value: { $not: right.value }, op: tree.$op };
+                }
+                else if (tree.$op === 'in') {
+                    var values = Array.isArray(right.value) ? right.value : (right.value || '').split(';');
+                    var v = [];
+                    v[left.value] = { $in: values };
+                    return { value: v, op: "in" };
+                }
+                else if (tree.$op === 'nin') {
+                    var values = Array.isArray(right.value) ? right.value : (right.value || '').split(';');
+                    var v = [];
+                    v[left.value] = { $nin: values };
+                    return { value: v, op: "in" };
+                }
+                else if (tree.$op === "$func") {
+                    throw new Error('$funcs is not supported');
+                }
+                else {
+                    if (tree.$nulls === "ignore" && (left.value == null || right.value == null)) {
+                        if (tree.$op === "and" || tree.$op === "or") {
+                            if (right.value == null) //keep ==
+                                return { value: left.value, op: left.op };
+                            else
+                                return { value: right.value, op: right.op };
+                        }
+                        else
+                            return { value: null, op: null };
+                    }
+                    else {
+                        var lv = left.value;
+                        var rv = right.value;
+                        if (tree.$op === 'and' || tree.$op === 'or') {
+                            if (!lv && !rv)
+                                return { value: null, op: null };
+                            if (!lv)
+                                return { value: rv, op: tree.$op };
+                            if (!rv)
+                                return { value: lv, op: tree.$op };
+                        }
+                        if (tree.$op === "and") {
+                            if (left.op === "or")
+                                lv = '(' + lv + ')';
+                            if (right.op === "or")
+                                rv = '(' + rv + ')';
+                        }
+                        else if (rv) {
+                            if (tree.$nulls === 'ignore' && rv === '\'\'') {
+                                return { value: null, op: null };
+                            }
+                        }
+                        return { value: lv + ' ' + tree.$op + ' ' + rv, op: tree.$op };
+                    }
+                }
+            }
+            else if (tree && typeof tree == 'object' && tree.$op === null && tree.$right === null && tree.$left) {
+                var cleft = _tree2filter(tree.$left);
+                return { value: cleft.value, op: null };
+            }
+            else
+                return { value: tree, op: null };
         }, _parseTree = function (tree, lurl, context, localContext) {
             var rtree = _execTree(tree, lurl, context, localContext);
             return _tree2filter(rtree).value;
@@ -5382,12 +5532,15 @@ var Phoenix;
                 if (!res.$viewId)
                     throw 'Invalid sync dataset -$params.$viewId';
                 res.$replaceSearch = params.$replaceSearch;
-                transactionId = lurl[res.$transactionId];
+                if (isSync)
+                    res.$persistent = params.$persistent;
                 if (params.$method === 'PATCH') {
+                    transactionId = (_history.useServerState) ? lurl[res.$transactionId] : _history.getState(res.$transactionId);
                     viewId = params.viewId;
                     delete params.viewId;
                 }
                 else {
+                    transactionId = context.$transactionId ? context.$transactionId : lurl[res.$transactionId];
                     if (context && context.parentModel) {
                         viewId = context.parentModel.id;
                         if (!viewId)
@@ -5864,12 +6017,10 @@ var Phoenix;
                 if (!cd)
                     return;
                 if (method === 'GET') {
+                    cd.$transactionId = context.$transactionId ? context.$transactionId : params.$query[params.$transactionId];
                     if (context.parentModel) {
-                        // same transection id as parent
-                        cd.$transactionId = params.$query[params.$transactionId];
                     }
                     else {
-                        cd.$transactionId = params.$query[params.$transactionId];
                         cd.$viewName = config.$params.$entity;
                     }
                     cd.$create = false;
@@ -5884,20 +6035,31 @@ var Phoenix;
                         }
                         else {
                             var search_2 = {};
-                            search_2[params.$transactionId] = localData.id;
-                            search_2[params.$viewId] = cd.id;
-                            if (params.$replaceSearch) {
-                                if (!Array.isArray(params.$replaceSearch))
-                                    params.$replaceSearch = ['$inline'];
-                                if (Array.isArray(params.$replaceSearch)) {
-                                    var urlSearch_1 = _link.context().$url;
-                                    params.$replaceSearch.forEach(function (name) {
-                                        if (urlSearch_1[name] !== undefined)
-                                            search_2[name] = urlSearch_1[name];
-                                    });
+                            if (_history.useServerState || params.$persistent) {
+                                _history.setState(params.$transactionId, localData.id);
+                                _history.setState(params.$viewId, cd.id);
+                                search_2[params.$transactionId] = localData.id;
+                                search_2[params.$viewId] = cd.id;
+                                if (params.$replaceSearch) {
+                                    if (!Array.isArray(params.$replaceSearch))
+                                        params.$replaceSearch = ['$inline'];
+                                    if (Array.isArray(params.$replaceSearch)) {
+                                        var urlSearch_1 = _link.context().$url;
+                                        params.$replaceSearch.forEach(function (name) {
+                                            if (urlSearch_1[name] !== undefined)
+                                                search_2[name] = urlSearch_1[name];
+                                        });
+                                    }
                                 }
+                                params.$replaceSearch = params.$replaceSearch || {};
+                                params.$persistent = 1;
+                                _link.changeSearch(search_2, params.$replaceSearch, true, params.$persistent);
                             }
-                            _link.changeSearch(search_2, params.$replaceSearch, true);
+                            else {
+                                _history.setState(params.$transactionId, localData.id);
+                                _history.setState(params.$viewId, cd.id);
+                                _link.changeSearch(search_2, null, true);
+                            }
                         }
                     }
                     else {
@@ -9193,6 +9355,9 @@ var Phoenix;
                     if (!cs)
                         break;
                     var s = segments[i];
+                    var bi = s.indexOf('[');
+                    if (bi > 0)
+                        s = s.substr(0, bi);
                     if (!cs.type && cs.$ref)
                         cs = _expandRefProp(cs, rootSchema);
                     if ((cs.type === "array")) {
@@ -9222,6 +9387,9 @@ var Phoenix;
                             }
                             else {
                                 cs = cs.properties ? cs.properties[s] : null;
+                                if (cs && cs.type === 'array' && bi > 0) {
+                                    cs = _expandRefProp(cs.items, rootSchema);
+                                }
                                 if (!cs && i === (len - 1)) {
                                     if (s === Observable.INDEX_FIELD_NAME) {
                                         return { type: 'integer', title: "#", capabilities: null };
@@ -9809,7 +9977,8 @@ var Phoenix;
                         }
                         if (parent) {
                             ctx = ctx || {};
-                            var parentModel = parent.form.$model.model();
+                            var parentModel = parent.form.$model.model(true);
+                            ctx.$transactionId = parent.form.syncTransactionId();
                             if (parentModel && parentModel.pages) {
                                 var pages = JSON.parse(parentModel.pages);
                                 ctx.parentModel = pages[parent.name];
@@ -16461,6 +16630,22 @@ var Phoenix;
             DataListBase.prototype.findById = function (id) {
                 return this._map[id];
             };
+            DataListBase.prototype.findByCondition = function (condition) {
+                var keys = Object.keys(condition);
+                for (var i = 0; i < this._items.length; i++) {
+                    var item = this._items[i];
+                    var found = true;
+                    for (var j = 0; j < keys.length; j++) {
+                        if (item[keys[j]] !== condition[keys[j]]) {
+                            found = false;
+                            break;
+                        }
+                    }
+                    if (found)
+                        return item;
+                }
+                return null;
+            };
             DataListBase.prototype.findByIdEx = function (id, expandProperty) {
                 var that = this;
                 var res = that._map[id];
@@ -17690,8 +17875,9 @@ var Phoenix;
                         break;
                     if (i === len - 1)
                         v[segments[i]] = value;
-                    else
-                        v = v[segments[i]];
+                    else {
+                        v = _utils.getPathValue(v, segments[i]);
+                    }
                 }
             };
             Data.prototype._getModel = function (original, copyUx) {
@@ -17736,7 +17922,7 @@ var Phoenix;
                 for (var i = Math.max(Math.max(ii + 1, jj + 1), 0), len = segments.length; i < len; i++) {
                     if (!v)
                         break;
-                    v = v[segments[i]];
+                    v = _utils.getPathValue(v, segments[i]);
                 }
                 return { value: v, parentIsNull: false };
             };
@@ -17773,7 +17959,15 @@ var Phoenix;
                 }
                 for (var i = Math.max(Math.max(ii + 1, jj + 1), 0), len = segments.length; i < len; i++) {
                     var s = segments[i];
-                    var ignoreState = false;
+                    var dd = s.indexOf('[');
+                    if (dd > 0) {
+                        cs = _utils.getPathValue(cs, s);
+                        if (!cs) {
+                            res.isDisabled = true;
+                            break;
+                        }
+                        continue;
+                    }
                     if (i === ll) {
                         if (s === '$links') {
                             islink = true;
@@ -17781,7 +17975,7 @@ var Phoenix;
                         }
                     }
                     cs = cs[s];
-                    if (!cs) {
+                    if (!cs || cs.isNull || cs.isUndefined) {
                         ps = null;
                     }
                     else {
@@ -18318,7 +18512,13 @@ var Phoenix;
                     if (schema.links[link].data) {
                         actionParams = schema.links[link].data;
                     }
-                    after = schema.links[link].after || (actionParams ? actionParams.$after : undefined);
+                    after = schema.links[link].after;
+                    if (actionParams && actionParams.$after) {
+                        if (after)
+                            after = [after, actionParams.$after];
+                        else
+                            after = actionParams.$after;
+                    }
                     successMessage = schema.links[link].successMessage;
                     if (successMessage === undefined && schema.links[link].isSave)
                         successMessage = true;
@@ -18408,7 +18608,7 @@ var Phoenix;
 (function (Phoenix) {
     var serversync;
     (function (serversync) {
-        var _p = Phoenix, _observable = Phoenix.Observable, _su = _observable.SchemaUtils, _du = _observable.DataUtils, _dsPlugin = _p.DatasetPlugin, _locale = Phoenix.locale, _ulocale = Phoenix.ulocale, _utils = Phoenix.utils;
+        var _p = Phoenix, _observable = Phoenix.Observable, _dsPlugin = _p.DatasetPlugin;
         function notifyClose(params) {
             var dataset = {
                 name: 'patch',
@@ -18425,6 +18625,7 @@ var Phoenix;
             };
             var delta = [];
             params.forEach(function (param) {
+                // console.log('close  ' + param.viewName)
                 delta.push({ requestType: 'patch', id: param.viewId, viewName: param.viewName, patch: [{ op: "add", path: "/$links/close", value: { deferClose: param.deferClose } }] });
             });
             var result = {};
@@ -18435,7 +18636,6 @@ var Phoenix;
             try {
                 var all_1 = {};
                 if (actions && actions.length) {
-                    var i = 0;
                     var formsAdded_1 = [];
                     var allVisibleForms_1 = [];
                     actions.forEach(function (action) {
@@ -18463,8 +18663,8 @@ var Phoenix;
                         }
                     });
                     if (Object.keys(all_1).length) {
-                        var actionForms_1 = allVisibleForms_1.slice();
-                        actionForms_1.forEach(function (form) {
+                        var actionForms = allVisibleForms_1.slice();
+                        actionForms.forEach(function (form) {
                             var vf = form.visibleChildForms();
                             vf.forEach(function (cf) {
                                 if (allVisibleForms_1.indexOf(cf) < 0) {
@@ -18476,8 +18676,6 @@ var Phoenix;
                             });
                         });
                     }
-                    var parents = [];
-                    var actionForms = allVisibleForms_1.slice();
                     allVisibleForms_1.forEach(function (cf) {
                         var parentForm = cf.parentForm;
                         if (parentForm && parentForm.useSync && allVisibleForms_1.indexOf(parentForm) < 0) {
@@ -18683,6 +18881,14 @@ var Phoenix;
                                     if (!aform.$model.hasErrors()) {
                                         if (typeof action.after === 'string')
                                             aform.execAction(action.after, {}, { $nosync: true });
+                                        else if (Array.isArray(action.after)) {
+                                            action.after.forEach(function (item) {
+                                                if (typeof item === 'string')
+                                                    aform.execAction(item, {}, { $nosync: true });
+                                                else
+                                                    item();
+                                            });
+                                        }
                                         else
                                             action.after();
                                     }
@@ -19963,7 +20169,7 @@ var Phoenix;
                 if (that.$element) {
                     if (that.$element && that.$element['tooltip']) {
                         var $ttc = that.$element.find('[data-phoenix-tooltip]');
-                        $ttc["tooltip"]('dispose');
+                        $ttc['tooltip']('dispose');
                     }
                     that.$content.empty();
                     _dom.remove(that.$content.get(0));
@@ -20708,7 +20914,7 @@ var Phoenix;
                     res = { value: '', html: false };
                     return res;
                 }
-                var addLink = options.html && options.avanced && options.avanced.$link;
+                var addLink = options.html && options.avanced && (options.avanced.$link || options.avanced.actionName);
                 if (options.avanced._expandItem && options.display && options.display.value)
                     addLink = false;
                 if (schema.enum) {
@@ -20744,10 +20950,13 @@ var Phoenix;
                                 }
                             }
                             if (!res) {
-                                if (options.avanced && options.avanced.transform)
+                                if (options.avanced && options.avanced.transform) {
+                                    addLink = false;
                                     res = _transform(value, value, options.avanced.transform, item);
-                                else if (options.avanced && options.avanced.icons)
+                                }
+                                else if (options.avanced && options.avanced.icons) {
                                     res = _mapIcon(options, value, value);
+                                }
                                 else if (value && options.avanced && options.avanced.multiline) {
                                     res = { value: '<span>' + value.split('\n').map(function (item) { return _utils.escapeHtml(item); }).join('<br/>') + '</span>', html: true };
                                 }
@@ -21552,15 +21761,26 @@ var Phoenix;
                 var that = this;
                 var actionsVisible = 0;
                 that.renderOptions.links.forEach(function (link) {
+                    var useDisabled = link.options && link.options.disableOnNoSelect;
                     var isVisible = !link.state.isHidden;
-                    if (isVisible) {
+                    var isDisabled = link.state.isDisabled;
+                    var checkSelected = useDisabled ? isVisible : !isDisabled;
+                    if (checkSelected && isVisible) {
                         if (link.schema.select) {
                             if (that._selected.length) {
-                                if (!link.schema.select.multiselect)
-                                    isVisible = that._selected.length === 1;
+                                if (!link.schema.select.multiselect) {
+                                    if (useDisabled)
+                                        isDisabled = that._selected.length !== 1;
+                                    else
+                                        isVisible = that._selected.length === 1;
+                                }
                             }
-                            else
-                                isVisible = false;
+                            else {
+                                if (useDisabled)
+                                    isDisabled = true;
+                                else
+                                    isVisible = false;
+                            }
                         }
                     }
                     if (isVisible && !link.important)
@@ -21574,7 +21794,7 @@ var Phoenix;
                         if (isVisible) {
                             if (link.important)
                                 ei = ei.firstChild;
-                            if (link.state.isDisabled) {
+                            if (isDisabled) {
                                 if (!_dom.hasClass(ei, 'disabled'))
                                     _dom.addClass(ei, 'disabled');
                             }
@@ -21751,6 +21971,11 @@ var Phoenix;
                     var link_4 = that.findLinkById(actionId);
                     if (link_4) {
                         if (!link_4.isHidden && !link_4.state.isDisabled && !link_4.state.isHidden) {
+                            var ei = _dom.find(that.$element.get(0), link_4.id);
+                            if (link_4.important)
+                                ei = ei.firstChild;
+                            if (_dom.hasClass(ei, 'disabled'))
+                                return;
                             if (link_4.schema && (link_4.schema.isRemove || link_4.name === '$remove') && link_4.schema.confirm) {
                                 var message = link_4.schema.confirm.message ? link_4.schema.confirm.message : Phoenix.locale.ui.removeWarning;
                                 Phoenix.utils.confirm(this.form.$schema.title || _locale.ui.Warning, message, function () {
@@ -23161,7 +23386,7 @@ var Phoenix;
 /// <reference path="./controls.ts" />
 var Phoenix;
 (function (Phoenix) {
-    var _utils = Phoenix.utils, _dom = Phoenix.dom, _ui = Phoenix.ui, _ulocale = Phoenix.ulocale, _uiutils = Phoenix.uiutils, _observable = Phoenix.Observable, _gridrender = Phoenix.gridrender, _gu = _gridrender.GridUtil, _customData = Phoenix.customData, _eu = _observable.errorsUtils, _link = Phoenix.link, _ctrlsinterfaces = Phoenix.ctrlsinterfaces, _locale = Phoenix.locale, _drag = Phoenix.drag, _events = Phoenix.events, _sutils = _observable.SchemaUtils;
+    var _utils = Phoenix.utils, _dom = Phoenix.dom, _ui = Phoenix.ui, _ulocale = Phoenix.ulocale, _uiutils = Phoenix.uiutils, _observable = Phoenix.Observable, _gridrender = Phoenix.gridrender, _gu = _gridrender.GridUtil, _customData = Phoenix.customData, _eu = _observable.errorsUtils, _link = Phoenix.link, _locale = Phoenix.locale, _drag = Phoenix.drag, _events = Phoenix.events, _sutils = _observable.SchemaUtils;
     var formgrid;
     (function (formgrid) {
         var MIN_COL_WIDTH = 20, MAX_COL_WIDTH = 2000;
@@ -23178,6 +23403,36 @@ var Phoenix;
             return false;
         };
         formgrid.gridlookup = null;
+        var LinesColumnsListener = /** @class */ (function () {
+            function LinesColumnsListener(grid) {
+                this._grid = grid;
+                this._properties = [];
+            }
+            LinesColumnsListener.prototype.destroy = function () {
+                var that = this;
+                that._properties.forEach(function (propertyName) {
+                    that._grid.form.unRegisterListenerFor(propertyName, that);
+                });
+                that._grid = null;
+            };
+            LinesColumnsListener.prototype.changed = function (propName, ov, nv, op, params) {
+                var that = this;
+                var ii = that._properties.indexOf(propName);
+                if (ii >= 0) {
+                    if (op === 'add')
+                        params[propName + '.$item'] = params.$value;
+                    that._grid.changed(propName + '.$item', ov, nv, 'propchange', params);
+                }
+            };
+            LinesColumnsListener.prototype.listen = function (propertyName) {
+                var toListen = this._grid.$bind + '.$item.' + propertyName;
+                if (this._properties.indexOf(toListen) < 0) {
+                    this._properties.push(toListen);
+                    this._grid.form.registerListenerFor(toListen, this);
+                }
+            };
+            return LinesColumnsListener;
+        }());
         var BasicGrid = /** @class */ (function (_super) {
             __extends(BasicGrid, _super);
             function BasicGrid(fp, options, form) {
@@ -23199,6 +23454,7 @@ var Phoenix;
                     that.resize();
                 };
                 var that = _this;
+                that._columnsListener = new LinesColumnsListener(that);
                 if (that.fieldOptions.striped === undefined) {
                     that.fieldOptions.striped = true;
                 }
@@ -23210,11 +23466,10 @@ var Phoenix;
                     that._settingsName = that.getSettingsName('basicgrid');
                     that._settings = form.getFieldSettings(that._settingsName);
                 }
-                var origColumns = that.fieldOptions.columns;
+                var origColumns = that.fieldOptions.columns || [];
                 that._originalColsMap = {};
                 origColumns.forEach(function (col) { that._originalColsMap[col.$bind] = col; });
                 if (that._settings) {
-                    var origColumns_1 = that.fieldOptions.columns;
                     var newColumns = that._settings.columns || [];
                     newColumns.forEach(function (col) {
                         var old = _this._originalColsMap[col.$bind];
@@ -23243,6 +23498,7 @@ var Phoenix;
                 }
                 // load config 
                 that.checkOptions(that.fieldOptions);
+                that._lines2columns(that.fieldOptions);
                 that._initOrigColumns(that.fieldOptions);
                 if (that.state.value && that.state.value.columns)
                     that._setVisiblesColumns(that.fieldOptions, that.state.value.columns, true);
@@ -23251,6 +23507,40 @@ var Phoenix;
                 that._onselectItemHandler = that._onselectItem.bind(that);
                 return _this;
             }
+            BasicGrid.prototype._lines2columns = function (options) {
+                var that = this;
+                if (options.linesAsColumns) {
+                    var colsToAdd = _utils.getValue(that.form.$model.model(true), options.linesAsColumns);
+                    if (colsToAdd) {
+                        var map_2 = {};
+                        options.columns.forEach(function (col) {
+                            map_2[col.$bind] = col;
+                        });
+                        var lastIndex_1 = options.columns.length;
+                        if (options.linesAsColumnsInsertAfter) {
+                            lastIndex_1 = options.columns.findIndex(function (item) {
+                                return item.$bind === options.linesAsColumnsInsertAfter;
+                            });
+                            if (lastIndex_1 >= 0)
+                                lastIndex_1++;
+                        }
+                        if (lastIndex_1 < 0)
+                            lastIndex_1 = options.columns.length;
+                        colsToAdd.forEach(function (col) {
+                            if (col.name && !map_2[name]) {
+                                var cc = $.extend(true, {}, col);
+                                cc.$bind = cc.name;
+                                cc.options = cc.options || {};
+                                cc.options.title = cc.title;
+                                cc.sourceBind = options.linesAsColumns;
+                                options.columns.splice(lastIndex_1, 0, cc);
+                                lastIndex_1++;
+                                map_2[cc.$bind] = cc;
+                            }
+                        });
+                    }
+                }
+            };
             BasicGrid.prototype._initOrigColumns = function (opts) {
                 var that = this;
                 that._originalCols = {};
@@ -23358,7 +23648,7 @@ var Phoenix;
                         var cell = that._td2value(td);
                         var iv = that._inplaceEditGetValue(cell);
                         if (!that._inplaceEditValue2Model(iv, cell.item, cell.col))
-                            that._modifyCell(cell.item, cell.col.$bind, null, td);
+                            that._modifyCell(cell.item, cell.col.$bind, null, td, null);
                     });
                 }
             };
@@ -23468,18 +23758,16 @@ var Phoenix;
                             if (!isCancel && s !== ov) {
                                 return that._findValue(s, cell_1, function (ldata) {
                                     that._setRemoteValue(cell_1.col, cell_1.item, ldata);
-                                    // maybe not
-                                    that._modifyCell(cell_1.item, cell_1.col.$bind, null, td_1);
+                                    that._modifyCell(cell_1.item, cell_1.col.$bind, null, td_1, null);
                                 });
                             }
                             else {
-                                // maybe not
-                                that._modifyCell(cell_1.item, cell_1.col.$bind, null, td_1);
+                                that._modifyCell(cell_1.item, cell_1.col.$bind, null, td_1, null);
                             }
                         }
                         // <--- END LOOKUP
                         else if (isCancel || !that._inplaceEditValue2Model(s === undefined ? '' : (s + ''), cell_1.item, cell_1.col))
-                            that._modifyCell(cell_1.item, cell_1.col.$bind, null, td_1);
+                            that._modifyCell(cell_1.item, cell_1.col.$bind, null, td_1, null);
                     }
                 }
                 that._destroyInplaceEdit();
@@ -23898,6 +24186,10 @@ var Phoenix;
             BasicGrid.prototype.destroy = function () {
                 var that = this;
                 that._destroyDetails();
+                if (that._columnsListener) {
+                    that._columnsListener.destroy();
+                    that._columnsListener = null;
+                }
                 if (that.columns) {
                     that.columns.forEach(function (col) {
                         col.schema = null;
@@ -23928,6 +24220,7 @@ var Phoenix;
                 }
                 that._details = null;
                 that._mapCols = null;
+                that._mapColsSupp = null;
                 that._originalCols = null;
                 that._originalColsMap = null;
                 that._settings = null;
@@ -24193,6 +24486,7 @@ var Phoenix;
             BasicGrid.prototype._initCols = function (options) {
                 var that = this;
                 that._mapCols = {};
+                that._mapColsSupp = {};
                 if (!options.columns || !options.columns.length) {
                     options.columns = [{ $bind: '$index' }];
                 }
@@ -24284,20 +24578,130 @@ var Phoenix;
                         if (!c._isHidden && !c._isHiddenByBind)
                             that.frozenColumns.push(c);
                         that._mapCols[c.$bind] = { column: c, index: that.frozenColumns.length - 1, tindex: index };
-                        if (col === expandField && c.options.display)
+                        that._checkBind(c.$bind);
+                        if (col === expandField && c.options.display) {
                             that._mapCols[c.options.display] = { column: c, index: that.frozenColumns.length - 1, tindex: index };
+                            that._checkBind(c.options.display);
+                        }
                         return;
                     }
                     if (!c._isHidden && !c._isHiddenByBind)
                         that.columns.push(c);
                     that._mapCols[c.$bind] = { column: c, index: that.columns.length - 1, tindex: index };
-                    if (col === expandField && c.options.display)
+                    that._checkBind(c.$bind);
+                    if (col === expandField && c.options.display) {
                         that._mapCols[c.options.display] = { column: c, index: that.columns.length - 1, tindex: index };
+                        that._checkBind(c.options.display);
+                    }
                 });
+            };
+            BasicGrid.prototype._checkBind = function (bind) {
+                var that = this;
+                if (bind.indexOf('[') < 0)
+                    return;
+                var segments = bind.split('.');
+                var rsegments = [];
+                for (var i = 0; i < segments.length; i++) {
+                    var segment = segments[i];
+                    var ii = segment.indexOf('[');
+                    var rsegment = segment.substr(0, ii);
+                    if (ii > 0) {
+                        rsegments.push(rsegment);
+                        that._columnsListener.listen(rsegments.join('.'));
+                        rsegments.push('$item');
+                        var cp = rsegments.join('.');
+                        var condition = this._mapColsSupp[cp] = this._mapColsSupp[cp] || { fields: [] };
+                        condition.fields.push({ field: cp, bind: bind, condition: _utils.parseStringCondition(segment.substring(ii + 1, segment.length - 1)) });
+                    }
+                    else
+                        rsegments.push(segment);
+                }
+                var fp = rsegments.join('.');
+                if (!this._mapColsSupp[fp])
+                    this._mapColsSupp[fp] = { fields: [] };
+                this._mapColsSupp[fp].fields.push({ field: fp, bind: bind });
+            };
+            BasicGrid.prototype._colsByField = function (field, item, params) {
+                var that = this;
+                var res = [];
+                var exact = true;
+                var c = that._colByField(field);
+                if (c) {
+                    res.push({ col: c, exact: true });
+                }
+                else {
+                    var segments = field.split('.');
+                    var map = that._mapColsSupp[field];
+                    exact = false;
+                    if (!map) {
+                        var ii = segments.lastIndexOf('$item');
+                        if (ii > 0) {
+                            segments = segments.slice(0, ii + 1);
+                            map = that._mapColsSupp[segments.join('.')];
+                        }
+                    }
+                    if (map) {
+                        var instance_1 = item;
+                        params = params;
+                        params = params || {};
+                        if (!params.instancePath) {
+                            params.instancePath = item.fullPath;
+                        }
+                        var fields_1 = [];
+                        map.fields.forEach(function (fi) { return fields_1.push(fi.bind); });
+                        var currentSegment = [];
+                        var _loop_3 = function (i) {
+                            if (!instance_1 || instance_1.isNull || instance_1.isUndefined) {
+                                fields_1 = [];
+                                return "break";
+                            }
+                            var segment = segments[i];
+                            currentSegment.push(segment);
+                            if (segment === '$item') {
+                                var sm = that._mapColsSupp[currentSegment.join('.')];
+                                if (!sm) {
+                                    fields_1 = [];
+                                    return "break";
+                                }
+                                instance_1 = params[params.instancePath + '.' + currentSegment.join('.')];
+                                if (!instance_1 || instance_1.isNull || instance_1.isUndefined) {
+                                    if (i !== segments.length - 1)
+                                        fields_1 = [];
+                                    return "break";
+                                }
+                                var newFields_1 = [];
+                                sm.fields.forEach(function (bfi) {
+                                    if (_utils.supportCondition(instance_1, bfi.condition))
+                                        newFields_1.push(bfi.bind);
+                                });
+                                fields_1 = newFields_1;
+                                if (!fields_1.length)
+                                    return "break";
+                            }
+                            else {
+                                instance_1 = instance_1[segment];
+                            }
+                        };
+                        for (var i = 0; i < segments.length; i++) {
+                            var state_3 = _loop_3(i);
+                            if (state_3 === "break")
+                                break;
+                        }
+                        fields_1.forEach(function (rField) {
+                            var fc = that._colByField(rField);
+                            if (fc)
+                                res.push({ col: fc, exact: exact });
+                        });
+                    }
+                }
+                return res;
             };
             BasicGrid.prototype._colByField = function (field) {
                 var ff = this._mapCols[field];
-                return ff ? ff.column : null;
+                var res = ff ? ff.column : null;
+                if (res)
+                    res.field = field;
+                return res;
             };
             BasicGrid.prototype._columnsVisibilityChanged = function (propName, ov, nv, op, params) {
                 var that = this;
@@ -24423,10 +24827,11 @@ var Phoenix;
                             var instPath = _sutils.parsePath(that.$bind, prop, rOptions.expandingProperty);
                             var item = params[instPath];
                             if (item) {
+                                // params.instancePath = instPath;
                                 var cp = propName.substr(instPath.length + 1);
                                 if (!cp)
                                     return;
-                                that._modifyCell(item, cp, null, null);
+                                that._modifyCell(item, cp, null, null, params);
                                 if (_sutils.isSelectField(cp)) {
                                     if (!rOptions.noRowSelectedIndicator)
                                         _gu.setRowsSelected(item.$id, item.$select, that.fieldOptions, that.$element.get(0));
@@ -24470,6 +24875,16 @@ var Phoenix;
                         break;
                     case 'add':
                         that._createRow(params.$value);
+                        if (that.renderOptions.expandingProperty) {
+                            var expanded = params.$value[that.renderOptions.expandingProperty + Phoenix.Observable.EXPANDED_FIELD_NAME];
+                            if (expanded === 2) {
+                                var clist = params.$value[that.renderOptions.expandingProperty];
+                                if (clist)
+                                    clist.forEach(function (item, index, level) {
+                                        that._createRow(item);
+                                    }, that.renderOptions.expandingProperty);
+                            }
+                        }
                         if (params.$value.$select) {
                             rowToSelect = params.$value.$id;
                             doSelectFirstCell = true;
@@ -24524,20 +24939,17 @@ var Phoenix;
                     that._selectFirstCellEditable('model', rowToSelect, colToSelect);
                 }
             };
-            BasicGrid.prototype._modifyStateTD = function (item, field, stateName, td) {
+            BasicGrid.prototype._modifyStateTD = function (item, field, stateName, col, td) {
                 var that = this;
                 var opts = that.renderOptions;
-                var col = that._colByField(field);
-                if (!col)
-                    return;
-                var state = item.getState(field);
+                var state = item.getState(col.field);
                 var co = col.options || {};
-                var editable = ((opts.editing && !opts.editingDisabled) || _sutils.isSelectField(field)) && !state.isDisabled && !state.isReadOnly && !state.isHidden && (co.editing !== false) && (co.selecting !== false);
+                var editable = ((opts.editing && !opts.editingDisabled) || _sutils.isSelectField(col.field)) && !state.isDisabled && !state.isReadOnly && !state.isHidden && (co.editing !== false) && (co.selecting !== false);
                 if (state.isHidden) {
                     _dom.empty(td);
                 }
                 else if (stateName === 'isHidden') {
-                    that._modifyTD(item, field, td);
+                    that._modifyTD(item, col.field, td);
                 }
                 if (opts.editing) {
                     if (editable)
@@ -24603,60 +25015,59 @@ var Phoenix;
                 var that = this;
                 if (!that.$element)
                     return;
-                var col = that._colByField(field);
-                if (!col)
-                    return;
-                var tr = that._findTR(item.$id, col);
-                if (!tr)
-                    return;
-                that._findCellAndModify(item, tr, field, null);
+                that._findCellAndModify(item, field, null, { instancePath: that.$bind });
             };
-            BasicGrid.prototype._findCellAndModify = function (item, tr, field, stateName) {
+            BasicGrid.prototype._findCellAndModify = function (item, field, stateName, params) {
                 //TODO: optimize
                 var that = this;
-                var list = _dom.queryAll(tr, 'td[colid="' + field + '"]');
-                for (var i = 0, len = list.length; i < len; i++) {
-                    var ctd = list.item(i);
-                    if (stateName) {
-                        var stateValue = item.$states[field][stateName];
-                        if (stateValue === true && ['isDisabled', 'isHidden', 'isReadOnly'].indexOf(stateName) >= 0) {
-                            if (that.inplace && that.inplace.input && that.inplace.td === ctd)
-                                that._inplaceEditRemove(false, false, true);
+                that._colsByField(field, item, params).forEach(function (colItem) {
+                    var col = colItem.col;
+                    var tr = that._findTR(item.$id, col);
+                    if (!tr)
+                        return;
+                    var list = _dom.queryAll(tr, 'td[colid="' + col.field + '"]');
+                    for (var i = 0, len = list.length; i < len; i++) {
+                        var ctd = list.item(i);
+                        if (stateName) {
+                            var stateValue = item.$states[field][stateName];
+                            if (stateValue === true && ['isDisabled', 'isHidden', 'isReadOnly'].indexOf(stateName) >= 0) {
+                                if (that.inplace && that.inplace.input && that.inplace.td === ctd)
+                                    that._inplaceEditRemove(false, false, true);
+                            }
+                            that._modifyStateTD(item, field, stateName, col, ctd);
                         }
                         else {
+                            if (that.inplace && that.inplace.input && that.inplace.td === ctd) {
+                                that._inplaceEditModel2Control(item, field, ctd, that.form);
+                                return;
+                            }
+                            that._modifyTD(item, col.field, ctd);
+                            if (!colItem.exact)
+                                that._modifyStateTD(item, field, '', col, ctd);
                         }
-                        that._modifyStateTD(item, field, stateName, ctd);
                     }
-                    else {
-                        if (that.inplace && that.inplace.input && that.inplace.td === ctd) {
-                            that._inplaceEditModel2Control(item, field, ctd, that.form);
-                            return;
-                        }
-                        that._modifyTD(item, field, ctd);
-                    }
-                }
+                });
             };
             BasicGrid.prototype._showErrors = function (item, field, stateName, td) {
                 // 
             };
-            BasicGrid.prototype._modifyCell = function (item, field, stateName, td) {
+            BasicGrid.prototype._modifyCell = function (item, field, stateName, td, params) {
                 var that = this;
                 if (!that.$element)
                     return;
-                var col = that._colByField(field);
-                if (!col)
-                    return;
-                if (td) {
-                    if (that.inplace && that.inplace.input && that.inplace.td === td) {
-                        that._inplaceEditModel2Control(item, field, td, that.form);
-                        return;
-                    }
-                    return that._modifyTD(item, field, td);
+                if (params && !td) {
+                    that._findCellAndModify(item, field, stateName, params);
                 }
-                var tr = that._findTR(item.$id, col);
-                if (!tr)
-                    return;
-                that._findCellAndModify(item, tr, field, stateName);
+                else {
+                    if (td) {
+                        if (that.inplace && that.inplace.input && that.inplace.td === td) {
+                            that._inplaceEditModel2Control(item, field, td, that.form);
+                            return;
+                        }
+                        return that._modifyTD(item, field, td);
+                    }
+                    that._findCellAndModify(item, field, stateName, params);
+                }
             };
             BasicGrid.prototype._rootElement = function () {
                 return this.$element ? this.$element.get(0) : null;
@@ -24899,7 +25310,7 @@ var Phoenix;
                     var list = that.state.value;
                     list.forEach(function (item, index, level) {
                         moneyColumns.forEach(function (col) {
-                            that._modifyCell(item, col.$bind, null, null);
+                            that._modifyCell(item, col.$bind, null, null, null);
                         });
                     }, that.renderOptions.expandingProperty);
                 }
@@ -25802,7 +26213,7 @@ var Phoenix;
                             that._showErrors(item, cp, stateName, null);
                         }
                         else
-                            that._modifyCell(item, cp, stateName, null);
+                            that._modifyCell(item, cp, stateName, null, null);
                     }
                     return;
                 }
@@ -26185,7 +26596,18 @@ var Phoenix;
                 var schema = that.$schema;
                 var schemaItems = that.$schemaItems;
                 if (schema && schema.type === "array" && schemaItems && schemaItems.type === "object") {
-                    return _sutils.columns(schemaItems, that.form.$rootSchema, that.form.$locale).sort(function (a, b) {
+                    var schemaColumns_1 = _sutils.columns(schemaItems, that.form.$rootSchema, that.form.$locale);
+                    if (that.renderOptions.linesAsColumns) {
+                        var colsToAdd = _utils.getValue(that.form.$model.model(true), that.renderOptions.linesAsColumns);
+                        if (colsToAdd) {
+                            colsToAdd.forEach(function (col) {
+                                var ps = _utils.copy(_sutils.getSchema(col.name, that.$schemaItems, that.form.$rootSchema, false));
+                                ps.title = col.title || ps.title;
+                                schemaColumns_1.push({ name: col.name, schema: ps });
+                            });
+                        }
+                    }
+                    return schemaColumns_1.sort(function (a, b) {
                         return a.schema.title.localeCompare(b.schema.title);
                     });
                 }
@@ -29405,7 +29827,8 @@ var Phoenix;
                         $top: 5,
                         $orderby: '',
                         $searchByFields: undefined,
-                        $allData: false
+                        $allData: false,
+                        $find: true
                     }
                 }
             },
@@ -29564,6 +29987,9 @@ var Phoenix;
                 var formLayout = $.extend(true, {}, mFormLayout);
                 if (that._lookup.data && that._lookup.data.$params && that._lookup.data.$params.$allData) {
                     formLayout.datasets.list.$params.$allData = true;
+                }
+                if (that._lookup.data && that._lookup.data.$params && that._lookup.data.$params.$find) {
+                    formLayout.datasets.list.$params.$find = true;
                 }
                 var formSchema = typeof that._lookup.schema === 'string' ? that._lookup.schema : $.extend(true, {}, that._lookup.schema);
                 var mds = formLayout.datasets.list;
@@ -30289,12 +30715,16 @@ var Phoenix;
             };
             LinkBase.prototype._execClick = function () {
                 var that = this;
-                if (that.renderOptions.back) {
+                if (that.renderOptions.back && (!that.$schema || !that.$schema.isCancel || !that.form.useSync)) {
                     window.history.back();
                     return;
                 }
                 if (that._isBinded) {
                     var _after_2 = function () {
+                        if (that.renderOptions.back) {
+                            window.history.back();
+                            return;
+                        }
                         that.form.execAction(that.$bind);
                         if (that.$schema.ux && that.$schema.after)
                             that.form.execAction(that.$schema.after);
@@ -31873,9 +32303,9 @@ var Phoenix;
                 var that = this;
                 that._stateField = that._stateField || {};
                 if (that.renderOptions.field) {
-                    var state_3 = that.form.getState(that.renderOptions.field);
+                    var state_4 = that.form.getState(that.renderOptions.field);
                     that._stateField.value = that.form.getValue(that.renderOptions.field);
-                    Object.keys(state_3).forEach(function (pn) { that._stateField[pn] = state_3[pn]; });
+                    Object.keys(state_4).forEach(function (pn) { that._stateField[pn] = state_4[pn]; });
                 }
                 else {
                     that._stateField.value = undefined;
@@ -33369,14 +33799,14 @@ var Phoenix;
             ReadOnlyField.prototype._renderIcons = function (e) {
                 var list = _dom.queryAll(e, '[data-icon]');
                 if (list) {
-                    var _loop_3 = function (i) {
+                    var _loop_4 = function (i) {
                         var p = list.item(i);
                         var icon = _dom.attr(p, 'data-icon').split(' ');
                         var classes = (icon.length > 1 ? _dom.customIconClass(icon[0], icon[1]) : _dom.iconClass(icon[0])).split(' ');
                         classes.forEach(function (className) { return _dom.addClass(p, className); });
                     };
                     for (var i = 0; i < list.length; i++) {
-                        _loop_3(i);
+                        _loop_4(i);
                     }
                 }
             };
@@ -33742,16 +34172,16 @@ var Phoenix;
         var Select = /** @class */ (function (_super) {
             __extends(Select, _super);
             function Select(fp, options, form) {
-                return _super.call(this, fp, options, form) || this;
+                var _this = _super.call(this, fp, options, form) || this;
+                _this._isEmpty = false;
+                return _this;
             }
             Select.prototype._fillSelect = function (enums) {
                 var that = this;
                 if (that.renderOptions.readOnly)
                     return;
-                var isEmpty = enums.indexOf(that.state.value) < 0;
-                if (isEmpty)
-                    isEmpty = enums.indexOf('') < 0;
-                _uiutils.utils.fillSelect(enums, that._input(), that.$schema, isEmpty);
+                this._isEmpty = enums.indexOf(that.state.value) < 0;
+                _uiutils.utils.fillSelect(enums, that._input(), that.$schema, this._isEmpty);
             };
             Select.prototype._setDisabled = function (input, element) {
                 input.disabled = this.state.isDisabled || this.state.isReadOnly;
@@ -33841,15 +34271,14 @@ var Phoenix;
             Select.prototype._input2Value = function () {
                 var that = this;
                 var values = that.state.filter ? that.$schema.filters[that.state.filter] : that.$schema.enum;
-                var isEmpty = values.indexOf(that.state.value) < 0;
                 var ii = that._input();
                 var iv;
-                if ((that.$schema.nullable || isEmpty) && ii.selectedIndex === 0) {
+                if ((that.$schema.nullable || this._isEmpty) && ii.selectedIndex === 0) {
                     iv = undefined;
                 }
                 else {
                     var index = ii.selectedIndex;
-                    if (that.$schema.nullable)
+                    if (that.$schema.nullable || this._isEmpty)
                         index--;
                     iv = values[index];
                 }
@@ -33970,9 +34399,9 @@ var Phoenix;
                         that._values.push(item[that.$lookup.mapping[that._codeProperty]]);
                         that._names.push(item[that.$lookup.mapping[that._titleProperty]]);
                     });
-                    var isEmpty = that._values.indexOf(that.state.value) < 0;
+                    that._isEmpty = that._values.indexOf(that.state.value) < 0;
                     var frag = document.createDocumentFragment();
-                    if (that.$schema.nullable || isEmpty) {
+                    if (that.$schema.nullable || that._isEmpty) {
                         var o = document.createElement('option');
                         _dom.attr(o, "value", '');
                         if (!that.$schema.nullable)
@@ -33989,8 +34418,8 @@ var Phoenix;
                     _dom.empty(input);
                     _dom.append(input, frag);
                     input.selectedIndex = that._values.indexOf(that.state.value);
-                    if (input.selectedIndex < 0 && (that.$schema.nullable || isEmpty)) {
-                        input.selectedIndex = 0;
+                    if (that.$schema.nullable) {
+                        input.selectedIndex++;
                     }
                 });
             };
@@ -34001,6 +34430,8 @@ var Phoenix;
                     _dom.text(input, (ii >= 0 ? that._names[ii] : '') || String.fromCharCode(160));
                 }
                 else {
+                    if (that.$schema.nullable || that._isEmpty)
+                        ii++;
                     if (ii < 0)
                         ii = 0;
                     input.selectedIndex = ii;
@@ -34010,7 +34441,7 @@ var Phoenix;
                 var that = this;
                 var ii = that._input();
                 var si = ii.selectedIndex;
-                if (that.$schema.nullable) {
+                if (that.$schema.nullable || that._isEmpty) {
                     if (si >= 0)
                         si--;
                 }
@@ -34354,14 +34785,14 @@ var Phoenix;
             TemplateRender.prototype._renderIcons = function (e) {
                 var list = _dom.queryAll(e, '[data-icon]');
                 if (list) {
-                    var _loop_4 = function (i) {
+                    var _loop_5 = function (i) {
                         var p = list.item(i);
                         var icon = _dom.attr(p, 'data-icon').split(' ');
                         var classes = (icon.length > 1 ? _dom.customIconClass(icon[0], icon[1]) : _dom.iconClass(icon[0])).split(' ');
                         classes.forEach(function (className) { return _dom.addClass(p, className); });
                     };
                     for (var i = 0; i < list.length; i++) {
-                        _loop_4(i);
+                        _loop_5(i);
                     }
                 }
             };
@@ -38048,9 +38479,9 @@ var Phoenix;
             if (!filter)
                 return null;
             if (filter && filter.$and) {
-                var map_2 = {};
+                var map_3 = {};
                 var filters_3 = [];
-                fields.forEach(function (item) { map_2[item.name] = item; });
+                fields.forEach(function (item) { map_3[item.name] = item; });
                 filter.$and.forEach(function (item) {
                     var a = Object.keys(item);
                     var fieldName = a[0];
@@ -38117,7 +38548,7 @@ var Phoenix;
                 if (filters_3 && filters_3.length) {
                     if (addTitles) {
                         filters_3.forEach(function (item) {
-                            var schema = map_2[item.code].schema;
+                            var schema = map_3[item.code].schema;
                             var values = item.values ? item.values.map(function (value) {
                                 if (schema.enum && schema.enumNames) {
                                     var ii = schema.enum.indexOf(value);
@@ -38126,7 +38557,7 @@ var Phoenix;
                                 }
                                 return value;
                             }) : [];
-                            var format = (map_2[item.code].schema.title || item.code) + ' ' + (_locale.operators[item.op].symbol || '');
+                            var format = (map_3[item.code].schema.title || item.code) + ' ' + (_locale.operators[item.op].symbol || '');
                             if (item.op === OPERATORS.empty || item.op === OPERATORS.nempty)
                                 format += ' vide';
                             else if (item.op === OPERATORS.between || item.op === OPERATORS.nbetween)
@@ -38184,10 +38615,10 @@ var Phoenix;
                         val = { $lte: values[0] };
                         break;
                     case OPERATORS.like:
-                        val = { $regex: _escaperegex(values[0]), $options: 'i' };
+                        val = { $regex: _escaperegex(values[0]) };
                         break;
                     case OPERATORS.nlike:
-                        val = { $not: { $regex: _escaperegex(values[0]), $options: 'i' } };
+                        val = { $not: { $regex: _escaperegex(values[0]) } };
                         break;
                     case OPERATORS.empty:
                         val = { $exists: false };
@@ -39252,7 +39683,7 @@ var Phoenix;
                 };
                 var nodesSelected = [];
                 that.selectedItems.forEach(function (item) {
-                    var nodeHTML = _dom.query(that._container, "li[data-id='" + item[that._name] + "']");
+                    var nodeHTML = _dom.query(that._container, "li[data-id='" + item[that._name].replace(/\'/g, '\\\'').replace(/\]/g, '\\\]').replace(/\[/g, '\\\[') + "']");
                     if (nodeHTML) {
                         if (!nodeHTML.id)
                             nodeHTML.id = _utils.allocID();

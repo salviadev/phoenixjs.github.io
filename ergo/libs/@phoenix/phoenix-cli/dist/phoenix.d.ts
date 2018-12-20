@@ -71,6 +71,9 @@ declare namespace Phoenix {
         var prompt: (title: string, defaultValue: string, success: (res: string) => void) => void;
         var cleanUpObject: (src: any) => void;
         var getValue: (value: any, path: string) => any;
+        const getPathValue: (obj: any, path: string) => any;
+        const supportCondition: (obj: any, condition: any) => boolean;
+        const parseStringCondition: (condition: string) => any;
         let glbDisclaimerMessage: string;
     }
 }
@@ -199,19 +202,23 @@ declare namespace Phoenix {
         let ruleViewer: (rules: any[]) => void;
     }
     module history {
-        var supportRefresh: boolean;
-        var destroyViewHandler: (cd: any[]) => void;
+        let useServerState: boolean;
+        const setState: (key: string, value: any) => void;
+        const getState: (key: string) => any;
+        let supportRefresh: boolean;
+        let destroyViewHandler: (cd: any[]) => void;
         let removeLast: () => void;
         let add: (hash: string, reset: boolean) => void;
         let hasBack: () => boolean;
         let value: {
             pageName: string;
             data: any[];
+            persistent: boolean;
         }[];
         let lastPage: () => string;
         let locationPrefix: string;
         let clear: (notify: boolean, deferClose: boolean) => void;
-        let updateLast: (oldHash: string, newHash: string) => void;
+        let updateLast: (oldHash: string, newHash: string, persistent?: boolean) => void;
         let addData: (cd: any) => void;
         let clearLastData: (deferClose: boolean) => void;
     }
@@ -470,7 +477,7 @@ declare namespace Phoenix {
             $cookie: any;
             $target: any;
         };
-        var changeSearch: (search: any, replace: boolean, checkHistory?: boolean) => void;
+        var changeSearch: (search: any, replace: boolean, checkHistory?: boolean, persistent?: boolean) => void;
         var removeFromSearch: (toRemove: string[]) => void;
         let updateSearchEntry: (key: string, value: string) => void;
     }
@@ -1645,6 +1652,7 @@ declare namespace Phoenix {
             moveSelected(value: number, navigate?: boolean): void;
             sortByKey(values: any[], key: string): void;
             findById(id: string): Data;
+            findByCondition(condition: any): Data;
             findByIdEx(id: string, expandProperty: string): Data;
             findByPk(pkValue: any): Data;
             indexOf(value: any): number;
@@ -1839,7 +1847,7 @@ declare namespace Phoenix {
             op?: string;
             path: string;
             params: any;
-            after: string;
+            after: any;
         }[], mapForms: any, success: (delta: any) => void, after: () => void): void;
     }
 }
@@ -2292,8 +2300,10 @@ declare namespace Phoenix {
             private _viewMap;
             private _useView;
             private _mapCols;
+            private _mapColsSupp;
             private _details;
             private _onselectItemHandler;
+            private _columnsListener;
             private _originalCols;
             private _originalColsMap;
             pager: ui.Pager;
@@ -2308,6 +2318,7 @@ declare namespace Phoenix {
             private _drag;
             private inplace;
             constructor(fp: any, options: any, form: ui.Form);
+            private _lines2columns;
             private _initOrigColumns;
             private checkOptions;
             protected beforeSaveSettings(): boolean;
@@ -2357,6 +2368,8 @@ declare namespace Phoenix {
             private _destroyDetails;
             private _destroyDetailById;
             private _initCols;
+            private _checkBind;
+            private _colsByField;
             private _colByField;
             private _columnsVisibilityChanged;
             private _totalChanged;

@@ -8703,7 +8703,7 @@ a.text-important:hover, a.text-important:focus {
 
 .mdi {
   display: inline-block;
-  font-size: 1.3em;
+  font-size: 1.25em;
   text-rendering: optimizeLegibility;
   vertical-align: middle !important;
   -webkit-font-smoothing: antialiased;
@@ -14708,6 +14708,11 @@ body {
   padding: 0;
   overflow-x: hidden;
   -ms-overflow-style: scrollbar;
+}
+
+:-ms-input-placeholder {
+  font-style: italic;
+  color: #888;
 }
 
 .bs-style-widget-header-bkg {
