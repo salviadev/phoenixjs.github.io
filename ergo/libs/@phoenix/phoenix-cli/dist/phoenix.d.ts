@@ -507,8 +507,8 @@ declare namespace Phoenix {
             refresh(scroll: boolean): void;
             finalize(): void;
         }
-        var stickyManager: StickyManager;
-        var native: boolean;
+        const stickyManager: StickyManager;
+        const native: boolean;
     }
 }
 declare namespace Phoenix {
@@ -1577,6 +1577,7 @@ declare namespace Phoenix {
             filterManager: any;
             isQuery: boolean;
             constructor(schema: any, parent: any, path: any, value: any, arrayParent: any, locale: any, isQuery: any, parentSelected: DataListCore);
+            isEmpty(): boolean;
             selecting(value: any, expandingProperty: any): void;
             columns: {
                 name: string;

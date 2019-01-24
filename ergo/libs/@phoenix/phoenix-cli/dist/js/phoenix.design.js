@@ -861,7 +861,7 @@ var Phoenix;
                 o.$name = model.name;
                 if (!changed && (layout.$name || '') !== (model.name || ''))
                     changed = true;
-                if (tv === _lu.LAYOUT_BLOCK) {
+                if (tv === _lu.LAYOUT_BLOCK || tv === _lu.LAYOUT_COLUMN) {
                     o.$sticky = model.sticky;
                     if (!changed && (layout.$sticky || '') !== (model.sticky || ''))
                         changed = true;
@@ -1200,7 +1200,7 @@ var Phoenix;
                     style: layout.$style,
                     labelCol: (layout.$fieldsOptions && layout.$fieldsOptions.labelCol ? layout.$fieldsOptions.labelCol : 3),
                     titleIsHidden: (layout.$fieldsOptions && layout.$fieldsOptions.titleIsHidden ? true : false),
-                    sticky: (cv === _lu.LAYOUT_BLOCK ? (layout.$sticky || '') : ''),
+                    sticky: (cv === _lu.LAYOUT_BLOCK || _lu.LAYOUT_COLUMN ? (layout.$sticky || '') : ''),
                     $states: {
                         showTitle: {
                             isHidden: !titleVisible,
@@ -1252,7 +1252,7 @@ var Phoenix;
                             isHidden: !refVisible || !that.options.form
                         },
                         sticky: {
-                            isHidden: cv !== _lu.LAYOUT_BLOCK
+                            isHidden: cv !== _lu.LAYOUT_BLOCK && cv !== _lu.LAYOUT_COLUMN
                         }
                     },
                     $links: {

@@ -4,7 +4,7 @@ var __extends = (this && this.__extends) || (function () {
             ({ __proto__: [] } instanceof Array && function (d, b) { d.__proto__ = b; }) ||
             function (d, b) { for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p]; };
         return extendStatics(d, b);
-    }
+    };
     return function (d, b) {
         extendStatics(d, b);
         function __() { this.constructor = d; }
@@ -4812,10 +4812,9 @@ var Phoenix;
                 delete params.$cache;
                 var config = $.extend(true, {}, _application.config(_application.name) || {});
                 config.odata = (params.$type ? config[params.$type] : null) || config.odata || {};
+                var isFind = params.$type === 'find';
                 delete params.$type;
-                if (config.odata.v4 != undefined) {
-                    _odata.v4 = config.odata.v4;
-                }
+                var v4 = (config.odata.v4 != undefined) ? config.odata.v4 : true;
                 var base = config.odata ? config.odata.base || '/data' : '/data';
                 var cfg = _link.context({ cookie: true });
                 if (params.$module === undefined && config.odata.$module)
@@ -4863,9 +4862,11 @@ var Phoenix;
                 if (!hasEntityId) {
                     if (params.$top)
                         top = parseInt(params.$top + '', 10);
-                    if (_odata.v4) {
-                        if (params.$top && !params.nocount)
-                            params.$count = true;
+                    if (v4) {
+                        if (params.$top && !params.nocount) {
+                            if (!isFind)
+                                params.$count = true;
+                        }
                         delete params.nocount;
                     }
                     else {
@@ -4888,6 +4889,9 @@ var Phoenix;
                     delete params.$allData;
                     delete params.$orderby;
                     params.$top = 1000;
+                }
+                if (isFind && params.$filter && typeof params.$filter === 'object') {
+                    params.$filter = JSON.stringify(params.$filter);
                 }
                 var opts = _ajax.getDefaultAjaxOptions(config.odata);
                 opts.$errors = errors;
@@ -4926,10 +4930,10 @@ var Phoenix;
                 }
                 return getHandler(lurl, opts, function (ldata) {
                     var cd = {};
-                    if (_odata.v4 && ldata)
+                    if (v4 && ldata)
                         delete ldata['@odata.context'];
                     if (!hasEntityId) {
-                        cd.documents = config.odata.array ? ldata : (_odata.v4 ? ldata.value : ldata.d.results);
+                        cd.documents = config.odata.array ? ldata : (v4 ? ldata.value : ldata.d.results);
                         if (allData) {
                             cd._origData = [];
                         }
@@ -4959,7 +4963,10 @@ var Phoenix;
                                 }
                             }
                             else {
-                                cd.count = _odata.v4 ? ldata['@odata.count'] : ldata.d.__count;
+                                if (isFind)
+                                    cd.count = ldata.count;
+                                else
+                                    cd.count = v4 ? ldata['@odata.count'] : ldata.d.__count;
                             }
                         }
                         cd.dataCount = cd.documents.length;
@@ -5440,78 +5447,6 @@ var Phoenix;
             }
             else
                 return { value: tree, op: null };
-        }, _tree2mongoDbFilter = function (tree) {
-            if (tree && typeof tree == 'object' && tree.$op) {
-                var left = _tree2mongoDbFilter(tree.$left);
-                var right = _tree2mongoDbFilter(tree.$right);
-                if (tree.$nulls === "ignore" && right.value == null) {
-                    if (tree.op === 'not') {
-                        return { value: null, op: null };
-                    }
-                    return { value: left.value, op: left.op };
-                }
-                //unary operators
-                if (tree.$op === "not") {
-                    return { value: { $not: right.value }, op: tree.$op };
-                }
-                else if (tree.$op === 'in') {
-                    var values = Array.isArray(right.value) ? right.value : (right.value || '').split(';');
-                    var v = [];
-                    v[left.value] = { $in: values };
-                    return { value: v, op: "in" };
-                }
-                else if (tree.$op === 'nin') {
-                    var values = Array.isArray(right.value) ? right.value : (right.value || '').split(';');
-                    var v = [];
-                    v[left.value] = { $nin: values };
-                    return { value: v, op: "in" };
-                }
-                else if (tree.$op === "$func") {
-                    throw new Error('$funcs is not supported');
-                }
-                else {
-                    if (tree.$nulls === "ignore" && (left.value == null || right.value == null)) {
-                        if (tree.$op === "and" || tree.$op === "or") {
-                            if (right.value == null) //keep ==
-                                return { value: left.value, op: left.op };
-                            else
-                                return { value: right.value, op: right.op };
-                        }
-                        else
-                            return { value: null, op: null };
-                    }
-                    else {
-                        var lv = left.value;
-                        var rv = right.value;
-                        if (tree.$op === 'and' || tree.$op === 'or') {
-                            if (!lv && !rv)
-                                return { value: null, op: null };
-                            if (!lv)
-                                return { value: rv, op: tree.$op };
-                            if (!rv)
-                                return { value: lv, op: tree.$op };
-                        }
-                        if (tree.$op === "and") {
-                            if (left.op === "or")
-                                lv = '(' + lv + ')';
-                            if (right.op === "or")
-                                rv = '(' + rv + ')';
-                        }
-                        else if (rv) {
-                            if (tree.$nulls === 'ignore' && rv === '\'\'') {
-                                return { value: null, op: null };
-                            }
-                        }
-                        return { value: lv + ' ' + tree.$op + ' ' + rv, op: tree.$op };
-                    }
-                }
-            }
-            else if (tree && typeof tree == 'object' && tree.$op === null && tree.$right === null && tree.$left) {
-                var cleft = _tree2filter(tree.$left);
-                return { value: cleft.value, op: null };
-            }
-            else
-                return { value: tree, op: null };
         }, _parseTree = function (tree, lurl, context, localContext) {
             var rtree = _execTree(tree, lurl, context, localContext);
             return _tree2filter(rtree).value;
@@ -5693,7 +5628,7 @@ var Phoenix;
                 res = segments.join('/');
             }
             return res;
-        }, _parseODataParams = function (params, lurl, context, localContext) {
+        }, _parseODataParams = function (params, lurl, context, localContext, isFind) {
             if (!params)
                 return null;
             var res = {};
@@ -5714,59 +5649,79 @@ var Phoenix;
                 var values = params.$searchByFields.fullSearch && fv ? fv.split(' ') : [fv];
                 values = values.filter(function (item) { return item.trim(); });
                 var andFilters_1 = [];
-                values.forEach(function (val, index) {
-                    params.$searchByFields.fields.forEach(function (field) {
-                        var cf = field.replace(/\./g, '/');
-                        var cv = '\'' + val.replace(/'/g, '\'\'') + '\'';
-                        if (caseSensitive_1) {
-                            cf = 'tolower(' + cf + ')';
-                            cv = 'tolower(' + cv + ')';
-                        }
-                        var f = {
-                            $left: odataCfg_1.contains || 'contains',
-                            $op: '$func',
-                            $right: cf + ', ' + cv
-                        };
-                        if (!searchFilter_1) {
-                            searchFilter_1 = f;
-                        }
-                        else {
-                            searchFilter_1 = {
-                                $left: searchFilter_1,
-                                $op: 'or',
-                                $right: f
-                            };
-                        }
+                if (isFind) {
+                    values.forEach(function (val, index) {
+                        params.$searchByFields.fields.forEach(function (field) {
+                            var f = {};
+                            f[field] = { $regex: val };
+                            andFilters_1.push(f);
+                        });
                     });
-                    andFilters_1.push(searchFilter_1);
-                    searchFilter_1 = null;
-                });
-                if (andFilters_1.length) {
-                    andFilters_1.forEach(function (f) {
-                        if (!searchFilter_1) {
-                            searchFilter_1 = f;
-                        }
-                        else {
-                            searchFilter_1 = {
-                                $left: searchFilter_1,
-                                $op: 'and',
-                                $right: f
+                    if (andFilters_1 && andFilters_1.length)
+                        searchFilter_1 = { $or: andFilters_1 };
+                }
+                else {
+                    values.forEach(function (val, index) {
+                        params.$searchByFields.fields.forEach(function (field) {
+                            var cf = field.replace(/\./g, '/');
+                            var cv = '\'' + val.replace(/'/g, '\'\'') + '\'';
+                            if (caseSensitive_1) {
+                                cf = 'tolower(' + cf + ')';
+                                cv = 'tolower(' + cv + ')';
+                            }
+                            var f = {
+                                $left: odataCfg_1.contains || 'contains',
+                                $op: '$func',
+                                $right: cf + ', ' + cv
                             };
-                        }
+                            if (!searchFilter_1) {
+                                searchFilter_1 = f;
+                            }
+                            else {
+                                searchFilter_1 = {
+                                    $left: searchFilter_1,
+                                    $op: 'or',
+                                    $right: f
+                                };
+                            }
+                        });
+                        andFilters_1.push(searchFilter_1);
+                        searchFilter_1 = null;
                     });
+                    if (andFilters_1.length) {
+                        andFilters_1.forEach(function (f) {
+                            if (!searchFilter_1) {
+                                searchFilter_1 = f;
+                            }
+                            else {
+                                searchFilter_1 = {
+                                    $left: searchFilter_1,
+                                    $op: 'and',
+                                    $right: f
+                                };
+                            }
+                        });
+                    }
                 }
                 params.$searchByFieldsValue = params.$searchByFields.value;
                 params.$searchByFieldsFields = params.$searchByFields.fields;
                 params.$searchByFieldsFull = params.$searchByFields.fullSearch;
                 if (!params.$allData && searchFilter_1) {
-                    if ($filter)
-                        $filter = {
-                            $left: $filter,
-                            $op: 'and',
-                            $right: searchFilter_1
-                        };
-                    else
+                    if (isFind) {
+                        if ($filter)
+                            searchFilter_1 = { $and: [searchFilter_1, $filter] };
                         $filter = searchFilter_1;
+                    }
+                    else {
+                        if ($filter)
+                            $filter = {
+                                $left: $filter,
+                                $op: 'and',
+                                $right: searchFilter_1
+                            };
+                        else
+                            $filter = searchFilter_1;
+                    }
                 }
             }
             Object.keys(params).forEach(function (name) {
@@ -5780,12 +5735,12 @@ var Phoenix;
                     res.$entity = _getValue(params.$entity, ctx, false, false, false);
                 else if (name === '$entityId') {
                     var hasKeyNull_1 = false;
-                    var v_1 = typeof params.$entityId;
-                    if (v_1 === 'object') {
+                    var v = typeof params.$entityId;
+                    if (v === 'object') {
                         if (params.$entityId.value && params.$entityId.type) {
-                            var v_2 = _getValue(params.$entityId, ctx, true, false, false);
-                            hasKeyNull_1 = _isEntityIdNull(v_2);
-                            res[name] = v_2;
+                            var v_1 = _getValue(params.$entityId, ctx, true, false, false);
+                            hasKeyNull_1 = _isEntityIdNull(v_1);
+                            res[name] = v_1;
                         }
                         else {
                             var l_1 = [];
@@ -5799,9 +5754,9 @@ var Phoenix;
                         }
                     }
                     else {
-                        var v_3 = _getValue(params[name], ctx, true, false, false);
-                        hasKeyNull_1 = _isEntityIdNull(v_3);
-                        res[name] = v_3;
+                        var v_2 = _getValue(params[name], ctx, true, false, false);
+                        hasKeyNull_1 = _isEntityIdNull(v_2);
+                        res[name] = v_2;
                     }
                     if (hasKeyNull_1) {
                         res.$entityIdNull = true;
@@ -5824,31 +5779,57 @@ var Phoenix;
                 }
             });
             if ($filter) {
-                res.$filter = _parseTree($filter, lurl, context, localContext);
+                res.$filter = isFind ? $filter : _parseTree($filter, lurl, context, localContext);
                 if (!res.$filter)
                     delete res.$filter;
             }
             if (params.$search && context && context.$searchText) {
-                var v = _checkValue(context.$searchText, 'string', true, false), filter;
-                var search = Array.isArray(params.$search) ? params.$search : [params.$search];
-                if (search.length === 1) {
-                    filter = _utils.format('contains({0},{1})', params.$search.field, v);
+                var filter = void 0;
+                var search_2 = Array.isArray(params.$search) ? params.$search : [params.$search];
+                if (isFind) {
+                    filter = {};
+                    if (search_2.length === 1) {
+                        filter[params.$search.field] = { $regex: context.$searchText };
+                    }
+                    else {
+                        var len = search_2.length;
+                        filter.$or = [];
+                        for (var i = 0; i < len; i++) {
+                            var f = {};
+                            f[search_2[i].field] = { $regex: context.$searchText };
+                            filter.$or.push(f);
+                        }
+                    }
+                    if (res.$filter) {
+                        if (res.$filter.$and)
+                            res.$filter.$and.push(filter);
+                        else
+                            res.$filter = { $and: [res.$filter, filter] };
+                    }
+                    else
+                        res.$filter = filter;
                 }
                 else {
-                    var af = ['('];
-                    var len = search.length;
-                    for (var i = 0; i < len; i++) {
-                        af.push(_utils.format('contains({0},{1})', search[i].field, v));
-                        if (i < (len - 1))
-                            af.push(' or ');
+                    var v = _checkValue(context.$searchText, 'string', true, false);
+                    if (search_2.length === 1) {
+                        filter = _utils.format('contains({0},{1})', params.$search.field, v);
                     }
-                    af.push(')');
-                    filter = af.join('');
+                    else {
+                        var af = ['('];
+                        var len = search_2.length;
+                        for (var i = 0; i < len; i++) {
+                            af.push(_utils.format('contains({0},{1})', search_2[i].field, v));
+                            if (i < (len - 1))
+                                af.push(' or ');
+                        }
+                        af.push(')');
+                        filter = af.join('');
+                    }
+                    if (res.$filter)
+                        res.$filter = res.$filter + ' and ' + filter;
+                    else
+                        res.$filter = filter;
                 }
-                if (res.$filter)
-                    res.$filter = res.$filter + ' and ' + filter;
-                else
-                    res.$filter = filter;
             }
             return res;
         }, _extractValue = function (value) {
@@ -5895,7 +5876,7 @@ var Phoenix;
             var method = config.$method || 'GET';
             var local = callerObject && callerObject.getLocalContext ? callerObject.getLocalContext() : null;
             var tp = _execBeforeTransform(config.$beforeExecute, config.$params, context);
-            var params = _parseODataParams(tp, lurl, context, local);
+            var params = _parseODataParams(tp, lurl, context, local, config.$type === 'find');
             if (method) {
                 method = _getValue(method, context, false, false, false);
                 method = method.toUpperCase();
@@ -6034,12 +6015,12 @@ var Phoenix;
                         if (tp.$modal) {
                         }
                         else {
-                            var search_2 = {};
+                            var search_3 = {};
                             if (_history.useServerState || params.$persistent) {
                                 _history.setState(params.$transactionId, localData.id);
                                 _history.setState(params.$viewId, cd.id);
-                                search_2[params.$transactionId] = localData.id;
-                                search_2[params.$viewId] = cd.id;
+                                search_3[params.$transactionId] = localData.id;
+                                search_3[params.$viewId] = cd.id;
                                 if (params.$replaceSearch) {
                                     if (!Array.isArray(params.$replaceSearch))
                                         params.$replaceSearch = ['$inline'];
@@ -6047,18 +6028,18 @@ var Phoenix;
                                         var urlSearch_1 = _link.context().$url;
                                         params.$replaceSearch.forEach(function (name) {
                                             if (urlSearch_1[name] !== undefined)
-                                                search_2[name] = urlSearch_1[name];
+                                                search_3[name] = urlSearch_1[name];
                                         });
                                     }
                                 }
                                 params.$replaceSearch = params.$replaceSearch || {};
                                 params.$persistent = 1;
-                                _link.changeSearch(search_2, params.$replaceSearch, true, params.$persistent);
+                                _link.changeSearch(search_3, params.$replaceSearch, true, params.$persistent);
                             }
                             else {
                                 _history.setState(params.$transactionId, localData.id);
                                 _history.setState(params.$viewId, cd.id);
-                                _link.changeSearch(search_2, null, true);
+                                _link.changeSearch(search_3, null, true);
                             }
                         }
                     }
@@ -6111,6 +6092,11 @@ var Phoenix;
                 case 'basic':
                     return _execBasic(config, lurl, context, callerObject);
                 case 'odata':
+                case 'find':
+                    if (config.$type === 'find') {
+                        config.$params = config.$params || {};
+                        config.$params.$type = config.$params.$type || 'find';
+                    }
                     return _execOData(config, lurl, context, callerObject);
                 case 'relation':
                     if (context._$model)
@@ -6154,6 +6140,11 @@ var Phoenix;
                     case "basic":
                         return _execBasic(that.config, lurl, context, callerObject);
                     case "odata":
+                    case "find":
+                        if (that.config.$type === 'find') {
+                            that.config.$params = that.config.$params || {};
+                            that.config.$params.$type = that.config.$params.$type || 'find';
+                        }
                         return _execOData(that.config, lurl, context, callerObject);
                     case "rest":
                         return _execRest(that.config, lurl, context, callerObject);
@@ -6251,6 +6242,7 @@ var Phoenix;
                 var that = this;
                 switch (that.config.$type) {
                     case "odata":
+                    case "find":
                     case "rest":
                         return that._findSelectedOData(ldata);
                     default:
@@ -8865,7 +8857,7 @@ var Phoenix;
                 if (!lookup)
                     return null;
                 lookup = $.extend({}, lookup);
-                if (!lookup.data || lookup.data.$type != 'odata') {
+                if (!lookup.data || (lookup.data.$type !== 'odata' && lookup.data.$type !== 'find')) {
                     lookup.pagination = false;
                     lookup.cache = true;
                 }
@@ -9047,7 +9039,7 @@ var Phoenix;
                 return res;
             },
             allData: function (lookup) {
-                return !lookup.pagination || lookup.data.$type === 'relation' || lookup.data.$type === 'enum';
+                return (!lookup.pagination || lookup.data.$type === 'relation' || lookup.data.$type === 'enum') && (lookup.data.$type !== 'custom');
             },
             pkFields: function (pk) {
                 if (Array.isArray(pk))
@@ -9141,7 +9133,7 @@ var Phoenix;
                 return null;
             },
             supportPagination: function (lookup) {
-                if (lookup.data && (lookup.data.$type === 'odata' || lookup.data.$type === 'relation' || lookup.data.$type === 'enum'))
+                if (lookup.data && (lookup.data.$type === 'odata' || lookup.data.$type === 'find' || lookup.data.$type === 'relation' || lookup.data.$type === 'enum'))
                     return true;
                 return false;
             },
@@ -9158,68 +9150,101 @@ var Phoenix;
                     ds.$params = ds.$params || {};
                     options.search = (options.search || '') + '';
                     var alldata = ds.$params.$allData || (ds.$type == 'relation') || (ds.$type == 'enum');
-                    var ff = null;
+                    var ff_1 = null;
                     var config = _application.config(_application.name) || {};
                     var odataCfg = (ds.$params.$type ? config[ds.$params.$type] : null) || config.odata || {};
                     var startswith_1 = odataCfg.startswith || 'startswith';
                     var caseSensitive_2 = odataCfg.caseSensitive || false;
+                    var isFind = ds.$type === 'find';
+                    var isCustom = ds.$type === 'custom';
                     if (!alldata) {
-                        if (ds.$params.$searchByFields && ds.$params.$searchByFields.fields && ds.$params.$searchByFields.fields.length) {
-                            var flist_1 = [];
-                            ds.$params.$searchByFields.fields.forEach(function (fieldName) {
-                                var cf = fieldName.replace(/\./g, '/');
-                                var cv = '\'' + options.search.replace(/'/g, '\'\'') + '\'';
-                                if (caseSensitive_2) {
-                                    cf = 'tolower(' + cf + ')';
-                                    cv = 'tolower(' + cv + ')';
-                                }
-                                flist_1.push({
-                                    $left: startswith_1,
-                                    $op: "$func",
-                                    $right: cf + ', ' + cv
+                        if (isFind) {
+                            // use mongodb filter
+                            if (ds.$params.$searchByFields && ds.$params.$searchByFields.fields && ds.$params.$searchByFields.fields.length) {
+                                ff_1 = { $or: [] };
+                                ds.$params.$searchByFields.fields.forEach(function (fieldName) {
+                                    var cf = {};
+                                    cf[fieldName] = { $regex: '^' + options.search };
+                                    ff_1.$or.push(cf);
                                 });
-                            });
-                            while (flist_1.length) {
-                                var ce = flist_1.shift();
-                                if (!ff) {
-                                    ff = ce;
+                            }
+                            else {
+                                ff_1 = {};
+                                ff_1[options.fieldName] = { $regex: '^' + options.search };
+                            }
+                        }
+                        else {
+                            if (ds.$params.$searchByFields && ds.$params.$searchByFields.fields && ds.$params.$searchByFields.fields.length) {
+                                var flist_1 = [];
+                                ds.$params.$searchByFields.fields.forEach(function (fieldName) {
+                                    var cf = fieldName.replace(/\./g, '/');
+                                    var cv = '\'' + options.search.replace(/'/g, '\'\'') + '\'';
+                                    if (caseSensitive_2) {
+                                        cf = 'tolower(' + cf + ')';
+                                        cv = 'tolower(' + cv + ')';
+                                    }
+                                    flist_1.push({
+                                        $left: startswith_1,
+                                        $op: "$func",
+                                        $right: cf + ', ' + cv
+                                    });
+                                });
+                                while (flist_1.length) {
+                                    var ce = flist_1.shift();
+                                    if (!ff_1) {
+                                        ff_1 = ce;
+                                    }
+                                    else {
+                                        ff_1 = {
+                                            $op: 'or',
+                                            $left: ce,
+                                            $right: ff_1
+                                        };
+                                    }
+                                }
+                            }
+                            else {
+                                if (isCustom) {
+                                    ds.$params.$search = options.search;
+                                    ds.$params.$searchField = options.fieldName;
                                 }
                                 else {
-                                    ff = {
-                                        $op: 'or',
-                                        $left: ce,
-                                        $right: ff
+                                    var cf = options.fieldName.replace(/\./g, '/');
+                                    var cv = '\'' + options.search.replace(/'/g, '\'\'') + '\'';
+                                    if (caseSensitive_2) {
+                                        cf = 'tolower(' + cf + ')';
+                                        cv = 'tolower(' + cv + ')';
+                                    }
+                                    ff_1 = {
+                                        $left: startswith_1,
+                                        $op: "$func",
+                                        $right: cf + ', ' + cv
                                     };
                                 }
                             }
                         }
-                        else {
-                            var cf = options.fieldName.replace(/\./g, '/');
-                            var cv = '\'' + options.search.replace(/'/g, '\'\'') + '\'';
-                            if (caseSensitive_2) {
-                                cf = 'tolower(' + cf + ')';
-                                cv = 'tolower(' + cv + ')';
-                            }
-                            ff = {
-                                $left: startswith_1,
-                                $op: "$func",
-                                $right: cf + ', ' + cv
-                            };
-                        }
                     }
-                    if (alldata)
-                        ff = null;
-                    if (ff) {
+                    if (ff_1) {
                         if (ds.$params.$filter) {
-                            var ofilter = ds.$params.$filter;
-                            ds.$params.$filter = {
-                                $left: ff,
-                                $op: 'and',
-                                $right: ofilter
-                            };
+                            if (isFind) {
+                                if (ds.$params.$filter.$and) {
+                                    ds.$params.$filter.push(ff_1);
+                                }
+                                else {
+                                    ds.$params.$filter = { $and: [ds.$params.$filter, ff_1] };
+                                }
+                            }
+                            else {
+                                var ofilter = ds.$params.$filter;
+                                ds.$params.$filter = {
+                                    $left: ff_1,
+                                    $op: 'and',
+                                    $right: ofilter
+                                };
+                            }
                         }
                         else
-                            ds.$params.$filter = ff;
+                            ds.$params.$filter = ff_1;
                     }
                     if (options.findFirst) {
                         if (!alldata)
@@ -9254,6 +9279,15 @@ var Phoenix;
                 else if (ds.$type === 'enum') {
                     data = { documents: lookup.data.$value || [] };
                     promise = _utils.Promise.resolve(data);
+                }
+                else if (ds.$type === 'custom' && ds.$custom) {
+                    var custom = _customData.get(ds.$custom);
+                    if (!custom) {
+                        promise = _utils.Promise.resolve({ documents: [] });
+                    }
+                    else {
+                        promise = custom(ds);
+                    }
                 }
                 else
                     promise = _data.execData(ds, data, null);
@@ -10196,7 +10230,7 @@ var Phoenix;
                 return null;
             },
             isQuery: function (ds) {
-                return ((ds.$type === 'odata' || ds.$type === 'relation' || ds.$type === 'enum') && (!ds.$method || ds.$method.toUpperCase() === 'GET') && !ds.$params.hasOwnProperty('$entityId'));
+                return ((ds.$type === 'odata' || ds.$type === 'find' || ds.$type === 'relation' || ds.$type === 'enum') && (!ds.$method || ds.$method.toUpperCase() === 'GET') && !ds.$params.hasOwnProperty('$entityId'));
             },
             isCreateOrUpdate: function (ds) {
                 return ds.$type === "odata" && ds.$params.hasOwnProperty('$entityId');
@@ -11208,31 +11242,24 @@ var Phoenix;
 })(Phoenix || (Phoenix = {}));
 /// <reference path="../core/core-refs.ts" />
 /// <reference path="../ui/page.control.ts" />
+//STICKY
 var Phoenix;
 (function (Phoenix) {
     var ui;
     (function (ui) {
-        var _p = Phoenix, _pagecontrol = _p.pagecontrol, _external = _p.external, _ulocale = _p.ulocale, _utils = _p.utils, _locale = _p.locale, _ajax = _p.ajax, _dom = _p.dom, _sticky = _p.sticky, _ui = _p.ui, _build = _p.build, _application = _p.application, _render = _p.render, _link = _p.link;
+        var _p = Phoenix, _pagecontrol = _p.pagecontrol, _ulocale = _p.ulocale, _utils = _p.utils, _locale = _p.locale, _dom = _p.dom, _sticky = _p.sticky, _build = _p.build, _application = _p.application, _link = _p.link;
         var _defaultHeader = function (options) {
             var html = [];
-            var _bootstrap4 = _p.bootstrap4;
             var css = ['no-y-margin no-x-margin'];
-            if (_bootstrap4)
-                css.push('fixed-top');
-            else
-                css.push('navbar-fixed-top');
+            css.push('fixed-top');
             html.push('<div class="' + css.join(' ') + '">');
-            css = ['bs-header-bar no-y-margin no-x-margin no-x-padding no-y-padding'];
-            if (!_bootstrap4)
-                css.push('navbar navbar-inverse');
-            else
-                css.push('bg-dark');
+            css = ['bs-header-bar no-y-margin no-x-margin no-x-padding no-y-padding bg-dark'];
             html.push('<nav class="' + css.join(' ') + '">');
             html.push('    <div class="container-fluid no-x-padding">');
             html.push('        <div class="bs-title bs-title-nav-pos header_title"></div>');
-            html.push('        <ul class="' + (_bootstrap4 ? '' : 'nav navbar-nav ') + 'no-x-margin no-y-margin bs-nav-button bs-left-nav header_left_buttons">');
+            html.push('        <ul class="no-x-margin no-y-margin bs-nav-button bs-left-nav header_left_buttons">');
             html.push('        </ul>');
-            html.push('        <ul class="' + (_bootstrap4 ? '' : 'nav navbar-nav ') + 'no-x-margin no-y-margin bs-nav-button bs-right-nav header_right_buttons">');
+            html.push('        <ul class="no-x-margin no-y-margin bs-nav-button bs-right-nav header_right_buttons">');
             html.push('        </ul>');
             html.push('    </div>');
             html.push('</nav>');
@@ -11251,8 +11278,7 @@ var Phoenix;
             return item;
         }, _addButton = function (item, index) {
             var html = [];
-            var _bootstrap4 = _p.bootstrap4;
-            var hiddenXs = _bootstrap4 ? 'd-none d-sm-inline-block' : 'hidden-xs';
+            var hiddenXs = 'd-none d-sm-inline-block';
             item.id = _utils.allocID();
             var ct = item.title;
             if (ct && typeof ct === 'object') {
@@ -11282,24 +11308,16 @@ var Phoenix;
                         css.push('{2}');
                         html.push('<span class="' + css.join(' ') + '"></span>');
                         css = ['bs-icon-header-title'];
-                        if (_bootstrap4)
-                            css.push('dropdown-toggle');
+                        css.push('dropdown-toggle');
                         html.push('<span class="' + css.join(' ') + '"><span class="' + hiddenXs + '">{3}</span>');
-                        if (_bootstrap4)
-                            css.push('dropdown-toggle');
+                        css.push('dropdown-toggle');
                         if (item.menu)
                             html.push(' <span class="caret"></span>');
                         html.push('</span>');
                         html.push('</a>');
                         if (item.menu && item.menu.items) {
-                            if (_bootstrap4) {
-                                html.push('<div class="dropdown-menu bs-right-menu">');
-                                html.push('</div>');
-                            }
-                            else {
-                                html.push('<ul class="dropdown-menu bs-right-menu">');
-                                html.push('</ul>');
-                            }
+                            html.push('<div class="dropdown-menu bs-right-menu">');
+                            html.push('</div>');
                         }
                     }
                     else {
@@ -11316,15 +11334,14 @@ var Phoenix;
             return $(_utils.format(html.join(''), index, item.id, _dom.customIconClass(item.$icon, item.$iconClass), ct || item.expression || ''));
         }, _createMenuItems = function (item, ul) {
             var frag = document.createDocumentFragment();
-            var _bootstrap4 = _p.bootstrap4;
-            var p = $(_bootstrap4 ? '<a class="dropdown-item" href="#"></a>' : '<li><a href="#"></a><li>').get(0);
+            var p = $('<a class="dropdown-item" href="#"></a>').get(0);
             item.menu.items.forEach(function (si, ii) {
                 if (si.$pattern) {
                     item.menu.items[ii] = _expandPattern(si);
                     si = item.menu.items[ii];
                 }
                 var li = p.cloneNode(true);
-                var a = (_bootstrap4 ? li : li.firstChild);
+                var a = li;
                 _dom.attr(a, 'data-phoenix-href', 'click://' + item.$index + '/' + ii);
                 if (si.icon) {
                     var icon = document.createElement('span');
@@ -11577,10 +11594,7 @@ var Phoenix;
             };
             Header.prototype._updateButtons = function () {
                 var that = this;
-                var _bootstrap4 = _p.bootstrap4;
-                var startSpace = 12; //px
-                if (_bootstrap4)
-                    startSpace = _dom.rem2px(0.8571);
+                var startSpace = _dom.rem2px(0.8571);
                 if (!that.$element)
                     return;
                 var isConnected = that.page.props.$user && that.page.props.$user.connected;
@@ -12402,6 +12416,13 @@ var Phoenix;
                                 css.push('selected');
                         }
                         _addStdThemes(layout, css, options);
+                        if (!options.design && layout.$sticky && _sticky && _sticky.native) {
+                            css.push('bs-sticky');
+                            if (layout.$sticky === 'top')
+                                style.push('top:' + _sticky.topOffset + 'px;');
+                            else if (layout.$sticky === 'bottom')
+                                style.push('bottom:' + _sticky.bottomOffset + 'px;');
+                        }
                     }
                     break;
                 case layoutUtils.LAYOUT_HTML:
@@ -12464,6 +12485,12 @@ var Phoenix;
                     html.push(id);
                     html.push('"');
                 }
+            }
+            if (layout.$type === layoutUtils.LAYOUT_COLUMN && step === 2 && !design) {
+                var id = layout.$id + '_column';
+                html.push(' id="');
+                html.push(id);
+                html.push('"');
             }
         }, _updateLayoutTitle = function (titleElement, layout, formData, llocale) {
             if (layout.$title.value) {
@@ -12898,7 +12925,8 @@ var Phoenix;
                         delete item.selected;
                         delete item.showTabs;
                         if (item.$type !== layoutUtils.LAYOUT_BLOCK) {
-                            delete item.$sticky;
+                            if (item.$type !== layoutUtils.LAYOUT_COLUMN)
+                                delete item.$sticky;
                             if (item.$type === layoutUtils.LAYOUT_COLUMN)
                                 delete item.$type;
                             else if (layout.$type === layoutUtils.LAYOUT_HTML) {
@@ -13535,8 +13563,8 @@ var Phoenix;
                 });
                 Object.keys(ns).forEach(function (sid) {
                     var item = ns[sid];
-                    if (item.$type === _layoutUtils.LAYOUT_BLOCK) {
-                        var element = _dom.find(that.$element.get(0), item.$id);
+                    if (item.$type === _layoutUtils.LAYOUT_BLOCK || item.$type === _layoutUtils.LAYOUT_COLUMN) {
+                        var element = _dom.find(that.$element.get(0), item.$id + (item.$type === _layoutUtils.LAYOUT_COLUMN ? '_column' : ''));
                         if (element) {
                             that.activeStickies[item.$id] = { id: item.$id, element: element, position: item.$sticky };
                             _sticky.stickyManager.add(that.activeStickies[item.$id]);
@@ -14949,7 +14977,7 @@ var Phoenix;
         var _utils = Phoenix.utils, _dom = Phoenix.dom, _application = Phoenix.application, _odata = Phoenix.data.odata, _sutils = Observable.SchemaUtils, _dutils = Observable.DataUtils, _dsPlugin = Phoenix.DatasetPlugin;
         var QueryableDataSource = /** @class */ (function () {
             function QueryableDataSource(dsConfig, model) {
-                if (dsConfig.$type !== 'odata' && dsConfig.$type !== 'relation' && dsConfig.$type !== 'enum')
+                if (dsConfig.$type !== 'find' && dsConfig.$type !== 'odata' && dsConfig.$type !== 'relation' && dsConfig.$type !== 'enum')
                     throw new Error('Only odata sources are supported.');
                 var that = this;
                 var ct = (dsConfig.$params && dsConfig.$params.$type ? dsConfig.$params.$type : 'odata');
@@ -15021,9 +15049,10 @@ var Phoenix;
                 set: function (value) {
                     var that = this;
                     that._filter = value;
+                    //TODO MONGOFILTER
                     if (that._filter && that._filter.value) {
                         if (that._origFilter)
-                            that._config.$params.$filter = { $left: that._origFilter, $op: "AND", $right: that._filter.value };
+                            that._config.$params.$filter = { $left: that._origFilter, $op: 'AND', $right: that._filter.value };
                         else
                             that._config.$params.$filter = that._filter.value;
                     }
@@ -15857,6 +15886,10 @@ var Phoenix;
                 }
                 that._setModel(value, true);
             }
+            DataListCore.prototype.isEmpty = function () {
+                var that = this;
+                return that.isNull || that.isUndefined || !that._items || !that._items.length;
+            };
             DataListCore.prototype.selecting = function (value, expandingProperty) {
                 var that = this;
                 if (that._schema.syncSelected) {
@@ -17727,10 +17760,10 @@ var Phoenix;
                                             if (typeof item.value === 'object') {
                                                 Object.keys(item.value).forEach(function (key) {
                                                     if (p_3[key] && p_3[key].isState) {
-                                                        var v_4 = item.value[key];
-                                                        if (typeof v_4 === 'object') {
-                                                            Object.keys(v_4).forEach(function (n) {
-                                                                p_3[key][n] = v_4[n];
+                                                        var v_3 = item.value[key];
+                                                        if (typeof v_3 === 'object') {
+                                                            Object.keys(v_3).forEach(function (n) {
+                                                                p_3[key][n] = v_3[n];
                                                             });
                                                         }
                                                     }
@@ -22636,7 +22669,6 @@ var Phoenix;
                 });
             }
         }, _createRow = function (id, index, level, row, columns, options, authoring, locale, isOdd, isFrozen, isTotal, totalOptions, form) {
-            var _bootstrap4 = Phoenix.bootstrap4;
             var tr = document.createElement('tr');
             tr.id = row.$id + (isFrozen ? '_frozen' : '');
             var rcss = ['bs-table-row'];
@@ -22651,8 +22683,8 @@ var Phoenix;
                 if (!options.noRowSelectedIndicator)
                     rcss.push('bs-row-selected');
             }
-            if (level)
-                rcss.push('bs-row-level-' + level);
+            if (!isTotal && options.expanding && options.expanding.styledLevels)
+                rcss.push('bs-level bs-row-level-' + level);
             tr.className = rcss.join(' ');
             if (!options._useStripedCss && options.striped) {
                 var isOdd_1 = index % 2 === 1;
@@ -22707,7 +22739,17 @@ var Phoenix;
                         css.push('bs-td-button');
                     }
                     if (!isTotal && options.editing && (!state.isHidden && state.isReadOnly || state.isDisabled || col.options.editing === false || col.options.selecting === false)) {
-                        css.push('bs-td-readonly');
+                        var isReadOnlyRow = false;
+                        if (typeof options.editing !== 'object') {
+                            if (options.editing.readOnlyRow && row.getValue(options.editing.readOnlyRow)) {
+                                isReadOnlyRow = true;
+                            }
+                            else if (options.editing.onlyIsLeaf && options.expandingProperty && row[options.expandingProperty] && !row[options.expandingProperty].isEmpty()) {
+                                isReadOnlyRow = true;
+                            }
+                        }
+                        if (!isReadOnlyRow)
+                            css.push('bs-td-readonly');
                     }
                     if (css.length)
                         td.className = css.join(' ');
@@ -24945,6 +24987,14 @@ var Phoenix;
                 var state = item.getState(col.field);
                 var co = col.options || {};
                 var editable = ((opts.editing && !opts.editingDisabled) || _sutils.isSelectField(col.field)) && !state.isDisabled && !state.isReadOnly && !state.isHidden && (co.editing !== false) && (co.selecting !== false);
+                if (editable && typeof opts.editing === 'object') {
+                    if (opts.editing.readOnlyRow) {
+                        editable = !item.getValue(opts.editing.readOnlyRow);
+                    }
+                    if (editable && opts.editing.onlyIsLeaf) {
+                        editable = item[opts.expandingProperty] && !item[opts.expandingProperty].isEmpty();
+                    }
+                }
                 if (state.isHidden) {
                     _dom.empty(td);
                 }
@@ -25794,6 +25844,7 @@ var Phoenix;
             };
             BasicGrid.prototype.canSelect = function (cell, isTab) {
                 var that = this;
+                var item = null;
                 var old = that.selectedCell;
                 if (old && old.col === cell.col && old.row === cell.row)
                     return false;
@@ -25805,7 +25856,7 @@ var Phoenix;
                         return true;
                     if (c.options && c.options.selecting === false)
                         return false;
-                    var item = that._findById(cell.row);
+                    item = item || that._findById(cell.row);
                     if (item) {
                         var st = item.getState(c.$bind);
                         return !st.isDisabled && !st.isHidden;
@@ -25815,9 +25866,19 @@ var Phoenix;
             };
             BasicGrid.prototype.canEdit = function (cell) {
                 var that = this;
+                var item = null;
                 if (!that.fieldOptions.editing || !that.fieldOptions.selecting ||
                     !that.fieldOptions.selecting.cell || that.renderOptions.editingDisabled)
                     return false;
+                if (typeof that.fieldOptions.editing === 'object' && that.fieldOptions.editing.readOnlyRow) {
+                    item = that._findById(cell.row);
+                    if (!item || item.getValue(that.fieldOptions.editing.readOnlyRow))
+                        return false;
+                }
+                if (that.fieldOptions.expandingProperty && typeof that.fieldOptions.editing === 'object' && that.fieldOptions.editing.onlyIsLeaf) {
+                    if (!item[that.fieldOptions.expandingProperty] || item[that.fieldOptions.expandingProperty].isEmpty())
+                        return false;
+                }
                 var c = that._colByField(cell.col);
                 if (c.options && c.options.editing === false)
                     return false;
@@ -25825,7 +25886,7 @@ var Phoenix;
                     return false;
                 if (c.options._expandItem)
                     return false;
-                var item = that._findById(cell.row);
+                item = item || that._findById(cell.row);
                 var st = item.getState(c.$bind);
                 return !st.isReadOnly && !st.isDisabled && !st.isHidden;
             };
@@ -28530,8 +28591,13 @@ var Phoenix;
      *** Event methods ***
      **********************/
     var _doPasteNumber = function (event, input, opts) {
-        var data = parseFloat(unformatMontant(event.originalEvent.clipboardData.getData('Text'), opts.decimalSep, opts.thousandSep));
-        //let data: number = parseFloat(unformatMontant(event.clipboardData.getData('Text'), opts.decimalSep, opts.thousandSep));
+        var pastedText = '';
+        var win = window;
+        if (event.originalEvent.clipboardData && event.originalEvent.clipboardData.getData)
+            pastedText = event.originalEvent.clipboardData.getData('text/plain');
+        else if (win.clipboardData && win.clipboardData.getData) // IE
+            pastedText = win.clipboardData.getData('Text');
+        var data = parseFloat(unformatMontant(pastedText, opts.decimalSep, opts.thousandSep));
         var negative = data < 0;
         var charNegative = '';
         if (negative) {
@@ -29827,8 +29893,7 @@ var Phoenix;
                         $top: 5,
                         $orderby: '',
                         $searchByFields: undefined,
-                        $allData: false,
-                        $find: true
+                        $allData: false
                     }
                 }
             },
@@ -29988,9 +30053,9 @@ var Phoenix;
                 if (that._lookup.data && that._lookup.data.$params && that._lookup.data.$params.$allData) {
                     formLayout.datasets.list.$params.$allData = true;
                 }
-                if (that._lookup.data && that._lookup.data.$params && that._lookup.data.$params.$find) {
-                    formLayout.datasets.list.$params.$find = true;
-                }
+                // if (that._lookup.data && that._lookup.data.$params && that._lookup.data.$params.$find) {
+                //    formLayout.datasets.list.$params.$find = true;
+                // }
                 var formSchema = typeof that._lookup.schema === 'string' ? that._lookup.schema : $.extend(true, {}, that._lookup.schema);
                 var mds = formLayout.datasets.list;
                 var minWidth = opts.minWidth || 0;
@@ -30170,7 +30235,7 @@ var Phoenix;
                     minWidth: options.minWidth,
                     itemModel: options.itemModel
                 };
-                if (ds && ds.$params && ds.$params.$filter)
+                if (ds && ds.$params && ds.$params.$filter && ds.$type !== 'find')
                     ds.$params.$filter = _data.replaceFilterVars(ds.$params.$filter, options.formControl.getParentModel(options.bind).model(true));
                 if (ds.$params && options.containerId)
                     ds.$params.containerId = options.containerId;
@@ -34082,6 +34147,14 @@ var Phoenix;
                         that._query.moveSelected(1, true);
                         return true;
                     }
+                    else if (event.which === _dom.keys.VK_PGDOWN) {
+                        that._query.moveSelected(20, true);
+                        return true;
+                    }
+                    else if (event.which === _dom.keys.VK_PGUP) {
+                        that._query.moveSelected(-20, true);
+                        return true;
+                    }
                 }
                 var input = that._input();
                 return _super.prototype._ignoreKeys.call(this, event, keyPress, input);
@@ -36182,16 +36255,16 @@ var Phoenix;
                         }
                         if (that._fields) {
                             res[type].fields = res[type].fields || [];
-                            var ff_1 = [];
+                            var ff_2 = [];
                             var fv_1 = {};
                             that._fields.forEach(function (fn) {
                                 if (item[fn])
-                                    ff_1.push(item[fn]);
+                                    ff_2.push(item[fn]);
                                 fv_1[fn] = item[fn];
                             });
                             res[type].fields.push(fv_1);
-                            if (ff_1.length) {
-                                var fn = ff_1.join('$');
+                            if (ff_2.length) {
+                                var fn = ff_2.join('$');
                                 res[type].filters = res[type].filters || {};
                                 res[type].filters[fn] = res[type].filters[fn] || [];
                                 res[type].filters[fn].push(code);
