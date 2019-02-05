@@ -1435,6 +1435,7 @@ declare namespace Phoenix {
             columns: string;
             selected: string;
             selectedPks(): any[];
+            updateSelected(value: string[]): void;
             pageSize: number;
             pageNumber: number;
             totalCount: number;
@@ -1545,13 +1546,13 @@ declare namespace Phoenix {
         class DataListCore {
             isArray: boolean;
             protected _map: any;
+            protected _keys: string[];
             protected _parentSelected: DataListCore;
             protected _selected: any;
             protected _selecting: boolean;
             protected _multiselect: boolean;
             protected _expandingProperty: string;
             protected _expanded: boolean;
-            protected _selectedUids: string[];
             protected _selectedPks: string[];
             protected _schema: any;
             $links: any;
@@ -1562,7 +1563,7 @@ declare namespace Phoenix {
             protected _rootSchema: any;
             protected _schemaItems: any;
             protected _simulateSelecting: boolean;
-            protected _savedSelectedUids: string[];
+            protected _savedSelected: string[];
             protected _saved: boolean;
             protected _items: Data[];
             protected _model: any[];
@@ -1578,6 +1579,7 @@ declare namespace Phoenix {
             isQuery: boolean;
             constructor(schema: any, parent: any, path: any, value: any, arrayParent: any, locale: any, isQuery: any, parentSelected: DataListCore);
             isEmpty(): boolean;
+            protected _updateStateSelected(): void;
             selecting(value: any, expandingProperty: any): void;
             columns: {
                 name: string;
@@ -1643,7 +1645,7 @@ declare namespace Phoenix {
             getSelectedItems(expandingProperty?: string): any[];
             setSelectedItems(selected: any[]): void;
             updateSelecting(multiSelect: boolean, expandingProperty: string): void;
-            enumSelectedItems(expandingProperty: string, cb: (item: any, level: number) => void): void;
+            enumSelectedItems(expandingProperty: string, cb: (item: any, level: number, pk: any) => void): void;
             private _enumChildren;
             enumChildren(expandingProperty: string, cb: (item: any) => void, beforeAfter?: (before: boolean, list: DataListBase) => void): void;
             private _enumSelected;
@@ -2227,7 +2229,6 @@ declare namespace Phoenix {
                 columnField: string;
             }, form: any) => HTMLTableRowElement;
             setRowsSelected: (id: string, value: boolean, options: any, parent: HTMLElement) => void;
-            createGridRows: (id: any, rows: any, values: any, columns: any, options: any, authoring: any, locale: any, form: any) => DocumentFragment;
             createInplaceEdit: (grid: any, svalue: string, value: any, state: any, parent: HTMLElement, cell: any, col: any, opts: any) => {
                 input: HTMLInputElement;
                 parent: HTMLElement;
