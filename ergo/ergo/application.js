@@ -20,6 +20,32 @@ var Phoenix;
 var Ergo;
 (function (Ergo) {
     var _p = Phoenix, _customData = _p.customData;
+    var GridWithLink = (function (_super) {
+        __extends(GridWithLink, _super);
+        function GridWithLink() {
+            return _super !== null && _super.apply(this, arguments) || this;
+        }
+        GridWithLink.prototype.onModelChanged = function (action, model, form) {
+            switch (action.property) {
+                case 'Offres.$links.detail':
+                    var item = action.actionParams;
+                    form.navigate('demos/grid-selecting', {
+                        canGoBack: true,
+                        checkForChanges: false,
+                        urlSearch: {
+                            code: item.title
+                        }
+                    });
+                    break;
+            }
+        };
+        return GridWithLink;
+    }(Phoenix.ui.FormController));
+    _customData.register('demos.grid-link.controller', new GridWithLink());
+})(Ergo || (Ergo = {}));
+var Ergo;
+(function (Ergo) {
+    var _p = Phoenix, _customData = _p.customData;
     var tableauSimple = (function (_super) {
         __extends(tableauSimple, _super);
         function tableauSimple() {
