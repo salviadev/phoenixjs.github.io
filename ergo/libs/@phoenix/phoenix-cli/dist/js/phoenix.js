@@ -17262,7 +17262,6 @@ var Phoenix;
                 var states = that.parent.$states[that.path];
                 if (page !== undefined) {
                     var cp = page || 1;
-                    ;
                     if (that.parent.execSyncAction(that.getJSONPatchPath() + '.$pageNumber', cp, cp)) {
                         return states.pageNumber;
                     }
@@ -18014,7 +18013,15 @@ var Phoenix;
                     if (dd > 0) {
                         cs = _utils.getPathValue(cs, s);
                         if (!cs) {
-                            res.isDisabled = true;
+                            if (params && params.$editing && typeof params.$editing === 'object' && params.$editing.nulls) {
+                                if (params.$schema) {
+                                    Object.keys(params.$schema).forEach(function (key) {
+                                        res[key] = params.$schema[key];
+                                    });
+                                }
+                            }
+                            else
+                                res.isDisabled = true;
                             break;
                         }
                         continue;
@@ -22710,7 +22717,7 @@ var Phoenix;
                     var css = [];
                     if (col.options._expandItem)
                         css.push('bs-cursor-d');
-                    var state = row.getRelativeState(col.$bind);
+                    var state = row.getState(bind, { $editing: options.editing, $schema: schema });
                     if (state.style) {
                         _dom.parseStyle(state.style, css);
                     }
@@ -22762,7 +22769,7 @@ var Phoenix;
                             if (!state.isHidden) {
                                 var dv = null;
                                 if (co.display && co.displaySchema) {
-                                    dv = _uiutils.utils.displayValue(row.getRelativeValue(co.display), co.displaySchema, locale, { tableOptions: options, avanced: co.displayOptions || {}, state: row.getRelativeState(co.display), form: form }, row, co.display);
+                                    dv = _uiutils.utils.displayValue(row.getRelativeValue(co.display), co.displaySchema, locale, { tableOptions: options, avanced: co.displayOptions || {}, state: row.getState(co.display, { $editing: options.editing, $schema: co.displaySchema }), form: form }, row, co.display);
                                 }
                                 var v = _uiutils.utils.displayValue(row.getRelativeValue(bind), schema, locale, { html: true, useSymbol: false, selectable: !state.isDisabled, editable: editable, isTotal: isTotal, check: options.editing, avanced: co, tableOptions: options, display: dv, level: level, state: state, form: form }, row, bind);
                                 if (v.html) {
@@ -23643,7 +23650,8 @@ var Phoenix;
                 }
                 return false;
             };
-            BasicGrid.prototype._inplaceEditValue2Model = function (value, item, col) {
+            BasicGrid.prototype._calculateNewValue = function (value, item, col) {
+                var res = { value: value, set: false, bind: col.$bind };
                 var that = this;
                 var bind = col.$bind;
                 var schema = col.schema;
@@ -23651,16 +23659,25 @@ var Phoenix;
                     bind = col.$bindMap[item[col.$bindType]].name;
                     schema = col.$bindMap[item[col.$bindType]].schema;
                 }
-                var state = item.getState(bind);
+                var state = item.getState(bind, { $editing: that.renderOptions.editing, $schema: that._getDefaultSchema(item, bind, schema) });
                 if (_sutils._isMoney(schema))
                     state.moneyUnitCoef = that.form.moneyUnitCoef;
                 var ov = item.getValue(bind);
                 var cv = _sutils.value2Text(ov, schema, state);
                 if (cv === value)
-                    return;
+                    return res;
                 var nv = _sutils.text2Value(value, schema, state);
                 if (nv !== ov) {
-                    item.setValue(bind, nv);
+                    res.value = nv;
+                    res.set = true;
+                    res.bind = bind;
+                }
+                return res;
+            };
+            BasicGrid.prototype._inplaceEditValue2Model = function (value, item, col) {
+                var res = this._calculateNewValue(value, item, col);
+                if (res.set) {
+                    item.setValue(res.bind, res.value);
                     return true;
                 }
                 return false;
@@ -23730,7 +23747,7 @@ var Phoenix;
                 if (cell.col.$bindMap) {
                     bind = cell.col.$bindMap[cell.item[cell.col.$bindType]].name;
                 }
-                var state = cell.item.getState(bind);
+                var state = cell.item.getState(bind, { $editing: that.renderOptions.editing, $schema: that._getDefaultSchema(cell.item, bind, that.inplace.schema) });
                 if (that.inplace.schema.enum) {
                     var si = that.inplace.input.selectedIndex;
                     if (that.inplace.emptyValue) {
@@ -23743,6 +23760,10 @@ var Phoenix;
                 }
                 return _uiutils.utils.text2value(that.inplace.input.value, that.inplace.schema, state);
             };
+            BasicGrid.prototype._getDefaultSchema = function (row, bind, schema) {
+                var that = this;
+                return schema;
+            };
             BasicGrid.prototype._inpaceEditShow = function (td, isFocusIn) {
                 var that = this;
                 var cell = that._td2value(td);
@@ -23753,7 +23774,7 @@ var Phoenix;
                     schema = cell.col.$bindMap[cell.item[cell.col.$bindType]].schema;
                 }
                 var value = cell.item.getValue(bind);
-                var state = cell.item.getState(bind);
+                var state = cell.item.getState(bind, { $editing: that.renderOptions.editing, $schema: that._getDefaultSchema(cell.item, bind, schema) });
                 if (_sutils.isMoney)
                     state.moneyUnitCoef = that.form.moneyUnitCoef;
                 var s = _sutils.value2Text(value, schema, state);
@@ -23771,6 +23792,7 @@ var Phoenix;
                         opts.after = { icon: 'calendar' };
                 }
                 that.inplace = _gu.createInplaceEdit(that, s, value, state, td, cell, { schema: schema, $bind: bind, options: cell.col.options }, opts);
+                that.inplace.$bind = bind;
                 // ---> START LOOKUP
                 if (cell.col.$lookup) {
                     that.inplace.id = opts.id;
@@ -23824,6 +23846,19 @@ var Phoenix;
                         that._destroyInplaceEdit();
                         if (!cell_1.item)
                             return;
+                        if (typeof that.renderOptions.editing === 'object' && that.renderOptions.editing.nulls) {
+                            var state = cell_1.item.getState(bind_1);
+                            if (state.isDisabled) {
+                                that._modifyCell(cell_1.item, bind_1, null, td_1, null);
+                                if (!isCancel) {
+                                    var res = this._calculateNewValue(s, cell_1.item, cell_1.col);
+                                    if (res.set) {
+                                        that.form.execAction(cell_1.item.getJSONPatchPath() + '/' + that.renderOptions.editing.nulls.actionName, { bind: bind_1, value: res.value });
+                                    }
+                                }
+                                return;
+                            }
+                        }
                         // ---> START LOOKUP
                         if (cell_1.col.$lookup) {
                             var ov = (cell_1.item.getValue(bind_1) || '') + '';
@@ -23854,7 +23889,7 @@ var Phoenix;
                     schema = cell.col.$bindMap[item[cell.col.$bindType]].schema;
                 }
                 var value = item.getValue(bind);
-                var state = item.getState(bind);
+                var state = item.getState(bind, { $editing: that.renderOptions.editing, $schema: that._getDefaultSchema(cell.item, bind, schema) });
                 if (_sutils._isMoney(schema))
                     state.moneyUnitCoef = that.form.moneyUnitCoef;
                 var s = _sutils.value2Text(value, schema, state);
@@ -25035,7 +25070,8 @@ var Phoenix;
             BasicGrid.prototype._modifyStateTD = function (item, field, stateName, col, td) {
                 var that = this;
                 var opts = that.renderOptions;
-                var state = item.getState(col.field);
+                var schema = item.getSchema(col.field);
+                var state = item.getState(col.field, { $editing: that.renderOptions.editing, $schema: that._getDefaultSchema(item, col.field, schema) });
                 var co = col.options || {};
                 var editable = ((opts.editing && !opts.editingDisabled) || _sutils.isSelectField(col.field)) && !state.isDisabled && !state.isReadOnly && !state.isHidden && (co.editing !== false) && (co.selecting !== false);
                 if (editable && typeof opts.editing === 'object') {
@@ -25065,7 +25101,11 @@ var Phoenix;
                 var col = that._colByField(field);
                 if (!col)
                     return;
-                var state = item.getState(field);
+                var schema = col.schema;
+                if (col.$bindMap) {
+                    schema = col.$bindMap[item[col.$bindType]].schema;
+                }
+                var state = item.getState(field, { $editing: that.renderOptions.editing, $schema: that._getDefaultSchema(item, field, schema) });
                 var co = col.options || {};
                 var editable = ((opts.editing && !opts.editingDisabled) || _sutils.isSelectField(field)) && !state.isDisabled && !state.isReadOnly && !state.isHidden;
                 _dom.empty(td);
@@ -25077,12 +25117,8 @@ var Phoenix;
                 if (co.display && co.displaySchema) {
                     dv = _uiutils.utils.displayValue(item.getValue(co.display), co.displaySchema, that.form.$locale, {
                         html: true, tableOptions: opts,
-                        avanced: co.displayOptions || {}, state: item.getState(co.display), form: that.form
+                        avanced: co.displayOptions || {}, state: item.getState(co.display, { $editing: that.renderOptions.editing, $schema: that._getDefaultSchema(item, co.display, co.displaySchema) }), form: that.form
                     }, item, co.display);
-                }
-                var schema = col.schema;
-                if (col.$bindMap) {
-                    schema = col.$bindMap[item[col.$bindType]].schema;
                 }
                 var v = _uiutils.utils.displayValue(item.getValue(field), schema, that.form.$locale, {
                     html: true, useSymbol: false, editable: editable,
@@ -25272,10 +25308,10 @@ var Phoenix;
                         else if (_sutils.isBoolean(that.inplace.schema)) {
                             if (String.fromCharCode(event.which) === ' ') {
                                 if (that.renderOptions.editing && !that.renderOptions.editingDisabled) {
-                                    var state = cell.item.getRelativeState(cell.col.$bind);
+                                    var state = cell.item.getState(that.inplace.$bind, { $editing: that.renderOptions.editing, $schema: that._getDefaultSchema(cell.item, that.inplace.$bind, that.inplace.schema) });
                                     if (!state.isDisabled && !state.isReadOnly) {
-                                        var ov = cell.item.getValue(cell.col.$bind);
-                                        cell.item.setValue(cell.col.$bind, !ov);
+                                        var ov = cell.item.getValue(that.inplace.$bind);
+                                        cell.item.setValue(that.inplace.$bind, !ov);
                                     }
                                 }
                             }
@@ -25650,6 +25686,7 @@ var Phoenix;
                 }
             };
             BasicGrid.prototype.click = function (event) {
+                //xxxxxxxxxx
                 var that = this;
                 if (!that.state.value)
                     return;
@@ -25658,12 +25695,18 @@ var Phoenix;
                 if (td) {
                     var cell = that._td2cell(td);
                     if (cell) {
-                        var item = that._findById(cell.row);
                         var c = that._colByField(cell.col);
+                        var item = that._findById(cell.row);
                         if (item) {
+                            var bind = c.$bind;
+                            var schema = c.schema;
+                            if (c.$bindMap) {
+                                bind = c.$bindMap[item[c.$bindType]].name;
+                                schema = c.$bindMap[item[c.$bindType]].schema;
+                            }
                             var linkName = event && event.target && event.target.$link || event.target.parentNode.$link;
                             if (linkName) {
-                                var lk = item.getRelativeState(c.$bind);
+                                var lk = item.getState(bind, { $editing: that.renderOptions.editing, $schema: that._getDefaultSchema(item, bind, schema) });
                                 if (lk.isDisabled || lk.isHidden)
                                     return;
                                 if (c.schema.$widgetAction) {
@@ -25686,7 +25729,7 @@ var Phoenix;
                                 }
                                 if (c.options._expandItem) {
                                     if (_dom.attr(event.target, 'data-clickable') || _dom.attr(event.target.parentNode, 'data-clickable')) {
-                                        var state = item.getRelativeState(c.$bind);
+                                        var state = item.getState(bind, { $editing: that.renderOptions.editing, $schema: that._getDefaultSchema(item, bind, schema) });
                                         if (!state.isDisabled && !state.isReadOnly) {
                                             item.toggleExpand(opts.expandingProperty);
                                         }
@@ -25695,7 +25738,7 @@ var Phoenix;
                                 if (c.options.$link) {
                                     var a = _dom.findByAttribute(event.target, td, 'data-phoenix-href');
                                     if (a) {
-                                        var state = item.getRelativeState(c.$bind);
+                                        var state = item.getState(bind, { $editing: that.renderOptions.editing, $schema: that._getDefaultSchema(item, bind, schema) });
                                         if (!state.isDisabled) {
                                             if (c.options.$link.action)
                                                 that.form.execAction(that.$bind + '.$links.' + c.options.$link.action, item);
@@ -25708,13 +25751,13 @@ var Phoenix;
                                     }
                                 }
                                 else if (c.options.actionName) {
-                                    var state = item.getRelativeState('$links.' + c.options.actionName);
+                                    var state = item.getState('$links.' + c.options.actionName, {});
                                     if (state && !state.isDisabled)
                                         that.form.execAction(that.$bind + '.$item.$links.' + c.options.actionName, item);
                                 }
                                 else if (_sutils.isSelectField(c.$bind) || (opts.editing && !opts.editingDisabled && _sutils.isBoolean(c.schema))) {
                                     if (_dom.attr(event.target, 'data-clickable')) {
-                                        var state = item.getRelativeState(c.$bind);
+                                        var state = item.getState(bind, { $editing: that.renderOptions.editing, $schema: that._getDefaultSchema(item, bind, schema) });
                                         if (!state.isDisabled && !state.isReadOnly && !state.isHidden) {
                                             var ov = item.getValue(c.$bind);
                                             if (_sutils.isSelectField(c.$bind)) {
@@ -25734,7 +25777,7 @@ var Phoenix;
                                 }
                                 else if (opts.selecting && opts.selecting.row && !opts.selecting.multiselect && opts.selecting.action) {
                                     //used for lookup
-                                    var state = item.getRelativeState('$links.' + opts.selecting.action);
+                                    var state = item.getState('$links.' + opts.selecting.action, {});
                                     if (state && !state.isDisabled)
                                         that.form.execAction(that.$bind + '.$item.$links.' + opts.selecting.action, item);
                                 }
@@ -25912,7 +25955,7 @@ var Phoenix;
                         return false;
                     item = item || that._findById(cell.row);
                     if (item) {
-                        var st = item.getState(c.$bind);
+                        var st = item.getState(c.$bind, { $editing: that.renderOptions.editing, $schema: null });
                         return !st.isDisabled && !st.isHidden;
                     }
                 }
@@ -25941,7 +25984,7 @@ var Phoenix;
                 if (c.options._expandItem)
                     return false;
                 item = item || that._findById(cell.row);
-                var st = item.getState(c.$bind);
+                var st = item.getState(c.$bind, { $editing: that.renderOptions.editing, $schema: null });
                 return !st.isReadOnly && !st.isDisabled && !st.isHidden;
             };
             BasicGrid.prototype._selectRow = function (id) {
@@ -26716,9 +26759,10 @@ var Phoenix;
                         var colsToAdd = _utils.getValue(that.form.$model.model(true), that.renderOptions.linesAsColumns);
                         if (colsToAdd) {
                             colsToAdd.forEach(function (col) {
-                                var ps = _utils.copy(_sutils.getSchema(col.name, that.$schemaItems, that.form.$rootSchema, false));
+                                var cn = Array.isArray(col.name) ? col.name[0].name : col.name;
+                                var ps = _utils.copy(_sutils.getSchema(cn, that.$schemaItems, that.form.$rootSchema, false));
                                 ps.title = col.title || ps.title;
-                                schemaColumns_1.push({ name: col.name, schema: ps });
+                                schemaColumns_1.push({ name: cn, schema: ps });
                             });
                         }
                     }

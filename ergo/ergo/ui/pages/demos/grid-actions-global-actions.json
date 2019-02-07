@@ -1,1 +1,1 @@
-{"name":"grid-actions-global-actions","$items":[{"$config":{"$titleIsHidden":true,"form":{"name":"demos/forms/grid-actions-global-actions","meta":"demos/metas/pokemons","controller":"phoenix.empty.controller"},"$type":"form"}}],"$type":"block"}
+{"name":"grid-actions-global-actions","$menus":{"left":"detail"},"$items":[{"$config":{"$titleIsHidden":true,"form":{"name":"demos/forms/grid-actions-global-actions","meta":"demos/metas/pokemons","controller":"phoenix.empty.controller"},"$type":"form"}}],"$type":"block"}

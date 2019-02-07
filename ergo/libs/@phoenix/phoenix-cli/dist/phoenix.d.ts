@@ -2324,12 +2324,14 @@ declare namespace Phoenix {
             private _initOrigColumns;
             private checkOptions;
             protected beforeSaveSettings(): boolean;
+            private _calculateNewValue;
             private _inplaceEditValue2Model;
             setFocus(focusParams?: any): void;
             private _inplaceEditAcceptKeys;
             private _inplaceEditAddEvents;
             private _inplaceEditRemoveEvents;
             private _inplaceEditGetValue;
+            private _getDefaultSchema;
             private _inpaceEditShow;
             private _destroyInplaceEdit;
             private _inplaceEditRemove;
