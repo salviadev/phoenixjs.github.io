@@ -2810,6 +2810,21 @@ declare namespace Phoenix {
     }
 }
 declare namespace Phoenix {
+    module formjson {
+        class Json extends ui.AbsField {
+            constructor(fp: any, options: any, form: any);
+            _setDisabled(input: any, element: any): void;
+            _setReadOnly(input: any, element: any): void;
+            _setMandatory(input: any, element: any): void;
+            _json(): HTMLElement;
+            _setValue(element: any, value: any): void;
+            _state2UI(): void;
+            stateChanged(propName: any, params: any): void;
+            render($parent: any): JQuery<HTMLElement>;
+        }
+    }
+}
+declare namespace Phoenix {
     module formlabel {
         class Label extends ui.AbsField {
             private _parentId;

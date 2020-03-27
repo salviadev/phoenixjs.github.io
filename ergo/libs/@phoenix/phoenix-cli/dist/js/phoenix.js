@@ -22227,8 +22227,14 @@ var Phoenix;
                     var sz = fieldOptions.size || 'sm';
                     var sizeCss = sz === 'normal' ? '' : ' btn-' + sz;
                     var cc = (fieldOptions.type || 'link');
+                    var sst = cc.split('-');
+                    var st = null;
+                    if (sst.length === 2 && sst[0] === 'link') {
+                        cc = 'link';
+                        st = ' text-' + sst[1];
+                    }
                     cc = _dom.bootstrapStyles(fieldOptions.outline)[cc];
-                    btn.className = 'bs-button btn btn-' + cc + sizeCss + (state.isDisabled ? ' disabled' : '');
+                    btn.className = 'bs-button btn btn-' + cc + sizeCss + (state.isDisabled ? ' disabled' : '') + (st || '');
                     if (fieldOptions.icon) {
                         span = document.createElement('span');
                         span.className = _dom.iconClass(fieldOptions.icon);
@@ -22847,30 +22853,53 @@ var Phoenix;
                     link.title = link.schema.title;
                     link.bind = that.$bind + '.$links.' + link.name;
                     link.isHidden = false;
-                    if (link.name === '$remove' || link.schema.isRemove) {
+                    if (link.schema.isApply) {
+                        if (link.options.type === undefined)
+                            link.options.type = 'success';
+                        if (link.options.outline === undefined)
+                            link.options.outline = false;
+                    }
+                    else if (link.schema.isSave) {
+                        if (link.options.type === undefined)
+                            link.options.type = 'success';
+                        if (link.options.outline === undefined)
+                            link.options.outline = false;
+                    }
+                    else if (link.name === '$remove' || link.schema.isRemove) {
                         if (link.options.icon === undefined)
                             link.options.icon = 'trash';
                         if (link.options.type === undefined)
                             link.options.type = 'danger';
-                        if (link.title === undefined) {
-                            link.title = _locale.ui.Remove;
-                        }
+                        if (link.options.outline === undefined)
+                            link.options.outline = true;
                     }
-                    if (link.name === '$new' || link.schema.isNew) {
+                    else if (link.name === '$new' || link.schema.isNew) {
                         if (link.options.icon === undefined)
                             link.options.icon = 'plus-circle';
                         if (link.options.type === undefined)
                             link.options.type = 'info';
+                        if (link.options.outline === undefined)
+                            link.options.outline = true;
                     }
-                    if (link.schema.isNavigation) {
+                    else if (link.schema.isNavigation) {
                         if (link.options.type === undefined)
                             link.options.type = 'primary';
                         if (link.options.outline === undefined)
                             link.options.outline = true;
+                        if (link.options.outline === undefined)
+                            link.options.outline = false;
                     }
-                    if (link.schema.isImportant) {
+                    else if (link.schema.isAction) {
+                        if (link.options.type === undefined)
+                            link.options.type = 'info';
+                        if (link.options.outline === undefined)
+                            link.options.outline = false;
+                    }
+                    else if (link.schema.isImportant) {
                         if (link.options.type === undefined)
                             link.options.type = 'important';
+                        if (link.options.outline === undefined)
+                            link.options.outline = false;
                     }
                     link.options.type = link.options.type || 'secondary';
                     that.form.registerListenerFor(link.bind, that);
@@ -23039,7 +23068,14 @@ var Phoenix;
                             outline = link.options.outline;
                         else if (['default', 'info', 'secondary', 'danger'].indexOf(link.options.type) >= 0)
                             outline = true;
-                        html.push('<button data-action-id="' + link.id + '" class="bs-button btn btn-' + _dom.bootstrapStyles(outline)[link.options.type] + '" type="button">');
+                        var buttonType = link.options.type || 'secondary';
+                        var sst = buttonType.split('-');
+                        var st = null;
+                        if (sst.length === 2 && sst[0] === 'link') {
+                            buttonType = 'link';
+                            st = ' text-' + sst[1];
+                        }
+                        html.push('<button data-action-id="' + link.id + '" class="bs-button btn btn-' + _dom.bootstrapStyles(outline)[buttonType] + (st || '') + '" type="button">');
                         var hasIcon = false;
                         if (link.options.icon) {
                             hasIcon = true;
@@ -32610,6 +32646,127 @@ var Phoenix;
 var Phoenix;
 (function (Phoenix) {
     var _utils = Phoenix.utils, _ui = Phoenix.ui, _dom = Phoenix.dom, _ulocale = Phoenix.ulocale, _uiutils = Phoenix.uiutils;
+    var formjson;
+    (function (formjson) {
+        function _createJson(id, options, authoring, title) {
+            title = title || '';
+            options = _utils.extendObject(false, { titleIsHidden: false, placeHolder: false, columns: false }, options);
+            var html = [];
+            _uiutils.utils.fieldWrapper(html, options, authoring, function () {
+                if (!options.titleIsHidden) {
+                    var css = ['bs-label'];
+                    html.push('<label for="{0}_input" id="{0}_label"');
+                    if (options.columns) {
+                        css.push('col-form-label');
+                        css.push('bs-lib-col col-sm-' + options.labelCol);
+                        if (options.labelLeft)
+                            css.push('text-left');
+                    }
+                    if (options.inline) {
+                        css.push('form-check-inline');
+                        css.push('bs-cursor-d no-x-padding');
+                    }
+                    if (css.length)
+                        html.push(' class="' + css.join(' ') + '"');
+                    html.push('>');
+                    html.push(_utils.escapeHtml(title || '') + (options.inline ? '&nbsp;' : ''));
+                    _uiutils.utils.addTooltipAndRule(html, options);
+                    html.push('</label>');
+                }
+                if (options.columns)
+                    html.push('<div class="no-x-padding col-sm-' + (12 - options.labelCol) + '" id="{0}_colparent">');
+                html.push('<pre id="{0}_json" class="bg-secondary text-white p-1"></pre>');
+                if (options.columns)
+                    html.push('</div>');
+                if (options.titleIsHidden)
+                    _uiutils.utils.addTooltipAndRule(html, options);
+            });
+            return _utils.format(html.join(''), id);
+        }
+        ;
+        var Json = /** @class */ (function (_super) {
+            __extends(Json, _super);
+            function Json(fp, options, form) {
+                var _this = _super.call(this, fp, options, form) || this;
+                _this._state();
+                return _this;
+            }
+            Json.prototype._setDisabled = function (input, element) {
+                /* nothing todo */
+            };
+            Json.prototype._setReadOnly = function (input, element) {
+                /* nothing todo */
+            };
+            Json.prototype._setMandatory = function (input, element) {
+                /* nothing todo */
+            };
+            Json.prototype._json = function () {
+                var that = this;
+                return that.$element ? _dom.find(that.$element.get(0), that.id + '_json') : null;
+            };
+            Json.prototype._setValue = function (element, value) {
+                value = value || '{}';
+                var o = JSON.parse(value);
+                value = JSON.stringify(o, null, 2);
+                _dom.empty(element);
+                _dom.text(element, value);
+            };
+            Json.prototype._state2UI = function () {
+                var that = this, label = that._json(), element = that.$element ? that.$element.get(0) : null;
+                if (label) {
+                    that._setValue(label, that.state.value);
+                    that._setDisabled(label, element);
+                    that._setReadOnly(label, element);
+                    that.setHidden(element);
+                    that._setMandatory(label, element);
+                }
+            };
+            Json.prototype.stateChanged = function (propName, params) {
+                var that = this, state = that.form.getState(that.$bind), label = that._json(), element = that.$element ? that.$element.get(0) : null;
+                if (state.isHidden !== that.state.isHidden) {
+                    that.state.isHidden = state.isHidden;
+                    if (label)
+                        that.setHidden(element);
+                }
+                if (state.isDisabled != that.state.isDisabled) {
+                    that.state.isDisabled = state.isDisabled;
+                    if (label)
+                        that._setDisabled(label, element);
+                }
+                if (state.isReadOnly != that.state.isReadOnly) {
+                    that.state.isReadOnly = state.isReadOnly;
+                    if (label)
+                        that._setReadOnly(label, element);
+                }
+                if (state.isMandatory != that.state.isMandatory) {
+                    that.state.isMandatory = state.isMandatory;
+                    if (label)
+                        that._setMandatory(label, element);
+                }
+            };
+            Json.prototype.render = function ($parent) {
+                var that = this;
+                var opts = that._initOptions(_uiutils.utils.defaultOptions);
+                if (!that.$element) {
+                    opts.title = _ulocale.tt(that.$schema.title, that.form.$locale);
+                    that.$element = $(_createJson(that.id, opts, that.options.design, opts.title));
+                    that._state2UI();
+                    that.setEvents(opts);
+                }
+                that.appendElement($parent, opts);
+                return that.$element;
+            };
+            return Json;
+        }(Phoenix.ui.AbsField));
+        formjson.Json = Json;
+        _ui.registerControl(Json, "string", false, 'json', {});
+    })(formjson = Phoenix.formjson || (Phoenix.formjson = {}));
+})(Phoenix || (Phoenix = {}));
+/// <reference path="../../../core/core-refs.ts" />
+/// <reference path="./absfield.control.ts" />
+var Phoenix;
+(function (Phoenix) {
+    var _utils = Phoenix.utils, _ui = Phoenix.ui, _dom = Phoenix.dom, _ulocale = Phoenix.ulocale, _uiutils = Phoenix.uiutils;
     var formlabel;
     (function (formlabel) {
         function _createLabel(id, options, authoring, title) {
@@ -32840,26 +32997,48 @@ var Phoenix;
                     if (that.$schema.isApply) {
                         if (opts.type === undefined)
                             opts.type = 'success';
+                        if (opts.outline === undefined)
+                            opts.outline = false;
                     }
                     else if (that.$schema.isSave) {
-                        if (opts.icon === undefined)
-                            opts.icon = 'floppy';
                         if (opts.type === undefined)
                             opts.type = 'success';
+                        if (opts.outline === undefined)
+                            opts.outline = false;
+                    }
+                    else if (that.$schema.isNew) {
+                        if (opts.icon === undefined)
+                            opts.icon = 'plus-circle';
+                        if (opts.type === undefined)
+                            opts.type = 'info';
+                        if (opts.outline === undefined)
+                            opts.outline = true;
                     }
                     else if (that.$schema.isRemove) {
                         if (opts.icon === undefined)
                             opts.icon = 'trash';
                         if (opts.type === undefined)
                             opts.type = 'danger';
+                        if (opts.outline === undefined)
+                            opts.outline = true;
                     }
                     else if (that.$schema.isNavigation) {
                         if (opts.type === undefined)
+                            opts.type = 'primary';
+                        if (opts.outline === undefined)
+                            opts.outline = false;
+                    }
+                    else if (that.$schema.isAction) {
+                        if (opts.type === undefined)
                             opts.type = 'info';
+                        if (opts.outline === undefined)
+                            opts.outline = false;
                     }
                     else if (that.$schema.isImportant) {
                         if (opts.type === undefined)
                             opts.type = 'important';
+                        if (opts.outline === undefined)
+                            opts.outline = false;
                     }
                     else if (that.$schema.isCancel) {
                         if (opts.type === undefined)
@@ -32976,7 +33155,18 @@ var Phoenix;
             }
             options.buttonTag = options.buttonTag || 'button';
             html.push('<' + options.buttonTag + ' type="button"');
-            html.push(' class="bs-button btn btn-' + _dom.bootstrapStyles(options.outline || options.type === 'secondary' || options.type === 'default')[options.type]);
+            var outline = options.outline;
+            if (outline === undefined) {
+                outline = options.type === 'secondary' || options.type === 'default';
+            }
+            var buttonType = options.type || 'secondary';
+            var sst = buttonType.split('-');
+            var st = null;
+            if (sst.length === 2 && sst[0] === 'link') {
+                buttonType = 'link';
+                st = ' text-' + sst[1];
+            }
+            html.push(' class="bs-button btn btn-' + _dom.bootstrapStyles(outline)[buttonType] + (st || ''));
             if (options.color) {
                 html.push(' text-' + _dom.bootstrapStyles()[options.color]);
             }
@@ -33042,9 +33232,9 @@ var Phoenix;
             };
             Link.prototype._renderButton = function () {
                 var that = this;
-                if (!that.title && that.$schema && that.$schema.isRemove)
-                    that.title = _locale.ui.Apply;
-                if (!that.title && that.$schema && that.$schema.isSave || that.$schema.isApply)
+                if (!that.title && that.$schema && that.$schema.isRemove) {
+                }
+                else if (!that.title && that.$schema && that.$schema.isSave || that.$schema.isApply)
                     that.title = _locale.ui.Apply;
                 if (!that.title && that.$schema && that.$schema.isCancel)
                     that.title = _locale.ui.Abandon;
