@@ -167,7 +167,7 @@ var Phoenix;
                 if (datasets)
                     delete data.$config.data.ds;
             }
-            var o = $.extend(true, {}, data);
+            var o = _utils.extendObject(true, {}, data);
             if (restoreMap) {
                 data.map = map;
                 data.fields = fields;
@@ -759,8 +759,8 @@ var Phoenix;
                 return JSON.stringify(o);
             }
         };
-        $.extend(_ui.Layout.prototype, _methods);
-        $.extend(_ui.Form.prototype, _methods);
+        _utils.extendObject(false, _ui.Layout.prototype, _methods);
+        _utils.extendObject(false, _ui.Form.prototype, _methods);
     })(ui = Phoenix.ui || (Phoenix.ui = {}));
 })(Phoenix || (Phoenix = {}));
 
@@ -1820,7 +1820,7 @@ var Phoenix;
 (function (Phoenix) {
     var authtoolbox;
     (function (authtoolbox) {
-        var _p = Phoenix, _utils = _p.utils, _dom = _p.dom, _ipc = _p.ipc, _drag = _p.drag, _ulocale = _p.ulocale, _sutils = _p.Observable.SchemaUtils, _tbUtils = _p.authtoolboxutils;
+        var _p = Phoenix, _utils = _p.utils, _dom = _p.dom, _ipc = _p.ipc, _drag = _p.drag, _sutils = _p.Observable.SchemaUtils, _tbUtils = _p.authtoolboxutils;
         var _setEvents = function ($element, toolBox) {
             $element.find('li[draggable="true"]').on('dragstart', function (event) {
                 event.stopPropagation();
@@ -1835,7 +1835,7 @@ var Phoenix;
                     dt.setData('Text', 'Data');
                     var td = {
                         isNew: true,
-                        data: $.extend(true, {}, l.data.data),
+                        data: _utils.clone(l.data.data),
                         isLayout: false,
                         isField: false,
                         isWidget: false

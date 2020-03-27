@@ -1,3 +1,10 @@
+var __spreadArrays = (this && this.__spreadArrays) || function () {
+    for (var s = 0, i = 0, il = arguments.length; i < il; i++) s += arguments[i].length;
+    for (var r = Array(s), k = 0, i = 0; i < il; i++)
+        for (var a = arguments[i], j = 0, jl = a.length; j < jl; j++, k++)
+            r[k] = a[j];
+    return r;
+};
 var __extends = (this && this.__extends) || (function () {
     var extendStatics = function (d, b) {
         extendStatics = Object.setPrototypeOf ||
@@ -11,6 +18,17 @@ var __extends = (this && this.__extends) || (function () {
         d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
     };
 })();
+var __assign = (this && this.__assign) || function () {
+    __assign = Object.assign || function(t) {
+        for (var s, i = 1, n = arguments.length; i < n; i++) {
+            s = arguments[i];
+            for (var p in s) if (Object.prototype.hasOwnProperty.call(s, p))
+                t[p] = s[p];
+        }
+        return t;
+    };
+    return __assign.apply(this, arguments);
+};
 var Phoenix;
 (function (Phoenix) {
     var serial;
@@ -148,6 +166,107 @@ var Phoenix;
     var _p = Phoenix;
     var utils;
     (function (utils) {
+        var _cloneArray = function (src) {
+            return src.map(function (item) {
+                if (item) {
+                    if (Array.isArray(item))
+                        return _cloneArray(item);
+                    else if (typeof item === 'object')
+                        return _cloneObject(item);
+                    else
+                        return item;
+                }
+                else
+                    return item;
+            });
+        };
+        var _cloneObject = function (src) {
+            // if (src === null) return src;
+            // if (src === undefined) return src;
+            var res = {};
+            Object.keys(src).forEach(function (propertyName) {
+                var item = src[propertyName];
+                if (item) {
+                    if (Array.isArray(item)) {
+                        res[propertyName] = _cloneArray(item);
+                    }
+                    else if (typeof item === 'object') {
+                        res[propertyName] = _cloneObject(item);
+                    }
+                    else
+                        res[propertyName] = item;
+                }
+                else
+                    res[propertyName] = item;
+            });
+            return res;
+        };
+        var _isEmpty = function (value) {
+            return value === undefined || value === null || value === '';
+        };
+        var _clone = function (src) {
+            if (!src)
+                return src;
+            var tt = typeof src;
+            if (tt === 'object') {
+                if (Array.isArray(src))
+                    return _cloneArray(src);
+                else
+                    return _cloneObject(src);
+            }
+            else
+                return src;
+        };
+        utils.extendObject = function (recursive, target, src) {
+            if (Array.isArray(target)) {
+                var cloned = null;
+                if (recursive) {
+                    cloned = src;
+                }
+                else {
+                    cloned = _clone(src);
+                }
+                if (Array.isArray(cloned)) {
+                    for (var i = 0; i < cloned.length; i++) {
+                        target.push(cloned[i]);
+                    }
+                }
+                else {
+                    if (src)
+                        target.push(src);
+                }
+                return target;
+            }
+            else {
+                target = target || {};
+                if (!recursive) {
+                    return Object.assign(target, src);
+                }
+                var cloned = _clone(src);
+                return Object.assign(target, cloned);
+            }
+        };
+        utils.registerScriptSetValue = function (form, path, value) {
+            var svalue = '';
+            if (value === undefined) {
+                svalue = undefined;
+            }
+            else if (value === null) {
+                svalue = null;
+            }
+            else if (typeof value === 'string') {
+                svalue = value.replace(/'/g, '\\\'');
+            }
+            else
+                svalue = value + '';
+            return;
+            console.log('Robot.forms[\'' + form.data.name + '\'].setValue(\'' + path + '\', ' + svalue + ');');
+        };
+        utils.isEmpty = _isEmpty;
+        utils.clone = function (src, defValue) {
+            defValue = defValue || {};
+            return _clone(src) || defValue;
+        };
         var _getPromise = function () {
             return window['Promise'] || (window['ES6Promise'] ? window['ES6Promise'].Promise : null);
         }, _p8 = function (s) {
@@ -373,7 +492,9 @@ var Phoenix;
                 }
             }
             throw "Invalid script Name";
-        }, _showAndLogRules = false, _logRule = function (spaces, rule, trigger, entity) {
+        };
+        var _showAndLogRules = false;
+        var _logRule = function (spaces, rule, trigger, entity) {
             if (_showAndLogRules) {
                 spaces = (spaces || 1) - 1;
                 var sSpaces = new Array(spaces).join('  ');
@@ -453,11 +574,17 @@ var Phoenix;
                     derivedCtor.prototype[name] = baseCtor.prototype[name];
                 });
             });
+        }, _clickDelay = function () {
+            return function (fn) {
+                return setTimeout(function () {
+                    fn();
+                }, 60);
+            };
         }, _focusDelay = function () {
             return function (fn) {
-                setTimeout(function () {
+                return setTimeout(function () {
                     fn();
-                }, 30);
+                }, 40);
             };
         }, _getNextTick = function () {
             var nextTickFn;
@@ -529,6 +656,7 @@ var Phoenix;
         utils.applyMixins = _applyMixins;
         utils.nextTick = _getNextTick();
         utils.focusDelay = _focusDelay();
+        utils.clickDelay = _clickDelay();
         utils.dataAsPromise = _getDataAsPromise;
         utils.extractAngularVars = _extractAngularValues;
         utils.execAngularExpression = _execAngularExpression;
@@ -554,6 +682,9 @@ var Phoenix;
             var value = window.prompt(title, defaultValue);
             success(value);
         };
+        utils.customModal = function (title, modalLayout, modalData, modalSchema, onsuccess) {
+            onsuccess(modalData);
+        };
         utils.cleanUpObject = _cleanUpObject;
         utils.getValue = _getValue;
         utils.getPathValue = _getPathValue;
@@ -566,6 +697,14 @@ var Phoenix;
             Math.trunc = function (v) {
                 v = +v;
                 return (v - v % 1) || (!isFinite(v) || v === 0 ? v : v < 0 ? -0 : 0);
+            };
+        }
+        if (!String.prototype.endsWith) {
+            String.prototype.endsWith = function (search, this_len) {
+                if (this_len === undefined || this_len > this.length) {
+                    this_len = this.length;
+                }
+                return this.substring(this_len - search.length, this_len) === search;
             };
         }
         var arrayProto = Array.prototype;
@@ -610,6 +749,35 @@ var Phoenix;
                 }
                 return -1;
             };
+        }
+        if (!Object.assign) {
+            Object.defineProperty(Object, 'assign', {
+                enumerable: false,
+                configurable: true,
+                writable: true,
+                value: function (target) {
+                    if (target === undefined || target === null) {
+                        throw new TypeError('Cannot convert first argument to object');
+                    }
+                    var to = Object(target);
+                    for (var i = 1; i < arguments.length; i++) {
+                        var nextSource = arguments[i];
+                        if (nextSource === undefined || nextSource === null) {
+                            continue;
+                        }
+                        nextSource = Object(nextSource);
+                        var keysArray = Object.keys(Object(nextSource));
+                        for (var nextIndex = 0, len = keysArray.length; nextIndex < len; nextIndex++) {
+                            var nextKey = keysArray[nextIndex];
+                            var desc = Object.getOwnPropertyDescriptor(nextSource, nextKey);
+                            if (desc !== undefined && desc.enumerable) {
+                                to[nextKey] = nextSource[nextKey];
+                            }
+                        }
+                    }
+                    return to;
+                }
+            });
         }
     })();
 })(Phoenix || (Phoenix = {}));
@@ -1149,30 +1317,29 @@ var Phoenix;
             }
             return uri;
         }, _loadScript = function (name, lurl, after, loader) {
+            if (loader.check && loader.check()) {
+                _dynscripts[name] = { loaded: true };
+                return after(null, false);
+            }
             var status = _dynscripts[name];
             if (!status) {
                 _dynscripts[name] = { loading: true };
                 if (loader) {
-                    loader.execute(function (err) {
+                    loader.execute(function (err, loaded) {
                         if (err)
                             _dynscripts[name] = { error: err };
                         else
                             _dynscripts[name] = { loaded: true };
-                        after(err);
+                        after(err, loaded);
                     });
                 }
                 else {
                     if (ajax.onAjax)
                         ajax.onAjax();
-                    $.ajax({
-                        url: lurl,
-                        dataType: 'script',
-                        cache: true
-                    }).done(function (data, textStatus, jqXHR) {
+                    _getScript(lurl, name).then(function () {
                         _dynscripts[name] = { loaded: true };
-                        after(null);
-                    }).fail(function (jqXHR, textStatus, errorThrown) {
-                        var err = errorThrown || { message: textStatus };
+                        after(null, true);
+                    }).catch(function (err) {
                         _dynscripts[name] = { error: err };
                         after(err);
                     });
@@ -1192,22 +1359,33 @@ var Phoenix;
                     }, 20);
                 }
             }
-        }, _getScript = function (lurl) {
+        }, _getScript = function (url, id) {
             var _promise = _utils.Promise;
+            var scriptTags = document.querySelectorAll('head > script');
+            var found = false;
+            for (var i = 0; i < scriptTags.length; i++) {
+                var scriptTag = scriptTags[i];
+                var src = scriptTag.getAttribute('src');
+                if (!found && src === url || (id && scriptTag.id === id)) {
+                    found = true;
+                    break;
+                }
+            }
+            if (found) {
+                return _promise.resolve(false);
+            }
             return new _promise(function (resolve, reject) {
-                if (ajax.onAjax)
-                    ajax.onAjax();
-                $.ajax({
-                    url: lurl,
-                    dataType: 'script',
-                    cache: true
-                }).done(function (data, textStatus, jqXHR) {
+                var script = document.createElement('script');
+                script.onload = function (evt) {
                     resolve(true);
-                }).fail(function (jqXHR, textStatus, errorThrown) {
-                    reject(errorThrown || {
-                        message: textStatus
-                    });
-                });
+                };
+                script.onerror = function (evt, err) {
+                    reject('Can\'t load script ' + url);
+                };
+                script.src = url;
+                if (id)
+                    script.id = id;
+                document.head.appendChild(script);
             });
         }, _postAndDownload = function (lurl, postData) {
             var _promise = _utils.Promise;
@@ -1316,894 +1494,6 @@ var Phoenix;
         ajax.activateInterceptError = _activateInterceptor;
     })(ajax = Phoenix.ajax || (Phoenix.ajax = {}));
 })(Phoenix || (Phoenix = {}));
-/// <reference path="./ajax.ts" />
-/// <reference path="./locale.ts" />
-var Phoenix;
-(function (Phoenix) {
-    var _p = Phoenix, _locale = _p.locale, _utils = _p.utils, _ajax = _p.ajax;
-    var ulocale;
-    (function (ulocale) {
-        var _afterTranslate = [], _register = function (hnd) { _afterTranslate.push(hnd); }, _translate = function (ll, lang) {
-            $.extend(true, _locale, ll);
-            _afterTranslate.forEach(function (hnd) { hnd(lang); });
-        }, _tt = function (v, context) {
-            context = context || {};
-            if (v && v.substring(0, 2) == '{{') {
-                return v.replace(/{{(.*)}}/g, function (match, path) {
-                    var segments = path.split('.');
-                    var c = context;
-                    for (var i = 0, len = segments.length; i < len; i++) {
-                        if (!c)
-                            break;
-                        c = c[segments[i]];
-                    }
-                    if (c === undefined)
-                        return '[' + path + ']';
-                    else
-                        return c;
-                });
-            }
-            return v;
-        };
-        var _supportedLanguages = ['en', 'fr'], _checkPrecision = function (val, base) {
-            val = Math.round(Math.abs(val));
-            return isNaN(val) ? base : val;
-        }, _toFixed = function (value, precision) {
-            precision = _checkPrecision(precision, 2);
-            var power = Math.pow(10, precision);
-            return (Math.round(value * power) / power).toFixed(precision);
-        }, _formatNumber = function (number, precision, thousand, decimal) {
-            if (number === null)
-                return '';
-            var usePrecision = _checkPrecision(precision, 0), negative = number < 0 ? '-' : '', base = parseInt(_toFixed(Math.abs(number || 0), usePrecision), 10) + '', mod = base.length > 3 ? base.length % 3 : 0;
-            return negative + (mod ? base.substr(0, mod) + thousand : '') + base.substr(mod).replace(/(\d{3})(?=\d)/g, '$1' + thousand) +
-                (usePrecision ? decimal + _toFixed(Math.abs(number), usePrecision).split('.')[1] : '');
-        }, _formatMoney = function (number, precision, thousand, decimal, symbol, format) {
-            if (number === null)
-                return '';
-            format = format || '%v %s';
-            return format.replace('%s', symbol).replace('%v', _formatNumber(number, precision, thousand, decimal));
-        }, _parseDateISO8601 = function (value) {
-            if (value instanceof Date)
-                return value;
-            if (!value)
-                return null;
-            var d = Date.parse(value);
-            if (isNaN(d))
-                return null;
-            return new Date(d);
-        }, _parseDateTimeISO8601 = function (value) {
-            if (value instanceof Date)
-                return value;
-            if (!value)
-                return null;
-            var d = Date.parse(value);
-            if (isNaN(d))
-                return null;
-            return new Date(d);
-        }, _parseISODateAsUTC = function (value) {
-            if (!value)
-                return 0;
-            return Date.UTC(parseInt(value.substr(0, 4), 10), parseInt(value.substr(5, 2), 10) - 1, parseInt(value.substr(8, 2), 10), 0, 0, 0);
-        }, 
-        /**
-        * @param {string} val
-        * @param {number || null} len
-        */
-        _pad = function (val, len) {
-            var sval = val + '';
-            while (sval.length < len)
-                sval = '0' + val;
-            return sval;
-        }, _formatDate = function (value, format) {
-            var token = /d{1,4}|m{1,4}|yy(?:yy)?|([HhMsTtA])\1?|[LloSZ]|"[^"]*"|'[^']*'/g, md = value.getDate(), day = value.getDay(), month = value.getMonth(), year = value.getFullYear(), hours = value.getHours(), minutes = value.getMinutes(), flags = {
-                d: md,
-                dd: _pad(md, 2),
-                ddd: _locale.date.weekdaysShort[day],
-                dddd: _locale.date.weekdays[day],
-                m: month + 1,
-                mm: _pad(month + 1, 2),
-                mmm: _locale.date.monthsShort[month],
-                mmmm: _locale.date.months[month],
-                yy: (year + '').slice(2),
-                yyyy: year,
-                H: hours + '',
-                HH: _pad(hours, 2),
-                h: (hours > 12 ? hours - 12 : hours) + '',
-                hh: _pad(hours > 12 ? hours - 12 : hours, 2),
-                M: minutes + '',
-                MM: _pad(minutes, 2),
-                A: hours > 12 ? 'PM' : 'AM'
-            };
-            return format.replace(token, function ($0) {
-                return $0 in flags ? flags[$0] : $0.slice(1, $0.length - 1);
-            });
-        }, 
-        /**
-        * Date to ISO8601
-        * @param {Date} value
-        */
-        _date2ISO = function (value) {
-            var yy = value.getFullYear(), mm = value.getMonth() + 1, dd = value.getDate();
-            return _pad(yy, 4) + '-' + _pad(mm, 2) + '-' + _pad(dd, 2);
-        }, _parseDateLocalTime = function (value) {
-            var f = _locale.date.dateShort.split('/');
-            if (f.length !== 3)
-                return '';
-            var v = (value || '').split(_locale.date.daySep);
-            var d = [0, 0, 0];
-            var timePart = '';
-            f.forEach(function (ff, index) {
-                var ii = 0;
-                if (ff.charAt(0) === 'm')
-                    ii = 1;
-                else if (ff.charAt(0) === 'y')
-                    ii = 2;
-                var cv = v[index] || '';
-                if (index === 2) {
-                    var spaceIndex = cv.indexOf(' ');
-                    if (spaceIndex > 0) {
-                        timePart = cv.substr(spaceIndex + 1).trim();
-                        cv = cv.substr(0, spaceIndex);
-                    }
-                }
-                d[ii] = parseInt(cv, 10);
-                if (ii == 2 && d[ii] < 100 && cv.length < 3)
-                    d[ii] += Math.round(new Date().getFullYear() / 100) * 100;
-            });
-            var res = { d: d[0], m: d[1], y: d[2], H: 0, M: 0, S: 0 };
-            if (timePart) {
-                var ss = _locale.date.shortTime.split(' ');
-                var tp = timePart.split(' ');
-                var isPm = false;
-                if (ss.length <= 2) {
-                    if (tp.length === ss.length) {
-                        if (ss.length === 2) {
-                            isPm = tp[1] === 'PM';
-                        }
-                        tp = tp[0].split(':');
-                        if (tp.length >= 2) {
-                            res.H = parseInt(tp[0], 10);
-                            res.M = parseInt(tp[1], 10);
-                            if (tp.length > 2)
-                                res.S = parseInt(tp[2], 10);
-                            if (isPm && res.H < 12)
-                                res.H = res.H + 12;
-                        }
-                    }
-                }
-            }
-            return res;
-        }, _shortDate2ISO = function (value) {
-            var pt = _parseDateLocalTime(value);
-            var sv = _pad(pt.y, 4) + '-' + _pad(pt.m, 2) + '-' + _pad(pt.d, 2);
-            var res = Date.parse(sv);
-            if (isNaN(res))
-                return '';
-            return sv;
-        }, _shortDateTime2ISO = function (value) {
-            var pt = _parseDateLocalTime(value);
-            var sv = _pad(pt.y, 4) + '-' + _pad(pt.m, 2) + '-' + _pad(pt.d, 2);
-            var res = Date.parse(sv);
-            if (isNaN(res))
-                return '';
-            var d = new Date(sv);
-            d.setHours(pt.H);
-            d.setMinutes(pt.M);
-            d.setSeconds(pt.S);
-            d.setMilliseconds(0);
-            return d.toISOString();
-        }, _shortDateTime = function (date) {
-            if (!date)
-                return '';
-            var d = _parseDateISO8601(date);
-            if (!d)
-                return '';
-            var format = _locale.date.dateShort;
-            if (_locale.date.daySep !== '/')
-                format = format.replace(/\//g, _locale.date.daySep);
-            return _formatDate(d, format + ' ' + _locale.date.shortTime);
-        }, _shortDate = function (date) {
-            if (!date)
-                return '';
-            var d = _parseDateISO8601(date);
-            if (!d)
-                return '';
-            var format = _locale.date.dateShort;
-            if (_locale.date.daySep != '/')
-                format = format.replace(/\//g, _locale.date.daySep);
-            return _formatDate(d, format);
-        }, _longDate = function (date) {
-            if (!date)
-                return '';
-            var d = _parseDateISO8601(date);
-            if (!d)
-                return '';
-            var format = _locale.date.dateLong;
-            if (_locale.date.daySep != '/')
-                format = format.replace(/\//g, _locale.date.daySep);
-            return _formatDate(d, format);
-        }, _monthYear = function (date) {
-            if (!date)
-                return '';
-            var d = _parseDateISO8601(date);
-            if (!d)
-                return '';
-            var format = _locale.date.monthYear;
-            if (_locale.date.daySep != '/')
-                format = format.replace(/\//g, _locale.date.daySep);
-            return _formatDate(d, format);
-        }, _truncMoney = function (value) {
-            return parseFloat(value.toFixed(_locale.number.decimal));
-        }, _money = function (value, useSymbol) {
-            value = value || 0;
-            if (useSymbol)
-                return _formatMoney(value, _locale.number.places, _locale.number.thousand, _locale.number.decimal, _locale.number.symbol, _locale.number.format);
-            else
-                return _formatNumber(value, _locale.number.places, _locale.number.thousand, _locale.number.decimal);
-        }, _integer = function (value) {
-            return (value || 0) + '';
-        }, _decimal = function (value, decimals, symbol) {
-            if (value === null)
-                return '';
-            value = value || 0;
-            var format = symbol ? '%v %s' : '%v';
-            return _formatMoney(value, decimals, _locale.number.thousand, _locale.number.decimal, symbol, format);
-        }, _formatObject = function (desc, value) {
-            if (!desc || !value)
-                return value;
-            var props = [];
-            Object.keys(desc).forEach(function (pn) {
-                var d = desc[pn];
-                if (d.type === 'date' || d.type === 'money' || d.type === 'decimal' || d.type === 'number') {
-                    props.push({
-                        name: pn,
-                        type: d.type,
-                        symbol: d.symbol,
-                        longdate: d.longdate,
-                        decimals: d.decimals,
-                        useSymbol: d.useSymbol === undefined ? true : d.useSymbol
-                    });
-                }
-            });
-            if (!props.length)
-                return value;
-            var o = Array.isArray(value) ? value : [value];
-            o.forEach(function (co) {
-                props.forEach(function (f) {
-                    switch (f.type) {
-                        case 'date':
-                            co[f.name] = _shortDate(co[f.name]);
-                            break;
-                        case 'money':
-                            co[f.name] = _money(co[f.name], f.useSymbol);
-                            break;
-                        case 'integer':
-                            co[f.name] = _decimal(co[f.name], 0, f.symbol);
-                            break;
-                        case 'decimal':
-                        case 'number':
-                            co[f.name] = _decimal(co[f.name], f.decimals, f.symbol);
-                            break;
-                    }
-                });
-            });
-            return value;
-        }, _ISODatePart = function (isoDate) {
-            var s = isoDate || '';
-            var ii = s.indexOf('T');
-            if (ii > 0)
-                s = s.substr(0, ii);
-            return s;
-        }, _string2Float = function (value) {
-            var val = value.replace(new RegExp(_locale.number.thousand, 'g'), '');
-            if (_locale.number.decimal != '.')
-                val = val.replace(new RegExp(_locale.number.decimal, 'g'), '.');
-            var res = parseFloat(val);
-            if (isNaN(res))
-                res = 0.0;
-            return res;
-        }, _tryParseDateTime = function (value) {
-            var pv = _shortDateTime2ISO(value);
-            if (pv)
-                return _shortDateTime(pv);
-            else
-                return '';
-        }, _tryParseDate = function (value) {
-            var result = '';
-            // Get separator
-            var currentSep = Phoenix.locale.date.daySep;
-            // Get vals
-            var v = value.split(currentSep);
-            if (v.length !== 3)
-                return '';
-            for (var i = 0; i < 3; i++)
-                v[i] = parseInt(v[i], 10);
-            // Format and return date
-            var splitD = 0, splitM = 0, splitY = 0;
-            switch (_locale.date.dateShort) {
-                case 'dd/mm/yyyy':
-                    splitD = 0;
-                    splitM = 1;
-                    splitY = 2;
-                    break;
-                case 'mm/dd/yyyy':
-                    splitD = 1;
-                    splitM = 0;
-                    splitY = 2;
-                    break;
-                case 'yyyy/mm/dd':
-                    splitD = 2;
-                    splitM = 1;
-                    splitY = 0;
-                    break;
-            }
-            if (v[splitY] < 100)
-                v[splitY] += 2000;
-            if (!_validDate(v, splitD, splitM, splitY)) {
-                return '';
-            }
-            v[splitD] = _pad(v[splitD], 2);
-            v[splitM] = _pad(v[splitM], 2);
-            v[splitY] = _pad(v[splitY], 4);
-            return v.join(_locale.date.daySep);
-        }, _validDate = function (bits, splitD, splitM, splitY) {
-            var d = bits[splitD];
-            var m = bits[splitM];
-            var y = bits[splitY];
-            var date = new Date(y, m - 1, d);
-            return (date.getFullYear() == y && date.getMonth() + 1 == m && date.getDate() == d);
-        };
-        ulocale.register = _register;
-        ulocale.translate = _translate;
-        ulocale.tt = _tt;
-        ulocale.currentLang = 'en';
-        ulocale.defCountry = 'US';
-        ulocale.lang = 'fr'; //(navigator.language || navigator.userLanguage || currentLang).split('-')[0];
-        ulocale.country = 'FR';
-        ulocale.money = _money;
-        ulocale.truncMoney = _truncMoney;
-        ulocale.decimal = _decimal;
-        ulocale.integer = _integer;
-        ulocale.format = _formatObject;
-        ulocale.parseISODate = _parseDateISO8601;
-        ulocale.parseISODateAsUTC = _parseISODateAsUTC;
-        ulocale.parseISODateTime = _parseDateTimeISO8601;
-        ulocale.isoDatePart = _ISODatePart;
-        ulocale.shortDateTime = _shortDateTime;
-        ulocale.shortDate = _shortDate;
-        ulocale.longDate = _longDate;
-        ulocale.monthYear = _monthYear;
-        ulocale.localeDate2ISO = _shortDate2ISO;
-        ulocale.localeDateTime2ISO = _shortDateTime2ISO;
-        ulocale.date2ISO = _date2ISO;
-        ulocale.string2Float = _string2Float;
-        ulocale.tryParseDate = _tryParseDate;
-        ulocale.tryParseDateTime = _tryParseDateTime;
-        ulocale.localeTitle = function (title) {
-            if (typeof title === 'object')
-                return title[ulocale.currentLang];
-            return title;
-        };
-        function loadLocale(newLang) {
-            var pp = _utils.phoenixPath();
-            if (newLang != ulocale.currentLang) {
-                _ajax.getScript(pp + '/locale/phoenix_' + ulocale.lang + '.min.js').then(function () {
-                    ulocale.currentLang = newLang;
-                }).catch(function (ex) {
-                });
-            }
-        }
-        ulocale.loadLocale = loadLocale;
-        ;
-        if (_supportedLanguages.indexOf(ulocale.lang) < 0)
-            ulocale.lang = ulocale.currentLang;
-        loadLocale(ulocale.lang);
-    })(ulocale = Phoenix.ulocale || (Phoenix.ulocale = {}));
-    var angularjs;
-    (function (angularjs) {
-        var _registerLocaleFilters = function (app) {
-            if (app && app.filter) {
-                app.filter('money', [function () {
-                        return function (input, useSymbol) {
-                            var value = input === null ? null : (input ? parseFloat(input) : 0.0);
-                            return ulocale.money(value, useSymbol);
-                        };
-                    }]);
-                app.filter('decimal', [function () {
-                        return function (input, decimals, symbol) {
-                            var value = input === null ? null : (input ? parseFloat(input) : 0.0);
-                            return ulocale.decimal(value, decimals || 0, symbol);
-                        };
-                    }]);
-                app.filter('shortdate', [function () {
-                        return function (input) {
-                            return ulocale.shortDate(input);
-                        };
-                    }]);
-                app.filter('longdate', [function () {
-                        return function (input) {
-                            return ulocale.longDate(input);
-                        };
-                    }]);
-                app.filter('monthyear', [function () {
-                        return function (input) {
-                            return ulocale.monthYear(input);
-                        };
-                    }]);
-            }
-        };
-        angularjs.registerFilters = _registerLocaleFilters;
-    })(angularjs = Phoenix.angularjs || (Phoenix.angularjs = {}));
-})(Phoenix || (Phoenix = {}));
-/// <reference path="../modules/ulocale.ts" />
-var Phoenix;
-(function (Phoenix) {
-    var en = {
-        "layouts": {
-            "design": {
-                "Save": "Save",
-                "New": "New page",
-                "Open": { "title": "Open page", "open": "Open", "close": "Close" },
-                "PageName": "Page Name",
-                "InvalidPageName": "Invalid page name",
-                "ConflictedPageName": "A page of that name exists, do you want to give another name ?",
-                "Delete": "Delete page",
-                "DeletePreferences": "Delete preferences",
-                "ConfirmDelete": "Are you sure you want to delete this page ?",
-                "ConfirmDeletePrefs": "Are you sure you want to delete preferences for this page ?",
-                "Preview": "Preview",
-                "AuthoringMode": "Authoring",
-                "layouts": "Blocks",
-                "widgets": "Widgets",
-                "fields": "Fields",
-                "actions": "Actions",
-                "properties": "Properties",
-                "childrenFlow": "Children disposition",
-                "childrenFlowVertical": "Vertical Flow",
-                "childrenTableCell": "Table cell",
-                "childrenAccordionGroup": "Accordion Group",
-                "customStyle": "Custom style",
-                "nestedLayoutName": "Nested Layout Name",
-                "nestedLayoutBind": "Bind for nested layout",
-                "nestedFormController": "Controller for nested form",
-                "columnSize": "Size",
-                "customColumnSize": "Custom Size",
-                "appearance": "Appearance",
-                "appearanceAccordion": "Accordion",
-                "appearanceTabs": "Tabs",
-                "appearanceWizard": "None",
-                "showTitle": "Show title",
-                "bindPagesTitle": "Bind",
-                "name": "Name",
-                "forceDisplayTable": "Force display(Css) table",
-                "title": "Title",
-                "actionApply": "Apply",
-                "formType": "Form Type",
-                "ftVertical": "Vertical Form",
-                "ftHorizontal": "Horizontal Form",
-                "ftInline": "Inline form",
-                "labelSize": "Label width (Bootstrap cols)",
-                "blockPosition": "Position",
-                "bpStatic": "Static",
-                "bpStickyTop": "Sticky Top",
-                "bpStickyBottom": "Sticky Bottom",
-                "noTitlesForFields": "Don't show field's titles",
-                "fieldsTitle": "Children (Fields)"
-            },
-            "defaultTitle": "No title",
-            "NoData": 'No data'
-        },
-        "schema": {
-            "required": "{0} is required.",
-            "minNumber": "{0} must be at least {1}",
-            "maxNumber": "{0} cannot exceed {1}",
-            "minNumberExclusive": "{0} must be greater than {1}",
-            "maxNumberExclusive": "{0} must be less than {1}",
-            "uniqueColumn": "The column '{0}' must be unique.",
-            "uniqueColumns": "Duplicate value for columns '{0}' found.",
-            "passwordMismatch": "Password mismatch.",
-            "invalidEmail": "Invalid Email Address.",
-            "invalidChars": "Some characters are invalid.",
-            "invalidPhone": "Invalid Url Address.",
-            "invalidUrl": "Invalid Phone Number.",
-            "minLength": "{0} must be at least {1} characters"
-        },
-        "ui": {
-            "Close": "Close",
-            "Abandon": "Abandon",
-            "Ok": "Ok",
-            "Yes": "Yes",
-            "No": "No",
-            "false": "False",
-            "true": "True",
-            "Warning": "Warning",
-            "Info": "Information",
-            "Disconnect": "Disconnect",
-            "Confirm": "Confirm",
-            "Validate": "Validate",
-            "Create": "Create",
-            "password": {
-                "oldPassword": "Old Password",
-                "newPassword": "New Password",
-                "change": "Change password"
-            },
-            "ApplyDetailChanges": "Apply",
-            "Selected": "Sel.",
-            "Add": "Add",
-            "title": "Title",
-            "selectedFilters": "Selected filters",
-            "OpenNewTab": "Open link in new tab",
-            "Search": "Search",
-            "Actions": "Actions",
-            "FileUpload": "Choose File",
-            "Apply": "Apply",
-            "Remove": "Remove",
-            "ExportCsv": "Export as CSV",
-            "SaveSuccessful": "Changes saved successfully.",
-            "cancelWarning": "All changes will be lost if you leave this page without saving. Are you sure to continue ?",
-            "removeWarning": "Are you sure you want to delete this item?"
-        },
-        "errors": {
-            "Title": "Oops! An unknown error has occurred.",
-            "SendMail": "Send",
-            "MailSubject": "Error in JS client",
-            "ErrorTitle": "Error:",
-            "ErrorUser": "User:",
-            "ErrorDate": "Date and time:",
-            "Browser": "Browser:",
-            "ErrorURI": "Address:",
-            "Stack": "Call stack:",
-            "Context": "Context:",
-            "error500": "Internal server error",
-            "unknownError": "An unknown error has occurred.",
-            "notAuthorized": "Forbidden",
-            "invalidUploadFileName": "Blocked for security reasons!",
-            "invalidUploadFileSize": "File too large!"
-        },
-        "listView": {
-            "search": {
-                "Search": "Search",
-                "Nodata": "Aucun résultat trouvé ..."
-            }
-        },
-        "pagination": {
-            "Next": "»",
-            "Previous": "«",
-            "First": "First",
-            "Last": "Last"
-        },
-        "number": {
-            "decimal": ".",
-            "thousand": " ",
-            "places": 2,
-            "symbol": "$",
-            "coef": ["U", "K"],
-            "format": "%s %v"
-        },
-        "charts": {
-            "numericSymbols": ["k", "M", "G", "T", "P", "E"],
-            "resetZoom": "Reset zoom",
-            "resetZoomTitle": "Reset zoom level 1:1",
-            "rangeSelectorZoom": "Zoom",
-            "rangeSelectorFrom": "From",
-            "rangeSelectorTo": "To"
-        },
-        "date": {
-            "weekdaysShort": ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
-            "weekdaysMin": ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"],
-            "weekdays": ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"],
-            "monthsShort": ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"],
-            "months": ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"],
-            "dateShort": "mm/dd/yyyy",
-            "dateLong": "d mmm, yyyy",
-            "monthYear": "mmmm yyyy",
-            "shortTime": "hh:MM A",
-            "daySep": "-",
-            "weekStart": 0,
-            "today": "Today",
-            "clear": "Clear"
-        },
-        "operators": {
-            "in": { "symbol": "=", "title": "equal", "binary": false },
-            "nin": { "symbol": "!=", "title": "not equal", "binary": false },
-            "gt": { "symbol": ">", "title": "is greater than", "binary": false },
-            "ge": { "symbol": ">=", "title": "is greater or equal than", "binary": false },
-            "lt": { "symbol": "<", "title": "is less than", "binary": false },
-            "le": { "symbol": ">", "title": "is less or equal than", "binary": false },
-            "between": { "symbol": "between", "title": "between", "binary": true },
-            "nbetween": { "symbol": "not between", "title": "not between", "binary": true },
-            "like": { "symbol": "contains", "title": "contains", "binary": false },
-            "nlike": { "symbol": "not contains", "title": "not contains", "binary": false },
-            "empty": { "symbol": "is null", "title": "is null", "binary": false },
-            "nempty": { "symbol": "is not null", "title": "is not null", "binary": false }
-        },
-        "types": {
-            "number": { "title": "Number", "operators": ["in", "nin", "gt", "ge", "lt", "le", "between", "nbetween", "empty", "nempty"] },
-            "decimal": { "title": "Decimal", "operators": ["in", "nin", "gt", "ge", "lt", "le", "between", "nbetween", "empty", "nempty"] },
-            "money": { "title": "Money", "operators": ["in", "nin", "gt", "ge", "lt", "le", "between", "nbetween", "empty", "nempty"] },
-            "integer": { "title": "Integer", "operators": ["in", "nin", "gt", "ge", "lt", "le", "between", "nbetween", "empty", "nempty"] },
-            "date": { "title": "Date", "operators": ["in", "nin", "gt", "ge", "lt", "le", "between", "nbetween", "empty", "nempty"] },
-            "time": { "title": "Time", "operators": ["in", "nin", "gt", "ge", "lt", "le", "between", "nbetween", "empty", "nempty"] },
-            "date-time": { "title": "Date Time", "operators": ["in", "nin", "gt", "ge", "lt", "le", "between", "nbetween", "empty", "nempty"] },
-            "string": { "title": "String", "operators": ["in", "nin", "like", "nlike", "empty", "nempty"] },
-            "enum": { "title": "Enum", "operators": ["in", "nin", "empty", "nempty"] },
-            "lookup": { "title": "Lookup", "operators": ["in", "nin", "empty", "nempty"] },
-            "boolean": { "title": "Boolean", "operators": ["in", "nin", "empty", "nempty"] }
-        }
-    };
-    Phoenix.ulocale.translate(en, "en");
-})(Phoenix || (Phoenix = {}));
-/// <reference path="./utils.ts" />
-var Phoenix;
-(function (Phoenix) {
-    var _p = Phoenix, _utils = _p.utils;
-    var external;
-    (function (external) {
-        var _defPrefsLoader = function (name) {
-            var promiseClass = _utils.Promise;
-            if (window.localStorage)
-                return new promiseClass(function (resolve, reject) {
-                    var d = window.localStorage.getItem('preferences.' + name);
-                    if (d)
-                        resolve(JSON.parse(d));
-                    else
-                        resolve(null);
-                });
-            else
-                return new promiseClass(function (resolve, reject) {
-                    resolve(null);
-                });
-        };
-        var _defPrefsSaver = function (name, data) {
-            var promiseClass = _utils.Promise;
-            if (window.localStorage)
-                return new promiseClass(function (resolve, reject) {
-                    if (data)
-                        window.localStorage.setItem('preferences.' + name, JSON.stringify(data));
-                    else
-                        window.localStorage.setItem('preferences.' + name, '');
-                    resolve();
-                });
-            else
-                return new promiseClass(function (resolve, reject) {
-                    resolve();
-                });
-        };
-        external.hashHandler = null;
-        external.logoutHandler = null;
-        external.forbiddenHandler = null;
-        external.changePasswordHandler = null;
-        external.checkLoggedInHandler = null;
-        external.historyChangedHandler = null;
-        external.formOpenHandler = null;
-        external.preferenceLoadHandler = _defPrefsLoader;
-        external.preferenceSaveHandler = _defPrefsSaver;
-        external.ruleLoaderHandler = null;
-        external.ruleViewer = null;
-    })(external = Phoenix.external || (Phoenix.external = {}));
-    var history;
-    (function (history) {
-        history.useServerState = false;
-        history.setState = function (key, value) {
-            var root = JSON.parse(sessionStorage.getItem('phoenix_history_state') || '{}');
-            root[key] = value;
-            sessionStorage.setItem('phoenix_history_state', JSON.stringify(root));
-        };
-        history.getState = function (key) {
-            var root = JSON.parse(sessionStorage.getItem('phoenix_history_state') || '{}');
-            return root[key];
-        };
-        history.supportRefresh = true;
-        history.destroyViewHandler = function (cd) {
-            console.log(cd);
-        };
-        var _value = [], _locationPrefix = '!', _assertValue = function () {
-            var vstr = sessionStorage.getItem('phoenix_history');
-            if (vstr) {
-                _value = JSON.parse(vstr).history;
-            }
-            else
-                _value = [];
-        }, _saveValue = function () {
-            sessionStorage.setItem('phoenix_history', JSON.stringify({ history: _value }));
-        }, _addData = function (cd) {
-            _assertValue();
-            if (_value.length) {
-                var v = _value[_value.length - 1];
-                var doAdd_1 = true;
-                var vas_1 = JSON.stringify(cd);
-                v.data.forEach(function (item) {
-                    if (doAdd_1 && JSON.stringify(item) === vas_1)
-                        doAdd_1 = false;
-                });
-                if (doAdd_1) {
-                    v.data.push(cd);
-                    _saveValue();
-                }
-                if (!history.useServerState && _value.length > 1) {
-                    var prevData = _value[_value.length - 2];
-                    if (!prevData.persistent) {
-                        var toDestroy_1 = [];
-                        prevData.data.forEach(function (ii) { return toDestroy_1.push(ii); });
-                        prevData.data = [];
-                        _saveValue();
-                        if (toDestroy_1.length) {
-                            history.destroyViewHandler(toDestroy_1);
-                        }
-                    }
-                }
-            }
-        }, _clearLastData = function (deferClose) {
-            _assertValue();
-            var toDestroy = [];
-            if (_value.length) {
-                var v = _value[_value.length - 1];
-                v.data.forEach(function (ii) {
-                    ii.deferClose = deferClose;
-                    toDestroy.push(ii);
-                });
-                v.data = [];
-                _saveValue();
-            }
-            if (toDestroy.length) {
-                history.destroyViewHandler(toDestroy);
-            }
-        }, _removeLast = function () {
-            _assertValue();
-            var toDestroy = [];
-            var last = _value.pop();
-            last.data.forEach(function (ii) { return toDestroy.push(ii); });
-            last.data = [];
-            _saveValue();
-            if (toDestroy.length) {
-                history.destroyViewHandler(toDestroy);
-            }
-            if (external.historyChangedHandler)
-                external.historyChangedHandler();
-        }, _updateLast = function (oldHash, newHash, persistent) {
-            _assertValue();
-            var len = _value.length;
-            var last = len ? _value[len - 1].pageName : '';
-            if (last === oldHash) {
-                _value[len - 1].pageName = newHash;
-                if (persistent !== undefined)
-                    _value[len - 1].persistent = persistent ? true : false;
-                _saveValue();
-            }
-        }, _add = function (hash, reset) {
-            if (reset)
-                _clear(true, false);
-            _assertValue();
-            if (reset) {
-                _value = [{ pageName: hash, data: [], persistent: false }];
-                _saveValue();
-                if (external.historyChangedHandler)
-                    external.historyChangedHandler();
-                return;
-            }
-            var len = _value.length;
-            var last = len ? _value[len - 1].pageName : '';
-            if (last !== hash) {
-                var toDestroy_2 = [];
-                var prev = (len >= 2) ? _value[len - 2].pageName : '';
-                if (hash === prev) {
-                    var last_1 = _value.pop();
-                    last_1.data.forEach(function (ii) { return toDestroy_2.push(ii); });
-                    last_1.data = [];
-                }
-                else
-                    _value.push({ pageName: hash, data: [], persistent: false });
-                _saveValue();
-                if (toDestroy_2.length) {
-                    history.destroyViewHandler(toDestroy_2);
-                }
-                if (external.historyChangedHandler)
-                    external.historyChangedHandler();
-            }
-        }, _lastPage = function () {
-            _assertValue();
-            if (_value && _value.length > 1) {
-                var res = _value[_value.length - 2].pageName;
-                var i = res.indexOf('?');
-                if (i > 0)
-                    res = res.substr(0, i);
-                i = 1;
-                if (_locationPrefix)
-                    i = i + 1;
-                res = res.substr(i);
-                if (res.charAt(0) === '/')
-                    res = res.substr(1);
-                return res;
-            }
-            return '';
-        }, _clear = function (notify, deferClose) {
-            _assertValue();
-            var toDestroy = [];
-            if (notify) {
-                _value.forEach(function (item) {
-                    item.data.forEach(function (ii) {
-                        ii.deferClose = deferClose;
-                        toDestroy.push(ii);
-                    });
-                    item.data = [];
-                });
-            }
-            _value = [];
-            _saveValue();
-            if (toDestroy.length) {
-                history.destroyViewHandler(toDestroy);
-            }
-        }, _hasBack = function () {
-            _assertValue();
-            return _value.length > 1;
-        };
-        history.removeLast = _removeLast;
-        history.add = _add;
-        history.hasBack = _hasBack;
-        history.value = _value;
-        history.lastPage = _lastPage;
-        history.locationPrefix = _locationPrefix;
-        history.clear = _clear;
-        history.updateLast = _updateLast;
-        history.addData = _addData;
-        history.clearLastData = _clearLastData;
-    })(history = Phoenix.history || (Phoenix.history = {}));
-    var render;
-    (function (render) {
-        var _renders = {}, _registerRender = function (context, name, handler) {
-            _renders[context] = _renders[context] || {};
-            _renders[context][name] = handler;
-        }, _getRender = function (context, name) {
-            if (!_renders[context])
-                return null;
-            return _renders[context][name];
-        };
-        render.register = _registerRender;
-        render.get = _getRender;
-    })(render = Phoenix.render || (Phoenix.render = {}));
-    var ipc;
-    (function (ipc) {
-        var _eventListeners = {}, _emitEvent = function (eventName, data) {
-            var evname = 'on' + eventName;
-            var l = _eventListeners[evname];
-            if (l)
-                l.forEach(function (item) {
-                    var hnd = item.listener ? item.handler.bind(item.listener) : item.handler;
-                    hnd(data);
-                });
-        }, _regListener = function (eventName, handler, listener) {
-            _eventListeners[eventName] = _eventListeners[eventName] || [];
-            var l = _eventListeners[eventName];
-            l.push({
-                listener: listener,
-                handler: handler
-            });
-        }, _unregListener = function (listener, eventName) {
-            function _rmvlistener(res) {
-                if (res) {
-                    var i = res.length;
-                    while (i--) {
-                        var o = res[i];
-                        if (o.listener == listener)
-                            res.splice(i, 1);
-                    }
-                }
-            }
-            if (eventName) {
-                _rmvlistener(_eventListeners[eventName]);
-            }
-            else {
-                Object.keys(_eventListeners).forEach(function (evn) {
-                    _rmvlistener(_eventListeners[evn]);
-                });
-            }
-        };
-        ipc.emit = _emitEvent;
-        ipc.listen = _regListener;
-        ipc.unlisten = _unregListener;
-    })(ipc = Phoenix.ipc || (Phoenix.ipc = {}));
-})(Phoenix || (Phoenix = {}));
 var Phoenix;
 (function (Phoenix) {
     Phoenix.bootstrap4 = true;
@@ -2211,6 +1501,7 @@ var Phoenix;
     Phoenix.modalPlugin = 'modal';
     var dom;
     (function (dom) {
+        dom.inBody = true;
         var _mapIcon = {
             'arrow-left': 'arrow-back',
             'arrow-right': 'arrow-forward',
@@ -2226,7 +1517,9 @@ var Phoenix;
             'caret-up': 'arrow-drop-up',
             'caret-down': 'arrow-drop-down',
             'check-square-o': 'check-box',
+            'minus-square': 'indeterminate-check-box',
             'chevron-down': 'expand-more',
+            'chevron-up': 'expand-less',
             'chevron-left': 'chevron-left',
             'chevron-right': 'chevron-right',
             'clock-o': 'schedule',
@@ -2234,6 +1527,7 @@ var Phoenix;
             'cog': 'settings',
             'ellipsis-v': 'more-vert',
             'exclamation-circle': 'error',
+            'exclamation-triangle': 'warning',
             'eye': 'visibility',
             'forward': 'fast-forward',
             'file-o': 'folder',
@@ -2264,6 +1558,8 @@ var Phoenix;
             'window-maximize': 'fullscreen',
             'heart': 'favorite',
             'map-marker': 'location-on',
+            'align-justify': 'view-headline',
+            'image': 'photo',
             'paperclip': 'attach-file',
             'file-export': 'import-export',
             'comment': 'comment',
@@ -2274,7 +1570,8 @@ var Phoenix;
             'archive': 'archive',
             'credit-card': 'payment',
             'file-invoice': 'description',
-            'cloud-download': 'cloud-download'
+            'cloud-download': 'cloud-download',
+            'view-column': 'view-column'
         };
         var _bootstrapBtnCache = null;
         var _bootstraOutlinepBtnCache = null;
@@ -2313,6 +1610,10 @@ var Phoenix;
                 };
                 return _bootstrapBtnCache;
             }
+        }, _standardStyles = function (style) {
+            if (['important', 'primary', 'secondary', 'danger', 'warning', 'success'].indexOf(style) >= 0)
+                style = 'bs-style-' + style;
+            return style;
         }, _parseStyle = function (style, css) {
             if (style) {
                 var a = style.split(' ');
@@ -2793,6 +2094,8 @@ var Phoenix;
                 child = child.parentNode;
             }
             return false;
+        }, _hasAttr = function (element, attr) {
+            return element.hasAttribute(attr);
         }, _attr = function (element, attr, value) {
             if (value === void 0) { value = undefined; }
             if (value === undefined) {
@@ -2837,7 +2140,7 @@ var Phoenix;
                 _coverRefCount++;
                 if (!_cover) {
                     _coverRefCount = 1;
-                    _cover = $('<div class="bs-cover' + (delay ? ' bs-none' : '') + '"></div>').get(0);
+                    _cover = $('<div class="bs-cover' + (delay ? ' bs-none' : '') + '"><div class="bs-cover-progress spinner-border text-primary" role="status"></div></div>').get(0);
                     _cover.style.height = ($(document).height() - 1) + 'px';
                     _append(document.body, _cover);
                     if (delay) {
@@ -2961,6 +2264,14 @@ var Phoenix;
                     clearTimeout(_resizeTimeOut);
                 _resizeTimeOut = setTimeout(_emitResize, 50);
             });
+        }, _disableBackspaceNavigation = function () {
+            $(window).on('keydown', function (e) {
+                if (e.keyCode == dom.keys.VK_BACKSPACE) {
+                    var input = e.originalEvent.target;
+                    if (input.tagName && (input.tagName.toUpperCase() !== 'INPUT' && input.tagName.toUpperCase() !== 'TEXTAREA'))
+                        e.preventDefault();
+                }
+            });
         }, _setCookie = function (name, value, path, expireDate) {
             try {
                 if (!value)
@@ -2986,7 +2297,7 @@ var Phoenix;
             }
             return null;
         };
-        dom.readyHandlers = [_setResizeHnd];
+        dom.readyHandlers = [_setResizeHnd, _disableBackspaceNavigation];
         dom.finalizeHandlers = [];
         dom.keys = {
             VK_TAB: 9, VK_UP: 38, VK_DOWN: 40, VK_INSERT: 45, VK_DELETE: 46, VK_LEFT: 37, VK_RIGHT: 39,
@@ -3019,10 +2330,12 @@ var Phoenix;
         dom.remove = _remove;
         dom.detach = _detach;
         dom.attr = _attr;
+        dom.hasAttr = _hasAttr;
         dom.text = _text;
         dom.findByAttribute = _elemByAttribute;
         dom.isChildOf = _isChildOf;
         dom.parseStyle = _parseStyle;
+        dom.standardStyles = _standardStyles;
         dom.ignoreKeys = [0, dom.keys.VK_UP, dom.keys.VK_DOWN, dom.keys.VK_HOME, dom.keys.VK_END, dom.keys.VK_PGUP, dom.keys.VK_PGDOWN, dom.keys.VK_ENTER, dom.keys.VK_ESCAPE,
             dom.keys.VK_DELETE, dom.keys.VK_BACKSPACE, dom.keys.VK_INSERT];
         dom.arrowKeys = [dom.keys.VK_LEFT, dom.keys.VK_RIGHT, dom.keys.VK_UP, dom.keys.VK_DOWN];
@@ -3064,6 +2377,12 @@ var Phoenix;
                 hnd();
             });
         }
+        $(document.body).focusin(function (event) {
+            dom.inBody = true;
+        });
+        $(document.body).focusout(function (event) {
+            dom.inBody = false;
+        });
     });
     window.addEventListener('beforeunload', function (event) {
         if (dom.finalizeHandlers.length) {
@@ -3077,6 +2396,949 @@ var Phoenix;
             });
         }
     });
+})(Phoenix || (Phoenix = {}));
+/// <reference path="./ajax.ts" />
+/// <reference path="./dom.ts" />
+/// <reference path="./locale.ts" />
+var Phoenix;
+(function (Phoenix) {
+    var _p = Phoenix, _dom = _p.dom, _locale = _p.locale, _utils = _p.utils, _ajax = _p.ajax;
+    var ulocale;
+    (function (ulocale) {
+        var CURRENT_LANG = 'CURRENT_LANG';
+        var _afterTranslate = [], _register = function (hnd) { _afterTranslate.push(hnd); }, _translate = function (ll, lang) {
+            _utils.extendObject(true, _locale, ll);
+            _afterTranslate.forEach(function (hnd) { hnd(lang); });
+        }, _tt = function (v, context) {
+            context = context || {};
+            if (v && v.substring(0, 2) == '{{') {
+                return v.replace(/{{(.*)}}/g, function (match, path) {
+                    var segments = path.split('.');
+                    var c = context;
+                    for (var i = 0, len = segments.length; i < len; i++) {
+                        if (!c)
+                            break;
+                        c = c[segments[i]];
+                    }
+                    if (c === undefined)
+                        return '[' + path + ']';
+                    else
+                        return c;
+                });
+            }
+            return v;
+        };
+        var _supportedLanguages = ['en', 'fr', 'pl'], _checkPrecision = function (val, base) {
+            val = Math.round(Math.abs(val));
+            return isNaN(val) ? base : val;
+        }, _toFixed = function (value, precision) {
+            precision = _checkPrecision(precision, 2);
+            var power = Math.pow(10, precision);
+            return (Math.round(value * power) / power).toFixed(precision);
+        }, _formatNumber = function (number, precision, thousand, decimal) {
+            if (number === null)
+                return '';
+            var usePrecision = _checkPrecision(precision, 0), negative = number < 0 ? '-' : '', base = parseInt(_toFixed(Math.abs(number || 0), usePrecision), 10) + '', mod = base.length > 3 ? base.length % 3 : 0;
+            return negative + (mod ? base.substr(0, mod) + thousand : '') + base.substr(mod).replace(/(\d{3})(?=\d)/g, '$1' + thousand) +
+                (usePrecision ? decimal + _toFixed(Math.abs(number), usePrecision).split('.')[1] : '');
+        }, _formatMoney = function (number, precision, thousand, decimal, symbol, format, removeTrailingZeros) {
+            if (number === null)
+                return '';
+            format = format || '%v %s';
+            var v = format.replace('%s', symbol).replace('%v', _formatNumber(number, precision, thousand, decimal));
+            if (removeTrailingZeros) {
+                var i = v.indexOf(_locale.number.decimal);
+                if (i > 0) {
+                    for (var ii = v.length - 1; ii >= i; ii--) {
+                        var cc = v.charAt(ii);
+                        if (cc === '0' || cc === _locale.number.decimal) {
+                            v = v.substring(0, ii);
+                        }
+                        else
+                            break;
+                    }
+                }
+            }
+            return v;
+        }, _parseDateISO8601 = function (value) {
+            if (value instanceof Date)
+                return value;
+            if (!value)
+                return null;
+            var d = Date.parse(value);
+            if (isNaN(d))
+                return null;
+            return new Date(d);
+        }, _parseDateTimeISO8601 = function (value) {
+            if (value instanceof Date)
+                return value;
+            if (!value)
+                return null;
+            var d = Date.parse(value);
+            if (isNaN(d))
+                return null;
+            return new Date(d);
+        }, _parseISODateAsUTC = function (value) {
+            if (!value)
+                return 0;
+            return Date.UTC(parseInt(value.substr(0, 4), 10), parseInt(value.substr(5, 2), 10) - 1, parseInt(value.substr(8, 2), 10), 0, 0, 0);
+        }, 
+        /**
+        * @param {string} val
+        * @param {number || null} len
+        */
+        _pad = function (val, len) {
+            var sval = val + '';
+            while (sval.length < len)
+                sval = '0' + val;
+            return sval;
+        }, _formatDate = function (value, format) {
+            var token = /d{1,4}|m{1,4}|yy(?:yy)?|([HhMsTtA])\1?|[LloSZ]|"[^"]*"|'[^']*'/g, md = value.getDate(), day = value.getDay(), month = value.getMonth(), year = value.getFullYear(), hours = value.getHours(), minutes = value.getMinutes(), flags = {
+                d: md,
+                dd: _pad(md, 2),
+                ddd: _locale.date.weekdaysShort[day],
+                dddd: _locale.date.weekdays[day],
+                m: month + 1,
+                mm: _pad(month + 1, 2),
+                mmm: _locale.date.monthsShort[month],
+                mmmm: _locale.date.months[month],
+                yy: (year + '').slice(2),
+                yyyy: year,
+                H: hours + '',
+                HH: _pad(hours, 2),
+                h: (hours > 12 ? hours - 12 : hours) + '',
+                hh: _pad(hours > 12 ? hours - 12 : hours, 2),
+                M: minutes + '',
+                MM: _pad(minutes, 2),
+                A: hours > 12 ? 'PM' : 'AM'
+            };
+            return format.replace(token, function ($0) {
+                return $0 in flags ? flags[$0] : $0.slice(1, $0.length - 1);
+            });
+        }, 
+        /**
+        * Date to ISO8601
+        * @param {Date} value
+        */
+        _date2ISO = function (value) {
+            var yy = value.getFullYear(), mm = value.getMonth() + 1, dd = value.getDate();
+            return _pad(yy, 4) + '-' + _pad(mm, 2) + '-' + _pad(dd, 2);
+        }, _parseDateLocalTime = function (value) {
+            var f = _locale.date.dateShort.split('/');
+            if (f.length !== 3)
+                return '';
+            var v = (value || '').split(_locale.date.daySep);
+            var d = [0, 0, 0];
+            var timePart = '';
+            f.forEach(function (ff, index) {
+                var ii = 0;
+                if (ff.charAt(0) === 'm')
+                    ii = 1;
+                else if (ff.charAt(0) === 'y')
+                    ii = 2;
+                var cv = v[index] || '';
+                if (index === 2) {
+                    var spaceIndex = cv.indexOf(' ');
+                    if (spaceIndex > 0) {
+                        timePart = cv.substr(spaceIndex + 1).trim();
+                        cv = cv.substr(0, spaceIndex);
+                    }
+                }
+                d[ii] = parseInt(cv, 10);
+                if (ii == 2 && d[ii] < 100 && cv.length < 3)
+                    d[ii] += Math.round(new Date().getFullYear() / 100) * 100;
+            });
+            var res = { d: d[0], m: d[1], y: d[2], H: 0, M: 0, S: 0 };
+            if (timePart) {
+                var ss = _locale.date.shortTime.split(' ');
+                var tp = timePart.split(' ');
+                var isPm = false;
+                if (ss.length <= 2) {
+                    if (tp.length === ss.length) {
+                        if (ss.length === 2) {
+                            isPm = tp[1] === 'PM';
+                        }
+                        tp = tp[0].split(':');
+                        if (tp.length >= 2) {
+                            res.H = parseInt(tp[0], 10);
+                            res.M = parseInt(tp[1], 10);
+                            if (tp.length > 2)
+                                res.S = parseInt(tp[2], 10);
+                            if (isPm && res.H < 12)
+                                res.H = res.H + 12;
+                        }
+                    }
+                }
+            }
+            return res;
+        }, _shortDate2ISO = function (value) {
+            var pt = _parseDateLocalTime(value);
+            var sv = _pad(pt.y, 4) + '-' + _pad(pt.m, 2) + '-' + _pad(pt.d, 2);
+            var res = Date.parse(sv);
+            if (isNaN(res))
+                return '';
+            return sv;
+        }, _shortDateTime2ISO = function (value) {
+            var pt = _parseDateLocalTime(value);
+            var sv = _pad(pt.y, 4) + '-' + _pad(pt.m, 2) + '-' + _pad(pt.d, 2);
+            var res = Date.parse(sv);
+            if (isNaN(res))
+                return '';
+            var d = new Date(sv);
+            d.setHours(pt.H);
+            d.setMinutes(pt.M);
+            d.setSeconds(pt.S);
+            d.setMilliseconds(0);
+            return d.toISOString();
+        }, _shortDateTime = function (date) {
+            if (!date)
+                return '';
+            var d = _parseDateISO8601(date);
+            if (!d)
+                return '';
+            var format = _locale.date.dateShort;
+            if (_locale.date.daySep !== '/')
+                format = format.replace(/\//g, _locale.date.daySep);
+            return _formatDate(d, format + ' ' + _locale.date.shortTime);
+        }, _shortDate = function (date) {
+            if (!date)
+                return '';
+            var d = _parseDateISO8601(date);
+            if (!d)
+                return '';
+            var format = _locale.date.dateShort;
+            if (_locale.date.daySep != '/')
+                format = format.replace(/\//g, _locale.date.daySep);
+            return _formatDate(d, format);
+        }, _longDate = function (date) {
+            if (!date)
+                return '';
+            var d = _parseDateISO8601(date);
+            if (!d)
+                return '';
+            var format = _locale.date.dateLong;
+            if (_locale.date.daySep != '/')
+                format = format.replace(/\//g, _locale.date.daySep);
+            return _formatDate(d, format);
+        }, _monthYear = function (date) {
+            if (!date)
+                return '';
+            var d = _parseDateISO8601(date);
+            if (!d)
+                return '';
+            var format = _locale.date.monthYear;
+            if (_locale.date.daySep != '/')
+                format = format.replace(/\//g, _locale.date.daySep);
+            return _formatDate(d, format);
+        }, _truncMoney = function (value) {
+            return parseFloat(value.toFixed(_locale.number.decimal));
+        }, _money = function (value, useSymbol) {
+            value = value || 0;
+            if (useSymbol)
+                return _formatMoney(value, _locale.number.places, _locale.number.thousand, _locale.number.decimal, _locale.number.symbol, _locale.number.format);
+            else
+                return _formatNumber(value, _locale.number.places, _locale.number.thousand, _locale.number.decimal);
+        }, _integer = function (value) {
+            return (value || 0) + '';
+        }, _decimal = function (value, decimals, symbol, removeTrailingZeros) {
+            if (value === null)
+                return '';
+            value = value || 0;
+            var format = symbol ? '%v %s' : '%v';
+            return _formatMoney(value, decimals, _locale.number.thousand, _locale.number.decimal, symbol, format, removeTrailingZeros);
+        }, _formatObject = function (desc, value) {
+            if (!desc || !value)
+                return value;
+            var props = [];
+            Object.keys(desc).forEach(function (pn) {
+                var d = desc[pn];
+                if (d.type === 'date' || d.type === 'money' || d.type === 'decimal' || d.type === 'number') {
+                    props.push({
+                        name: pn,
+                        type: d.type,
+                        symbol: d.symbol,
+                        longdate: d.longdate,
+                        decimals: d.decimals,
+                        useSymbol: d.useSymbol === undefined ? true : d.useSymbol
+                    });
+                }
+            });
+            if (!props.length)
+                return value;
+            var o = Array.isArray(value) ? value : [value];
+            o.forEach(function (co) {
+                props.forEach(function (f) {
+                    switch (f.type) {
+                        case 'date':
+                            co[f.name] = _shortDate(co[f.name]);
+                            break;
+                        case 'money':
+                            co[f.name] = _money(co[f.name], f.useSymbol);
+                            break;
+                        case 'integer':
+                            co[f.name] = _decimal(co[f.name], 0, f.symbol);
+                            break;
+                        case 'decimal':
+                        case 'number':
+                            co[f.name] = _decimal(co[f.name], f.decimals, f.symbol);
+                            break;
+                    }
+                });
+            });
+            return value;
+        }, _ISODatePart = function (isoDate) {
+            var s = isoDate || '';
+            var ii = s.indexOf('T');
+            if (ii > 0)
+                s = s.substr(0, ii);
+            return s;
+        }, _string2Float = function (value) {
+            var val = value.replace(new RegExp(_locale.number.thousand, 'g'), '');
+            if (_locale.number.decimal != '.')
+                val = val.replace(new RegExp(_locale.number.decimal, 'g'), '.');
+            var res = parseFloat(val);
+            if (isNaN(res))
+                res = 0.0;
+            return res;
+        }, _tryParseDateTime = function (value) {
+            var pv = _shortDateTime2ISO(value);
+            if (pv)
+                return _shortDateTime(pv);
+            else
+                return '';
+        }, _tryParseDate = function (value) {
+            var result = '';
+            // Get separator
+            var currentSep = Phoenix.locale.date.daySep;
+            // Get vals
+            var v = value.split(currentSep);
+            if (v.length !== 3)
+                return '';
+            for (var i = 0; i < 3; i++)
+                v[i] = parseInt(v[i], 10);
+            // Format and return date
+            var splitD = 0, splitM = 0, splitY = 0;
+            switch (_locale.date.dateShort) {
+                case 'dd/mm/yyyy':
+                    splitD = 0;
+                    splitM = 1;
+                    splitY = 2;
+                    break;
+                case 'mm/dd/yyyy':
+                    splitD = 1;
+                    splitM = 0;
+                    splitY = 2;
+                    break;
+                case 'yyyy/mm/dd':
+                    splitD = 2;
+                    splitM = 1;
+                    splitY = 0;
+                    break;
+            }
+            if (v[splitY] < 100)
+                v[splitY] += 2000;
+            if (!_validDate(v, splitD, splitM, splitY)) {
+                return '';
+            }
+            v[splitD] = _pad(v[splitD], 2);
+            v[splitM] = _pad(v[splitM], 2);
+            v[splitY] = _pad(v[splitY], 4);
+            return v.join(_locale.date.daySep);
+        }, _validDate = function (bits, splitD, splitM, splitY) {
+            var d = bits[splitD];
+            var m = bits[splitM];
+            var y = bits[splitY];
+            var date = new Date(y, m - 1, d);
+            return (date.getFullYear() == y && date.getMonth() + 1 == m && date.getDate() == d);
+        };
+        ulocale.register = _register;
+        ulocale.translate = _translate;
+        ulocale.tt = _tt;
+        ulocale.sourceLang = 'fr';
+        ulocale.currentLang = 'en';
+        ulocale.defCountry = 'US';
+        //
+        ulocale.lang = _dom.getCookie(CURRENT_LANG) || 'fr';
+        ulocale.country = 'FR';
+        ulocale.money = _money;
+        ulocale.truncMoney = _truncMoney;
+        ulocale.decimal = _decimal;
+        ulocale.integer = _integer;
+        ulocale.format = _formatObject;
+        ulocale.parseISODate = _parseDateISO8601;
+        ulocale.parseISODateAsUTC = _parseISODateAsUTC;
+        ulocale.parseISODateTime = _parseDateTimeISO8601;
+        ulocale.isoDatePart = _ISODatePart;
+        ulocale.shortDateTime = _shortDateTime;
+        ulocale.shortDate = _shortDate;
+        ulocale.longDate = _longDate;
+        ulocale.monthYear = _monthYear;
+        ulocale.localeDate2ISO = _shortDate2ISO;
+        ulocale.localeDateTime2ISO = _shortDateTime2ISO;
+        ulocale.date2ISO = _date2ISO;
+        ulocale.string2Float = _string2Float;
+        ulocale.tryParseDate = _tryParseDate;
+        ulocale.tryParseDateTime = _tryParseDateTime;
+        ulocale.localeTitle = function (title) {
+            if (typeof title === 'object')
+                return title[ulocale.currentLang];
+            return title;
+        };
+        function changeLang(newLang) {
+            if (_supportedLanguages.indexOf(newLang) >= 0) {
+                _dom.setCookie(CURRENT_LANG, newLang, '/', null);
+                window.location.reload(false);
+            }
+        }
+        ulocale.changeLang = changeLang;
+        function languages() {
+            return __spreadArrays(_supportedLanguages);
+        }
+        ulocale.languages = languages;
+        function loadLocale(newLang) {
+            var pp = _utils.phoenixPath();
+            if (newLang !== ulocale.currentLang) {
+                _ajax.getScript(pp + '/locale/phoenix_' + ulocale.lang + '.min.js', 'locale_' + ulocale.lang).then(function () {
+                    ulocale.currentLang = newLang;
+                }).catch(function (ex) {
+                });
+            }
+        }
+        ulocale.loadLocale = loadLocale;
+        ;
+        if (_supportedLanguages.indexOf(ulocale.lang) < 0) {
+            ulocale.lang = ulocale.currentLang;
+        }
+        loadLocale(ulocale.lang);
+    })(ulocale = Phoenix.ulocale || (Phoenix.ulocale = {}));
+    var angularjs;
+    (function (angularjs) {
+        var _registerLocaleFilters = function (app) {
+            if (app && app.filter) {
+                app.filter('money', [function () {
+                        return function (input, useSymbol) {
+                            var value = input === null ? null : (input ? parseFloat(input) : 0.0);
+                            return ulocale.money(value, useSymbol);
+                        };
+                    }]);
+                app.filter('decimal', [function () {
+                        return function (input, decimals, symbol) {
+                            var value = input === null ? null : (input ? parseFloat(input) : 0.0);
+                            return ulocale.decimal(value, decimals || 0, symbol);
+                        };
+                    }]);
+                app.filter('shortdate', [function () {
+                        return function (input) {
+                            return ulocale.shortDate(input);
+                        };
+                    }]);
+                app.filter('longdate', [function () {
+                        return function (input) {
+                            return ulocale.longDate(input);
+                        };
+                    }]);
+                app.filter('monthyear', [function () {
+                        return function (input) {
+                            return ulocale.monthYear(input);
+                        };
+                    }]);
+            }
+        };
+        angularjs.registerFilters = _registerLocaleFilters;
+    })(angularjs = Phoenix.angularjs || (Phoenix.angularjs = {}));
+})(Phoenix || (Phoenix = {}));
+/// <reference path="../modules/ulocale.ts" />
+var Phoenix;
+(function (Phoenix) {
+    var en = {
+        "layouts": {
+            "design": {
+                "Save": "Save",
+                "New": "New page",
+                "Open": { "title": "Open page", "open": "Open", "close": "Close" },
+                "PageName": "Page Name",
+                "InvalidPageName": "Invalid page name",
+                "ConflictedPageName": "A page of that name exists, do you want to give another name ?",
+                "Delete": "Delete page",
+                "DeletePreferences": "Delete preferences",
+                "ConfirmDelete": "Are you sure you want to delete this page ?",
+                "ConfirmDeletePrefs": "Are you sure you want to delete preferences for this page ?",
+                "Preview": "Preview",
+                "AuthoringMode": "Authoring",
+                "layouts": "Blocks",
+                "widgets": "Widgets",
+                "fields": "Fields",
+                "actions": "Actions",
+                "properties": "Properties",
+                "childrenFlow": "Children disposition",
+                "childrenFlowVertical": "Vertical Flow",
+                "childrenTableCell": "Table cell",
+                "childrenAccordionGroup": "Accordion Group",
+                "customStyle": "Custom style",
+                "nestedLayoutName": "Nested Layout Name",
+                "nestedLayoutBind": "Bind for nested layout",
+                "nestedFormController": "Controller for nested form",
+                "columnSize": "Size",
+                "customColumnSize": "Custom Size",
+                "appearance": "Appearance",
+                "appearanceAccordion": "Accordion",
+                "appearanceTabs": "Tabs",
+                "appearanceWizard": "None",
+                "showTitle": "Show title",
+                "bindPagesTitle": "Bind",
+                "name": "Name",
+                "forceDisplayTable": "Force display(Css) table",
+                "title": "Title",
+                "actionApply": "Apply",
+                "formType": "Form Type",
+                "ftVertical": "Vertical Form",
+                "ftHorizontal": "Horizontal Form",
+                "ftInline": "Inline form",
+                "labelSize": "Label width (Bootstrap cols)",
+                "blockPosition": "Position",
+                "bpStatic": "Static",
+                "bpStickyTop": "Sticky Top",
+                "bpStickyBottom": "Sticky Bottom",
+                "noTitlesForFields": "Don't show field's titles",
+                "fieldsTitle": "Children (Fields)"
+            },
+            "defaultTitle": "No title",
+            "NoData": 'No data'
+        },
+        "schema": {
+            "required": "{0} is required.",
+            "minNumber": "{0} must be at least {1}",
+            "maxNumber": "{0} cannot exceed {1}",
+            "minNumberExclusive": "{0} must be greater than {1}",
+            "maxNumberExclusive": "{0} must be less than {1}",
+            "uniqueColumn": "The column '{0}' must be unique.",
+            "uniqueColumns": "Duplicate value for columns '{0}' found.",
+            "passwordMismatch": "Password mismatch.",
+            "invalidEmail": "Invalid Email Address.",
+            "invalidChars": "Some characters are invalid.",
+            "invalidPhone": "Invalid Url Address.",
+            "invalidUrl": "Invalid Phone Number.",
+            "minLength": "{0} must be at least {1} characters"
+        },
+        "ui": {
+            "disclaimer": "The user is informed that any processing of personal data in this free comment area must be carried out in accordance with the applicable legislation, in particular with respect to the provisions of Regulation No 2016/679, said general regulation on the protection of data. data (GDPR), applicable as of May 1, 2018. More specifically, any processing of « sensitive » personal data (including, but not limited to, racial or ethnic origin, political views, philosophical or religious, union membership, health or sex life) is not allowed in Salvia Pilotage Operations.",
+            "Close": "Close",
+            "Abandon": "Abandon",
+            "Ok": "Ok",
+            "Yes": "Yes",
+            "No": "No",
+            "false": "False",
+            "true": "True",
+            "Warning": "Warning",
+            "Info": "Information",
+            "Disconnect": "Disconnect",
+            "Confirm": "Confirm",
+            "Validate": "Validate",
+            "Create": "Create",
+            "password": {
+                "oldPassword": "Old Password",
+                "newPassword": "New Password",
+                "change": "Change password"
+            },
+            "ChooseColumns": "Choose columns",
+            "value": "Value",
+            "valuePlaceHolder": "One or more values (separated by semicolon: val1;val2;...)",
+            "AllColumns": "List of fields",
+            "ApplyDetailChanges": "Apply",
+            "Selected": "Sel.",
+            "Add": "Add",
+            "title": "Title",
+            "selectedFilters": "Selected filters",
+            "OpenNewTab": "Open link in new tab",
+            "Search": "Search",
+            "Actions": "Actions",
+            "FileUpload": "Choose File",
+            "Apply": "Apply",
+            "Remove": "Remove",
+            "Clear": "Clear",
+            "ExportCsv": "Export as CSV",
+            "ExpandAll": "Expand all",
+            "CollapseAll": "Collapse all",
+            "SaveSuccessful": "Changes saved successfully.",
+            "cancelWarning": "All changes will be lost if you leave this page without saving. Are you sure to continue ?",
+            "removeWarning": "Are you sure you want to delete this item?"
+        },
+        "errors": {
+            "Title": "Oops! An unknown error has occurred.",
+            "SendMail": "Send",
+            "MailSubject": "Error in JS client",
+            "ErrorTitle": "Error:",
+            "ErrorUser": "User:",
+            "ErrorDate": "Date and time:",
+            "Browser": "Browser:",
+            "ErrorURI": "Address:",
+            "Stack": "Call stack:",
+            "Context": "Context:",
+            "error500": "Internal server error",
+            "unknownError": "An unknown error has occurred.",
+            "notAuthorized": "Forbidden",
+            "invalidUploadFileName": "Blocked for security reasons!",
+            "invalidUploadFileSize": "File too large!"
+        },
+        "listView": {
+            "search": {
+                "Search": "Search",
+                "Nodata": "No results found ..."
+            }
+        },
+        "pagination": {
+            "Next": "»",
+            "Previous": "«",
+            "First": "First",
+            "Last": "Last"
+        },
+        "number": {
+            "decimal": ".",
+            "thousand": " ",
+            "places": 2,
+            "symbol": "$",
+            "coef": ["U", "K"],
+            "format": "%s %v"
+        },
+        "charts": {
+            "numericSymbols": ["k", "M", "G", "T", "P", "E"],
+            "resetZoom": "Reset zoom",
+            "resetZoomTitle": "Reset zoom level 1:1",
+            "rangeSelectorZoom": "Zoom",
+            "rangeSelectorFrom": "From",
+            "rangeSelectorTo": "To"
+        },
+        "date": {
+            "weekdaysShort": ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
+            "weekdaysMin": ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"],
+            "weekdays": ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"],
+            "monthsShort": ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"],
+            "months": ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"],
+            "dateShort": "mm/dd/yyyy",
+            "dateLong": "d mmm, yyyy",
+            "monthYear": "mmmm yyyy",
+            "shortTime": "hh:MM A",
+            "daySep": "-",
+            "weekStart": 0,
+            "today": "Today",
+            "clear": "Clear"
+        },
+        "operators": {
+            "in": { "symbol": "=", "title": "equal", "binary": false },
+            "nin": { "symbol": "!=", "title": "not equal", "binary": false },
+            "gt": { "symbol": ">", "title": "is greater than", "binary": false },
+            "ge": { "symbol": ">=", "title": "is greater or equal than", "binary": false },
+            "lt": { "symbol": "<", "title": "is less than", "binary": false },
+            "le": { "symbol": ">", "title": "is less or equal than", "binary": false },
+            "between": { "symbol": "between", "title": "between", "binary": true },
+            "nbetween": { "symbol": "not between", "title": "not between", "binary": true },
+            "like": { "symbol": "contains", "title": "contains", "binary": false },
+            "nlike": { "symbol": "not contains", "title": "not contains", "binary": false },
+            "empty": { "symbol": "is null", "title": "is null", "binary": false },
+            "nempty": { "symbol": "is not null", "title": "is not null", "binary": false }
+        },
+        "types": {
+            "number": { "title": "Number", "operators": ["in", "nin", "gt", "ge", "lt", "le", "between", "nbetween", "empty", "nempty"] },
+            "decimal": { "title": "Decimal", "operators": ["in", "nin", "gt", "ge", "lt", "le", "between", "nbetween", "empty", "nempty"] },
+            "money": { "title": "Money", "operators": ["in", "nin", "gt", "ge", "lt", "le", "between", "nbetween", "empty", "nempty"] },
+            "integer": { "title": "Integer", "operators": ["in", "nin", "gt", "ge", "lt", "le", "between", "nbetween", "empty", "nempty"] },
+            "date": { "title": "Date", "operators": ["in", "nin", "gt", "ge", "lt", "le", "between", "nbetween", "empty", "nempty"] },
+            "time": { "title": "Time", "operators": ["in", "nin", "gt", "ge", "lt", "le", "between", "nbetween", "empty", "nempty"] },
+            "date-time": { "title": "Date Time", "operators": ["in", "nin", "gt", "ge", "lt", "le", "between", "nbetween", "empty", "nempty"] },
+            "string": { "title": "String", "operators": ["in", "nin", "like", "nlike", "empty", "nempty"] },
+            "enum": { "title": "Enum", "operators": ["in", "nin", "empty", "nempty"] },
+            "lookup": { "title": "Lookup", "operators": ["in", "nin", "empty", "nempty"] },
+            "boolean": { "title": "Boolean", "operators": ["in", "nin", "empty", "nempty"] }
+        }
+    };
+    Phoenix.ulocale.translate(en, "en");
+})(Phoenix || (Phoenix = {}));
+/// <reference path="./utils.ts" />
+var Phoenix;
+(function (Phoenix) {
+    var _p = Phoenix, _utils = _p.utils;
+    var external;
+    (function (external) {
+        var _defPrefsLoader = function (name) {
+            var promiseClass = _utils.Promise;
+            if (window.localStorage)
+                return new promiseClass(function (resolve, reject) {
+                    var d = window.localStorage.getItem('preferences.' + name);
+                    if (d)
+                        resolve(JSON.parse(d));
+                    else
+                        resolve(null);
+                });
+            else
+                return new promiseClass(function (resolve, reject) {
+                    resolve(null);
+                });
+        };
+        var _defPrefsSaver = function (name, data) {
+            var promiseClass = _utils.Promise;
+            if (window.localStorage)
+                return new promiseClass(function (resolve, reject) {
+                    if (data)
+                        window.localStorage.setItem('preferences.' + name, JSON.stringify(data));
+                    else
+                        window.localStorage.setItem('preferences.' + name, '');
+                    resolve();
+                });
+            else
+                return new promiseClass(function (resolve, reject) {
+                    resolve();
+                });
+        };
+        external.hashHandler = null;
+        external.logoutHandler = null;
+        external.forbiddenHandler = null;
+        external.changePasswordHandler = null;
+        external.checkLoggedInHandler = null;
+        external.historyChangedHandler = null;
+        external.formOpenHandler = null;
+        external.preferenceLoadHandler = _defPrefsLoader;
+        external.preferenceSaveHandler = _defPrefsSaver;
+        external.ruleLoaderHandler = null;
+        external.ruleViewer = null;
+    })(external = Phoenix.external || (Phoenix.external = {}));
+    var history;
+    (function (history) {
+        history.useServerState = false;
+        history.setState = function (key, value) {
+            var root = JSON.parse(sessionStorage.getItem('phoenix_history_state') || '{}');
+            root[key] = value;
+            sessionStorage.setItem('phoenix_history_state', JSON.stringify(root));
+        };
+        history.getState = function (key) {
+            var root = JSON.parse(sessionStorage.getItem('phoenix_history_state') || '{}');
+            return root[key];
+        };
+        history.supportRefresh = true;
+        history.destroyViewHandler = function (cd) {
+            console.log(cd);
+        };
+        var _value = [], _locationPrefix = '!', _assertValue = function () {
+            var vstr = sessionStorage.getItem('phoenix_history');
+            if (vstr) {
+                _value = JSON.parse(vstr).history;
+            }
+            else
+                _value = [];
+        }, _saveValue = function () {
+            sessionStorage.setItem('phoenix_history', JSON.stringify({ history: _value }));
+        }, _addData = function (cd) {
+            _assertValue();
+            if (_value.length) {
+                var v = _value[_value.length - 1];
+                var doAdd_1 = true;
+                var vas_1 = JSON.stringify(cd);
+                v.data.forEach(function (item) {
+                    if (doAdd_1 && JSON.stringify(item) === vas_1)
+                        doAdd_1 = false;
+                });
+                if (doAdd_1) {
+                    v.data.push(cd);
+                    _saveValue();
+                }
+                if (!history.useServerState && _value.length > 1) {
+                    var prevData = _value[_value.length - 2];
+                    if (!prevData.persistent) {
+                        var toDestroy_1 = [];
+                        prevData.data.forEach(function (ii) { return toDestroy_1.push(ii); });
+                        prevData.data = [];
+                        _saveValue();
+                        if (toDestroy_1.length) {
+                            history.destroyViewHandler(toDestroy_1);
+                        }
+                    }
+                }
+            }
+        }, _clearLastData = function (deferClose) {
+            _assertValue();
+            var toDestroy = [];
+            if (_value.length) {
+                var v = _value[_value.length - 1];
+                v.data.forEach(function (ii) {
+                    ii.deferClose = deferClose;
+                    toDestroy.push(ii);
+                });
+                v.data = [];
+                _saveValue();
+            }
+            if (toDestroy.length) {
+                history.destroyViewHandler(toDestroy);
+            }
+        }, _removeLast = function () {
+            _assertValue();
+            var toDestroy = [];
+            var last = _value.pop();
+            last.data.forEach(function (ii) { return toDestroy.push(ii); });
+            last.data = [];
+            _saveValue();
+            if (toDestroy.length) {
+                history.destroyViewHandler(toDestroy);
+            }
+            if (external.historyChangedHandler)
+                external.historyChangedHandler();
+        }, _removeView = function (transactionId, viewId, viewName) {
+            _assertValue();
+            var toDestroy = [];
+            if (_value.length) {
+                var last = _value[_value.length - 1];
+                var ii = last.data.findIndex(function (ii) {
+                    return ii.transactionId === transactionId &&
+                        ii.viewId === viewId && ii.viewName === viewName;
+                });
+                if (ii >= 0) {
+                    last.data.splice(ii, 1);
+                    _saveValue();
+                    toDestroy.push({ transactionId: transactionId, viewId: viewId, viewName: viewName });
+                    history.destroyViewHandler(toDestroy);
+                }
+            }
+        }, _updateLast = function (oldHash, newHash, persistent) {
+            _assertValue();
+            var len = _value.length;
+            var last = len ? _value[len - 1].pageName : '';
+            if (last === oldHash) {
+                _value[len - 1].pageName = newHash;
+                if (persistent !== undefined)
+                    _value[len - 1].persistent = persistent ? true : false;
+                _saveValue();
+            }
+        }, _add = function (hash, reset) {
+            if (reset)
+                _clear(true, false);
+            _assertValue();
+            if (reset) {
+                _value = [{ pageName: hash, data: [], persistent: false }];
+                _saveValue();
+                if (external.historyChangedHandler)
+                    external.historyChangedHandler();
+                return;
+            }
+            var len = _value.length;
+            var last = len ? _value[len - 1].pageName : '';
+            if (last !== hash) {
+                var toDestroy_2 = [];
+                var prev = (len >= 2) ? _value[len - 2].pageName : '';
+                if (hash === prev) {
+                    var last_1 = _value.pop();
+                    last_1.data.forEach(function (ii) { return toDestroy_2.push(ii); });
+                    last_1.data = [];
+                }
+                else
+                    _value.push({ pageName: hash, data: [], persistent: false });
+                _saveValue();
+                if (toDestroy_2.length) {
+                    history.destroyViewHandler(toDestroy_2);
+                }
+                if (external.historyChangedHandler)
+                    external.historyChangedHandler();
+            }
+        }, _lastPage = function () {
+            _assertValue();
+            if (_value && _value.length > 1) {
+                var res = _value[_value.length - 2].pageName;
+                var i = res.indexOf('?');
+                if (i > 0)
+                    res = res.substr(0, i);
+                i = 1;
+                if (_locationPrefix)
+                    i = i + 1;
+                res = res.substr(i);
+                if (res.charAt(0) === '/')
+                    res = res.substr(1);
+                return res;
+            }
+            return '';
+        }, _clear = function (notify, deferClose) {
+            _assertValue();
+            var toDestroy = [];
+            if (notify) {
+                _value.forEach(function (item) {
+                    item.data.forEach(function (ii) {
+                        ii.deferClose = deferClose;
+                        toDestroy.push(ii);
+                    });
+                    item.data = [];
+                });
+            }
+            _value = [];
+            _saveValue();
+            if (toDestroy.length) {
+                history.destroyViewHandler(toDestroy);
+            }
+        }, _hasBack = function () {
+            _assertValue();
+            return _value.length > 1;
+        };
+        history.removeLast = _removeLast;
+        history.add = _add;
+        history.hasBack = _hasBack;
+        history.value = _value;
+        history.lastPage = _lastPage;
+        history.locationPrefix = _locationPrefix;
+        history.clear = _clear;
+        history.updateLast = _updateLast;
+        history.addData = _addData;
+        history.clearLastData = _clearLastData;
+        history.removeView = _removeView;
+    })(history = Phoenix.history || (Phoenix.history = {}));
+    var render;
+    (function (render) {
+        var _renders = {}, _registerRender = function (context, name, handler) {
+            _renders[context] = _renders[context] || {};
+            _renders[context][name] = handler;
+        }, _getRender = function (context, name) {
+            if (!_renders[context])
+                return null;
+            return _renders[context][name];
+        };
+        render.register = _registerRender;
+        render.get = _getRender;
+    })(render = Phoenix.render || (Phoenix.render = {}));
+    var ipc;
+    (function (ipc) {
+        var _eventListeners = {}, _emitEvent = function (eventName, data) {
+            var evname = 'on' + eventName;
+            var l = _eventListeners[evname];
+            if (l)
+                l.forEach(function (item) {
+                    var hnd = item.listener ? item.handler.bind(item.listener) : item.handler;
+                    hnd(data);
+                });
+        }, _regListener = function (eventName, handler, listener) {
+            _eventListeners[eventName] = _eventListeners[eventName] || [];
+            var l = _eventListeners[eventName];
+            l.push({
+                listener: listener,
+                handler: handler
+            });
+        }, _unregListener = function (listener, eventName) {
+            function _rmvlistener(res) {
+                if (res) {
+                    var i = res.length;
+                    while (i--) {
+                        var o = res[i];
+                        if (o.listener == listener)
+                            res.splice(i, 1);
+                    }
+                }
+            }
+            if (eventName) {
+                _rmvlistener(_eventListeners[eventName]);
+            }
+            else {
+                Object.keys(_eventListeners).forEach(function (evn) {
+                    _rmvlistener(_eventListeners[evn]);
+                });
+            }
+        };
+        ipc.emit = _emitEvent;
+        ipc.listen = _regListener;
+        ipc.unlisten = _unregListener;
+    })(ipc = Phoenix.ipc || (Phoenix.ipc = {}));
 })(Phoenix || (Phoenix = {}));
 /// <reference path="./utils.ts" />
 /// <reference path="./dom.ts" />
@@ -3617,7 +3879,25 @@ var Phoenix;
             }
             return null;
         }, _urlSearch = function (parseJson) {
-            return _parseUrl(window.location.href, parseJson).search;
+            var search = _parseUrl(window.location.href, parseJson).search;
+            if (search.$session) {
+                var cp = _currentPage();
+                var searchString = window.sessionStorage.getItem('url-' + cp);
+                if (searchString) {
+                    try {
+                        var ss_1 = JSON.parse(searchString);
+                        if (ss_1) {
+                            Object.keys(ss_1).forEach(function (key) {
+                                if (search[key] === undefined)
+                                    search[key] = ss_1[key];
+                            });
+                        }
+                    }
+                    catch (e) {
+                    }
+                }
+            }
+            return search;
         }, _extractPage = function (cfg) {
             var page = cfg.$page;
             if (_device.phone && cfg.$pageMobile)
@@ -3658,24 +3938,36 @@ var Phoenix;
             if (cfg.$page) {
                 var page = _extractPage(cfg);
                 var res = '#' + _history.locationPrefix + '/' + page;
-                var a = [];
+                var a_1 = [];
                 if (data && cfg.$search && cfg.$search.length) {
-                    var dd = _context();
+                    var dd_1 = _context();
                     Object.keys(data).forEach(function (pn) {
-                        dd[pn] = data[pn];
+                        dd_1[pn] = data[pn];
                     });
                     cfg.$search.forEach(function (v) {
                         if (v && v.left)
-                            a.push(v.left + '=' + encodeURIComponent(_utils.parseVariable(v.right, dd)));
+                            a_1.push(v.left + '=' + encodeURIComponent(_utils.parseVariable(v.right, dd_1)));
                     });
                 }
+                var pageName_1 = page.charAt(0) === '/' ? page.substring(1) : page;
+                if (window.sessionStorage)
+                    window.sessionStorage.removeItem('url-' + pageName_1);
                 if (params) {
+                    var sessionParams_1 = {};
                     Object.keys(params).forEach(function (pn) {
-                        a.push(pn + '=' + encodeURIComponent(params[pn]));
+                        var fw = (pn.charAt(0) === '$');
+                        if (!fw && params.$session) {
+                            sessionParams_1[pn] = params[pn];
+                        }
+                        else
+                            a_1.push(pn + '=' + encodeURIComponent(params[pn]));
                     });
+                    if (params.$session) {
+                        window.sessionStorage.setItem('url-' + pageName_1, JSON.stringify(sessionParams_1));
+                    }
                 }
-                if (a.length)
-                    res = res + '?' + a.join('&');
+                if (a_1.length)
+                    res = res + '?' + a_1.join('&');
                 return res;
             }
             return '#';
@@ -3837,17 +4129,29 @@ var Phoenix;
             var ii = window.location.href.lastIndexOf('?');
             if (ii > 0) {
                 var os = window.location.href.substr(ii + 1).split('&');
-                var ss_1 = [];
+                var ss_2 = [];
                 os.forEach(function (ii) {
                     var ci = ii.split('=');
                     if (['prototype', 'path', 'locale'].indexOf(ci[0]) < 0)
-                        ss_1.push(ii);
+                        ss_2.push(ii);
                 });
-                search.push(ss_1.join('&'));
+                search.push(ss_2.join('&'));
             }
             if (search.length)
                 ch = ch + '?' + search.join('&');
             window.location.hash = '#' + _history.locationPrefix + ch;
+        }, _currentPage = function (pageName, force) {
+            var ch = window.location.hash;
+            if (ch.charAt(0) === '#')
+                ch = ch.substring(1);
+            if (_history.locationPrefix && ch.charAt(0) === _history.locationPrefix)
+                ch = ch.substring(1);
+            var i = ch.indexOf('?');
+            if (i >= 0)
+                ch = ch.substring(1, i);
+            if (ch.charAt(0) === '/')
+                ch = ch.substring(1);
+            return decodeURIComponent(ch);
         }, _doAuthoring = function (pageName, force) {
             var auth = '/authoring';
             var authform = '/authoring/forms/';
@@ -3878,7 +4182,7 @@ var Phoenix;
                         }
                     }
                     var hash = _hashLink(clink, context, params);
-                    var nw = (context && context.$target === 'blank');
+                    var nw = (context && context.$target === 'blank') || clink.$target === 'blank';
                     if (clink.$module) {
                         if (clink.$module !== _application.name)
                             return _navigateToModule(hash, clink.$module, _application.name, clink.$replace, nw);
@@ -3949,6 +4253,7 @@ var Phoenix;
         link_1.isCustomLink = _getLink;
         link_1.registerLinkExecutor = _registerLinkExecutor;
         link_1.getLinkExecutor = _getLinkExecutor;
+        link_1.currentPage = _currentPage;
         link_1.registerCustomProtocol = _registerCustomLink;
         link_1.execCustomProtocol = _execCustomLink;
         link_1.isCustomProtocol = _isCustomLink;
@@ -4364,9 +4669,16 @@ var Phoenix;
 /// <reference path="../core/core-refs.ts" />
 var Phoenix;
 (function (Phoenix) {
-    var _p = Phoenix, _application = _p.application, _ajax = _p.ajax, _ulocale = _p.ulocale;
+    var _p = Phoenix, _application = _p.application, _ajax = _p.ajax, _build = _p.build, _ulocale = _p.ulocale;
     var data;
     (function (data) {
+        var _lang = function () {
+            var isDistribution = _build.release && _build.releaseVersion;
+            if (isDistribution && _ulocale.currentLang !== _ulocale.sourceLang) {
+                return '_' + _ulocale.currentLang;
+            }
+            return '';
+        };
         var _menuProvider = {
             get: function (menu, localization, appName) {
                 if (localization && _ulocale.lang) {
@@ -4375,7 +4687,7 @@ var Phoenix;
                 var config = _application.config(appName);
                 if (!config)
                     throw "Application configuration not found.";
-                return _ajax.get(config.current.menus + '/' + menu + '.json', { cache: true }, null);
+                return _ajax.get(config.current.menus + '/' + menu + _lang() + '.json', { cache: true }, null);
             }
         };
         data.menu = _menuProvider;
@@ -4477,7 +4789,7 @@ var Phoenix;
                         _dom.setCookie(waitForCookie, '', '/', null);
                     }
                 }
-                var config = $.extend(true, {}, _application.config(_application.name) || {});
+                var config = _utils.clone(_application.config(_application.name) || {});
                 config.rest = (params.$type ? config[params.$type] : null) || config.rest || {};
                 config.sync = (params.$type ? config[params.$type] : null) || config.sync || {};
                 delete params.$type;
@@ -4506,7 +4818,6 @@ var Phoenix;
                 }
                 var opts = _ajax.getDefaultAjaxOptions(restCfg);
                 var query = params.$query;
-                var listprop = params.$list;
                 lurl = lurl + _link.object2search(query);
                 lurl = _addTenantId(lurl);
                 switch (params.$method) {
@@ -4667,7 +4978,7 @@ var Phoenix;
                 return _utils.formatNames(base, cfg);
             },
             configOdata: function (params) {
-                var config = $.extend(true, {}, _application.config(_application.name) || {});
+                var config = _utils.clone(_application.config(_application.name) || {});
                 config.odata = (params.$type ? config[params.$type] : null) || config.odata || {};
                 var base = config.odata.base || '/data';
                 var cfg = _link.context({ cookie: true });
@@ -4749,13 +5060,13 @@ var Phoenix;
                 search = (search || '') + '';
                 if (search && serchFields && serchFields.length) {
                     var fl_1 = serchFields.length;
-                    var ss_2 = search.toLowerCase();
+                    var ss_3 = search.toLowerCase();
                     documents.forEach(function (item) {
                         var contains = false;
                         for (var i = 0; i < fl_1; i++) {
                             var ff = serchFields[i].replace(/\//g, '.');
                             var cv = ((_utils.getValue(item, ff) || '') + '').toLowerCase();
-                            if (cv.indexOf(ss_2) >= 0) {
+                            if (cv.indexOf(ss_3) >= 0) {
                                 contains = true;
                                 break;
                             }
@@ -4810,7 +5121,7 @@ var Phoenix;
                 var hasEntityId = false;
                 var cache = params.$cache;
                 delete params.$cache;
-                var config = $.extend(true, {}, _application.config(_application.name) || {});
+                var config = _utils.clone(_application.config(_application.name) || {});
                 config.odata = (params.$type ? config[params.$type] : null) || config.odata || {};
                 var isFind = params.$type === 'find';
                 delete params.$type;
@@ -4895,10 +5206,18 @@ var Phoenix;
                 }
                 var opts = _ajax.getDefaultAjaxOptions(config.odata);
                 opts.$errors = errors;
-                lurl = base + '/' + lurl + _link.object2search(params);
+                var cp = params;
+                if (config.odata.mappings) {
+                    cp = {};
+                    Object.keys(params).forEach(function (key) {
+                        var nkey = config.odata.mappings[key] || key;
+                        cp[nkey] = params[key];
+                    });
+                }
+                lurl = base + '/' + lurl + _link.object2search(cp);
                 if (cache && _odatacache[entity] && _odatacache[entity].uri === lurl) {
                     return new _utils.Promise(function (resolve, reject) {
-                        var cd = _after(hasEntityId ? _odatacache[entity].data : $.extend(true, {}, _odatacache[entity].data));
+                        var cd = _after(hasEntityId ? _odatacache[entity].data : _utils.clone(_odatacache[entity].data));
                         resolve(cd);
                     });
                 }
@@ -4940,7 +5259,7 @@ var Phoenix;
                         cd.documents.forEach(function (v) {
                             delete v.__metadata;
                             if (allData)
-                                cd._origData.push($.extend(true, {}, v));
+                                cd._origData.push(_utils.clone(v));
                         });
                         if (config.odata.array || config.odata.nocount) {
                             cd._noPagesCount = true;
@@ -4983,7 +5302,7 @@ var Phoenix;
                     if (cache) {
                         _odatacache[entity] = {
                             uri: lurl,
-                            data: $.extend(true, {}, cd)
+                            data: _utils.clone(cd)
                         };
                     }
                     return _after(cd);
@@ -5017,7 +5336,7 @@ var Phoenix;
                 return params;
             var func = _customData.get("datasets.transform." + transform);
             if (func)
-                return func($.extend(true, {}, params), context);
+                return func(_utils.clone(params), context);
             return params;
         }, _registerDataProvider = function () {
             var _dataProvider = {};
@@ -5115,16 +5434,17 @@ var Phoenix;
             if (vt === 'string' && cv && cv.charAt(0) === '$') {
                 var segments = cv.split('.');
                 var i = 0, sv = null;
-                while (i < segments.length) {
+                var _loop_1 = function () {
                     var s = segments[i];
+                    var last = i === segments.length - 1;
                     if (i == 0) {
-                        var s1 = s, sarray;
-                        var k = s.indexOf('[');
+                        s1 = s;
+                        k = s.indexOf('[');
                         if (k > 0) {
                             sarray = s.substr(k);
                             s1 = s.substr(0, k);
                         }
-                        var j = ctx.indexOf(s1);
+                        j = ctx.indexOf(s1);
                         if (j >= 0) {
                             sv = context[ctx[j]];
                             if (sarray)
@@ -5133,23 +5453,35 @@ var Phoenix;
                         else {
                             if (!ct)
                                 ct = typeof cv;
-                            return _checkValue(cv, ct, addQuote, output);
+                            return { value: _checkValue(cv, ct, addQuote, output) };
                         }
                     }
                     else {
                         if (!sv)
-                            break;
+                            return "break";
                         if (s.charAt(s.length - 1) == ']')
                             sv = _getArrayIndexValue(sv, s);
                         else {
                             if (Array.isArray(sv)) {
                                 sv = sv.map(function (svi) { return svi[s]; });
                             }
-                            else
+                            else {
                                 sv = sv[s];
+                                if (last && sv && typeof sv === 'string' && ['[', '{'].indexOf(sv.charAt(0)) >= 0 && [']', '}'].indexOf(sv.charAt(sv.length - 1)) >= 0) {
+                                    sv = JSON.parse(sv);
+                                }
+                            }
                         }
                     }
                     i++;
+                };
+                var s1, sarray, k, j;
+                while (i < segments.length) {
+                    var state_1 = _loop_1();
+                    if (typeof state_1 === "object")
+                        return state_1.value;
+                    if (state_1 === "break")
+                        break;
                 }
                 if (isArray) {
                     if (!ct)
@@ -5361,6 +5693,71 @@ var Phoenix;
                 return tree;
             }
             return _internalExecTree(tree, lurl, context, localContext, true, false);
+        }, _walkObjectFiltre = function (o, cb, parent, parentProp) {
+            if (o && typeof o === 'object') {
+                if (Array.isArray(o)) {
+                    o.forEach(function (item) { return _walkObjectFiltre(item, cb, null, null); });
+                }
+                else {
+                    var keys = Object.keys(o);
+                    // shit
+                    if (keys.length === 2 && o.value && parent && parentProp && typeof o.value === 'string' && o.active) {
+                        cb(parent, parentProp, o.value, o.active, false);
+                    }
+                    else if (keys.length === 2 && o.value && parent && parentProp && typeof o.value === 'string' && o.select) {
+                        cb(parent, parentProp, o.value, o.select, true);
+                    }
+                    keys.forEach(function (propName) {
+                        var value = o[propName];
+                        if (value && typeof value === 'string') {
+                            cb(o, propName, value);
+                        }
+                        else
+                            _walkObjectFiltre(value, cb, o, propName);
+                    });
+                }
+            }
+        }, _replaceVarFind = function (filter, context, item) {
+            var res = _utils.clone(filter);
+            var ctx = _link.context();
+            _walkObjectFiltre(res, function (parent, key, value, active, isArray) {
+                var v = _getValue(value, {
+                    $url: ctx.$url,
+                    $context: context,
+                    $item: item,
+                    $data: null,
+                    $mem: _p.$mem,
+                }, false, isArray, true);
+                if (isArray) {
+                    if (!v || !v.length) {
+                        delete parent[key];
+                        return;
+                    }
+                    var values = v.map(function (ii) { return ii[active]; });
+                    parent[key] = { $in: values };
+                }
+                else {
+                    var isActive = true;
+                    if (active) {
+                        var cactive = _getValue(active, {
+                            $url: ctx.$url,
+                            $context: context,
+                            $item: item,
+                            $data: null,
+                            $mem: _p.$mem,
+                        }, false, false, true);
+                        if (!cactive)
+                            isActive = false;
+                    }
+                    if (!isActive) {
+                        delete parent[key];
+                    }
+                    else {
+                        parent[key] = v;
+                    }
+                }
+            }, null, null);
+            return res;
         }, _replaceVar = function (filter, context) {
             var ctx = _link.context();
             if (filter && typeof filter === 'string') {
@@ -5454,10 +5851,39 @@ var Phoenix;
             var res = { $url: null, $list: null, $query: null, $method: "GET" };
             res.$method = (params.$method || 'GET').toUpperCase();
             var transactionId, viewId;
-            res.$data = params.$data ? $.extend(true, {}, params.$data) : null;
+            res.$data = params.$data ? _utils.clone(params.$data) : null;
             if (params.$type)
                 res.$type = params.$type;
             if (isSync) {
+                if (params.$method === 'POST') {
+                    if (lurl.$session) {
+                        var cp = _link.currentPage();
+                        var searchString = window.sessionStorage.getItem('url-' + cp);
+                        if (searchString) {
+                            var search_1 = JSON.parse(searchString);
+                            Object.keys(search_1).forEach(function (name) {
+                                var val = search_1[name];
+                                if (val && typeof val === 'string') {
+                                    if (val.charAt(0) === '[' && val.charAt(val.length - 1) === ']') {
+                                        try {
+                                            val = JSON.parse(val);
+                                        }
+                                        catch (_a) {
+                                        }
+                                    }
+                                    else if (val.charAt(0) === '{' && val.charAt(val.length - 1) === '}') {
+                                        try {
+                                            val = JSON.parse(val);
+                                        }
+                                        catch (_b) {
+                                        }
+                                    }
+                                }
+                                lurl[name] = val;
+                            });
+                        }
+                    }
+                }
                 if (!params.$entity)
                     throw 'Invalid sync dataset - $params.$entity';
                 res.$transactionId = params.$transactionId || 'id';
@@ -5510,7 +5936,7 @@ var Phoenix;
                 $mem: _p.$mem,
                 $local: localContext
             });
-            var query = params.$query ? $.extend(true, {}, params.$query) : null;
+            var query = params.$query ? _utils.clone(params.$query) : null;
             if (isSync) {
                 var curl = res.$url ? res.$url.split('/') : [];
                 curl.push(params.$entity);
@@ -5619,10 +6045,10 @@ var Phoenix;
             }
             removeHost = removeHost && res.toLowerCase().indexOf('http') === 0;
             if (removeHost) {
-                var search_1 = 'http://';
+                var search_2 = 'http://';
                 if (res.toLowerCase().indexOf('https') === 0)
-                    search_1 = 'https://';
-                res = res.substr(search_1.length);
+                    search_2 = 'https://';
+                res = res.substr(search_2.length);
                 var segments = res.split('/');
                 segments[0] = '';
                 res = segments.join('/');
@@ -5639,7 +6065,13 @@ var Phoenix;
                 $mem: _p.$mem,
                 $local: localContext,
             };
-            var $filter = params.$filter ? $.extend(true, {}, params.$filter) : null;
+            var $filter = params.$filter ? _utils.clone(params.$filter) : null;
+            if ($filter) {
+                if (isFind)
+                    $filter = _replaceVarFind($filter, context, null);
+                else
+                    $filter = _replaceVar($filter, context);
+            }
             if (params.$searchByFields && params.$searchByFields.value && params.$searchByFields.fields && params.$searchByFields.fields.length) {
                 var searchFilter_1 = null;
                 var config = _application.config(_application.name) || {};
@@ -5785,18 +6217,18 @@ var Phoenix;
             }
             if (params.$search && context && context.$searchText) {
                 var filter = void 0;
-                var search_2 = Array.isArray(params.$search) ? params.$search : [params.$search];
+                var search_3 = Array.isArray(params.$search) ? params.$search : [params.$search];
                 if (isFind) {
                     filter = {};
-                    if (search_2.length === 1) {
+                    if (search_3.length === 1) {
                         filter[params.$search.field] = { $regex: context.$searchText };
                     }
                     else {
-                        var len = search_2.length;
+                        var len = search_3.length;
                         filter.$or = [];
                         for (var i = 0; i < len; i++) {
                             var f = {};
-                            f[search_2[i].field] = { $regex: context.$searchText };
+                            f[search_3[i].field] = { $regex: context.$searchText };
                             filter.$or.push(f);
                         }
                     }
@@ -5811,14 +6243,14 @@ var Phoenix;
                 }
                 else {
                     var v = _checkValue(context.$searchText, 'string', true, false);
-                    if (search_2.length === 1) {
+                    if (search_3.length === 1) {
                         filter = _utils.format('contains({0},{1})', params.$search.field, v);
                     }
                     else {
                         var af = ['('];
-                        var len = search_2.length;
+                        var len = search_3.length;
                         for (var i = 0; i < len; i++) {
-                            af.push(_utils.format('contains({0},{1})', search_2[i].field, v));
+                            af.push(_utils.format('contains({0},{1})', search_3[i].field, v));
                             if (i < (len - 1))
                                 af.push(' or ');
                         }
@@ -5884,7 +6316,7 @@ var Phoenix;
             if (params.$entityIdNull) {
                 delete params.$entityIdNull;
                 if (method === 'GET' && config.$create) {
-                    var rdata = $.extend(true, {}, config.$create);
+                    var rdata = _utils.clone(config.$create);
                     rdata.$create = true;
                     return _utils.Promise.resolve(rdata);
                 }
@@ -5997,7 +6429,21 @@ var Phoenix;
                 var cd = localData;
                 if (!cd)
                     return;
+                if (method === 'GET' || method === 'POST') {
+                    var dd_2 = cd.data;
+                    if (dd_2 && dd_2.$errors && dd_2.$errors.$ && dd_2.$errors.$.length) {
+                        dd_2.$errors.$.forEach(function (item) {
+                            if (item.severity === 'fatal') {
+                                dd_2.$close = true;
+                                dd_2.$message = item.message;
+                            }
+                        });
+                    }
+                }
                 if (method === 'GET') {
+                    cd = cd.data;
+                    if (localData.schema)
+                        cd.$$schema = localData.schema;
                     cd.$transactionId = context.$transactionId ? context.$transactionId : params.$query[params.$transactionId];
                     if (context.parentModel) {
                     }
@@ -6005,9 +6451,16 @@ var Phoenix;
                         cd.$viewName = config.$params.$entity;
                     }
                     cd.$create = false;
+                    if (params.$persistent && !_history.useServerState) {
+                        _history.setState(params.$transactionId, cd.$transactionId);
+                    }
                 }
                 if (method === 'POST') {
                     cd = cd.data;
+                    if (!cd)
+                        cd = {};
+                    if (localData.schema)
+                        cd.$$schema = localData.schema;
                     cd.$create = false;
                     cd.$transactionId = localData.id;
                     if (!context.parentModel) {
@@ -6015,31 +6468,50 @@ var Phoenix;
                         if (tp.$modal) {
                         }
                         else {
-                            var search_3 = {};
+                            var search_4 = {};
                             if (_history.useServerState || params.$persistent) {
                                 _history.setState(params.$transactionId, localData.id);
                                 _history.setState(params.$viewId, cd.id);
-                                search_3[params.$transactionId] = localData.id;
-                                search_3[params.$viewId] = cd.id;
+                                search_4[params.$transactionId] = localData.id;
+                                search_4[params.$viewId] = cd.id;
                                 if (params.$replaceSearch) {
                                     if (!Array.isArray(params.$replaceSearch))
                                         params.$replaceSearch = ['$inline'];
                                     if (Array.isArray(params.$replaceSearch)) {
+                                        if (params.$replaceSearch.indexOf('$session') < 0) {
+                                            params.$replaceSearch.push('$session');
+                                        }
                                         var urlSearch_1 = _link.context().$url;
+                                        if (urlSearch_1.$session) {
+                                            var cp = _link.currentPage();
+                                            var searchString = window.sessionStorage.getItem('url-' + cp);
+                                            if (searchString) {
+                                                try {
+                                                    var ss_4 = JSON.parse(searchString);
+                                                    if (ss_4) {
+                                                        Object.keys(ss_4).forEach(function (key) {
+                                                            urlSearch_1[key] = ss_4[key];
+                                                        });
+                                                    }
+                                                }
+                                                catch (e) {
+                                                }
+                                            }
+                                        }
                                         params.$replaceSearch.forEach(function (name) {
                                             if (urlSearch_1[name] !== undefined)
-                                                search_3[name] = urlSearch_1[name];
+                                                search_4[name] = urlSearch_1[name];
                                         });
                                     }
                                 }
                                 params.$replaceSearch = params.$replaceSearch || {};
                                 params.$persistent = 1;
-                                _link.changeSearch(search_3, params.$replaceSearch, true, params.$persistent);
+                                _link.changeSearch(search_4, params.$replaceSearch, true, params.$persistent);
                             }
                             else {
                                 _history.setState(params.$transactionId, localData.id);
                                 _history.setState(params.$viewId, cd.id);
-                                _link.changeSearch(search_3, null, true);
+                                _link.changeSearch(search_4, null, true);
                             }
                         }
                     }
@@ -6270,10 +6742,12 @@ var Phoenix;
         data.DataSet = DataSet;
         data.getUrlBaseByType = _getUrlBaseByType;
         data.replaceFilterVars = _replaceVar;
+        data.replaceFilterVarsFind = _replaceVarFind;
         data.registerDataProvider = _rdp.register;
         data.compileFilterTree = _memoryTree;
         data.acceptFilter = _acceptFilter;
         data.extractValue = _extractValue;
+        data.parseData = _getValue;
         data.execOutputData = function (dataSource, result) {
             if (dataSource.$output) {
                 var ctx = _link.context();
@@ -6380,7 +6854,7 @@ var Phoenix;
                     maxSize: 4,
                     size: "lg"
                 };
-                that._options = $.extend(defOptions, options || {});
+                that._options = _utils.extendObject(false, defOptions, options || {});
                 that.pages = [];
                 that._updating = false;
                 that.visible = false;
@@ -6567,7 +7041,11 @@ var Phoenix;
             '</div>'
         ];
         var _loading = [
-            '<div class="bs-loader"></div>'
+            '<div class="bs-loader">',
+            '<div class="spinner-border text-primary" role="status">',
+            '<span class="sr-only">Loading...</span>',
+            '</div>',
+            '</div>',
         ];
         var _cp = null, _datasetsInfo = function (datasets) {
             var cfg = {
@@ -6943,42 +7421,23 @@ var Phoenix;
 /// <reference path="../core/core-refs.ts" />
 var Phoenix;
 (function (Phoenix) {
-    var _p = Phoenix, _utils = _p.utils, _ulocale = _p.ulocale, _locale = _p.locale, _ui = _p.ui, _link = _p.link, _pagecontrol = _p.pagecontrol, _dom = _p.dom;
+    var _p = Phoenix, _utils = _p.utils, _link = _p.link, _pagecontrol = _p.pagecontrol, _dom = _p.dom;
     var contextmenu;
     (function (contextmenu) {
         var _createConextMenu = function (html, data) {
-            var _bootstrap4 = _p.bootstrap4;
-            if (_bootstrap4)
-                html.push('<div class="dropdown-menu bs-block bs-conntext-menu">');
-            else
-                html.push('<ul class="dropdown-menu bs-block bs-conntext-menu">');
+            html.push('<div class="dropdown-menu bs-block bs-conntext-menu">');
             data.forEach(function (item) {
                 item.id = item.id || _utils.allocID();
-                if (_bootstrap4) {
-                    if (item.separator) {
-                        html.push('<div class="dropdown-divider bs-cursor-d"></div>');
-                    }
-                    else {
-                        html.push('<a class="dropdown-item' + (item.disabled ? ' disabled' : ' bs-cursor-p') + '" data-phoenix-href="click://' + item.id + '">');
-                        html.push(_utils.escapeHtml(item.title));
-                        html.push('</a>');
-                    }
+                if (item.separator) {
+                    html.push('<div class="dropdown-divider bs-cursor-d"></div>');
                 }
                 else {
-                    if (item.separator) {
-                        html.push('<li role="separator" class="divider bs-cursor-d"></li>');
-                    }
-                    else {
-                        html.push('<li' + (item.disabled ? ' class="disabled"' : ' class="bs-cursor-p"') + '><a data-phoenix-href="click://' + item.id + '">');
-                        html.push(_utils.escapeHtml(item.title));
-                        html.push('</a></li>');
-                    }
+                    html.push('<a class="dropdown-item' + (item.disabled ? ' disabled' : ' bs-cursor-p') + '" data-phoenix-href="click://' + item.id + '">');
+                    html.push(_utils.escapeHtml(item.title));
+                    html.push('</a>');
                 }
             });
-            if (_bootstrap4)
-                html.push('</div>');
-            else
-                html.push('</ul>');
+            html.push('</div>');
         };
         var ContextMenu = /** @class */ (function () {
             function ContextMenu(data, parent) {
@@ -7039,25 +7498,25 @@ var Phoenix;
 /// <reference path="../core/core-refs.ts" />
 var Phoenix;
 (function (Phoenix) {
-    var _p = Phoenix, _utils = _p.utils, _ulocale = _p.ulocale, _locale = _p.locale, _ui = _p.ui, _dom = _p.dom;
+    var _p = Phoenix, _utils = _p.utils, _ulocale = _p.ulocale, _locale = _p.locale, _dom = _p.dom;
     var modal;
     (function (modal) {
         var _patternButton = function (options) {
             if (options.pattern === "close") {
                 var closeOpt = { "close": true, "type": "default", name: "close", "title": _locale.ui.Close };
-                return $.extend({}, closeOpt, options);
+                return _utils.extendObject(false, closeOpt, options);
             }
             else if (options.pattern === "validate") {
                 var validateOpt = { "close": false, "type": "success", name: "validate", "title": _locale.ui.Validate };
-                return $.extend({}, validateOpt, options);
+                return _utils.extendObject(false, validateOpt, options);
             }
             else if (options.pattern === "create") {
                 var createOpt = { "close": false, "type": "success", name: "create", "title": _locale.ui.Create };
-                return $.extend({}, createOpt, options);
+                return _utils.extendObject(false, createOpt, options);
             }
             else if (options.pattern === "abandon") {
                 var closeOpt = { "close": true, "type": "default", name: "abandon", "title": _locale.ui.Abandon };
-                return $.extend({}, closeOpt, options);
+                return _utils.extendObject(false, closeOpt, options);
             }
             return options;
         };
@@ -7065,10 +7524,20 @@ var Phoenix;
             //options name, type, icon, title, cancel
             options = _patternButton(options);
             html.push('<button data-action="' + options.name + '" type="button"');
+            if (options.id) {
+                html.push(' id="' + options.id + '_button_' + options.name + '"');
+            }
             html.push(' class="bs-btn-inline float-right bs-button btn btn-' + _dom.bootstrapStyles(false)[options.type || 'default']);
+            if (options.hidden)
+                html.push(' bs-none');
             html.push('"');
             if (options.close)
                 html.push(' data-dismiss="modal"');
+            if (options.description) {
+                html.push(' data-phoenix-tooltip="true" data-toggle="tooltip" title="' + _utils.escapeHtml(options.description) + '"');
+            }
+            if (options.name === 'close' || options.name === 'abandon')
+                html.push(' autofocus');
             html.push('>');
             if (options.icon) {
                 html.push('<span class="' + _dom.iconClass(options.icon) + '"></span>');
@@ -7095,6 +7564,7 @@ var Phoenix;
             ];
             if (options.buttons)
                 options.buttons.forEach(function (btn) {
+                    btn.id = options.id;
                     _renderButton(btn, html, locale);
                 });
             html.push('		</div>');
@@ -7109,6 +7579,7 @@ var Phoenix;
                 ;
                 this.$id = _utils.allocID();
                 this.$locale = locale;
+                this.closing = false;
             }
             Modal.prototype._removeEvents = function () {
                 var that = this;
@@ -7117,6 +7588,8 @@ var Phoenix;
             };
             Modal.prototype._execAction = function (name) {
                 var that = this;
+                if (that.closing)
+                    return;
                 if (that._clickHnd) {
                     that._clickHnd(name);
                 }
@@ -7135,13 +7608,19 @@ var Phoenix;
                 that.$element.on('click', function (e) {
                     if (!that.$element)
                         return;
+                    if (that.closing)
+                        return;
+                    if (that.clickTimer)
+                        return;
                     var t = e.target, root = that.$element.get(0);
                     while (t) {
                         var action = t.getAttribute('data-action');
                         if (action) {
-                            return _utils.focusDelay(function () {
+                            that.clickTimer = _utils.clickDelay(function () {
+                                that.clickTimer = 0;
                                 return that._execAction(action);
                             });
+                            return;
                         }
                         t = (t == root) ? null : t.parentNode;
                     }
@@ -7149,6 +7628,7 @@ var Phoenix;
             };
             Modal.prototype._clear = function () {
                 var that = this;
+                that.closing = true;
                 if (that.$element) {
                     that._removeEvents();
                     if (that.render)
@@ -7170,9 +7650,33 @@ var Phoenix;
             };
             Modal.prototype.close = function () {
                 var that = this;
+                that.closing = true;
                 var modalPluginName = Phoenix.modalPlugin;
                 if (that.$element)
                     that.$element[modalPluginName]('hide');
+            };
+            Modal.prototype.activateButton = function (name, value) {
+                var that = this;
+                var btn = _dom.find(null, that.$id + '_button_' + name);
+                if (btn)
+                    btn.disabled = !value;
+            };
+            Modal.prototype.setButtonVisible = function (name, value) {
+                var that = this;
+                var btn = _dom.find(null, that.$id + '_button_' + name);
+                if (btn) {
+                    if (value)
+                        _dom.removeClass(btn, 'bs-none');
+                    else
+                        _dom.addClass(btn, 'bs-none');
+                }
+                else {
+                    this.options.buttons.forEach(function (obtn) {
+                        if (obtn.name === name) {
+                            obtn.hidden = value;
+                        }
+                    });
+                }
             };
             Modal.prototype.open = function () {
                 var that = this;
@@ -7188,9 +7692,21 @@ var Phoenix;
                     _dom.append(document.body, that.$element.get(0));
                     var modalPluginName = Phoenix.modalPlugin;
                     if (that.$element[modalPluginName]) {
+                        that.$element.on('shown.bs.modal', function () {
+                            that.$element.find('[autofocus]').focus();
+                        });
                         that.$element[modalPluginName]({ keyboard: false, focus: false });
                         that._addEvents();
                     }
+                    var $footer = $(_dom.find(that.$element.get(0), that.$id + '_footer'));
+                    var $ttc = $footer.find('[data-phoenix-tooltip]');
+                    if ($ttc['tooltip'])
+                        $ttc['tooltip']({
+                            html: true,
+                            trigger: 'hover',
+                            container: 'body',
+                            template: '<div class="tooltip bs-tooltip-help" role="tooltip"><div class="tooltip-arrow"></div><div class="tooltip-inner"></div></div>'
+                        });
                 }
             };
             Modal.prototype.destroy = function () {
@@ -7208,13 +7724,14 @@ var Phoenix;
 (function (Phoenix) {
     var DatasetPlugin;
     (function (DatasetPlugin) {
-        var _p = Phoenix, _data = _p.data, _link = _p.link, _mem = _p.$mem, _utils = _p.utils;
+        var _p = Phoenix, _data = _p.data, _link = _p.link, _utils = _p.utils;
+        var _mem = _p.$mem;
         var _updateMem = function (that, ds, value, prop) {
             if (ds.config.$emit[prop].$updateMem) {
                 var patchMem = ds.data2Output(ds.config.$emit[prop].$updateMem, {
                     $item: value
                 });
-                _mem = $.extend(_mem, patchMem);
+                _mem = _utils.extendObject(false, _mem, patchMem);
             }
             if (ds.config.$emit[prop].$updateLocal) {
                 var local = that.getLocalContextHandler ? that.getLocalContextHandler() : null;
@@ -7222,7 +7739,7 @@ var Phoenix;
                     var patchLocal = ds.data2Output(ds.config.$emit[prop].$updateLocal, {
                         $item: value
                     });
-                    local = $.extend(local, patchLocal);
+                    local = _utils.extendObject(false, local, patchLocal);
                 }
             }
         }, _ds_exec = function (thisObject, event, context, dst, after, datasets, notify, contextByDs) {
@@ -7606,7 +8123,7 @@ var Phoenix;
                 that.updateMenuHandler = null;
                 that._watchers = {};
                 if (that.props.data.localContext) {
-                    $.extend(that.$local, that.props.data.localContext);
+                    _utils.extendObject(false, that.$local, that.props.data.localContext);
                 }
                 if (that.ds_init(that.data))
                     that._listen();
@@ -8550,7 +9067,7 @@ var Phoenix;
         var MAX_LENGTH_CODE = 32;
         var MAX_LENGTH_STRING = 256;
         var MAX_LENGTH_COMMENT = 4000;
-        var _ulocale = Phoenix.ulocale, _external = Phoenix.external, _application = Phoenix.application, _dom = Phoenix.dom, _data = Phoenix.data, _utils = Phoenix.utils, _locale = Phoenix.locale, _customData = Phoenix.customData, _localeSchema = Phoenix.locale.schema, _dsPlugin = Phoenix.DatasetPlugin, _fwFields = [Observable.INDEX_FIELD_NAME, Observable.SELECTED_FIELD_NAME, Observable.EXPANDED_FIELD_NAME], _isFwField = function (fieldName) {
+        var _ulocale = Phoenix.ulocale, _external = Phoenix.external, _application = Phoenix.application, _dom = Phoenix.dom, _data = Phoenix.data, _utils = Phoenix.utils, _locale = Phoenix.locale, _customData = Phoenix.customData, _dsPlugin = Phoenix.DatasetPlugin, _fwFields = [Observable.INDEX_FIELD_NAME, Observable.SELECTED_FIELD_NAME, Observable.EXPANDED_FIELD_NAME], _isFwField = function (fieldName) {
             if (fieldName.indexOf(Observable.EXPANDED_FIELD_NAME) >= 0)
                 return true;
             return _fwFields.indexOf(fieldName) >= 0;
@@ -8596,23 +9113,41 @@ var Phoenix;
         }, _rv = _registerValidator(), _em = _registerEnumManager();
         function _enumCompositions(schema, rootSchema, path, isArray, value, cb, opts) {
             opts = opts || {};
+            opts.stack = opts.stack || [];
             if (!cb(path, schema, rootSchema, value, isArray, opts))
                 return;
             Object.keys(schema.properties).forEach(function (name) {
                 var prop = schema.properties[name];
                 if (!prop.$reference || (opts && opts.$references)) {
-                    if (!prop.type && prop.$ref)
+                    var doPop = false;
+                    if (!prop.type && prop.$ref) {
                         prop = _expandRefProp(prop, rootSchema);
+                        if (opts.stack.indexOf(prop.$ref) >= 0)
+                            return;
+                        doPop = true;
+                        opts.stack.push(prop.$ref);
+                    }
                     if (prop.type === 'object') {
                         var cp = path ? path + '.' + name : name;
                         _enumCompositions(prop, rootSchema, cp, false, value ? value[name] : null, cb, opts);
+                        if (doPop)
+                            opts.stack.pop();
                     }
                     else if (prop.type === 'array') {
                         var pitems = _expandRefProp(prop.items, rootSchema);
                         if (pitems.type === 'object') {
                             var cp = path ? path + '.' + name : name;
                             opts.currentRef = prop.items.$ref;
+                            doPop = false;
+                            if (opts.currentRef) {
+                                if (opts.stack.indexOf(opts.currentRef) >= 0)
+                                    return;
+                                opts.stack.push(opts.currentRef);
+                                doPop = true;
+                            }
                             _enumCompositions(pitems, rootSchema, cp, true, value ? value[name] : null, cb, opts);
+                            if (doPop)
+                                opts.stack.pop();
                         }
                     }
                 }
@@ -8632,7 +9167,7 @@ var Phoenix;
                 }
                 if (!ps && propertyName.charAt(0) === '$' || propertyName.charAt(0) === '_') {
                     if (copyStates && propertyName === '$states') {
-                        dst[propertyName] = $.extend(true, {}, srcValue);
+                        dst[propertyName] = _utils.clone(srcValue);
                     }
                     return;
                 }
@@ -8824,7 +9359,7 @@ var Phoenix;
                             delete def.allOf;
                             allOf.forEach(function (item) {
                                 if (item.$ref) {
-                                    var ref_2 = $.extend(true, {}, _load$ref(item.$ref, schema));
+                                    var ref_2 = _utils.clone(_load$ref(item.$ref, schema));
                                     delete item.$ref;
                                     if (item.ux) {
                                         ref_2.properties && Object.keys(ref_2.properties).forEach(function (propertyName) {
@@ -8856,7 +9391,7 @@ var Phoenix;
             checkLookup: function (lookup) {
                 if (!lookup)
                     return null;
-                lookup = $.extend({}, lookup);
+                lookup = _utils.extendObject(false, {}, lookup);
                 if (!lookup.data || (lookup.data.$type !== 'odata' && lookup.data.$type !== 'find')) {
                     lookup.pagination = false;
                     lookup.cache = true;
@@ -8908,6 +9443,54 @@ var Phoenix;
                         if (res[cs.name])
                             return false;
                         res[cs.name] = true;
+                    }
+                    return true;
+                }, { $references: true });
+                return Object.keys(res).length ? res : null;
+            },
+            updateSchemaFromData: function (schema, rootSchema, data) {
+                var res = {};
+                if (!data)
+                    return;
+                _enumCompositions(schema, rootSchema, '', false, null, function (prefix, cs, rs, value, array, co) {
+                    if (cs.name) {
+                        if (data[cs.name]) {
+                            var dst_1 = cs.properties;
+                            var src_1 = data[cs.name].properties;
+                            if (src_1 && dst_1) {
+                                Object.keys(src_1).forEach(function (key) {
+                                    var dstProp = dst_1[key];
+                                    var srcProp = src_1[key];
+                                    if (dstProp) {
+                                        if (srcProp.title)
+                                            dstProp.title = srcProp.title;
+                                        if (srcProp.isHidden !== undefined) {
+                                            cs.states = cs.states || {};
+                                            cs.states[key] = cs.states[key] || {};
+                                            cs.states[key].isHidden = srcProp.isHidden;
+                                            dstProp.hidden = srcProp.isHidden;
+                                            dstProp.colIsHidden = srcProp.isHidden;
+                                        }
+                                        if (srcProp.isMandatory !== undefined) {
+                                            cs.states = cs.states || {};
+                                            cs.states[key] = cs.states[key] || {};
+                                            cs.states[key].isMandatory = srcProp.isMandatory;
+                                        }
+                                        if (srcProp.isDisabled !== undefined) {
+                                            cs.states = cs.states || {};
+                                            cs.states[key] = cs.states[key] || {};
+                                            cs.states[key].isDisabled = srcProp.isDisabled;
+                                        }
+                                        if (srcProp.enum) {
+                                            dstProp.enum = srcProp.enum;
+                                        }
+                                        if (srcProp.enumNames) {
+                                            dstProp.enumNames = srcProp.enumNames;
+                                        }
+                                    }
+                                });
+                            }
+                        }
                     }
                     return true;
                 }, { $references: true });
@@ -9034,6 +9617,17 @@ var Phoenix;
                             res.push(v);
                         }
                     });
+                    if (cs.links) {
+                        Object.keys(cs.links).forEach(function (name) {
+                            var ps = cs.links[name];
+                            if (ps.isColumn) {
+                                var cp = prefix ? prefix + '.$links.' + name : '$links.' + name;
+                                var v = { name: cp, schema: _utils.copy(ps) };
+                                v.schema.title = _ulocale.tt(v.schema.title || '', locale) || name;
+                                res.push(v);
+                            }
+                        });
+                    }
                     return true;
                 });
                 return res;
@@ -9079,11 +9673,11 @@ var Phoenix;
                     return item[keys[0]];
                 }
                 else {
-                    var a_1 = [];
+                    var a_2 = [];
                     keys.forEach(function (key) {
-                        a_1.push(key + '=' + encodeURIComponent(item[key] + ''));
+                        a_2.push(key + '=' + encodeURIComponent(item[key] + ''));
                     });
-                    return a_1.join(',');
+                    return a_2.join(',');
                 }
             },
             pk2Id: function (pk, keys) {
@@ -9146,7 +9740,7 @@ var Phoenix;
                 if (ds.$params && options.selected)
                     ds.$params.selected = options.selected;
                 if (options.paginated && (options.findFirst || options.find)) {
-                    ds = $.extend(true, {}, lookup.data);
+                    ds = _utils.clone(lookup.data);
                     ds.$params = ds.$params || {};
                     options.search = (options.search || '') + '';
                     var alldata = ds.$params.$allData || (ds.$type == 'relation') || (ds.$type == 'enum');
@@ -9415,7 +10009,7 @@ var Phoenix;
                         else {
                             if (link) {
                                 link = false;
-                                cs = cs[s];
+                                cs = cs[s] || {};
                                 cs.isLink = true;
                                 break;
                             }
@@ -9444,8 +10038,9 @@ var Phoenix;
                 return cs;
             },
             states: ['isHidden', 'isDisabled', 'isReadOnly', 'isMandatory', 'style', 'maxLength'],
-            statesAndErrors: ['isHidden', 'isDisabled', 'isReadOnly', 'isMandatory', 'errors', 'filter', 'symbol', 'decimals', 'maxLength', 'style', 'search', 'selected', 'columns', 'orderBy', 'filter', 'pageSize', 'totalCount', 'pageNumber'],
-            linksStates: ['isHidden', 'isDisabled'],
+            statesAndErrors: ['isHidden', 'isDisabled', 'isReadOnly', 'isMandatory', 'errors', 'filter', 'symbol', 'decimals', 'maxLength', 'style', 'search', 'selected', 'columns', 'orderBy', 'filter', 'pageSize', 'totalCount', 'pageNumber', 'accessMode'],
+            linksStates: ['isHidden', 'isDisabled', 'accessMode'],
+            objectStates: ['accessMode'],
             isLink: function (path) {
                 return (path.split('.').indexOf('$links') >= 0);
             },
@@ -9782,6 +10377,8 @@ var Phoenix;
                         return false;
                     if (schema.hidden)
                         return false;
+                    if (schema.colIsHidden)
+                        return false;
                     _parseCapabilities(schema);
                     return schema.features.sortable;
                 }
@@ -9790,11 +10387,15 @@ var Phoenix;
             canShowField: function (schema) {
                 if (schema.hidden)
                     return false;
+                if (schema.colIsHidden)
+                    return false;
                 return true;
             },
             canFilter: function (schema) {
                 if (schema) {
                     if (schema.hidden)
+                        return false;
+                    if (schema.colIsHidden)
                         return false;
                     _parseCapabilities(schema);
                     return schema.features.filtrable;
@@ -9804,6 +10405,8 @@ var Phoenix;
             canSearch: function (schema) {
                 if (schema) {
                     if (schema.hidden)
+                        return false;
+                    if (schema.colIsHidden)
                         return false;
                     _parseCapabilities(schema);
                     return schema.features.searchable;
@@ -9817,7 +10420,7 @@ var Phoenix;
                 value = value || 0;
                 if (schema.exclusiveMinimum) {
                     if (schema.minimum != undefined && value <= schema.minimum) {
-                        errors.push({ message: _utils.format(_localeSchema.minNumberExclusive, _sutils._title(schema.title, locale), _sutils.formatNumber(schema, schema.minimum)) });
+                        errors.push({ message: _utils.format(_locale.schema.minNumberExclusive, _sutils._title(schema.title, locale), _sutils.formatNumber(schema, schema.minimum)) });
                         if (listParent)
                             listParent.addChildError(errors[errors.length - 1].message);
                         res = false;
@@ -9825,7 +10428,7 @@ var Phoenix;
                 }
                 else {
                     if (schema.minimum != undefined && value < schema.minimum) {
-                        errors.push({ message: _utils.format(_localeSchema.minNumber, _sutils._title(schema.title, locale), _sutils.formatNumber(schema, schema.minimum)) });
+                        errors.push({ message: _utils.format(_locale.schema.minNumber, _sutils._title(schema.title, locale), _sutils.formatNumber(schema, schema.minimum)) });
                         if (listParent)
                             listParent.addChildError(errors[errors.length - 1].message);
                         res = false;
@@ -9833,7 +10436,7 @@ var Phoenix;
                 }
                 if (schema.exclusiveMaximum) {
                     if (schema.maximum != undefined && value >= schema.maximum) {
-                        errors.push({ message: _utils.format(_localeSchema.maxNumberExclusive, _sutils._title(schema.title, locale), _sutils.formatNumber(schema, schema.maximum)) });
+                        errors.push({ message: _utils.format(_locale.schema.maxNumberExclusive, _sutils._title(schema.title, locale), _sutils.formatNumber(schema, schema.maximum)) });
                         if (listParent)
                             listParent.addChildError(errors[errors.length - 1].message);
                         res = false;
@@ -9841,7 +10444,7 @@ var Phoenix;
                 }
                 else {
                     if (schema.maximum != undefined && value > schema.maximum) {
-                        errors.push({ message: _utils.format(_localeSchema.maxNumber, _sutils._title(schema.title, locale), _sutils.formatNumber(schema, schema.maximum)) });
+                        errors.push({ message: _utils.format(_locale.schema.maxNumber, _sutils._title(schema.title, locale), _sutils.formatNumber(schema, schema.maximum)) });
                         if (listParent)
                             listParent.addChildError(errors[errors.length - 1].message);
                         res = false;
@@ -9887,14 +10490,14 @@ var Phoenix;
                     return res;
                 }
                 if (schema.minLength && v.length < schema.minLength) {
-                    errors.push({ message: _utils.format(_localeSchema.minLength, _sutils._title(schema.title, locale), schema.minLength) });
+                    errors.push({ message: _utils.format(_locale.schema.minLength, _sutils._title(schema.title, locale), schema.minLength) });
                     if (listParent)
                         listParent.addChildError(errors[errors.length - 1].message);
                     res = false;
                 }
                 if (state.isMandatory) {
                     if (v === '') {
-                        errors.push({ message: _utils.format(_localeSchema.required, _sutils._title(schema.title, locale)) });
+                        errors.push({ message: _utils.format(_locale.schema.required, _sutils._title(schema.title, locale)) });
                         if (listParent)
                             listParent.addChildError(errors[errors.length - 1].message);
                         res = false;
@@ -9903,7 +10506,7 @@ var Phoenix;
                 if (schema.format) {
                     if (schema.format === "email") {
                         if (value && !_sutils.validateEmail(value, {})) {
-                            errors.push({ message: _localeSchema.invalidEmail });
+                            errors.push({ message: _locale.schema.invalidEmail });
                             if (listParent)
                                 listParent.addChildError(errors[errors.length - 1].message);
                             res = false;
@@ -9912,7 +10515,7 @@ var Phoenix;
                     else if (schema.format === "phone") {
                         var error = {};
                         if (value && !_sutils.validatePhone(value, error)) {
-                            errors.push({ message: _localeSchema.invalidPhone });
+                            errors.push({ message: _locale.schema.invalidPhone });
                             if (listParent)
                                 listParent.addChildError(errors[errors.length - 1].message);
                             res = false;
@@ -9921,7 +10524,7 @@ var Phoenix;
                     else if (schema.format === "url") {
                         var error = {};
                         if (value && !_sutils.validateUrl(value, error)) {
-                            errors.push({ message: _localeSchema.invalidUrl });
+                            errors.push({ message: _locale.schema.invalidUrl });
                             if (listParent)
                                 listParent.addChildError(errors[errors.length - 1].message);
                             res = false;
@@ -9940,7 +10543,7 @@ var Phoenix;
                 if (schema.pattern) {
                     var error = {};
                     if (value && !_sutils.validatePattern(value, schema.pattern, error)) {
-                        errors.push({ message: _localeSchema.invalidChars });
+                        errors.push({ message: _locale.schema.invalidChars });
                         if (listParent)
                             listParent.addChildError(errors[errors.length - 1].message);
                         res = false;
@@ -9953,7 +10556,7 @@ var Phoenix;
                 if (state.isHidden || state.isDisabled)
                     return res;
                 if (orig !== value) {
-                    errors.push({ message: _localeSchema.passwordMismatch });
+                    errors.push({ message: _locale.schema.passwordMismatch });
                     res = false;
                 }
                 return res;
@@ -10031,8 +10634,9 @@ var Phoenix;
                                 rulesCount_1 = promises.length - 1;
                             }
                         }
-                        if (!promises.length)
+                        if (!promises.length) {
                             return after(null, ldata);
+                        }
                         _dom.processing(true);
                         _utils.Promise.all(promises).then(function (values) {
                             _dom.processing(false);
@@ -10043,7 +10647,7 @@ var Phoenix;
                                     allEnums[ev.type] = ev.enums;
                                 }
                                 else if (index < dataCount_1) {
-                                    $.extend(ldata, ev);
+                                    _utils.extendObject(false, ldata, ev);
                                 }
                                 if (index === rulesCount_1)
                                     serverRules = values[rulesCount_1];
@@ -10063,6 +10667,9 @@ var Phoenix;
                                 delete schema.rules;
                             if (enumsCount_1) {
                                 _sutils._fillEnums(schema, allEnums);
+                            }
+                            if (names_1) {
+                                _sutils.updateSchemaFromData(schema, schema, ldata.$$schema);
                             }
                             after(null, ldata);
                         }).catch(function (ex) {
@@ -10152,10 +10759,17 @@ var Phoenix;
                     if (textValue === '' || textValue === null)
                         return undefined;
                 }
+                else if (_sutils.isBoolean(schema)) {
+                    if (textValue === 'true') {
+                        textValue = true;
+                    }
+                    else if (textValue === 'false') {
+                        textValue = false;
+                    }
+                }
                 return textValue;
             },
             value2Text: function (value, schema, state) {
-                var that = this;
                 if (_sutils.isMoney(schema)) {
                     var decimals = state.decimals || 0;
                     if (schema.nullable && (value === null || value === undefined))
@@ -10168,8 +10782,16 @@ var Phoenix;
                     }
                     return _ulocale.decimal(value, decimals, null);
                 }
-                if (_sutils.isNumber(schema)) {
+                else if (_sutils.isNumber(schema)) {
+                    if (schema.nullable && (value === null || value === undefined))
+                        return '';
                     return _ulocale.decimal(value, state.decimals, null);
+                }
+                else if (_sutils.isBoolean(schema)) {
+                    if (value !== undefined) {
+                        return value;
+                    }
+                    return value || '';
                 }
                 else
                     return value || '';
@@ -10220,7 +10842,7 @@ var Phoenix;
                             var ds = config.datasets[dsName];
                             if (onlyAutoOpen && ds.$autoOpen === false)
                                 return;
-                            var dc = $.extend({}, ds, true);
+                            var dc = _utils.extendObject(true, {}, ds);
                             dc.name = dsName;
                             res_3.push(dc);
                         });
@@ -10242,12 +10864,12 @@ var Phoenix;
                     if (datasets.length) {
                         datasets.forEach(function (dsName) {
                             if (config.datasets[dsName].$main) {
-                                main = $.extend({}, config.datasets[dsName], true);
+                                main = _utils.extendObject(true, {}, config.datasets[dsName]);
                                 main.name = dsName;
                             }
                         });
                         if (!main) {
-                            main = $.extend({}, config.datasets[datasets[0]], true);
+                            main = _utils.extendObject(true, {}, config.datasets[datasets[0]]);
                             main.name = datasets[0];
                         }
                     }
@@ -10280,7 +10902,7 @@ var Phoenix;
                     _dsPlugin.executeDatasets(ds, context || {}, result, {}, function (sended, ex) {
                         _dom.processing(false);
                         if (!ex) {
-                            var mainData_1 = $.extend({}, result[main.name] || {});
+                            var mainData_1 = _utils.extendObject(false, {}, result[main.name] || {});
                             mainData_1.$datasets = result;
                             if (children && children.length) {
                                 _dom.processing(true);
@@ -10755,7 +11377,7 @@ var Phoenix;
 /// <reference path="contextmenu.ts" />
 var Phoenix;
 (function (Phoenix) {
-    var _p = Phoenix, _link = _p.link, _menubase = _p.menubase, _preferences = _p.preferences, _application = _p.application, _device = _p.device, _utils = _p.utils, _locale = _p.locale, _contextmenu = Phoenix.contextmenu, _dom = _p.dom;
+    var _p = Phoenix, _link = _p.link, _preferences = _p.preferences, _application = _p.application, _device = _p.device, _utils = _p.utils, _locale = _p.locale, _contextmenu = Phoenix.contextmenu, _dom = _p.dom;
     var menu;
     (function (menu) {
         var _classCollapsed = function (item) {
@@ -10987,10 +11609,12 @@ var Phoenix;
                     p.collapsed = false;
                     p = that._map[p.$parentId];
                 }
-                that.items.forEach(function (ci) {
-                    if (!ci.collapsed && !activeMap[ci.$id])
-                        ci.collapsed = true;
-                });
+                if (that.options.colapseOnSelect) {
+                    that.items.forEach(function (ci) {
+                        if (!ci.collapsed && !activeMap[ci.$id])
+                            ci.collapsed = true;
+                    });
+                }
                 that.updateItemsAfterCollapse();
                 var navTitleList = active.reverse().map(function (ci) { return ci.$title; });
                 if (that.data && that.data.$moduleTitle)
@@ -11173,7 +11797,7 @@ var Phoenix;
             Menu.prototype._executeContextMenu = function (event, item, link) {
                 var that = this;
                 if (item.$link && item.$link.$page) {
-                    var ll = $.extend(true, {}, item.$link);
+                    var ll = _utils.clone(item.$link);
                     var data_3 = [{ link: ll, title: _locale.ui.OpenNewTab }];
                     _contextmenu.openContextMenu(event, that, data_3);
                     return true;
@@ -11462,7 +12086,7 @@ var Phoenix;
                             iconStyle: '$icon-normal',
                             right: true,
                             auth: true,
-                            menu: $.extend(true, {}, headerCfg.userMenu),
+                            menu: _utils.clone(headerCfg.userMenu),
                             expression: headerCfg.userMenu.expression || 'John Doe',
                             $type: 'user'
                         });
@@ -11924,7 +12548,7 @@ var Phoenix;
 (function (Phoenix) {
     var tabs;
     (function (tabs_1) {
-        var _p = Phoenix, _pagecontrol = _p.pagecontrol, _dom = _p.dom, _link = _p.link, _utils = _p.utils, _application = _p.application, _ulocale = _p.ulocale, _locale = _p.locale;
+        var _p = Phoenix, _pagecontrol = _p.pagecontrol, _dom = _p.dom, _link = _p.link, _utils = _p.utils, _application = _p.application, _ulocale = _p.ulocale;
         var Tabs = /** @class */ (function () {
             function Tabs(options, tabs) {
                 var that = this, defOptions = {
@@ -11932,7 +12556,7 @@ var Phoenix;
                     pills: false
                 };
                 that._page = _pagecontrol.Page();
-                that._options = $.extend(defOptions, options || {});
+                that._options = _utils.extendObject(false, defOptions, options || {});
                 that._tabs = tabs || [];
             }
             Tabs.prototype._renderTabs = function () {
@@ -13093,6 +13717,7 @@ var Phoenix;
                 ldata = ldata || {};
                 _layoutUtils.check(ldata, null, that.map, that.mapFields, that.namedMap, that.namedMapFields);
                 that.data = ldata;
+                that.t = ldata.resources || {};
                 that.data.form = that.options.form;
                 ldata.map = that.map;
                 ldata.fields = that.mapFields;
@@ -14577,7 +15202,7 @@ var Phoenix;
                                     }
                                 }
                                 if (self.parent && self.parent.notifyStateChanged)
-                                    self.parent.notifyStateChanged(that.name + '.' + propertyName, {});
+                                    self.parent.notifyStateChanged(that.name + '.' + propertyName, { oldValue: oldValue, value: value });
                             }
                         },
                         enumerable: true
@@ -14620,6 +15245,38 @@ var Phoenix;
                         array.columns = value ? JSON.parse(value) : undefined;
                         if (that.parent && that.parent.notifyStateChanged)
                             that.parent.notifyStateChanged(that.name + '.columns', {});
+                    }
+                },
+                enumerable: true,
+                configurable: true
+            });
+            Object.defineProperty(ListStates.prototype, "isHidden", {
+                get: function () {
+                    return this._state.isHidden || false;
+                },
+                set: function (value) {
+                    var that = this;
+                    var oldValue = that._state.isHidden || false;
+                    if (oldValue !== value) {
+                        that._state.isHidden = value;
+                        if (that.parent && that.parent.notifyStateChanged)
+                            that.parent.notifyStateChanged(that.name + '.isHidden', {});
+                    }
+                },
+                enumerable: true,
+                configurable: true
+            });
+            Object.defineProperty(ListStates.prototype, "isDisabled", {
+                get: function () {
+                    return this._state.isDisabled || false;
+                },
+                set: function (value) {
+                    var that = this;
+                    var oldValue = that._state.isDisabled || false;
+                    if (oldValue !== value) {
+                        that._state.isDisabled = value;
+                        if (that.parent && that.parent.notifyStateChanged)
+                            that.parent.notifyStateChanged(that.name + '.isDisabled', {});
                     }
                 },
                 enumerable: true,
@@ -14749,6 +15406,16 @@ var Phoenix;
             return DataStates;
         }(BaseState));
         Observable.DataStates = DataStates;
+        var ObjectStates = /** @class */ (function (_super) {
+            __extends(ObjectStates, _super);
+            function ObjectStates(parent, value) {
+                var _this = _super.call(this, parent, '$', value) || this;
+                _this._init(parent, '$', value, _sutils.objectStates);
+                return _this;
+            }
+            return ObjectStates;
+        }(BaseState));
+        Observable.ObjectStates = ObjectStates;
         var LinkStates = /** @class */ (function (_super) {
             __extends(LinkStates, _super);
             function LinkStates(parent, prop, value) {
@@ -14769,6 +15436,7 @@ var Phoenix;
 var Phoenix;
 (function (Phoenix) {
     var _utils = Phoenix.utils;
+    var ROOT_ERROR = '$';
     var Observable;
     (function (Observable) {
         var _errorsUtils = {
@@ -14855,6 +15523,17 @@ var Phoenix;
             Errors.prototype.clear = function (notify) {
                 var that = this;
                 if (that._errors.length) {
+                    if (that.name === ROOT_ERROR && that.parent && that.parent.parentArray) {
+                        that._errors.forEach(function (error) {
+                            if (error.id) {
+                                var pa = that.parent.parentArray;
+                                var ppa = pa.parent;
+                                if (ppa && ppa.$errors && ppa.$errors[pa.path]) {
+                                    ppa.$errors[pa.path].rmvErrorById(error.id, notify);
+                                }
+                            }
+                        });
+                    }
                     that._errors.length = 0;
                     if (notify)
                         that.notify();
@@ -14875,6 +15554,13 @@ var Phoenix;
                 }
                 return false;
             };
+            Errors.prototype.cloneErrors = function () {
+                var that = this;
+                if (that._errors && that._errors.length) {
+                    return that._errors.map(function (e) { return { id: e.id, severity: e.severity, message: e.message }; });
+                }
+                return [];
+            };
             Errors.prototype.rmvError = function (message) {
                 var that = this;
                 if (that._errors && that._errors.length) {
@@ -14883,12 +15569,23 @@ var Phoenix;
                         return error.severity === 'error' && error.message === message;
                     });
                     if (ii >= 0) {
+                        that.removeParentArrayError(that._errors[ii], true);
                         that._errors.splice(ii, 1);
                         that.notify();
                     }
                 }
             };
-            Errors.prototype.rmvErrorById = function (id) {
+            Errors.prototype.removeParentArrayError = function (error, notify) {
+                var that = this;
+                if (that.name === ROOT_ERROR && that.parent && that.parent.parentArray && error.id) {
+                    var pa = that.parent.parentArray;
+                    var ppa = pa.parent;
+                    if (ppa && ppa.$errors && ppa.$errors[pa.path]) {
+                        ppa.$errors[pa.path].rmvErrorById(error.id, true);
+                    }
+                }
+            };
+            Errors.prototype.rmvErrorById = function (id, notify) {
                 var that = this;
                 if (that._errors && that._errors.length) {
                     var errors = that._errors;
@@ -14896,8 +15593,10 @@ var Phoenix;
                         return error.id === id;
                     });
                     if (ii >= 0) {
+                        that.removeParentArrayError(that._errors[ii], notify);
                         that._errors.splice(ii, 1);
-                        that.notify();
+                        if (notify)
+                            that.notify();
                     }
                 }
             };
@@ -14925,6 +15624,14 @@ var Phoenix;
                     });
                     that._errors = that._errors.concat(errors);
                     that.notify();
+                    if (that.name === ROOT_ERROR && that.parent && that.parent.parentArray) {
+                        var pa = that.parent.parentArray;
+                        var ppa = pa.parent;
+                        if (ppa && ppa.$errors && ppa.$errors[pa.path]) {
+                            var ne = errors.map(function (e) { return { id: e.id, severity: e.severity, message: e.message }; });
+                            ppa.$errors[pa.path].addErrors(ne);
+                        }
+                    }
                 }
             };
             Errors.prototype.push = function (error) {
@@ -14936,6 +15643,7 @@ var Phoenix;
                 if (that._errors) {
                     var ii = that._errors.indexOf(error);
                     if (ii >= 0) {
+                        that.removeParentArrayError(error, true);
                         that._errors.splice(ii, 1);
                         that.notify();
                     }
@@ -15312,7 +16020,7 @@ var Phoenix;
 (function (Phoenix) {
     var rules;
     (function (rules_1) {
-        var _p = Phoenix, _observable = Phoenix.Observable, _su = _observable.SchemaUtils, _du = _observable.DataUtils, _locale = Phoenix.locale, _ulocale = Phoenix.ulocale, _utils = Phoenix.utils;
+        var _p = Phoenix, _observable = Phoenix.Observable, _su = _observable.SchemaUtils, _locale = Phoenix.locale, _ulocale = Phoenix.ulocale, _utils = Phoenix.utils;
         var _ctx = {}, _patchContext = function (propertyName, value) {
             _ctx[propertyName] = value;
         }, _parseExpression = function (expression, options) {
@@ -15482,7 +16190,7 @@ var Phoenix;
                     var inst_1 = params.instance;
                     var pp_1 = inst_1;
                     var ctx_3 = _createContext(root);
-                    var _loop_1 = function () {
+                    var _loop_2 = function () {
                         var rules_2 = options.propagations && root.$schema.rules.propagation ? root.$schema.rules.propagation[inst_1.className] : null;
                         var trigger = cp_1.join('.');
                         var lrules = rules_2 ? rules_2[trigger] : null;
@@ -15530,7 +16238,7 @@ var Phoenix;
                         inst_1 = inst_1.parent;
                     };
                     while (inst_1) {
-                        _loop_1();
+                        _loop_2();
                     }
                 }
             }
@@ -15711,6 +16419,9 @@ var Phoenix;
                     enumerable: true
                 });
             }
+        }, _createRootState = function (obj, defvalue) {
+            defvalue = defvalue || {};
+            obj.$states.$ = new _observable.ObjectStates(obj, defvalue);
         }, _createStateProp = function (obj, name, defvalue) {
             var ss = obj._schema.properties[name];
             var rs = obj._rootParent._schema;
@@ -15736,7 +16447,10 @@ var Phoenix;
                         defvalue.decimals = 0;
                 }
             }
-            if (ss.type === 'array' && (!ss.items || !ss.items.type || ss.items.type === 'object')) {
+            var schema = _su.expand$Ref(ss, rs);
+            if (schema.items)
+                schema.items = _su.expand$Ref(schema.items, rs);
+            if (schema.type === 'array' && (!schema.items || !schema.items.type || schema.items.type === 'object')) {
                 obj.$states[name] = new _observable.ListStates(obj, name, defvalue);
             }
             else
@@ -15788,6 +16502,8 @@ var Phoenix;
                 else if (segment.indexOf('$links') >= 0) {
                     res.type = JSONJPATCH_METHOD;
                     var methodName = segments.pop();
+                    if (!methodName)
+                        return null;
                     if (methodName === '$links' && res.lastSegment.indexOf('.') > 0) {
                         methodName = res.lastSegment;
                         segments.push('$links');
@@ -15861,6 +16577,7 @@ var Phoenix;
                 that._map = {};
                 that.isQuery = isQuery;
                 that._selectedPks = [];
+                that._selectedObj = [];
                 that.isNull = false;
                 that.isUndefined = true;
                 that._model = undefined;
@@ -15881,10 +16598,10 @@ var Phoenix;
                 if (that._schema.links) {
                     var parentModel_1 = that._parent.model(true);
                     Object.keys(that._schema.links).forEach(function (name) {
-                        var link = $.extend({}, that._schema.links[name]);
+                        var link = _utils.extendObject(false, {}, that._schema.links[name]);
                         var parentPath = path + '.' + name;
                         parentModel_1.$links = parentModel_1.$links || {};
-                        parentModel_1.$links[parentPath] = $.extend(link, parentModel_1.$links[parentPath] || {});
+                        parentModel_1.$links[parentPath] = _utils.extendObject(false, link, parentModel_1.$links[parentPath] || {});
                         that.$links[name] = new _observable.LinkStates(that.parent, path + '.$links.' + name, parentModel_1.$links[parentPath]);
                     });
                 }
@@ -15913,10 +16630,12 @@ var Phoenix;
                     if (value) {
                         that._simulateSelecting = true;
                         that._savedSelected = that._selectedPks.slice();
+                        that._savedSelectedObj = that._selectedObj.slice();
                     }
                     else {
                         var toSend = that._selectedPks.slice();
                         that._selectedPks = [];
+                        that._selectedObj = [];
                         var map_1 = {};
                         that._savedSelected.forEach(function (id) {
                             map_1[id] = true;
@@ -15928,12 +16647,14 @@ var Phoenix;
                                 if (item.internalSetSelected(true))
                                     doSend_1 = true;
                                 that._selectedPks.push(id);
+                                that._selectedObj.push(item.model(true));
                             }
                             else if (item.internalSetSelected(false))
                                 doSend_1 = true;
                         });
                         that._updateStateSelected();
                         that._savedSelected = null;
+                        that._savedSelectedObj = null;
                         that._simulateSelecting = false;
                         if (doSend_1)
                             that._parent.execSyncAction(that.getJSONPatchPath() + '.$selected', toSend.join(','));
@@ -16104,6 +16825,7 @@ var Phoenix;
                 var ii = that._selectedPks.indexOf(id);
                 if (ii < 0) {
                     that._selectedPks.push(id);
+                    that._selectedObj.push(item.model(true));
                     that._updateStateSelected();
                 }
                 that._setSelected(item, notify);
@@ -16119,7 +16841,7 @@ var Phoenix;
                 var that = this;
                 if (original)
                     return that._model;
-                return that._model;
+                return that._model.slice(0);
             };
             DataListCore.prototype._initModelInParent = function () {
                 var that = this;
@@ -16141,6 +16863,7 @@ var Phoenix;
                 var ii = that._selectedPks.indexOf(id);
                 if (ii >= 0) {
                     that._selectedPks.splice(ii, 1);
+                    that._selectedObj.splice(ii, 1);
                     that._updateStateSelected();
                 }
                 that._rmvSelected(item, notifySelectedChanged);
@@ -16196,7 +16919,7 @@ var Phoenix;
                 enumerable: true,
                 configurable: true
             });
-            DataListCore.prototype._destroyItems = function () {
+            DataListCore.prototype._destroyItems = function (inDestroy) {
                 var that = this;
                 if (that._items) {
                     that._model = undefined;
@@ -16230,9 +16953,10 @@ var Phoenix;
                 that._parent = null;
                 that._arrayParent = null;
                 that._parentSelected = null;
-                that._destroyItems();
+                that._destroyItems(true);
                 that.$links = null;
                 that._selectedPks = null;
+                that._selectedObj = null;
                 that._model = null;
                 that._schema = null;
                 that._schemaItems = null;
@@ -16253,7 +16977,7 @@ var Phoenix;
                 if (frozen)
                     that.frozen = true;
                 // remove && destroy items 
-                that._destroyItems();
+                that._destroyItems(false);
                 that._model = value;
                 that._fillItems();
                 that.frozen = ofv;
@@ -16395,6 +17119,7 @@ var Phoenix;
                     // Send selected
                     var sel_1 = that._selectedPks.slice(0);
                     that._selectedPks = [];
+                    that._selectedObj = [];
                     that._selected = null;
                     if (sel_1.length) {
                         if (!list.length)
@@ -16429,6 +17154,7 @@ var Phoenix;
                 });
                 if (force) {
                     that._selectedPks = [];
+                    that._selectedObj = [];
                     that._updateStateSelected();
                 }
             };
@@ -16438,6 +17164,16 @@ var Phoenix;
                 if (that._schemaItems.primaryKey) {
                     that.enumSelectedItems(expandingProperty, function (item, level, pk) {
                         res.push(pk);
+                    });
+                }
+                return res;
+            };
+            DataListBase.prototype.getSelectedObjItems = function (expandingProperty) {
+                var that = this;
+                var res = [];
+                if (that._schemaItems.primaryKey) {
+                    that.enumSelectedItems(expandingProperty, function (item, level, pk) {
+                        res.push(item);
                     });
                 }
                 return res;
@@ -16494,6 +17230,7 @@ var Phoenix;
                 level = level || 0;
                 if (!expandingProperty) {
                     var sel_2 = that._selectedPks.slice(0);
+                    var selObj_1 = that._selectedObj.slice(0);
                     cb(that, null);
                     if (!sel_2.length)
                         return;
@@ -16503,12 +17240,13 @@ var Phoenix;
                         var index = sel_2.indexOf(pkId);
                         if (index >= 0) {
                             sel_2.splice(index, 1);
+                            selObj_1.splice(index, 1);
                             cb(that, ii, level, pkId);
                         }
                     });
                     if (sel_2.length) {
-                        sel_2.forEach(function (item) {
-                            cb(that, null, level, item);
+                        sel_2.forEach(function (item, index) {
+                            cb(that, selObj_1[index], level, item);
                         });
                     }
                 }
@@ -16551,7 +17289,7 @@ var Phoenix;
                                 if (simulateSelecting_1) {
                                     if (parent && !ii)
                                         return;
-                                    if (ii.parentArray !== item.parentArray) {
+                                    if (ii.parentArray !== item.parentArray && ii instanceof Data) {
                                         ii.execSyncAction(ii.parentArray.getJSONPatchPath() + '.$selected', '');
                                     }
                                     else {
@@ -16561,9 +17299,10 @@ var Phoenix;
                                 else {
                                     if (parent && !ii) {
                                         parent._selectedPks = [];
+                                        parent._selectedObj = [];
                                     }
                                     else {
-                                        if (ii.internalSetSelected(false)) {
+                                        if (ii instanceof Data && ii.internalSetSelected(false)) {
                                             selList_1.push({ item: ii, value: false });
                                         }
                                     }
@@ -16678,8 +17417,26 @@ var Phoenix;
                         that._model.push(mm_1[value]);
                         that._items.push(im_1[value]);
                     });
-                    if (oldSort_1.join('$$') !== values.join('$$'))
-                        that._parent.notifyChanged(that._path, undefined, undefined, 'propchange', { instance: that._parent, checkChildren: true, sorting: true }, false);
+                    if (oldSort_1.join('$$') !== values.join('$$')) {
+                        var cp = that._parent;
+                        var cl = that;
+                        var pathToSend = null;
+                        while (true) {
+                            if (cp && cp.parentArray && cp.parentArray.schema.children === cl.path) {
+                                pathToSend = cp.parentArray.path;
+                                cl = cp.parentArray;
+                                cp = cl.parent;
+                            }
+                            else
+                                break;
+                        }
+                        if (pathToSend) {
+                            cl._parent.notifyChanged(pathToSend, undefined, undefined, 'propchange', { instance: cl._parent, checkChildren: true, sorting: true }, false);
+                        }
+                        else {
+                            that._parent.notifyChanged(that._path, undefined, undefined, 'propchange', { instance: that._parent, checkChildren: true, sorting: true }, false);
+                        }
+                    }
                 }
             };
             DataListBase.prototype.findById = function (id) {
@@ -16908,10 +17665,13 @@ var Phoenix;
             function CompositionList() {
                 return _super !== null && _super.apply(this, arguments) || this;
             }
-            CompositionList.prototype._destroyItems = function () {
-                _super.prototype._destroyItems.call(this);
+            CompositionList.prototype._destroyItems = function (inDestroy) {
+                _super.prototype._destroyItems.call(this, inDestroy);
                 var that = this;
-                that._selectedPks = [];
+                if (inDestroy || !that._schema || !that._schema.paginated) {
+                    that._selectedPks = [];
+                    that._selectedObj = [];
+                }
             };
             CompositionList.prototype.find = function (prop) {
                 var keys = [];
@@ -16941,10 +17701,11 @@ var Phoenix;
             function SimpleCompositionList() {
                 return _super !== null && _super.apply(this, arguments) || this;
             }
-            SimpleCompositionList.prototype._destroyItems = function () {
-                _super.prototype._destroyItems.call(this);
+            SimpleCompositionList.prototype._destroyItems = function (inDestroy) {
+                _super.prototype._destroyItems.call(this, inDestroy);
                 var that = this;
                 that._selectedPks = [];
+                that._selectedObj = [];
             };
             return SimpleCompositionList;
         }(DataListCore));
@@ -16978,6 +17739,7 @@ var Phoenix;
             SimpleTypeList.prototype.remove = function (item) {
                 var that = this;
                 var ii = that._items.indexOf(item);
+                // item.$errors.$.clear(true);
                 if (ii >= 0) {
                     that._items.splice(ii, 1);
                     that._model.splice(ii, 1);
@@ -17140,6 +17902,9 @@ var Phoenix;
                     that.clearSelection();
                 that._initModelInParent();
                 that.splice(-1, 0, item, duplicates);
+                if (that._model.length === 1) {
+                    that._parent.notifyChanged(that._path + Observable.EXPANDED_FIELD_NAME, true, false, 'propchange', { instance: that._parent }, true);
+                }
             };
             DataList.prototype.splice = function (start, deleteCount, item, duplicates) {
                 if (deleteCount > 0)
@@ -17159,8 +17924,12 @@ var Phoenix;
                 else
                     that._model.splice(start, deleteCount, item);
                 var ii = new Data(that._schemaItems, that._parent, that._path, item, that, false, that._locale, null);
-                if (isPush)
+                if (isPush) {
                     that._items.push(ii);
+                    if (ii.$errors.$.hasErrors()) {
+                        ii._parent.$errors[that._path].addErrors(ii.$errors.$.cloneErrors());
+                    }
+                }
                 else
                     that._items.splice(start, deleteCount, ii);
                 that.frozen = ofv;
@@ -17185,7 +17954,6 @@ var Phoenix;
             };
             DataList.prototype.remove = function (item) {
                 var that = this;
-                var removed = null;
                 var ofv = that.frozen, notify;
                 if (!that._model)
                     return;
@@ -17195,7 +17963,7 @@ var Phoenix;
                 var ns = null;
                 var doDestroy = false;
                 if (ii >= 0) {
-                    removed = item.model();
+                    item.$errors.$.clear(true);
                     notify = true;
                     var notifyremoveSelected = false;
                     if (item.$select && that.manageSelecting) {
@@ -17215,6 +17983,9 @@ var Phoenix;
                         that.removeSelected(item, notifyremoveSelected);
                     that.frozen = true;
                     doDestroy = true;
+                    if (!that._model.length) {
+                        that._parent.notifyChanged(that._path + Observable.EXPANDED_FIELD_NAME, true, false, 'propchange', { instance: that._parent }, true);
+                    }
                 }
                 that.frozen = ofv;
                 delete that._map[id];
@@ -17635,15 +18406,42 @@ var Phoenix;
                     }
                 }
             };
-            Data.prototype.toggleExpand = function (expandingProperty) {
+            Data.prototype.toggleExpand = function (expandingProperty, recursive, forcedValue) {
                 var that = this;
                 var res = false;
                 if (!expandingProperty)
                     return res;
                 var list = _utils.getValue(that, expandingProperty);
                 if (list) {
-                    list.$expand = !list.$expand;
+                    list.$expand = forcedValue !== undefined ? forcedValue : !list.$expand;
                     res = list.$expand;
+                    if (recursive && list.expandingProperty) {
+                        var doSelectFirst_1 = false;
+                        if (!res)
+                            list.selecting(true, list.expandingProperty);
+                        try {
+                            list.forEach(function (item, index, level) {
+                                if (item) {
+                                    if (item.$select && list.indexOf(item) < 0) {
+                                        item.select(false, false, list, null, false);
+                                        doSelectFirst_1 = true;
+                                    }
+                                    var cl = _utils.getValue(item, list.expandingProperty);
+                                    if (cl)
+                                        cl.$expand = res;
+                                }
+                            }, list.expandingProperty, true);
+                            if (doSelectFirst_1) {
+                                var item = list.get(0);
+                                if (item)
+                                    item.select(true, false, list, null, false);
+                            }
+                        }
+                        finally {
+                            if (!res)
+                                list.selecting(false, list.expandingProperty);
+                        }
+                    }
                 }
                 return res;
             };
@@ -17693,6 +18491,8 @@ var Phoenix;
                     try {
                         delta.forEach(function (item) {
                             var parent = _dutils.getJSONPatchParent(item.path, that);
+                            if (!parent)
+                                return;
                             try {
                                 if (parent.type === JSONJPATCH_METHOD) {
                                     if (parent.value) {
@@ -17702,8 +18502,13 @@ var Phoenix;
                                                 lp_1[key] = item.value[key];
                                             });
                                         }
-                                        else
-                                            parent.value[parent.lastSegment] = item.value;
+                                        else {
+                                            if (typeof parent.value[parent.lastSegment] === 'object') {
+                                            }
+                                            else {
+                                                parent.value[parent.lastSegment] = item.value;
+                                            }
+                                        }
                                     }
                                     return;
                                 }
@@ -17712,7 +18517,7 @@ var Phoenix;
                                 if (!p_3)
                                     return;
                                 if (p_3.isArray && parent.type === JSONJPATCH_PROPERTY) {
-                                    if (item.op === 'add') {
+                                    if (item.op === 'add' || item.op === 'replace') {
                                         if (Array.isArray(item.value)) {
                                             p_3.parent[p_3.path] = item.value;
                                         }
@@ -17986,9 +18791,15 @@ var Phoenix;
             //TODO states for $index
             Data.prototype.getState = function (path, params) {
                 var that = this;
+                var accessMode = that.$states.$.accessMode;
+                var parent = that.parent;
+                while (!accessMode && parent) {
+                    accessMode = parent.$states.$.accessMode;
+                    parent = parent.parent;
+                }
                 if (!path)
                     return { value: that, parentIsNull: false };
-                var cs = that, segments = path.split('.'), propertyName = segments.pop(), opropertyName = propertyName, ps, res = {}, cpath = [], islink = false;
+                var cs = that, segments = path.split('.'), propertyName = segments.pop(), opropertyName = propertyName, ps, res = {}, islink = false;
                 var ll = segments.length - 1;
                 var isMeta = _su.isMetaProp(propertyName);
                 if (isMeta) {
@@ -18077,7 +18888,20 @@ var Phoenix;
                         }
                     }
                 }
-                return $.extend({}, state, res);
+                var stateRes = __assign({}, state);
+                stateRes = __assign(__assign({}, stateRes), res);
+                // const stateRes = $.extend({}, state, res);
+                if (accessMode) {
+                    var schema = this.getSchema(path);
+                    if (schema && !schema.noRights)
+                        stateRes.isDisabled = true;
+                }
+                else if (!stateRes.isDisabled && stateRes.accessMode) {
+                    var schema = this.getSchema(path);
+                    if (schema && !schema.noRights)
+                        stateRes.isDisabled = true;
+                }
+                return stateRes;
             };
             Data.prototype._setPropErrors = function (propName, value) {
                 var that = this;
@@ -18117,6 +18941,11 @@ var Phoenix;
                 //for each property set value && state
                 var rs = that._rootParent._schema;
                 that._model.$links = value.$links;
+                if (value.$states && value.$states.$) {
+                    var ss_5 = value.$states.$;
+                    Object.keys(ss_5).forEach(function (sn) { that.$states.$[sn] = ss_5[sn]; });
+                }
+                value.$states.$ = that.$states.$.state();
                 props.forEach(function (name) {
                     var si = that._schema.properties[name];
                     if (!_su.inModel(si, rs))
@@ -18133,8 +18962,8 @@ var Phoenix;
                         that[name] = val;
                     if (!isMeta) {
                         if (value.$states && value.$states[name]) {
-                            var ss_3 = value.$states[name];
-                            Object.keys(ss_3).forEach(function (sn) { that.$states[name][sn] = ss_3[sn]; });
+                            var ss_6 = value.$states[name];
+                            Object.keys(ss_6).forEach(function (sn) { that.$states[name][sn] = ss_6[sn]; });
                         }
                         value.$states[name] = that.$states[name].state();
                     }
@@ -18168,6 +18997,12 @@ var Phoenix;
                 var that = this;
                 var ofv = that.frozen;
                 that.frozen = true;
+                if (value && value.$errors && value.$errors.$) {
+                    var rootError = value.$errors.$;
+                    delete value.$errors.$;
+                    if (rootError.length)
+                        that.addErrors(rootError);
+                }
                 if (!that._children[propertyName])
                     that._children[propertyName] = new Data(that._schema.properties[propertyName], that, propertyName, value, null, true, that._locale, null);
                 else
@@ -18213,7 +19048,7 @@ var Phoenix;
                 var that = this;
                 if (!that._model)
                     return;
-                var states = (schema.states ? $.extend(true, {}, schema.states) : null), links = (schema.links ? $.extend(true, {}, schema.links) : null), errors = (schema.errors ? $.extend(true, {}, schema.errors) : null);
+                var states = (schema.states ? _utils.clone(schema.states) : null), links = (schema.links ? _utils.clone(schema.links) : null), errors = (schema.errors ? _utils.clone(schema.errors) : null);
                 var npAdded = false;
                 //create hidden props
                 var props = Object.keys(schema.properties);
@@ -18227,7 +19062,7 @@ var Phoenix;
                             cs.$meta = np;
                             var ps = schema.properties[np];
                             if (!ps) {
-                                ps = $.extend(true, {}, cs);
+                                ps = _utils.clone(cs);
                                 ps.title = Phoenix.locale.ui.Confirm;
                                 // for this field use $stateProperty to get    
                                 ps.$stateProperty = pn;
@@ -18253,6 +19088,7 @@ var Phoenix;
                 });
                 if (npAdded)
                     props = Object.keys(schema.properties);
+                _createRootState(that, states ? states.$ : null);
                 props.forEach(function (name) {
                     _createProp(that, name);
                     if (!_su.isMetaProp(name))
@@ -18330,7 +19166,12 @@ var Phoenix;
                 var res = { continue: true, value: value };
                 if (_su.isNumber(schema) && !isNaN(value) && value !== null && value !== undefined) {
                     if (that.$states[propertyName] && (that.$states[propertyName].decimals !== undefined) && (that.$states[propertyName].decimals !== false)) {
-                        res.value = parseFloat(value.toFixed(that.$states[propertyName].decimals));
+                        try {
+                            res.value = parseFloat(value.toFixed(that.$states[propertyName].decimals));
+                        }
+                        catch (e) {
+                            res.value = 0;
+                        }
                         if (!forceContinue && oldValue === res.value)
                             res.continue = false;
                     }
@@ -18533,6 +19374,9 @@ var Phoenix;
             Data.prototype.syncAction = function (actionName, actionParams) {
                 var that = this;
                 var segments = actionName.split('.');
+                if (actionParams && actionParams.isJsonPath) {
+                    return { path: '/' + segments.join('/'), params: actionParams };
+                }
                 if (segments[segments.length - 1] === '$sort') {
                     return { op: 'replace', path: '/' + segments.join('/'), params: actionParams };
                 }
@@ -18566,12 +19410,16 @@ var Phoenix;
                         return null;
                 }
                 var after = null;
+                var forceAfterOnErrors;
                 var successMessage = null;
                 if (schema.links && schema.links[link]) {
                     if (schema.links[link].data) {
                         actionParams = schema.links[link].data;
                     }
                     after = schema.links[link].after;
+                    if (after) {
+                        forceAfterOnErrors = schema.links[link].forceAfterOnErrors;
+                    }
                     if (actionParams && actionParams.$after) {
                         if (after)
                             after = [after, actionParams.$after];
@@ -18582,7 +19430,19 @@ var Phoenix;
                     if (successMessage === undefined && schema.links[link].isSave)
                         successMessage = true;
                 }
-                return { path: '/' + segments.join('/'), params: actionParams, after: after, successMessage: successMessage };
+                if (actionParams && actionParams.$segments) {
+                    var cs = [];
+                    var seg = actionParams.$segments;
+                    delete actionParams.$segments;
+                    for (var i = 0; i < segments.length; i++) {
+                        cs.push(segments[i]);
+                        var mp = cs.join('.');
+                        if (seg[mp]) {
+                            segments[i] = seg[mp];
+                        }
+                    }
+                }
+                return { path: '/' + segments.join('/'), params: actionParams, after: after, forceAfterOnErrors: forceAfterOnErrors, successMessage: successMessage };
             };
             Data.prototype._destroyObject = function (obj, pn) {
                 var o = obj[pn];
@@ -18667,7 +19527,7 @@ var Phoenix;
 (function (Phoenix) {
     var serversync;
     (function (serversync) {
-        var _p = Phoenix, _observable = Phoenix.Observable, _dsPlugin = _p.DatasetPlugin;
+        var _p = Phoenix, _dsPlugin = _p.DatasetPlugin;
         function notifyClose(params) {
             var dataset = {
                 name: 'patch',
@@ -18691,7 +19551,8 @@ var Phoenix;
             _dsPlugin.executeDatasets([dataset], delta, result, [], function (sended, ex) { });
         }
         serversync.notifyClose = notifyClose;
-        function update(actions, mapForms, success, after) {
+        function update(actions, mapForms, success, after, delayInSec) {
+            delayInSec = delayInSec || 0;
             try {
                 var all_1 = {};
                 if (actions && actions.length) {
@@ -18712,7 +19573,12 @@ var Phoenix;
                             }
                         }
                         else if (action.op === '$empty') {
-                            all_1[action.formId] = [];
+                            if (!action.after) {
+                                all_1[action.formId] = [];
+                            }
+                            else {
+                                all_1[action.formId] = all_1[action.formId] || [];
+                            }
                             formsAdded_1.push(action.formId);
                         }
                         else {
@@ -18757,7 +19623,7 @@ var Phoenix;
                 }
                 var form = mapForms[forms_1[0]];
                 var firstDataset = form.syncDataSet();
-                var dataset = {
+                var dataset_1 = {
                     name: 'patch',
                     $type: 'sync',
                     $params: {
@@ -18776,19 +19642,27 @@ var Phoenix;
                     delta_2.push({ requestType: 'patch', id: form.$model.model(true).id, viewName: ds.$params.$entity, patch: all_1[formId] });
                 });
                 var result_1 = {};
-                _dsPlugin.executeDatasets([dataset], delta_2, result_1, [], function (sended, ex) {
-                    try {
-                        if (!ex) {
-                            success(result_1.patch);
+                var send = function () {
+                    _dsPlugin.executeDatasets([dataset_1], delta_2, result_1, [], function (sended, ex) {
+                        try {
+                            if (!ex) {
+                                success(result_1.patch);
+                            }
+                            else {
+                                mapForms[forms_1[0]].$model.addAjaxException(ex);
+                            }
                         }
-                        else {
-                            mapForms[forms_1[0]].$model.addAjaxException(ex);
+                        finally {
+                            after();
                         }
-                    }
-                    finally {
-                        after();
-                    }
-                });
+                    });
+                };
+                if (delayInSec) {
+                    window.setTimeout(send, delayInSec * 1000);
+                }
+                else {
+                    send();
+                }
             }
             catch (ex) {
                 after();
@@ -18850,7 +19724,7 @@ var Phoenix;
 (function (Phoenix) {
     var ui;
     (function (ui) {
-        var _p = Phoenix, _ui = ui, _serversync = Phoenix.serversync, _history = Phoenix.history, _dom = Phoenix.dom, _locale = _p.locale, _utils = Phoenix.utils;
+        var _p = Phoenix, _serversync = Phoenix.serversync, _history = Phoenix.history, _dom = Phoenix.dom, _locale = _p.locale, _utils = Phoenix.utils;
         var FormManager = /** @class */ (function () {
             function FormManager() {
                 var that = this;
@@ -18861,6 +19735,7 @@ var Phoenix;
                 that._inProcessing = false;
                 that._onsync = _serversync.update;
                 _history.destroyViewHandler = _serversync.notifyClose;
+                window['hasChanges'] = that.hasChanges.bind(that);
             }
             Object.defineProperty(FormManager.prototype, "inSync", {
                 get: function () {
@@ -18874,6 +19749,21 @@ var Phoenix;
             });
             FormManager.prototype.setInAction = function (value) {
                 this._inAction = value;
+            };
+            FormManager.prototype.hasChanges = function () {
+                var that = this;
+                var hasChanges = false;
+                Object.keys(that._formsById).forEach(function (formId) {
+                    if (hasChanges)
+                        return;
+                    var cform = that._formsById[formId];
+                    if (cform.useSync) {
+                        if (cform.$model.containerHasChanges) {
+                            hasChanges = true;
+                        }
+                    }
+                });
+                return hasChanges;
             };
             FormManager.prototype.isInAction = function () {
                 return this._inAction;
@@ -18907,8 +19797,9 @@ var Phoenix;
                     that._actions.splice(oi, 1);
                 that._actions.push(action);
             };
-            FormManager.prototype._internalSendSyncData = function () {
+            FormManager.prototype._internalSendSyncData = function (delayInSec) {
                 var that = this;
+                delayInSec = delayInSec || 0;
                 that.inSync = true;
                 that.processing(true);
                 var ca = null;
@@ -18937,7 +19828,9 @@ var Phoenix;
                             var aform = that._formsById[action.formId];
                             var _doAfter = function () {
                                 if (action && action.after) {
-                                    if (!aform.$model.hasErrors()) {
+                                    if (!aform.$model)
+                                        return;
+                                    if (!aform.$model.hasErrors() || action.forceAfterOnErrors) {
                                         if (typeof action.after === 'string')
                                             aform.execAction(action.after, {}, { $nosync: true });
                                         else if (Array.isArray(action.after)) {
@@ -18952,8 +19845,17 @@ var Phoenix;
                                             action.after();
                                     }
                                 }
+                                if (that.refreshForm) {
+                                    var refresh_1 = that.refreshForm;
+                                    that.refreshForm = null;
+                                    _utils.nextTick(function () {
+                                        refresh_1.sendRefreshAction();
+                                    });
+                                }
                             };
                             if (action && action.successMessage) {
+                                if (!aform.$model)
+                                    return;
                                 if (!aform.$model.hasErrors()) {
                                     var msgCfg = typeof action.successMessage === 'object' ? action.successMessage : { title: '', content: '' };
                                     var title = msgCfg.title || aform.$schema.title || _locale.ui.Info;
@@ -18965,16 +19867,19 @@ var Phoenix;
                             _doAfter();
                         });
                     }
-                });
+                }, delayInSec);
             };
-            FormManager.prototype.sendSyncData = function () {
+            FormManager.prototype.sendSyncData = function (immediate) {
                 var that = this;
                 if (that.inSync)
                     return;
                 if (that._syncTimeOut) {
                     clearTimeout(that._syncTimeOut);
                 }
-                that._syncTimeOut = setTimeout(that._internalSendSyncData.bind(that), 80);
+                if (immediate)
+                    that._internalSendSyncData(5);
+                else
+                    that._syncTimeOut = setTimeout(that._internalSendSyncData.bind(that), 150);
             };
             FormManager.prototype.broadcast = function (eventName, params) {
                 var that = this;
@@ -19051,7 +19956,7 @@ var Phoenix;
 (function (Phoenix) {
     var ui;
     (function (ui) {
-        var _p = Phoenix, _ui = _p.ui, _utils = _p.utils, _build = _p.build, _link = _p.link, _dom = _p.dom, _history = _p.history, _locale = _p.locale, _layoutUtils = _p.layoutUtils, _customData = _p.customData, _preferences = _p.preferences, _sutils = _p.Observable.SchemaUtils, _outils = _p.Observable.ObservableUtils;
+        var _p = Phoenix, _ui = _p.ui, _utils = _p.utils, _build = _p.build, _link = _p.link, _dom = _p.dom, _history = _p.history, _locale = _p.locale, _serversync = _p.serversync, _layoutUtils = _p.layoutUtils, _customData = _p.customData, _preferences = _p.preferences, _sutils = _p.Observable.SchemaUtils, _outils = _p.Observable.ObservableUtils;
         var Form = /** @class */ (function (_super) {
             __extends(Form, _super);
             function Form(layoutData, options, ldata, schema, locale, preferences) {
@@ -19075,7 +19980,11 @@ var Phoenix;
                 };
                 var that = _this;
                 that._modalForm = options ? options._modalForm : false;
+                that._inlineForm = options ? options._inlineForm : false;
                 that._moneyUnitCoef = 1;
+                if (that._inlineForm && !that.options.design && that.data.$inlineStyle) {
+                    that.data.$style = that.data.$inlineStyle;
+                }
                 if (ldata && ldata.$transactionId) {
                     that._transactionId = ldata.$transactionId;
                     that._viewId = ldata.id;
@@ -19084,7 +19993,7 @@ var Phoenix;
                     delete ldata.$viewName;
                     if (schema) {
                         schema.properties = schema.properties || {};
-                        schema.properties.containerHasChanges = schema.properties.containerHasChanges || { type: 'boolean' };
+                        schema.properties.containerHasChanges = schema.properties.containerHasChanges || { type: 'boolean', ux: true };
                     }
                     if (that._viewName) {
                         _history.addData({ viewId: that._viewId, transactionId: that._transactionId, viewName: that._viewName });
@@ -19102,7 +20011,7 @@ var Phoenix;
                     delete options.module;
                 }
                 if (layoutData.data) {
-                    that.formData = $.extend(true, {}, layoutData.data);
+                    that.formData = _utils.clone(layoutData.data);
                 }
                 that.formManager = _ui.formManager();
                 that.formManager.add(that);
@@ -19326,6 +20235,10 @@ var Phoenix;
                 enumerable: true,
                 configurable: true
             });
+            Form.prototype.hasAfterProcessing = function (id) {
+                var that = this;
+                return that._afterProcessing && that._afterProcessing[id] ? true : false;
+            };
             Form.prototype.forceAfterProcessing = function () {
                 var that = this;
                 that._afterProcessing = that._afterProcessing || {};
@@ -19415,13 +20328,19 @@ var Phoenix;
                 return this.$model;
             };
             Form.prototype.navigate = function (pageName, options) {
-                _link.execLink({
+                if (options.urlSearch) {
+                }
+                var execLinksParams = {
                     $page: pageName,
                     $replace: !options.canGoBack,
                     $isDetail: options.canGoBack,
                     $form: this,
-                    $checkForChanges: options.checkForChanges
-                }, {}, options.urlSearch);
+                    $checkForChanges: options.checkForChanges,
+                };
+                if (options.urlSearch && window.sessionStorage && options.urlSearch.$session) {
+                    options.urlSearch.$session = 1;
+                }
+                _link.execLink(execLinksParams, {}, options.urlSearch);
             };
             Form.prototype.back = function (checkForChanges) {
                 _link.execLink({
@@ -19434,7 +20353,7 @@ var Phoenix;
                 var that = this;
                 if (!that.$element || that.options.design)
                     return;
-                var message = options.message || _utils.glbDisclaimerMessage;
+                var message = options.message || _locale.ui.disclaimer;
                 if (!message || !options.where)
                     return;
                 var layout = that.getLayoutByName(options.where);
@@ -19685,9 +20604,10 @@ var Phoenix;
             Form.prototype.afterRenderChildren = function ($e) {
                 //setup tooltip
                 var $ttc = $e.find('[data-phoenix-tooltip]');
-                if ($ttc["tooltip"])
-                    $ttc["tooltip"]({
+                if ($ttc['tooltip'])
+                    $ttc['tooltip']({
                         html: true,
+                        trigger: 'hover',
                         container: 'body',
                         template: '<div class="tooltip bs-tooltip-help" role="tooltip"><div class="tooltip-arrow"></div><div class="tooltip-inner"></div></div>'
                     });
@@ -19888,14 +20808,14 @@ var Phoenix;
                 var that = this;
                 if (params.targetId === 'layout-accordion') {
                     if (propName === 'isHidden' && params.property) {
-                        var state_1 = that.$model.getState(params.property, {});
+                        var state_2 = that.$model.getState(params.property, {});
                         var l = that._bindAccordion[params.property];
                         if (l)
                             l.forEach(function (layoutId) {
                                 var layout = that.map[layoutId];
                                 var tab = _dom.find(that.$element.get(0), layout.$id + '_tab');
                                 if (tab) {
-                                    if (state_1.isHidden)
+                                    if (state_2.isHidden)
                                         _dom.removeClass(tab, 'bs-none');
                                     else
                                         _dom.addClass(tab, 'bs-none');
@@ -19905,14 +20825,14 @@ var Phoenix;
                 }
                 else if (params.targetId === 'layout-state') {
                     if ((propName === 'isHidden' || propName === 'isDisabled') && params.property) {
-                        var state_2 = that.$model.getState(params.property, {});
+                        var state_3 = that.$model.getState(params.property, {});
                         var l = that._bindStates[params.property];
                         if (l)
                             l.forEach(function (layoutId) {
                                 var layout = that.map[layoutId];
                                 if (layout) {
-                                    that.updateIsHidden(layout, state_2.isHidden);
-                                    that.updateIsDisabled(layout, state_2.isDisabled);
+                                    that.updateIsHidden(layout, state_3.isHidden);
+                                    that.updateIsDisabled(layout, state_3.isDisabled);
                                 }
                             });
                     }
@@ -19929,24 +20849,42 @@ var Phoenix;
                 var that = this;
                 return _sutils.getLookup(path, lookupName, that.$schema, that.$rootSchema);
             };
-            Form.prototype.registerListenerFor = function (field, target, id) {
+            Form.prototype.registerListenerFor = function (field, target, id, options) {
                 var that = this;
                 var p = field;
+                options = options || {};
                 that._listenerChanged = true;
                 that._listeners = that._listeners || {};
-                that._listeners[p] = that._listeners[p] || [];
-                that._listeners[p].push({ target: target, id: id || '' });
+                var listeners = that._listeners[p] = that._listeners[p] || { all: [], expand: [], forceExact: [] };
+                var toPush = { target: target, id: id || '', forceExact: options.forceExact, expandPath: options.expandPath };
+                listeners.all.push(toPush);
+                if (toPush.forceExact)
+                    listeners.forceExact.push(toPush);
+                if (toPush.expandPath)
+                    listeners.expand.push(toPush);
             };
             Form.prototype.unRegisterListenerFor = function (field, target) {
                 var that = this;
                 var p = field;
-                if (that._listeners && that._listeners[p]) {
-                    var i = that._listeners[p].findIndex(function (item) {
+                var listenerByProp = that._listeners ? that._listeners[p] : null;
+                if (listenerByProp) {
+                    var i = listenerByProp.all.findIndex(function (item) {
                         return item.target === target;
                     });
                     if (i >= 0) {
-                        that._listeners[p].splice(i, 1);
+                        var toRemove = listenerByProp.all[i];
+                        listenerByProp.all.splice(i, 1);
                         that._listenerChanged = true;
+                        if (toRemove.forceExact) {
+                            i = listenerByProp.forceExact.indexOf(toRemove);
+                            if (i >= 0)
+                                listenerByProp.forceExact.splice(i, 1);
+                        }
+                        if (toRemove.expandPath) {
+                            i = listenerByProp.expand.indexOf(toRemove);
+                            if (i >= 0)
+                                listenerByProp.expand.splice(i, 1);
+                        }
                     }
                 }
             };
@@ -19972,7 +20910,19 @@ var Phoenix;
             };
             Form.prototype._enumListener = function (name, cb) {
                 var that = this;
-                that._listeners[name].forEach(function (target) {
+                that._listeners[name].all.forEach(function (target) {
+                    cb(target);
+                });
+            };
+            Form.prototype._enumExactListener = function (name, cb) {
+                var that = this;
+                that._listeners[name].forceExact.forEach(function (target) {
+                    cb(target);
+                });
+            };
+            Form.prototype._enumExpandListener = function (name, cb) {
+                var that = this;
+                that._listeners[name].expand.forEach(function (target) {
                     cb(target);
                 });
             };
@@ -19988,12 +20938,12 @@ var Phoenix;
                 var match = p.join('.'), match2 = match + '.';
                 if (that._listenersByName) {
                     that._listenersByName.forEach(function (name) {
+                        var listeners = that._listeners[name];
                         if (name === match) {
                             cb(name, true, false, false);
                         }
                         else if (match === '*' || (match.indexOf(name + '.') === 0)) {
                             var exact = match === '*';
-                            // cb(name, false, true, false);
                             cb(name, exact, true, false);
                         }
                         else if (params.checkChildren && name.indexOf(match2) === 0) {
@@ -20008,7 +20958,9 @@ var Phoenix;
                 if (parentLayout && ui.OpenInlineForm)
                     ui.OpenInlineForm(parentLayout.$id, opts.name, opts.meta, opts.controller, opts.data, opts.locale, function (childForm) {
                         that.addChildForm(childForm, parentLayout.$id);
-                    }, null);
+                    }, null, opts.isolatedContext);
+            };
+            Form.prototype.execFormRefresh = function () {
             };
             Form.prototype.execAction = function (propName, actionParams, params) {
                 var that = this;
@@ -20020,18 +20972,20 @@ var Phoenix;
                 if (propName.indexOf('$action.') === 0) {
                     var segments = propName.split('.');
                     segments.shift();
-                    var cl = {};
+                    var cl_1 = {};
                     var link_2 = segments.join('.');
-                    cl[link_2] = true;
+                    cl_1[link_2] = true;
                     if (link_2 === '$back') {
-                        cl.$form = that;
-                        cl.$checkForChanges = false;
+                        cl_1.$form = that;
+                        cl_1.$checkForChanges = false;
                     }
                     else if (link_2 === '$checkForChangeAndBack') {
-                        cl.$form = that;
-                        cl.$checkForChanges = true;
+                        cl_1.$form = that;
+                        cl_1.$checkForChanges = true;
                     }
-                    return _link.execLink(cl, actionParams, null);
+                    return _utils.nextTick(function () {
+                        _link.execLink(cl_1, actionParams, null);
+                    });
                 }
                 that._modelChanged(propName, null, null, 'execute', params, actionParams);
             };
@@ -20040,10 +20994,15 @@ var Phoenix;
                 if (that.$content) {
                     if (that.$content && that.$content['tooltip']) {
                         var $ttc = that.$content.find('[data-phoenix-tooltip]');
-                        $ttc["tooltip"]('dispose');
+                        $ttc['tooltip']('dispose');
                     }
                     that.$content.empty();
                     _dom.remove(that.$content.get(0));
+                }
+                if (that.oncloseHandlers) {
+                    for (var i = 0; i < that.oncloseHandlers.length; i++) {
+                        that.oncloseHandlers[i]();
+                    }
                 }
                 that.destroy();
             };
@@ -20056,6 +21015,13 @@ var Phoenix;
                     return;
                 that.formManager.pushSyncAction(that.data.$id, { op: "$empty" });
                 that.formManager.sendSyncData();
+            };
+            Form.prototype.sendRefreshAction = function () {
+                var that = this;
+                if (!that.useSync)
+                    return;
+                that.formManager.pushSyncAction(that.data.$id, { op: "$empty" });
+                that.formManager.sendSyncData(true);
             };
             // used for test
             Form.prototype.patch = function (delta) {
@@ -20073,6 +21039,8 @@ var Phoenix;
             };
             Form.prototype.applyJsonPachDelta = function (delta) {
                 var that = this;
+                if (!that.$model)
+                    return;
                 if (delta && delta.length) {
                     that._processing(function () { that.$model.applyJsonPachDelta(delta); }, delta.length > 10);
                 }
@@ -20089,7 +21057,6 @@ var Phoenix;
                 that.formManager.clearSyncTimeOut();
                 //80 > 30 = focusDelay
                 if (action) {
-                    var delayed = action.delayed;
                     delete action.delayed;
                     that.formManager.pushSyncAction(that.data.$id, action);
                     that._sendData();
@@ -20109,8 +21076,38 @@ var Phoenix;
                 params.newValue = nv;
                 if (op !== "execute" && op !== "beforeChange") {
                     that._match(p, function (name, exact, parent, child) {
-                        if (op !== 'propchange' && !exact)
+                        if ((op === 'add' || op === 'remove') && !exact) {
+                            that._enumExactListener(name, function (item) {
+                                if (item.forceExact && item.target.changed) {
+                                    params.targetId = item.id;
+                                    item.target.changed(name, ov, null, op, params);
+                                }
+                            });
+                            that._enumExpandListener(name, function (item) {
+                                if (item.target.changed) {
+                                    var toSearch = [name + '.$item.' + item.expandPath, item.expandPath + '.$item.' + item.expandPath];
+                                    var found = false;
+                                    var len = propName.length;
+                                    for (var i = 0; i < toSearch.length; i++) {
+                                        var ss = toSearch[i];
+                                        var slen = ss.length;
+                                        if (propName.substr(len - slen, slen) == ss) {
+                                            found = true;
+                                            break;
+                                        }
+                                    }
+                                    if (found) {
+                                        var cnv = that.$model.getValue(name, params);
+                                        params.targetId = item.id;
+                                        item.target.changed(propName, ov, cnv, op, params);
+                                    }
+                                }
+                            });
                             return;
+                        }
+                        if (op !== 'propchange' && !exact) {
+                            return;
+                        }
                         params.propName = name;
                         if (exact) {
                             var cnv_1 = that.$model.getValue(name, params);
@@ -20199,6 +21196,11 @@ var Phoenix;
                     }
                 }, params);
             };
+            Form.prototype.registerOnCloseHandler = function (hnd) {
+                var that = this;
+                that.oncloseHandlers = that.oncloseHandlers || [];
+                that.oncloseHandlers.push(hnd);
+            };
             Form.prototype.destroy = function () {
                 var that = this;
                 that.$data = null;
@@ -20210,10 +21212,24 @@ var Phoenix;
                 that.module = null;
                 that.onaction = null;
                 that._listeners = {};
+                that.oncloseHandlers = null;
                 that._listenersByName = [];
                 that._loadNestedControllers = null;
-                if (that._parentForm)
+                if ((that._inlineForm || that.destroyContainer) && that.useSync) {
+                    that._inlineForm = false;
+                    _history.removeView(that.syncTransactionId(), that.syncViewId(), that.syncViewName());
+                    /* _serversync.notifyClose([{
+                        transactionId: this.syncTransactionId(),
+                        viewId: this.syncViewId(),
+                        viewName: this.syncViewName(),
+                        deferClose: false
+                    }]);
+                    */
+                }
+                if (that._parentForm) {
                     that._parentForm.removeChildForm(that);
+                    that._parentForm = null;
+                }
                 if (that._childrenForms) {
                     var children = that._childrenForms.slice();
                     children.forEach(function (item) { return item.form.destroy(); });
@@ -20318,7 +21334,9 @@ var Phoenix;
             Form.prototype.delayClick = function (control, event) {
                 var fm = _ui.formManager();
                 if (control && control.syncClick && fm.hasActions()) {
-                    setTimeout(function () { return event.target.click(); }, 100);
+                    _utils.clickDelay(function () {
+                        event.target.click();
+                    });
                     return true;
                 }
                 return false;
@@ -20335,6 +21353,7 @@ var Phoenix;
             Form.prototype._addBaseEvents = function () {
                 var that = this;
                 that.$element.on('focusin', function (event) {
+                    _dom.inBody = true;
                     if (that.isInProcessing)
                         return that.freeze(event);
                     var control = that._event2Field(event);
@@ -20369,8 +21388,13 @@ var Phoenix;
                                         c = control;
                                 }
                                 else if (c === control) {
-                                    if (!control.focusInControl(ae))
+                                    if (!control.focusInControl(ae)) {
                                         c = null;
+                                    }
+                                    else {
+                                        if (!_dom.inBody)
+                                            c = null;
+                                    }
                                 }
                                 if (c !== control) {
                                     control.focusOut(ne_2);
@@ -20421,13 +21445,13 @@ var Phoenix;
                             control.stopProppagation(event);
                         if (control.focusClick)
                             return;
-                        if (!that._isInDelayedAction() || control.focused && control.targetInControl(event.target)) {
+                        if (!that._isInDelayedAction() || (control.focused && control.targetInControl(event.target))) {
                             if (that.delayClick(control, event))
                                 return;
                             return control.click(event);
                         }
                         that._setInDelayedAction(true);
-                        control.focusClick = _utils.focusDelay(function () {
+                        control.focusClick = _utils.clickDelay(function () {
                             that._setInDelayedAction(false);
                             if (control.destroyed)
                                 return;
@@ -20448,7 +21472,7 @@ var Phoenix;
                                     if (elem.id) {
                                         //{0}_error"
                                         var errorId = elem.id.substr(0, elem.id.length - 6);
-                                        that.$model.$errors.$.rmvErrorById(errorId);
+                                        that.$model.$errors.$.rmvErrorById(errorId, true);
                                     }
                                     else {
                                         _dom.remove(elem);
@@ -20533,8 +21557,6 @@ var Phoenix;
             };
             Form.prototype.visibleChildForms = function () {
                 var that = this;
-                if (!that.useSync)
-                    return [];
                 var res = that.getVisibleControlsByWiget('form');
                 var vf = [];
                 if (res) {
@@ -20645,10 +21667,14 @@ var Phoenix;
                 else
                     return false;
             };
-        }, _transform = function (value, displayValue, transform, item) {
+        }, _transform = function (value, displayValue, transform, item, options) {
             var func = _customData.get("ui.html." + transform);
-            if (func)
-                return { value: func(value, displayValue, item), html: true };
+            if (func) {
+                var fvalue = func(value, displayValue, item, options);
+                if (typeof fvalue === 'object')
+                    return fvalue;
+                return { value: fvalue, html: true };
+            }
             return { value: displayValue, html: false };
         }, _mapIcon = function (options, value, textValue) {
             var skey = value + '';
@@ -20892,7 +21918,7 @@ var Phoenix;
             },
             datePickerInitialize: function ($element, opts, onHide) {
                 _dom.addClass($element.get(0), 'date');
-                var o = $.extend({ zIndexOffset: 1000, todayHighlight: true, language: _ulocale.currentLang, autoclose: true }, opts || {});
+                var o = _utils.extendObject(false, { zIndexOffset: 1000, todayHighlight: true, language: _ulocale.currentLang, autoclose: true }, opts || {});
                 $element[DATE_PICKER_NAME](o);
                 if (onHide)
                     $element[DATE_PICKER_NAME]().on('hide', onHide);
@@ -20929,7 +21955,7 @@ var Phoenix;
                     locale: _ulocale.currentLang,
                     showClose: true
                 };
-                var o = $.extend(dopts, opts || {});
+                var o = _utils.extendObject(false, dopts, opts || {});
                 $element[DATETIME_PICKER_NAME](o);
                 if (onHide)
                     $element[DATETIME_PICKER_NAME]().on('hide', onHide);
@@ -20973,7 +21999,7 @@ var Phoenix;
                         return res;
                     }
                 }
-                if (options.isTotal && (_sutils.isFwField(fieldName) || schema.enum)) {
+                if (options.isTotal && !options.avanced.totalExpand && (_sutils.isFwField(fieldName) || schema.enum)) {
                     res = { value: '', html: false };
                     return res;
                 }
@@ -20984,7 +22010,7 @@ var Phoenix;
                     var si = schema.enum.indexOf(value);
                     var dv = si >= 0 ? (schema.enumNames ? _ulocale.tt(schema.enumNames[si], locale) : value) : '';
                     if (options.avanced && options.avanced.transform) {
-                        res = _transform(value, dv, options.avanced.transform, item);
+                        res = _transform(value, dv, options.avanced.transform, item, options);
                     }
                     else if (options.avanced && options.avanced.icons)
                         res = _mapIcon(options, value, dv);
@@ -20999,14 +22025,14 @@ var Phoenix;
                                     case 'date':
                                         var dv = _ulocale.shortDate(value || '');
                                         if (options.avanced && options.avanced.transform)
-                                            res = _transform(value, dv, options.avanced.transform, item);
+                                            res = _transform(value, dv, options.avanced.transform, item, options);
                                         else
                                             res = { value: dv, html: false };
                                         break;
                                     case 'date-time':
                                         var tv = _ulocale.shortDateTime(value || '');
                                         if (options.avanced && options.avanced.transform)
-                                            res = _transform(value, tv, options.avanced.transform, item);
+                                            res = _transform(value, tv, options.avanced.transform, item, options);
                                         else
                                             res = { value: tv, html: false };
                                         break;
@@ -21015,7 +22041,7 @@ var Phoenix;
                             if (!res) {
                                 if (options.avanced && options.avanced.transform) {
                                     addLink = false;
-                                    res = _transform(value, value, options.avanced.transform, item);
+                                    res = _transform(value, value, options.avanced.transform, item, options);
                                 }
                                 else if (options.avanced && options.avanced.icons) {
                                     res = _mapIcon(options, value, value);
@@ -21059,12 +22085,12 @@ var Phoenix;
                                 if (schema.nullable && (value === null || value === undefined))
                                     ndv = '';
                                 else
-                                    ndv = _ulocale.decimal(value, places, symbol);
+                                    ndv = _ulocale.decimal(value, places, symbol, schema.removeTrailingZeros);
                             }
                             else
-                                ndv = isMoney ? _ulocale.money(value || 0, options.useSymbol) : _ulocale.decimal(value || 0, schema.decimals || 0, (options.useSymbol ? schema.symbol : ''));
+                                ndv = isMoney ? _ulocale.money(value || 0, options.useSymbol) : _ulocale.decimal(value || 0, schema.decimals || 0, (options.useSymbol ? schema.symbol : ''), schema.removeTrailingZeros);
                             if (options.avanced && options.avanced.transform)
-                                res = _transform(value, ndv, options.avanced.transform, item);
+                                res = _transform(value, ndv, options.avanced.transform, item, options);
                             else if (options.avanced && options.avanced.icons)
                                 res = _mapIcon(options, value, value);
                             else
@@ -21073,7 +22099,7 @@ var Phoenix;
                         case 'integer':
                             var idv = _ulocale.integer(value);
                             if (options.avanced && options.avanced.transform)
-                                res = _transform(value, idv, options.avanced.transform, item);
+                                res = _transform(value, idv, options.avanced.transform, item, options);
                             else if (options.avanced && options.avanced.icons)
                                 res = _mapIcon(options, value, value);
                             else
@@ -21085,7 +22111,7 @@ var Phoenix;
                                 return res;
                             }
                             if (options.avanced && options.avanced.transform) {
-                                res = _transform(value, value ? _locale.ui.Yes : _locale.ui.No, options.avanced.transform, item);
+                                res = _transform(value, value ? _locale.ui.Yes : _locale.ui.No, options.avanced.transform, item, options);
                             }
                             else if (options.html) {
                                 var html = [];
@@ -21097,8 +22123,9 @@ var Phoenix;
                                     html.push('</span>');
                                     res = { value: html.join(''), html: true };
                                 }
-                                else if ((options.avanced && options.avanced.editable) || options.editable || options.check || (options.avanced && options.avanced.icons)) {
-                                    var ces = 'bs-bool-edit';
+                                else if ((options.avanced && options.avanced.editable) || options.editable || options.check || (options.avanced && options.avanced.icons)
+                                    || (options.avanced && options.avanced.check)) {
+                                    var ces = (options.avanced && options.avanced.editable) || options.editable || options.check ? 'bs-bool-edit' : '';
                                     var cc = options.tableOptions && options.tableOptions.small ? ' small-table' : '';
                                     var map = options.avanced ? options.avanced.icons : null;
                                     if (!map)
@@ -21124,7 +22151,7 @@ var Phoenix;
                 }
                 if (!res)
                     res = { value: value, html: false };
-                if (addLink) {
+                if (addLink && !res.noLink) {
                     var chtml = ['<a href="#" class="bs-cursor-p" data-phoenix-href="link://$link">'];
                     chtml.push(res.value);
                     chtml.push('</a>');
@@ -21134,7 +22161,7 @@ var Phoenix;
                 return res;
             },
             addTooltipAndRule: function (html, options) {
-                if (options.description) {
+                if (!options.titleIsHidden && options.description) {
                     html.push('<span id="{0}_tooltip" data-toggle="tooltip" data-phoenix-tooltip="true" data-placement="auto" title="' + options.description + '" class="' + _dom.iconClass("question-circle") + ' bs-tooltip-icon');
                     if (options.grid)
                         html.push(' grid');
@@ -21183,6 +22210,9 @@ var Phoenix;
                         var html = func(state, fieldOptions, item);
                         if (!html)
                             return false;
+                        if (typeof html === 'string') {
+                            html = $(html).get(0);
+                        }
                         _dom.append(parentElement, html);
                         return true;
                     }
@@ -21372,11 +22402,11 @@ var Phoenix;
             function AbsField(fp, options, form) {
                 var that = this;
                 that._isBinded = true;
-                that.config = $.extend(true, {}, fp);
+                that.config = _utils.clone(fp);
                 fp = that.config;
                 that.form = form;
                 that.options = options || {};
-                fp.options = $.extend(true, {}, fp.options || {});
+                fp.options = _utils.clone(fp.options || {});
                 that.parent = that.form.getLayoutById(fp.$parentId);
                 that.$bind = fp.$bind;
                 if (that.$bind === '$none') {
@@ -21401,10 +22431,10 @@ var Phoenix;
                 if (isMeta)
                     that.$bind = that.getCustomBind();
                 if (that._isBinded && that.$bind) {
-                    form.registerListenerFor(that.$bind, that);
+                    form.registerListenerFor(that.$bind, that, '', that.listenerOptions());
                 }
                 if (that._isBinded && that.useDisplay) {
-                    form.registerListenerFor(that.$display, that);
+                    form.registerListenerFor(that.$display, that, '', that.listenerOptions());
                 }
                 that._defineProps();
                 that.fieldOptions = fp.options || {};
@@ -21427,6 +22457,9 @@ var Phoenix;
             AbsField.prototype._customSchema = function () {
                 return {};
             };
+            AbsField.prototype.listenerOptions = function () {
+                return undefined;
+            };
             AbsField.prototype.hide = function (value) {
                 var that = this;
                 if (!that._isBinded)
@@ -21438,8 +22471,10 @@ var Phoenix;
             AbsField.prototype.setInternalValue = function (value, notify) {
                 var that = this;
                 if (that._isBinded) {
-                    if (notify)
+                    if (notify) {
+                        _utils.registerScriptSetValue(that.form, that.$bind, value);
                         that.form.setValue(that.$bind, value);
+                    }
                     else
                         that.state.value = value;
                     return;
@@ -21605,7 +22640,10 @@ var Phoenix;
                             popts.titleIsHidden = true;
                     }
                 }
-                var opts = $.extend({}, defOpts, popts, that.fieldOptions);
+                var opts = Object.assign({}, defOpts);
+                opts = Object.assign(opts, popts);
+                opts = Object.assign(opts, that.fieldOptions);
+                // const opts = $.extend({}, defOpts, popts, that.fieldOptions);
                 if (that.parent && that.parent.$inline)
                     opts.inline = true;
                 that.customOptions(opts);
@@ -21668,7 +22706,7 @@ var Phoenix;
     var alertctrl;
     (function (alertctrl) {
         function _createAlert(id, options, authoring) {
-            options = $.extend({ columns: false }, options);
+            options = _utils.extendObject(false, { columns: false }, options);
             options.columns = false;
             var html = [];
             _uiutils.utils.fieldWrapper(html, options, authoring, function () {
@@ -21762,13 +22800,14 @@ var Phoenix;
 (function (Phoenix) {
     var arrayactions;
     (function (arrayactions) {
-        var _p = Phoenix, _utils = _p.utils, _ui = _p.ui, _su = _p.Observable.SchemaUtils, _dom = _p.dom, _locale = _p.locale, _ulocale = _p.ulocale, _uiutils = _p.uiutils;
+        var _p = Phoenix, _utils = _p.utils, _ui = _p.ui, _su = _p.Observable.SchemaUtils, _dom = _p.dom, _locale = _p.locale, _customData = _p.customData, _uiutils = _p.uiutils;
         var ArrayActionItems = /** @class */ (function (_super) {
             __extends(ArrayActionItems, _super);
             function ArrayActionItems(fp, options, form) {
                 var _this = _super.call(this, fp, options, form) || this;
                 var that = _this;
                 that._selected = [];
+                that._selectedObj = [];
                 var config = that.renderOptions;
                 config.links = config.links || [];
                 config.title = config.title || _locale.ui.Actions;
@@ -21782,27 +22821,40 @@ var Phoenix;
                 var schemaLinks = that.$schema.links || {};
                 config.links.forEach(function (link) {
                     link.id = _utils.allocID();
-                    var cs = link.name === '$exportCsv' ? { title: _locale.ui.ExportCsv } : schemaLinks[link.name];
+                    link.options = link.options || {};
+                    var cs = schemaLinks[link.name];
+                    ;
+                    if (link.name === '$exportCsv') {
+                        cs = { title: _locale.ui.ExportCsv };
+                        if (link.options.icon === undefined)
+                            link.options.icon = 'file-export';
+                    }
+                    else if (link.name === '$expandMore') {
+                        cs = { title: _locale.ui.ExpandAll };
+                        if (link.options.icon === undefined)
+                            link.options.icon = 'chevron-down';
+                    }
+                    else if (link.name === '$expandLess') {
+                        cs = { title: _locale.ui.CollapseAll };
+                        if (link.options.icon === undefined)
+                            link.options.icon = 'chevron-up';
+                    }
                     if (!cs) {
                         console.log('Invalid link name: ' + link.name);
                         return;
                     }
-                    link.options = link.options || {};
                     link.schema = cs;
                     link.title = link.schema.title;
                     link.bind = that.$bind + '.$links.' + link.name;
                     link.isHidden = false;
-                    if (link.name === '$exportCsv') {
-                        if (link.options.icon === undefined)
-                            link.options.icon = 'file-export';
-                    }
                     if (link.name === '$remove' || link.schema.isRemove) {
                         if (link.options.icon === undefined)
                             link.options.icon = 'trash';
                         if (link.options.type === undefined)
                             link.options.type = 'danger';
-                        if (link.title === undefined)
+                        if (link.title === undefined) {
                             link.title = _locale.ui.Remove;
+                        }
                     }
                     if (link.name === '$new' || link.schema.isNew) {
                         if (link.options.icon === undefined)
@@ -21810,15 +22862,22 @@ var Phoenix;
                         if (link.options.type === undefined)
                             link.options.type = 'info';
                     }
+                    if (link.schema.isNavigation) {
+                        if (link.options.type === undefined)
+                            link.options.type = 'primary';
+                        if (link.options.outline === undefined)
+                            link.options.outline = true;
+                    }
+                    if (link.schema.isImportant) {
+                        if (link.options.type === undefined)
+                            link.options.type = 'important';
+                    }
                     link.options.type = link.options.type || 'secondary';
                     that.form.registerListenerFor(link.bind, that);
                 });
                 that._updateselected();
                 that._state();
                 return _this;
-                //if (!that.fieldOptions.gridName) {
-                //    console.log('"array-actions" :  gridName is missing.')
-                //}
             }
             ArrayActionItems.prototype._state2Ui = function () {
                 var that = this;
@@ -21844,6 +22903,17 @@ var Phoenix;
                                 else
                                     isVisible = false;
                             }
+                            if (link.options && link.options.customState) {
+                                var hnd = _customData.get(link.options.customState);
+                                if (hnd) {
+                                    if (useDisabled && !isDisabled) {
+                                        isDisabled = !hnd(that._selectedObj);
+                                    }
+                                    else if (!useDisabled && isVisible) {
+                                        isVisible = hnd(that._selectedObj);
+                                    }
+                                }
+                            }
                         }
                     }
                     if (isVisible && !link.important)
@@ -21867,19 +22937,28 @@ var Phoenix;
                         }
                     }
                 });
+                var state = that.form.getState(this.$bind);
                 if (that.$element) {
-                    var ei = _dom.find(that.$element.get(0), 'actions_' + that.id);
+                    var e = that.$element.get(0);
+                    var ei = _dom.find(e, 'actions_' + that.id);
                     if (actionsVisible)
                         _dom.removeClass(ei, 'bs-none');
                     else if (!_dom.hasClass(ei, 'bs-none'))
                         _dom.addClass(ei, 'bs-none');
+                    if (state.isDisabled) {
+                        _dom.addClass(e, 'bs-none');
+                    }
+                    else
+                        _dom.removeClass(e, 'bs-none');
                 }
             };
             ArrayActionItems.prototype._updateselected = function () {
                 var that = this;
                 var value = that.form.getValue(that.$bind);
-                if (value)
+                if (value) {
                     that._selected = value.getSelectedItems(that.renderOptions.expandingProperty);
+                    that._selectedObj = value.getSelectedObjItems(that.renderOptions.expandingProperty);
+                }
             };
             ArrayActionItems.prototype._stateOfLink = function (link) {
                 var that = this;
@@ -21954,7 +23033,7 @@ var Phoenix;
                 var that = this;
                 that.renderOptions.links.forEach(function (link) {
                     if (link.important) {
-                        html.push('<div id="' + link.id + '" class="bs-toolbar-item' + (that.renderOptions.right ? ' right' : '') + ' " title="' + _utils.escapeHtml(link.schema.title) + '">');
+                        html.push('<div id="' + link.id + '" data-toggle="tooltip" data-phoenix-tooltip="true" data-placement="auto" class="bs-toolbar-item' + (that.renderOptions.right ? ' right' : '') + ' " title="' + _utils.escapeHtml(link.schema.description || link.schema.title) + '">');
                         var outline = false;
                         if (link.options.outline !== undefined)
                             outline = link.options.outline;
@@ -22058,6 +23137,15 @@ var Phoenix;
                                     }
                                     grid[0].exportAsCsv();
                                 }
+                                else if (link_4.name === '$expandMore' || link_4.name === '$expandLess') {
+                                    var segments = that.$bind.split('.');
+                                    var ls = segments.pop();
+                                    var value = that.form.getValue(segments.join('.'));
+                                    if (link_4.name === '$expandMore')
+                                        value.toggleExpand(ls, true, true);
+                                    else if (link_4.name === '$expandLess')
+                                        value.toggleExpand(ls, true, false);
+                                }
                                 else {
                                     if (link_4.options.confirm) {
                                         _utils.confirm(link_4.options.confirm.title, link_4.options.confirm.message, function () {
@@ -22090,7 +23178,7 @@ var Phoenix;
     var formcomplex;
     (function (formcomplex) {
         function _createContainer(id, options, authoring, cb) {
-            options = $.extend({ titleIsHidden: false, placeHolder: false, columns: false }, options);
+            options = _utils.extendObject(false, { titleIsHidden: false, placeHolder: false, columns: false }, options);
             var html = [];
             if (authoring) {
                 _uiutils.utils.fieldWrapper(html, options, authoring, function () {
@@ -22129,15 +23217,17 @@ var Phoenix;
             ComplexBase.prototype._state2UI = function (inRender) {
                 var that = this, element = that.$element ? that.$element.get(0) : null;
                 if (element) {
-                    that.renderContent(element);
+                    that.renderContent(element, inRender, null);
                 }
             };
-            ComplexBase.prototype.renderContent = function (parent) {
+            ComplexBase.prototype.renderContent = function (parent, inRender, after) {
                 var that = this, s = '';
                 if (that.state.value != undefined) {
                     s = JSON.stringify(that.state.value.model(true), null, 2);
                 }
                 _dom.append(parent, $('<pre>' + s + '</pre>').get(0));
+                if (after)
+                    after();
             };
             ComplexBase.prototype.changed = function (propName, ov, nv, op, params) {
                 var that = this;
@@ -22191,7 +23281,7 @@ var Phoenix;
 (function (Phoenix) {
     var formarray;
     (function (formarray) {
-        var _p = Phoenix, _customData = _p.customData, _formcomplex = _p.formcomplex, _ui = _p.ui, _utils = _p.utils, _dom = _p.dom, _ctrlsinterfaces = _p.ctrlsinterfaces, _observable = Phoenix.Observable, _sutils = _observable.SchemaUtils, _link = _p.link;
+        var _p = Phoenix, _customData = _p.customData, _ui = _p.ui, _dom = _p.dom;
         var GRID_COLUMNS = 4;
         var ArrayControl = /** @class */ (function (_super) {
             __extends(ArrayControl, _super);
@@ -22224,7 +23314,8 @@ var Phoenix;
                         var bootstrapCol = Math.floor(12 / that._columns);
                         for (var i = 0; i < that._columns; i++) {
                             var col = document.createElement('div');
-                            col.className = (that.renderOptions.layout.noPadding ? 'no-x-padding ' : '') + 'col-sm-' + bootstrapCol;
+                            var size = that.renderOptions.layout.size || 'sm';
+                            col.className = (that.renderOptions.layout.noPadding ? 'no-x-padding ' : '') + 'col-' + size + '-' + bootstrapCol;
                             _dom.append(that._row, col);
                         }
                         _dom.append(parent, that._row);
@@ -22264,8 +23355,7 @@ var Phoenix;
             };
             ArrayControl.prototype.renderCustomLayoutCreateParentOfItem = function (parent, item, index) {
             };
-            // Create content
-            ArrayControl.prototype.renderContent = function (parent) {
+            ArrayControl.prototype._internalRenderContent = function (parent, inRender, after) {
                 var that = this;
                 _dom.empty(parent);
                 that._map = {};
@@ -22293,6 +23383,25 @@ var Phoenix;
                 }
                 _dom.append(parent, fragment);
                 that._row = null;
+                if (after) {
+                    after();
+                }
+            };
+            // Create content
+            ArrayControl.prototype.renderContent = function (parent, inRender, after) {
+                var that = this;
+                if (inRender || !that.form.inSync) {
+                    that._internalRenderContent(parent, inRender, after);
+                }
+                else {
+                    that.form.forceAfterProcessing();
+                    that.form.execLater({
+                        id: that.id,
+                        hnd: function () {
+                            that._internalRenderContent(parent, inRender, after);
+                        }
+                    });
+                }
             };
             ArrayControl.prototype.destroy = function () {
                 var that = this;
@@ -22530,6 +23639,9 @@ var Phoenix;
                     if (options.header.style)
                         headerCss.push(options.header.style);
                 }
+                if (col.options.headerStyle) {
+                    headerCss.push(col.options.headerStyle);
+                }
                 cth.className = headerCss.join(' ');
                 var p = cth;
                 if (options.headerLines) {
@@ -22562,12 +23674,12 @@ var Phoenix;
                     }
                 }
                 else {
-                    var titleEmpty = col.isLink || col.options.titleIsHidden || !col.title;
+                    var titleEmpty = (col.isLink && !options.showLinksTitles) || col.options.titleIsHidden || !col.title;
                     if (titleEmpty)
                         _dom.append(p, document.createTextNode(String.fromCharCode(160)));
                     else {
                         _dom.append(p, document.createTextNode(col.title));
-                        if (col.schema && col.schema.description) {
+                        if (col.schema && col.schema.description && !col.isLink) {
                             var html = [];
                             _uiutils.utils.addTooltipAndRule(html, { description: col.schema.description, grid: true });
                             var tt = $(_utils.format(html.join(''), id + '_' + col.$bind)).get(0);
@@ -22601,7 +23713,7 @@ var Phoenix;
             _dom.append(frag, colTr);
             var firstChild = colTr;
             checkGroups = checkGroups && groups.length > 0;
-            var _loop_2 = function () {
+            var _loop_3 = function () {
                 var grpTr = document.createElement('tr');
                 grpTr.className = 'bs-va-middle';
                 var cg = groups;
@@ -22638,7 +23750,7 @@ var Phoenix;
                 firstChild = grpTr;
             };
             while (checkGroups) {
-                _loop_2();
+                _loop_3();
             }
             return frag;
         }, 
@@ -22678,8 +23790,22 @@ var Phoenix;
                 if (!options.noRowSelectedIndicator)
                     rcss.push('bs-row-selected');
             }
-            if (!isTotal && options.expanding && options.expanding.styledLevels)
-                rcss.push('bs-level bs-row-level-' + level);
+            if (isTotal && level && typeof level === 'number') {
+                rcss.push('subgrup');
+            }
+            if (!isTotal && options.expanding && options.expanding.styledLevels) {
+                if (options.editing && options.editing.readOnlyRow && options.expanding.showEditing) {
+                    var v = row.getValue(options.editing.readOnlyRow);
+                    if (!v) {
+                        rcss.push('bs-level editing');
+                    }
+                    else {
+                        rcss.push('bs-level bs-row-level-' + level);
+                    }
+                }
+                else
+                    rcss.push('bs-level bs-row-level-' + level);
+            }
             tr.className = rcss.join(' ');
             if (!options._useStripedCss && options.striped) {
                 var isOdd_1 = index % 2 === 1;
@@ -22715,11 +23841,19 @@ var Phoenix;
                             td.style.minWidth = _ensureWidth(col.options.minWidth);
                     }
                     var css = [];
-                    if (col.options._expandItem)
+                    if (col.options._expandItem || (isTotal && col.options.totalExpand))
                         css.push('bs-cursor-d');
-                    var state = row.getState(bind, { $editing: options.editing, $schema: schema });
+                    var state = void 0;
+                    if (col.options._expandItem && col.options.display && col.options.displaySchema) {
+                        state = row.getState(col.options.display, { $editing: options.editing, $schema: col.options.displaySchema });
+                    }
+                    else {
+                        state = row.getState(bind, { $editing: options.editing, $schema: schema });
+                    }
                     if (state.style) {
-                        _dom.parseStyle(state.style, css);
+                        _dom.attr(td, 'data-styles', state.style);
+                        var s = _dom.standardStyles(state.style);
+                        _dom.parseStyle(s, css);
                     }
                     var align = col.options.align;
                     if (col.schema) {
@@ -22739,18 +23873,22 @@ var Phoenix;
                     if (col.isLink && !isTotal && col.options.button) {
                         css.push('bs-td-button');
                     }
-                    if (!isTotal && options.editing && (!state.isHidden && state.isReadOnly || state.isDisabled || col.options.editing === false || col.options.selecting === false)) {
-                        var isReadOnlyRow = false;
-                        if (typeof options.editing !== 'object') {
+                    if (!isTotal && options.editing) {
+                        if (!state.isHidden && state.isReadOnly || state.isDisabled || col.options.editing === false || col.options.selecting === false) {
+                            if (!col.options.readOnly && !col.options.preventDisabled)
+                                css.push('bs-td-readonly');
+                        }
+                        else if (typeof options.editing === 'object') {
+                            var isReadOnlyRow = false;
                             if (options.editing.readOnlyRow && row.getValue(options.editing.readOnlyRow)) {
                                 isReadOnlyRow = true;
+                                if ((options.expanding && options.expanding.styledLevels)) {
+                                    isReadOnlyRow = false;
+                                }
                             }
-                            else if (options.editing.onlyIsLeaf && options.expandingProperty && row[options.expandingProperty] && !row[options.expandingProperty].isEmpty()) {
-                                isReadOnlyRow = true;
-                            }
+                            if ((isReadOnlyRow && !_su.isSelectField(col.$bind)) && !col.options.preventDisabled)
+                                css.push('bs-td-readonly');
                         }
-                        if (!isReadOnlyRow)
-                            css.push('bs-td-readonly');
                     }
                     if (css.length)
                         td.className = css.join(' ');
@@ -22768,10 +23906,25 @@ var Phoenix;
                             var editable = (options.editing || _su.isSelectField(col.$bind)) && !state.isDisabled && !state.isReadOnly && !state.isHidden;
                             if (!state.isHidden) {
                                 var dv = null;
-                                if (co.display && co.displaySchema) {
-                                    dv = _uiutils.utils.displayValue(row.getRelativeValue(co.display), co.displaySchema, locale, { tableOptions: options, avanced: co.displayOptions || {}, state: row.getState(co.display, { $editing: options.editing, $schema: co.displaySchema }), form: form }, row, co.display);
+                                var v = null;
+                                var tdv = null;
+                                if (isTotal && co.totalExpand) {
+                                    dv = _uiutils.utils.displayValue(row.getRelativeValue(bind), schema, locale, { tableOptions: options, avanced: co.displayOptions || {}, state: row.getState(co.display, { $editing: options.editing, $schema: schema }), form: form }, row, bind);
+                                    v = _uiutils.utils.displayValue(row.getRelativeValue(co._totalExpandBind), co._totalExpandSchema, locale, { html: true, useSymbol: false, selectable: !state.isDisabled, editable: editable, isTotal: isTotal, check: options.editing, avanced: co._totalOptions, tableOptions: options, display: dv, level: level, state: state, form: form }, row, co._totalExpandBind);
                                 }
-                                var v = _uiutils.utils.displayValue(row.getRelativeValue(bind), schema, locale, { html: true, useSymbol: false, selectable: !state.isDisabled, editable: editable, isTotal: isTotal, check: options.editing, avanced: co, tableOptions: options, display: dv, level: level, state: state, form: form }, row, bind);
+                                else {
+                                    var cs = schema;
+                                    if (co.display && co.displaySchema) {
+                                        cs = co.displaySchema;
+                                        tdv = row.getRelativeValue(co.display);
+                                        dv = _uiutils.utils.displayValue(tdv, co.displaySchema, locale, { tableOptions: options, avanced: co.displayOptions || {}, state: row.getState(co.display, { $editing: options.editing, $schema: co.displaySchema }), form: form }, row, co.display);
+                                    }
+                                    var tv = row.getRelativeValue(bind);
+                                    v = _uiutils.utils.displayValue(tv, schema, locale, { html: true, useSymbol: false, selectable: !state.isDisabled, editable: editable, isTotal: isTotal, check: options.editing, avanced: co, tableOptions: options, display: dv, level: level, state: state, form: form }, row, bind);
+                                    if (options.overflowAsTitle && options._nowrap && !cs.enum && cs.type === 'string') {
+                                        td.title = tdv || tv || '';
+                                    }
+                                }
                                 if (v.html) {
                                     var $c = $(v.value);
                                     _dom.append(p, $c.get(0));
@@ -22781,6 +23934,11 @@ var Phoenix;
                                         appendSpace = true;
                                     else
                                         _dom.append(p, document.createTextNode(v.value));
+                                }
+                            }
+                            else {
+                                if (p.title) {
+                                    p.title = '';
                                 }
                             }
                         }
@@ -22809,19 +23967,22 @@ var Phoenix;
         }, _createRows = function (id, rows, columns, options, authoring, locale, isFrozen, isTotal, cb, totalField, stopField, form) {
             var totalOptions = null;
             if (totalField || stopField) {
-                var colspan = 0;
-                for (var i = 0; i < columns.length; i++) {
-                    var c = columns[i];
-                    if (stopField) {
-                        if (c.$bind === stopField)
+                var col = columns.find(function (c) { return c.$bind === totalField; });
+                if (col) {
+                    var colspan = 0;
+                    for (var i = 0; i < columns.length; i++) {
+                        var c = columns[i];
+                        if (stopField) {
+                            if (c.$bind === stopField)
+                                break;
+                        }
+                        else if (_su.isNumber(c.schema) && !c.options._expandItem)
                             break;
+                        colspan++;
                     }
-                    else if (_su.isNumber(c.schema))
-                        break;
-                    colspan++;
-                }
-                if (colspan > 1) {
-                    totalOptions = { colspan: colspan, columnField: totalField };
+                    if (colspan > 1) {
+                        totalOptions = { colspan: colspan, columnField: totalField };
+                    }
                 }
             }
             var frag = document.createDocumentFragment();
@@ -22880,11 +24041,11 @@ var Phoenix;
                 css.push('bs-fixed');
             }
             //adde
-            if (!isHeader && !isFooter && (options.editing || options.nowrap)) {
+            if (!isHeader && (options.editing || options.nowrap)) {
                 css.push('nowrap');
                 options._nowrap = true;
             }
-            else if (!isHeader && !isFooter && options.allowFrozenColumns) {
+            else if (!isHeader && options.allowFrozenColumns) {
                 css.push('nowrap');
                 options._nowrap = true;
             }
@@ -22897,8 +24058,10 @@ var Phoenix;
             css.push('bs-theme');
             if (options.border || options.border === undefined)
                 css.push('table-bordered');
+            else
+                css.push('table-borderless');
             if (options.small)
-                css.push('bs-style-small-table');
+                css.push('table-sm');
             return css;
         }, _styleTable = function (options, isHeader, isFrozen, isFooter) {
             var style = [];
@@ -23070,8 +24233,9 @@ var Phoenix;
         }, _createGridContainer = function (id, options, authoring, title, locale, columns, frozenColumns) {
             title = title || '';
             options._useColGrp = _canUseColGroups(options, columns);
+            options._nowrap = options.nowrap || !!options.editing || options.allowFrozenColumns || false;
             options._useStripedCss = !!!(options.rows && options.rows.detail) && options.striped;
-            options = $.extend({ right: false, icon: null, type: 'default', width: 'auto', height: 'auto', size: null, scrolling: { horizontal: false } }, options);
+            options = _utils.extendObject(false, { right: false, icon: null, type: 'default', width: 'auto', height: 'auto', size: null, scrolling: { horizontal: false } }, options);
             //create div container 
             if (options.title !== undefined)
                 title = options.title;
@@ -23428,7 +24592,7 @@ var Phoenix;
 /// <reference path="./controls.ts" />
 var Phoenix;
 (function (Phoenix) {
-    var _utils = Phoenix.utils, _dom = Phoenix.dom, _ui = Phoenix.ui, _ulocale = Phoenix.ulocale, _uiutils = Phoenix.uiutils, _observable = Phoenix.Observable, _gridrender = Phoenix.gridrender, _gu = _gridrender.GridUtil, _customData = Phoenix.customData, _eu = _observable.errorsUtils, _link = Phoenix.link, _locale = Phoenix.locale, _drag = Phoenix.drag, _events = Phoenix.events, _sutils = _observable.SchemaUtils;
+    var _utils = Phoenix.utils, _dom = Phoenix.dom, _ui = Phoenix.ui, _ulocale = Phoenix.ulocale, _uiutils = Phoenix.uiutils, _observable = Phoenix.Observable, _gridrender = Phoenix.gridrender, _contextmenu = Phoenix.contextmenu, _gu = _gridrender.GridUtil, _customData = Phoenix.customData, _eu = _observable.errorsUtils, _link = Phoenix.link, _locale = Phoenix.locale, _drag = Phoenix.drag, _events = Phoenix.events, _sutils = _observable.SchemaUtils;
     var formgrid;
     (function (formgrid) {
         var MIN_COL_WIDTH = 20, MAX_COL_WIDTH = 2000;
@@ -23449,16 +24613,60 @@ var Phoenix;
             function LinesColumnsListener(grid) {
                 this._grid = grid;
                 this._properties = [];
+                this._lastProperties = [];
+                this._expProperties = [];
             }
             LinesColumnsListener.prototype.destroy = function () {
                 var that = this;
                 that._properties.forEach(function (propertyName) {
                     that._grid.form.unRegisterListenerFor(propertyName, that);
                 });
+                that._expProperties.forEach(function (propertyName) {
+                    that._grid.form.unRegisterListenerFor(propertyName, that);
+                });
                 that._grid = null;
+            };
+            LinesColumnsListener.prototype.isPathExpandRemove = function (source) {
+                var that = this;
+                var slen = source.length;
+                for (var i = 0; i < that._lastProperties.length; i++) {
+                    var lp = that._lastProperties[i] + '.$item';
+                    var len = lp.length;
+                    if (slen > len && source.substr(slen - len) === lp)
+                        return true;
+                }
+                return false;
+            };
+            LinesColumnsListener.prototype.isPathExpand = function (source) {
+                var that = this;
+                var slen = source.length;
+                for (var i = 0; i < that._lastProperties.length; i++) {
+                    var lp = that._lastProperties[i];
+                    var len = lp.length;
+                    if (slen > len && source.substr(slen - len) === lp)
+                        return true;
+                }
+                return false;
             };
             LinesColumnsListener.prototype.changed = function (propName, ov, nv, op, params) {
                 var that = this;
+                if (propName.indexOf('.$select') > 0)
+                    return;
+                if (propName.indexOf('.$expand') > 0)
+                    return;
+                if (params.targetId === 'expand') {
+                    if (op === 'add' && that.isPathExpand(params.source)) {
+                        var path = params.$value.fullPath;
+                        params[path] = params.$value;
+                        that._grid.changed(path, ov, nv, 'propchange', params);
+                    }
+                    else if (op === 'remove' && params.$value && that.isPathExpandRemove(params.$value.fullPath)) {
+                        var path = params.$value.fullPath;
+                        params[path] = null;
+                        that._grid.changed(path, ov, nv, 'propchange', params);
+                    }
+                    return;
+                }
                 var ii = that._properties.indexOf(propName);
                 if (ii >= 0) {
                     if (op === 'add')
@@ -23467,10 +24675,19 @@ var Phoenix;
                 }
             };
             LinesColumnsListener.prototype.listen = function (propertyName) {
-                var toListen = this._grid.$bind + '.$item.' + propertyName;
-                if (this._properties.indexOf(toListen) < 0) {
-                    this._properties.push(toListen);
-                    this._grid.form.registerListenerFor(toListen, this);
+                var that = this;
+                var toListen = that._grid.$bind + '.$item.' + propertyName;
+                if (that._properties.indexOf(toListen) < 0) {
+                    that._properties.push(toListen);
+                    that._grid.form.registerListenerFor(toListen, this);
+                    if (that._grid.fieldOptions.expandingProperty) {
+                        that._lastProperties.push('.$item.' + this._grid.fieldOptions.expandingProperty + '.$item.' + propertyName);
+                        var prop = that._grid.$bind + '.$item.' + this._grid.fieldOptions.expandingProperty;
+                        if (that._expProperties.indexOf(prop) < 0) {
+                            that._expProperties.push(prop);
+                            that._grid.form.registerListenerFor(prop, this, 'expand', { forceExact: true });
+                        }
+                    }
                 }
             };
             return LinesColumnsListener;
@@ -23500,6 +24717,9 @@ var Phoenix;
                 if (that.fieldOptions.striped === undefined) {
                     that.fieldOptions.striped = true;
                 }
+                if (that.fieldOptions.editing && typeof that.fieldOptions.editing === 'object' && that.fieldOptions.editing.bind) {
+                    that.form.registerListenerFor(that.fieldOptions.editing.bind, that, 'editing');
+                }
                 that._view = [];
                 that._viewMap = {};
                 that._ignoreNotifications = false;
@@ -23510,7 +24730,10 @@ var Phoenix;
                 }
                 var origColumns = that.fieldOptions.columns || [];
                 that._originalColsMap = {};
-                origColumns.forEach(function (col) { that._originalColsMap[col.$bind] = col; });
+                origColumns.forEach(function (col) {
+                    that._originalColsMap[col.$bind] = col;
+                });
+                that._initOrigColumns(that.fieldOptions);
                 if (that._settings) {
                     var newColumns = that._settings.columns || [];
                     newColumns.forEach(function (col) {
@@ -23530,20 +24753,22 @@ var Phoenix;
                     that.fieldOptions.columns = newColumns;
                     that._settings.columns = null;
                 }
-                if (that.fieldOptions && that.fieldOptions.total && that.fieldOptions.total.property) {
+                if (that.fieldOptions.total && that.fieldOptions.total.property) {
                     that._totalProperty = that.fieldOptions.total.property;
                     var totalSchema = that.form.getSchema(that._totalProperty);
                     that._totalIsArray = (totalSchema && totalSchema.type === 'array');
                     that._totalField = that.fieldOptions.total.field;
                     that._stopField = that.fieldOptions.total.firstTotal;
-                    form.registerListenerFor(that._totalProperty, that);
+                    form.registerListenerFor(that._totalProperty, that, 'total', { forceExact: true });
+                }
+                if (that.fieldOptions.linesAsColumns) {
+                    form.registerListenerFor(that.fieldOptions.linesAsColumns, that, 'columns_changed');
                 }
                 // load config 
                 that.checkOptions(that.fieldOptions);
-                that._lines2columns(that.fieldOptions);
-                that._initOrigColumns(that.fieldOptions);
                 if (that.state.value && that.state.value.columns)
-                    that._setVisiblesColumns(that.fieldOptions, that.state.value.columns, true);
+                    that._setVisiblesColumns(that.fieldOptions, that.state.value.columns, true, true);
+                that._lines2columns(that.fieldOptions);
                 that._initCols(that.fieldOptions);
                 that._details = [];
                 that._onselectItemHandler = that._onselectItem.bind(that);
@@ -23552,8 +24777,16 @@ var Phoenix;
             BasicGrid.prototype._lines2columns = function (options) {
                 var that = this;
                 if (options.linesAsColumns) {
+                    // remove columns 
+                    var columnsToRemove = options.columns.filter(function (cc) { return cc.sourceBind; });
+                    columnsToRemove.forEach(function (col) {
+                        var ii = options.columns.indexOf(col);
+                        options.columns.splice(ii, 1);
+                    });
                     var colsToAdd = _utils.getValue(that.form.$model.model(true), options.linesAsColumns);
                     if (colsToAdd) {
+                        if (typeof colsToAdd === 'string')
+                            colsToAdd = JSON.parse(colsToAdd);
                         var map_2 = {};
                         options.columns.forEach(function (col) {
                             map_2[col.$bind] = col;
@@ -23570,10 +24803,14 @@ var Phoenix;
                             lastIndex_1 = options.columns.length;
                         colsToAdd.forEach(function (col) {
                             if (col.name && !map_2[name]) {
-                                var cc_1 = $.extend(true, {}, col);
+                                var cc_1 = _utils.clone(col);
                                 cc_1.$bind = cc_1.name;
                                 cc_1.options = cc_1.options || {};
                                 cc_1.options.title = cc_1.title;
+                                if (cc_1.editing !== undefined) {
+                                    cc_1.options.editing = cc_1.editing;
+                                    delete cc_1.editing;
+                                }
                                 cc_1.sourceBind = options.linesAsColumns;
                                 options.columns.splice(lastIndex_1, 0, cc_1);
                                 if (Array.isArray(cc_1.name)) {
@@ -23585,7 +24822,7 @@ var Phoenix;
                                         cc_1.$bindMap[config.type] = {
                                             name: config.name
                                         };
-                                        cc_1.$optionMap[config.name] = {};
+                                        cc_1.$optionMap[config.name] = Object.create(cc_1.options);
                                     });
                                     cc_1.$bindType = cc_1.type;
                                 }
@@ -23604,11 +24841,11 @@ var Phoenix;
                 opts.columns.forEach(function (col) {
                     col.options = col.options || {};
                     if (col.$bind === _observable.EXPANDED_FIELD_NAME && col.options.display) {
-                        that._originalCols[col.options.display] = $.extend(true, {}, col);
+                        that._originalCols[col.options.display] = _utils.clone(col);
                         that._originalCols[col.options.display].options._expandItem = true;
                     }
                     else {
-                        that._originalCols[col.$bind] = that._originalCols[col.$bind] || $.extend(true, {}, col);
+                        that._originalCols[col.$bind] = that._originalCols[col.$bind] || _utils.clone(col);
                     }
                     if (col.options.bindVisibility && (bindVisibilityFields.indexOf(col.options.bindVisibility) < 0)) {
                         bindVisibilityFields.push(col.options.bindVisibility);
@@ -23624,33 +24861,45 @@ var Phoenix;
                     opts.allowColumnMove = true;
                 opts.align = opts.align || 'middle';
             };
+            BasicGrid.prototype.preferences = function () {
+                var prefs = this.gridPrefs();
+                prefs.columns.forEach(function (column) {
+                    column.name = column.$bind;
+                    delete column.$bind;
+                });
+                return prefs;
+            };
+            BasicGrid.prototype.gridPrefs = function () {
+                var that = this;
+                var prefs = { columns: [] };
+                var allCols = that.renderOptions.columns || [];
+                allCols.forEach(function (col) {
+                    var cc = { $bind: col.$bind, options: null };
+                    var opts = {};
+                    // if (col.canStartDragHandler) opts.frozen = true;
+                    if (col.options.width)
+                        opts.width = col.options.width;
+                    if (col.options.display)
+                        opts.display = col.options.display;
+                    if (col.options.frozen)
+                        opts.frozen = col.options.frozen;
+                    if (col.options._expandItem)
+                        cc.$bind = _observable.EXPANDED_FIELD_NAME;
+                    cc.options = opts;
+                    prefs.columns.push(cc);
+                });
+                return prefs;
+            };
             BasicGrid.prototype.beforeSaveSettings = function () {
                 var that = this;
                 if (that._settingsName) {
-                    that._settings = { columns: [] };
-                    var allCols = that.renderOptions.columns || [];
-                    allCols.forEach(function (col) {
-                        var cc = { $bind: col.$bind, options: null };
-                        var opts = {};
-                        if (col.canStartDragHandler)
-                            opts.frozen = true;
-                        if (col.options.width)
-                            opts.width = col.options.width;
-                        if (col.options.display)
-                            opts.display = col.options.display;
-                        if (col.options.frozen)
-                            opts.frozen = col.options.frozen;
-                        if (col.options._expandItem)
-                            cc.$bind = _observable.EXPANDED_FIELD_NAME;
-                        cc.options = opts;
-                        that._settings.columns.push(cc);
-                    });
+                    that._settings = that.gridPrefs();
                     that.form.setFieldSettings(that._settingsName, that._settings);
                     return true;
                 }
                 return false;
             };
-            BasicGrid.prototype._calculateNewValue = function (value, item, col) {
+            BasicGrid.prototype._calculateNewValue = function (value, item, col, checkNulls) {
                 var res = { value: value, set: false, bind: col.$bind };
                 var that = this;
                 var bind = col.$bind;
@@ -23667,6 +24916,11 @@ var Phoenix;
                 if (cv === value)
                     return res;
                 var nv = _sutils.text2Value(value, schema, state);
+                if (cv === nv)
+                    return res;
+                if (checkNulls && (ov === null || ov === undefined || ov === 0) &&
+                    (nv === null || nv === undefined || nv === 0))
+                    return res;
                 if (nv !== ov) {
                     res.value = nv;
                     res.set = true;
@@ -23675,7 +24929,7 @@ var Phoenix;
                 return res;
             };
             BasicGrid.prototype._inplaceEditValue2Model = function (value, item, col) {
-                var res = this._calculateNewValue(value, item, col);
+                var res = this._calculateNewValue(value, item, col, false);
                 if (res.set) {
                     item.setValue(res.bind, res.value);
                     return true;
@@ -23851,9 +25105,9 @@ var Phoenix;
                             if (state.isDisabled) {
                                 that._modifyCell(cell_1.item, bind_1, null, td_1, null);
                                 if (!isCancel) {
-                                    var res = this._calculateNewValue(s, cell_1.item, cell_1.col);
+                                    var res = this._calculateNewValue(s, cell_1.item, cell_1.col, true);
                                     if (res.set) {
-                                        that.form.execAction(cell_1.item.getJSONPatchPath() + '/' + that.renderOptions.editing.nulls.actionName, { bind: bind_1, value: res.value });
+                                        that.form.execAction(cell_1.item.getJSONPatchPath() + '.$links.' + that.renderOptions.editing.nulls.actionName, { bind: bind_1, value: res.value, isJsonPath: true });
                                     }
                                 }
                                 return;
@@ -23898,12 +25152,16 @@ var Phoenix;
             };
             BasicGrid.prototype.removeEvents = function () {
                 var that = this;
+                if (that.renderOptions.contextMenu) {
+                    that.$element.off('contextmenu');
+                }
                 if (that._scrollableMaster) {
                     $(that._scrollableMaster).off('scroll');
                 }
                 if (that._scrollableFrozenContent)
                     $(that._scrollableFrozenContent).off('mousewheel');
                 that._scrollableMaster = null;
+                that._footerMaster = null;
                 that._scrollableHeaderOfMaster = null;
                 that._scrollableFooterOfMaster = null;
                 if (that._drag) {
@@ -23929,15 +25187,18 @@ var Phoenix;
             BasicGrid.prototype.setEvents = function (opts) {
                 var that = this;
                 var vscroll = opts.scrolling && opts.scrolling.vertical;
+                var e = that.$element.get(0);
+                if (opts.bottom)
+                    that._footerMaster = _dom.find(e, that.id + '_table_footer');
                 if (vscroll) {
-                    var e = that.$element.get(0);
-                    that._scrollableMaster = _dom.find(e, that.id + '_master_scroll');
-                    that._scrollableHeaderOfMaster = _dom.find(e, that.id + '_table_header_content');
+                    var e_2 = that.$element.get(0);
+                    that._scrollableMaster = _dom.find(e_2, that.id + '_master_scroll');
+                    that._scrollableHeaderOfMaster = _dom.find(e_2, that.id + '_table_header_content');
                     if (that._totalProperty)
-                        that._scrollableFooterOfMaster = _dom.find(e, that.id + '_table_footer_content');
+                        that._scrollableFooterOfMaster = _dom.find(e_2, that.id + '_table_footer_content');
                     var hasFrozenColumns = _gu.hasFrozenColumns(opts, that.frozenColumns);
-                    that._scrollableFrozenContent = hasFrozenColumns ? _dom.find(e, that.id + '_frozen_scroll') : null;
-                    that._deltaHScrollContent = hasFrozenColumns ? _dom.find(e, that.id + '_frozen_scroll_delta') : null;
+                    that._scrollableFrozenContent = hasFrozenColumns ? _dom.find(e_2, that.id + '_frozen_scroll') : null;
+                    that._deltaHScrollContent = hasFrozenColumns ? _dom.find(e_2, that.id + '_frozen_scroll_delta') : null;
                     if (that._scrollableMaster && that._scrollableHeaderOfMaster)
                         $(that._scrollableMaster).on('scroll', that.syncHeaderAndFrozenScroll.bind(that));
                     if (that._scrollableFrozenContent) {
@@ -23977,6 +25238,27 @@ var Phoenix;
                     drag_2.onDragStart = that._onDragStart.bind(that);
                     drag_2.onDrag = that._onDrag.bind(that);
                     drag_2.onDragEnd = that._onDragEnd.bind(that);
+                }
+                if (that.renderOptions.contextMenu) {
+                    that.$element.on('contextmenu', that._contextMenuEventHandler.bind(that));
+                }
+            };
+            BasicGrid.prototype.contextMenu = function (itemData) {
+                var that = this;
+                that.form.execAction(that.$bind + '.$links.' + that.renderOptions.contextMenu.execute, itemData);
+            };
+            BasicGrid.prototype._contextMenuEventHandler = function (event) {
+                var that = this;
+                var cell = this.selectOnEvent(event);
+                if (cell) {
+                    event.preventDefault();
+                    that.form.contextMenuData = null;
+                    var item = that._findById(cell.row);
+                    that.form.execAction(that.$bind + '.$links.' + that.renderOptions.contextMenu.factory, item, cell.col);
+                    if (that.form.contextMenuData) {
+                        _contextmenu.openContextMenu(event, that, that.form.contextMenuData);
+                    }
+                    return false;
                 }
             };
             BasicGrid.prototype._getColsInfo = function (columns, parent) {
@@ -24018,7 +25300,6 @@ var Phoenix;
                 if (td) {
                     var cell = that._td2cell(td);
                     if (cell) {
-                        var opts_2 = that.renderOptions;
                         var item = that._findById(cell.row);
                         if (item) {
                             that._drag.data.op = 'rowmove';
@@ -24299,6 +25580,9 @@ var Phoenix;
             BasicGrid.prototype.destroy = function () {
                 var that = this;
                 that._destroyDetails();
+                if (that.fieldOptions.linesAsColumns) {
+                    this.form.registerListenerFor(that.fieldOptions.linesAsColumns, that, 'columns_changed');
+                }
                 if (that._columnsListener) {
                     that._columnsListener.destroy();
                     that._columnsListener = null;
@@ -24389,7 +25673,7 @@ var Phoenix;
                     else {
                         oldCol = that._originalColsMap[col.$bind];
                         if (oldCol && oldCol.options) {
-                            col.options = $.extend(true, {}, oldCol.options);
+                            col.options = _utils.clone(oldCol.options);
                         }
                     }
                     return col;
@@ -24408,16 +25692,27 @@ var Phoenix;
                     }
                 }
             };
-            BasicGrid.prototype._setVisiblesColumns = function (options, columns, inCreate) {
+            BasicGrid.prototype._setVisiblesColumns = function (options, columnsData, useOriginalColumns, inCreate) {
                 var that = this;
-                var ccMap = columns && columns.length ? {} : null;
+                var ccMap = columnsData && columnsData.length ? {} : null;
                 if (ccMap) {
-                    columns.forEach(function (col, index) {
+                    columnsData.forEach(function (col, index) {
                         ccMap[col.name] = col;
                         col.index = index;
                     });
                 }
                 options = options || that.renderOptions;
+                // const columns = options.columns;
+                if (useOriginalColumns) {
+                    var nc_1 = [];
+                    Object.keys(that._originalCols).forEach(function (cn) {
+                        var col = that._originalCols[cn];
+                        if (col) {
+                            nc_1.push(_utils.clone(col));
+                        }
+                    });
+                    options.columns = nc_1;
+                }
                 options.columns.forEach(function (col, index) {
                     var colName = col.$bind;
                     col.index = index;
@@ -24426,16 +25721,22 @@ var Phoenix;
                         col._isHidden = false;
                         return;
                     }
-                    if (col.options._expandItem && col.options.display)
-                        colName = col.options.display;
+                    if (col.options._expandItem && col.options.display) {
+                        // colName = col.options.display;
+                    }
                     else if (col.options._expandItem) {
                         col.index = -1;
                         col._isHidden = false;
                     }
                     if (ccMap) {
                         if (ccMap[colName]) {
+                            var coptions = ccMap[colName].options;
                             col._isHidden = false;
                             col.index = ccMap[colName].index;
+                            ccMap[colName] = null;
+                            if (coptions) {
+                                col.options = _utils.extendObject(true, col.options, coptions);
+                            }
                         }
                         else
                             col._isHidden = true;
@@ -24444,6 +25745,12 @@ var Phoenix;
                         col._isHidden = false;
                 });
                 if (ccMap) {
+                    for (var _i = 0, columnsData_1 = columnsData; _i < columnsData_1.length; _i++) {
+                        var cc = columnsData_1[_i];
+                        if (ccMap[cc.name]) {
+                            options.columns.push({ $bind: cc.name, options: cc.options, index: cc.index });
+                        }
+                    }
                     options.columns.sort(function (col1, col2) {
                         return col1.index - col2.index;
                     });
@@ -24461,12 +25768,13 @@ var Phoenix;
                     return;
                 var map = {};
                 list.enumSelectedItems(opts.expandingProperty, function (ii, level) {
-                    var d = { data: ii, level: level, hasParent: false, children: null };
-                    selectedItems.push(d);
-                    map[ii.$id] = d;
+                    if (ii) {
+                        var d = { data: ii, level: level, hasParent: false, children: null };
+                        selectedItems.push(d);
+                        map[ii.$id] = d;
+                    }
                 });
                 if (sort && opts.expandingProperty) {
-                    var res = {};
                     selectedItems.forEach(function (item) {
                         var dd = item.data;
                         if (dd.parent && map[dd.parent.$id]) {
@@ -24567,7 +25875,7 @@ var Phoenix;
                 that.state.value.expandingProperty = that.renderOptions.expandingProperty;
                 if (that.state.value.isQueryable() || that.state.value.$states.pageSize) {
                     // create pager
-                    var options = $.extend({ size: "default", selectPage: that._onselectPage.bind(that), noPagesCount: that.state.value.noPagesCount() }, opts.pager || {});
+                    var options = _utils.extendObject(false, { size: "default", selectPage: that._onselectPage.bind(that), noPagesCount: that.state.value.noPagesCount() }, opts.pager || {});
                     that.pager = new _ui.Pager(options);
                     var p = that.pager;
                     p.props.hasNext = that.state.value.hasNext();
@@ -24603,7 +25911,10 @@ var Phoenix;
                 that._mapCols = {};
                 that._mapColsSupp = {};
                 if (!options.columns || !options.columns.length) {
-                    options.columns = [{ $bind: '$index' }];
+                    if (options.linesAsColumns)
+                        options.columns = options.columns || [];
+                    else
+                        options.columns = [{ $bind: '$index' }];
                 }
                 that.columns = [];
                 that.frozenColumns = [];
@@ -24629,10 +25940,24 @@ var Phoenix;
                 var addWidth = options.scrolling && options.scrolling.vertical || options.editing;
                 var ri = [];
                 options.columns.forEach(function (col, index) {
-                    var c = $.extend({}, col);
-                    var isExpand = true;
+                    var c = _utils.extendObject(false, {}, col);
                     c.options = c.options || {};
                     c._isHiddenByBind = false;
+                    if (canExpand && c.options.totalExpand) {
+                        c.options._totalExpandBind = options.expandingProperty + '$expand';
+                        c.options._totalExpandSchema = _sutils.getSchema('$expand', that.$schemaItems, that.form.$rootSchema, false);
+                        c.options._totalOptions = {
+                            icons: {
+                                '1': 'plus',
+                                '2': 'minus',
+                            },
+                            align: 'left',
+                            alignIcon: 'left',
+                            totalExpand: true,
+                            _expandItem: true,
+                            _clickable: true
+                        };
+                    }
                     if (canExpand && _sutils.isExpandField(col.$bind)) {
                         expandField = col;
                         c.schema = _sutils.getSchema(col.$bind, that.$schemaItems, that.form.$rootSchema, false);
@@ -24664,6 +25989,9 @@ var Phoenix;
                     }
                     if (!c.schema) {
                         console.log('Field (bind) not found : ' + col.$bind);
+                        return;
+                    }
+                    if (c.schema.colIsHidden) {
                         return;
                     }
                     if (c.options.$lookup)
@@ -24767,6 +26095,9 @@ var Phoenix;
                             segments = segments.slice(0, ii + 1);
                             map = that._mapColsSupp[segments.join('.')];
                         }
+                        else {
+                            map = that._mapColsSupp[field + '.$item'];
+                        }
                     }
                     if (map) {
                         var instance_1 = item;
@@ -24778,7 +26109,7 @@ var Phoenix;
                         var fields_1 = [];
                         map.fields.forEach(function (fi) { return fields_1.push(fi.bind); });
                         var currentSegment = [];
-                        var _loop_3 = function (i) {
+                        var _loop_4 = function (i) {
                             if (!instance_1 || instance_1.isNull || instance_1.isUndefined) {
                                 fields_1 = [];
                                 return "break";
@@ -24811,8 +26142,8 @@ var Phoenix;
                             }
                         };
                         for (var i = 0; i < segments.length; i++) {
-                            var state_3 = _loop_3(i);
-                            if (state_3 === "break")
+                            var state_4 = _loop_4(i);
+                            if (state_4 === "break")
                                 break;
                         }
                         fields_1.forEach(function (rField) {
@@ -24841,10 +26172,13 @@ var Phoenix;
             };
             BasicGrid.prototype._totalChanged = function (propName, ov, nv, op, params) {
                 var that = this;
+                var doResize = false;
                 if (!that.$element)
                     return;
                 if (that._ignoreNotifications)
-                    return false;
+                    return;
+                if (propName.indexOf('$selected') > 1)
+                    return;
                 switch (op) {
                     case 'propchange':
                         if (propName === that._totalProperty) {
@@ -24857,37 +26191,76 @@ var Phoenix;
                                 prop = propName.split('.').pop();
                             }
                             else {
-                                var instPath = _sutils.parsePath(that._totalProperty, propName, '');
+                                var instPath = _sutils.parsePath(that._totalProperty, propName, this.renderOptions.expandingProperty);
                                 item = params[instPath];
                                 prop = propName.substr(instPath.length + 1);
                             }
                             if (item) {
-                                that._modifyFooterCell(item, prop);
+                                if (propName.indexOf('$expand') > 1) {
+                                    that._renderTotalRows();
+                                    doResize = true;
+                                }
+                                else
+                                    that._modifyFooterCell(item, prop);
                             }
                         }
                         break;
                     case 'add':
                         if (propName === that._totalProperty) {
                             that._renderTotalRows();
+                            doResize = true;
                         }
                         break;
                     case 'remove':
                         if (propName === that._totalProperty) {
                             that._renderTotalRows();
+                            doResize = true;
                         }
                         break;
                 }
+                if (doResize && this.renderOptions.bottom) {
+                    that.resize();
+                }
+            };
+            BasicGrid.prototype.listenerOptions = function () {
+                if (this.config && this.config.options)
+                    return { expandPath: this.config.options.expandingProperty };
+                else
+                    return undefined;
             };
             BasicGrid.prototype.changed = function (propName, ov, nv, op, params) {
                 var that = this;
+                var rOptions = that.renderOptions;
+                if (params.targetId === 'editing') {
+                    var value = this.form.getValue(that.config.options.editing.bind);
+                    if (that.renderOptions) {
+                        if (value !== !that.renderOptions.editingDisabled) {
+                            if (that.$element && !that._ignoreNotifications) {
+                                that.toggleEditing();
+                            }
+                            else {
+                                that.renderOptions.editingDisabled = !value;
+                            }
+                        }
+                    }
+                    return;
+                }
                 if (!that.$element)
                     return;
                 if (that._ignoreNotifications)
                     return false;
                 var pp = propName.substr(that.$bind.length);
+                if (params.targetId === 'columns_changed') {
+                    this._lines2columns(rOptions);
+                    that._refreshGrid();
+                    return;
+                }
+                if (params.targetId === 'total') {
+                    that._totalChanged(propName, ov, nv, op, params);
+                    return;
+                }
                 if (pp.indexOf('.$selected') >= 0)
                     return;
-                var rOptions = that.renderOptions;
                 var checkVisibility = rOptions.hideWhenNoRows;
                 var oldSelected = that.selectedCell;
                 var rowToSelect = null;
@@ -24904,15 +26277,6 @@ var Phoenix;
                 if (that._bindVisibility && that._bindVisibility.indexOf(propName) >= 0) {
                     that._columnsVisibilityChanged(propName, ov, nv, op, params);
                     return;
-                }
-                if (that._totalProperty) {
-                    if (propName.indexOf(that._totalProperty) === 0) {
-                        that._totalChanged(propName, ov, nv, op, params);
-                        return;
-                    }
-                    else if (params.checkChildren && op === 'propchange' && propName === that._totalProperty) {
-                        that._totalChanged(that._totalProperty, ov, nv, op, params);
-                    }
                 }
                 if (!that.state.value) {
                     op = 'none';
@@ -24936,7 +26300,12 @@ var Phoenix;
                         that._updateSorting();
                         break;
                     case 'propchange':
+                        var ep = rOptions.expandingProperty;
+                        if (ep && propName.endsWith('$item.' + ep))
+                            propName = that.$bind;
                         if (propName === that.$bind) {
+                            if (this._isInRenderAll())
+                                return;
                             if (params.sorting) {
                                 that._renderRows(true, '', null, false);
                                 if (oldSelected) {
@@ -24951,6 +26320,8 @@ var Phoenix;
                             checkVisibility = true;
                         }
                         else {
+                            if (this._isInRenderAll())
+                                return;
                             var prop = propName;
                             var instPath = _sutils.parsePath(that.$bind, prop, rOptions.expandingProperty);
                             var item = params[instPath];
@@ -24973,7 +26344,10 @@ var Phoenix;
                                     }
                                     that._updateMultiselectSummary(false);
                                 }
-                                else if (cp.indexOf(_observable.EXPANDED_FIELD_NAME) > 0 && rOptions.expandingProperty) {
+                                else if (rOptions.expandingProperty && that._viewMap[item.$id] &&
+                                    cp.indexOf(_observable.EXPANDED_FIELD_NAME) > 0) {
+                                    if (this._isInRenderAll())
+                                        return;
                                     var list = _utils.getValue(item, rOptions.expandingProperty);
                                     if (!list)
                                         return;
@@ -25002,6 +26376,12 @@ var Phoenix;
                         }
                         break;
                     case 'add':
+                        if (this._isInRenderAll())
+                            return;
+                        if (that.renderOptions.expandingProperty) {
+                            that._renderAllLater();
+                            return;
+                        }
                         that._createRow(params.$value);
                         if (that.renderOptions.expandingProperty) {
                             var expanded = params.$value[that.renderOptions.expandingProperty + Phoenix.Observable.EXPANDED_FIELD_NAME];
@@ -25022,6 +26402,8 @@ var Phoenix;
                         checkVisibility = true;
                         break;
                     case 'remove':
+                        if (this._isInRenderAll())
+                            return;
                         if (rOptions.expandingProperty) {
                             that._removeRow(params.$id);
                             if (params.$value) {
@@ -25067,7 +26449,7 @@ var Phoenix;
                     that._selectFirstCellEditable('model', rowToSelect, colToSelect);
                 }
             };
-            BasicGrid.prototype._modifyStateTD = function (item, field, stateName, col, td) {
+            BasicGrid.prototype._modifyStateTD = function (item, field, stateName, col, td, params) {
                 var that = this;
                 var opts = that.renderOptions;
                 var schema = item.getSchema(col.field);
@@ -25077,9 +26459,14 @@ var Phoenix;
                 if (editable && typeof opts.editing === 'object') {
                     if (opts.editing.readOnlyRow) {
                         editable = !item.getValue(opts.editing.readOnlyRow);
+                        if (!editable && opts.expanding && opts.expanding.styledLevels) {
+                            editable = true;
+                        }
                     }
-                    if (editable && opts.editing.onlyIsLeaf) {
-                        editable = item[opts.expandingProperty] && !item[opts.expandingProperty].isEmpty();
+                }
+                else if (!editable) {
+                    if (co.readOnly) {
+                        editable = true;
                     }
                 }
                 if (state.isHidden) {
@@ -25088,11 +26475,30 @@ var Phoenix;
                 else if (stateName === 'isHidden') {
                     that._modifyTD(item, col.field, td);
                 }
+                else if (stateName === 'style') {
+                    if (params) {
+                        var oldValue = params.oldValue || '';
+                        var value = params.value || '';
+                        _dom.attr(td, 'data-styles', value);
+                        var s = _dom.standardStyles(oldValue);
+                        var css = [];
+                        _dom.parseStyle(s, css);
+                        css.forEach(function (ss) { return _dom.removeClass(td, ss); });
+                        s = _dom.standardStyles(value);
+                        css = [];
+                        _dom.parseStyle(s, css);
+                        css.forEach(function (ss) { return _dom.addClass(td, ss); });
+                    }
+                }
                 if (opts.editing) {
-                    if (editable)
-                        _dom.removeClass(td, 'bs-td-readonly');
-                    else
-                        _dom.addClass(td, 'bs-td-readonly');
+                    if ((opts.expanding && opts.expanding.styledLevels) || co.preventDisabled) {
+                    }
+                    else {
+                        if (editable)
+                            _dom.removeClass(td, 'bs-td-readonly');
+                        else
+                            _dom.addClass(td, 'bs-td-readonly');
+                    }
                 }
             };
             BasicGrid.prototype._modifyTD = function (item, field, td) {
@@ -25114,13 +26520,18 @@ var Phoenix;
                 var dv = null;
                 var ii = that._viewMap[item.$id];
                 var level = ii ? ii.level || 0 : 0;
+                var cs = schema;
+                var dtv = '';
                 if (co.display && co.displaySchema) {
-                    dv = _uiutils.utils.displayValue(item.getValue(co.display), co.displaySchema, that.form.$locale, {
+                    dtv = item.getValue(co.display);
+                    cs = co.displaySchema;
+                    dv = _uiutils.utils.displayValue(dtv, co.displaySchema, that.form.$locale, {
                         html: true, tableOptions: opts,
                         avanced: co.displayOptions || {}, state: item.getState(co.display, { $editing: that.renderOptions.editing, $schema: that._getDefaultSchema(item, co.display, co.displaySchema) }), form: that.form
                     }, item, co.display);
                 }
-                var v = _uiutils.utils.displayValue(item.getValue(field), schema, that.form.$locale, {
+                var tv = item.getValue(field);
+                var v = _uiutils.utils.displayValue(tv, schema, that.form.$locale, {
                     html: true, useSymbol: false, editable: editable,
                     selectable: !state.isDisabled, check: opts.editing, avanced: co,
                     tableOptions: opts, display: dv, level: level, state: state, form: that.form
@@ -25134,6 +26545,22 @@ var Phoenix;
                     if (cv === '')
                         cv = String.fromCharCode(160);
                     _dom.append(td, document.createTextNode(cv));
+                }
+                if (opts.overflowAsTitle && opts._nowrap && !cs.enum && cs.type === 'string') {
+                    td.title = dtv || tv || '';
+                }
+                var oldValue = _dom.attr(td, 'data-styles') || '';
+                var newValue = state.style || '';
+                if (oldValue !== newValue) {
+                    _dom.attr(td, 'data-styles', newValue);
+                    var s = _dom.standardStyles(oldValue);
+                    var css = [];
+                    _dom.parseStyle(s, css);
+                    css.forEach(function (ss) { return _dom.removeClass(td, ss); });
+                    s = _dom.standardStyles(newValue);
+                    css = [];
+                    _dom.parseStyle(s, css);
+                    css.forEach(function (ss) { return _dom.addClass(td, ss); });
                 }
             };
             BasicGrid.prototype._findTR = function (id, col) {
@@ -25158,10 +26585,11 @@ var Phoenix;
                     return;
                 that._findCellAndModify(item, field, null, { instancePath: that.$bind });
             };
-            BasicGrid.prototype._findCellAndModify = function (item, field, stateName, params) {
+            BasicGrid.prototype._findCellAndModify = function (item, fieldName, stateName, params) {
                 //TODO: optimize
                 var that = this;
-                that._colsByField(field, item, params).forEach(function (colItem) {
+                that._colsByField(fieldName, item, params).forEach(function (colItem) {
+                    var field = fieldName;
                     var col = colItem.col;
                     var tr = that._findTR(item.$id, col);
                     if (!tr)
@@ -25169,13 +26597,17 @@ var Phoenix;
                     var list = _dom.queryAll(tr, 'td[colid="' + col.$bind + '"]');
                     for (var i = 0, len = list.length; i < len; i++) {
                         var ctd = list.item(i);
+                        if (!colItem.exact && stateName) {
+                            that._modifyStateTD(item, field, stateName, col, ctd, params);
+                            return;
+                        }
                         if (stateName) {
                             var stateValue = item.$states[field][stateName];
                             if (stateValue === true && ['isDisabled', 'isHidden', 'isReadOnly'].indexOf(stateName) >= 0) {
                                 if (that.inplace && that.inplace.input && that.inplace.td === ctd)
                                     that._inplaceEditRemove(false, false, true);
                             }
-                            that._modifyStateTD(item, field, stateName, col, ctd);
+                            that._modifyStateTD(item, field, stateName, col, ctd, params);
                         }
                         else {
                             if (that.inplace && that.inplace.input && that.inplace.td === ctd) {
@@ -25184,7 +26616,7 @@ var Phoenix;
                             }
                             that._modifyTD(item, col.field, ctd);
                             if (!colItem.exact)
-                                that._modifyStateTD(item, field, '', col, ctd);
+                                that._modifyStateTD(item, field, '', col, ctd, params);
                         }
                     }
                 });
@@ -25456,12 +26888,19 @@ var Phoenix;
                     }, that.renderOptions.expandingProperty);
                 }
                 if (that._totalProperty) {
-                    //let totals = [];
+                    var totalsItems_1 = [];
                     var totals = that.form.getValue(that._totalProperty);
-                    if (totals && !that._totalIsArray)
-                        totals = [totals];
-                    if (totals) {
-                        totals.forEach(function (item) {
+                    if (totals && !that._totalIsArray) {
+                        totalsItems_1 = [totals];
+                    }
+                    else {
+                        totals.forEach(function (item, index, level) {
+                            if (item)
+                                totalsItems_1.push(item);
+                        }, that.renderOptions.expandingProperty);
+                    }
+                    if (totalsItems_1) {
+                        totalsItems_1.forEach(function (item) {
                             moneyColumns.forEach(function (col) {
                                 that._modifyFooterCell(item, col.$bind);
                             });
@@ -25558,6 +26997,9 @@ var Phoenix;
                     if (lookup.data.$type === 'relation' && lookup.data.$params.relation.charAt(0) === '.') {
                         itemModel = item;
                     }
+                    else if (lookup.data.$type === 'find') {
+                        itemModel = item;
+                    }
                     that.inplace.$bind = that.inplace.col.$bind;
                     formgrid.gridlookup.openGridLookup(that.inplace, {
                         lookup: lookup,
@@ -25615,13 +27057,16 @@ var Phoenix;
                 }
                 return id;
             };
-            BasicGrid.prototype._td2cell = function (td) {
+            BasicGrid.prototype._td2cell = function (td, isTotal) {
                 var that = this;
                 var tr = td.parentNode;
                 var c = that._colByField(_dom.attr(td, 'colid'));
                 if (!c)
                     return null;
                 var rid = that._tr2rowId(tr, c);
+                if (isTotal && rid) {
+                    return { row: rid, col: _dom.attr(td, 'colid') };
+                }
                 var item = that._findById(rid);
                 if (item && c)
                     return { row: rid, col: _dom.attr(td, 'colid') };
@@ -25636,7 +27081,7 @@ var Phoenix;
                 var item = that._findById(rid);
                 return { item: item, col: c };
             };
-            BasicGrid.prototype.mousedown = function (event) {
+            BasicGrid.prototype.selectOnEvent = function (event) {
                 var that = this;
                 var focusParent = this._gridParentFocus();
                 if (!_dom.isChildOf(focusParent, event.target))
@@ -25657,8 +27102,13 @@ var Phoenix;
                         else if (opts.selecting && !opts.selecting.multiselect) {
                             that._selectRow(cell.row);
                         }
+                        return cell;
                     }
                 }
+                return null;
+            };
+            BasicGrid.prototype.mousedown = function (event) {
+                this.selectOnEvent(event);
                 return true;
             };
             BasicGrid.prototype._addRows = function (item, childrens) {
@@ -25686,7 +27136,6 @@ var Phoenix;
                 }
             };
             BasicGrid.prototype.click = function (event) {
-                //xxxxxxxxxx
                 var that = this;
                 if (!that.state.value)
                     return;
@@ -25741,7 +27190,7 @@ var Phoenix;
                                         var state = item.getState(bind, { $editing: that.renderOptions.editing, $schema: that._getDefaultSchema(item, bind, schema) });
                                         if (!state.isDisabled) {
                                             if (c.options.$link.action)
-                                                that.form.execAction(that.$bind + '.$links.' + c.options.$link.action, item);
+                                                that.form.execAction(that.$bind + '.$links.' + c.options.$link.action, item, _dom.attr(a, 'data-phoenix-href'));
                                             else {
                                                 var lo = _utils.copy(c.options.$link);
                                                 lo.$form = that.form;
@@ -25757,6 +27206,8 @@ var Phoenix;
                                 }
                                 else if (_sutils.isSelectField(c.$bind) || (opts.editing && !opts.editingDisabled && _sutils.isBoolean(c.schema))) {
                                     if (_dom.attr(event.target, 'data-clickable')) {
+                                        if (c.options.editing === false)
+                                            return;
                                         var state = item.getState(bind, { $editing: that.renderOptions.editing, $schema: that._getDefaultSchema(item, bind, schema) });
                                         if (!state.isDisabled && !state.isReadOnly && !state.isHidden) {
                                             var ov = item.getValue(c.$bind);
@@ -25784,21 +27235,38 @@ var Phoenix;
                             }
                         }
                     }
-                    else if (that._totalProperty && that.fieldOptions.total.action && td.parentElement.id) {
+                    else if (that._totalProperty && td.parentElement.id) {
                         var pt1 = _dom.find(that.$element.get(0), that.id + '_frozen_totals');
                         var pt2 = _dom.find(that.$element.get(0), that.id + '_totals');
                         if ((pt1 && _dom.isChildOf(pt1, event.target)) || (pt2 && _dom.isChildOf(pt2, event.target))) {
-                            var totalId_1 = td.parentElement.id;
-                            var totals = that.form.getValue(that._totalProperty);
-                            if (!that._totalIsArray)
-                                totals = totals ? [totals] : [];
-                            var selRow_1 = null;
-                            totals.forEach(function (item) {
-                                if (!selRow_1 && item.$id === totalId_1)
-                                    selRow_1 = item;
-                            });
-                            if (selRow_1)
-                                that.form.execAction(that.fieldOptions.total.action, { id: selRow_1.id });
+                            if (that.fieldOptions.total.action) {
+                                var totalId_1 = td.parentElement.id;
+                                var totals = that.form.getValue(that._totalProperty);
+                                if (!that._totalIsArray)
+                                    totals = totals ? [totals] : [];
+                                var selRow_1 = null;
+                                totals.forEach(function (item) {
+                                    if (!selRow_1 && item.$id === totalId_1)
+                                        selRow_1 = item;
+                                });
+                                if (selRow_1)
+                                    that.form.execAction(that.fieldOptions.total.action, { id: selRow_1.id });
+                            }
+                            else {
+                                var cell_2 = that._td2cell(td, true);
+                                if (cell_2) {
+                                    var c = that._colByField(cell_2.col);
+                                    if (c.options.totalExpand && that._totalIsArray) {
+                                        if (_dom.attr(event.target, 'data-clickable') || _dom.attr(event.target.parentNode, 'data-clickable')) {
+                                            var totals = that.form.getValue(that._totalProperty);
+                                            var item = totals.findByIdEx(cell_2.row, opts.expandingProperty);
+                                            if (item) {
+                                                item.toggleExpand(opts.expandingProperty);
+                                            }
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -25909,7 +27377,8 @@ var Phoenix;
             };
             BasicGrid.prototype._setDisabled = function (button, element) {
                 var that = this;
-                button.disabled = that.state.isDisabled;
+                // TODO make grid read only 
+                // button.disabled = that.state.isDisabled;
             };
             BasicGrid.prototype._showSelected = function (cell, value, editable, mousedown) {
                 var that = this;
@@ -25970,10 +27439,6 @@ var Phoenix;
                 if (typeof that.fieldOptions.editing === 'object' && that.fieldOptions.editing.readOnlyRow) {
                     item = that._findById(cell.row);
                     if (!item || item.getValue(that.fieldOptions.editing.readOnlyRow))
-                        return false;
-                }
-                if (that.fieldOptions.expandingProperty && typeof that.fieldOptions.editing === 'object' && that.fieldOptions.editing.onlyIsLeaf) {
-                    if (!item[that.fieldOptions.expandingProperty] || item[that.fieldOptions.expandingProperty].isEmpty())
                         return false;
                 }
                 var c = that._colByField(cell.col);
@@ -26087,6 +27552,8 @@ var Phoenix;
             BasicGrid.prototype._cell = function (cell, addIndex) {
                 var that = this;
                 var col = that._mapCols[cell.col];
+                if (!col)
+                    return null;
                 var cIndex = col.index;
                 var tr = that._findTR(cell.row, col.column);
                 if (!tr)
@@ -26154,13 +27621,16 @@ var Phoenix;
                     console.log('Invalid resize call');
                 if (!that._scrollableMaster)
                     return;
-                var pos = _dom.position(that._scrollableMaster, null);
                 if (opts.bottom) {
                     var view = _dom.documentViewSize();
                     if (that._scrollableMaster) {
-                        var pos_1 = _dom.position(that._scrollableMaster, null);
-                        var e = that.$element.get(0);
-                        var nh = Math.max(0, view.height - pos_1.top - opts.bottom);
+                        var pos = _dom.position(that._scrollableMaster, null);
+                        var fh = 0;
+                        if (that._footerMaster) {
+                            var fpos = _dom.position(that._footerMaster, null);
+                            fh = fpos.height;
+                        }
+                        var nh = Math.max(0, view.height - pos.top - opts.bottom - fh);
                         that._scrollableMaster.style.height = nh + 'px';
                         if (that._scrollableFrozenContent)
                             that._scrollableFrozenContent.style.height = nh + 'px';
@@ -26345,6 +27815,9 @@ var Phoenix;
             };
             BasicGrid.prototype.stateChanged = function (propName, cparams, params) {
                 var that = this;
+                if (params.targetId === 'editing') {
+                    return;
+                }
                 if (!that.$element)
                     return;
                 if (that._ignoreNotifications)
@@ -26359,7 +27832,7 @@ var Phoenix;
                 var element = that.$element ? that.$element.get(0) : null;
                 if ((propName === 'columns')) {
                     if (that.state.value)
-                        that._setVisiblesColumns(that.renderOptions, that.state.value.columns, false);
+                        that._setVisiblesColumns(that.renderOptions, that.state.value.columns, true, false);
                 }
                 if (!propName && cparams.isState) {
                     var instPath = _sutils.parsePath(that.$bind, cparams.property, that.renderOptions.expandingProperty);
@@ -26371,7 +27844,7 @@ var Phoenix;
                             that._showErrors(item, cp, stateName, null);
                         }
                         else
-                            that._modifyCell(item, cp, stateName, null, null);
+                            that._modifyCell(item, cp, stateName, null, params);
                     }
                     return;
                 }
@@ -26436,27 +27909,6 @@ var Phoenix;
                 }
                 return that.state.value.findById(id);
             };
-            BasicGrid.prototype._findByIdEx = function (id) {
-                var that = this;
-                if (!that.state.value)
-                    return null;
-                var res = { index: -1, level: 0, value: null };
-                if (that._useView) {
-                    var ii = that._viewMap[id];
-                    if (ii) {
-                        res.index = that._view.indexOf(ii);
-                        res.level = ii.level;
-                        res.value = ii.value;
-                    }
-                }
-                else {
-                    res.value = that.state.value.findById(id);
-                    if (res.value) {
-                        res.index = that.state.value.indexOf(res.value);
-                    }
-                }
-                return res;
-            };
             BasicGrid.prototype._findNext = function (id) {
                 var that = this;
                 if (!that.state.value)
@@ -26505,7 +27957,6 @@ var Phoenix;
                 var that = this;
                 if (that.$element) {
                     var opts = that.renderOptions;
-                    var use = void 0;
                     if (that._totalProperty) {
                         var totals = that.form.getValue(that._totalProperty);
                         if (!that._totalIsArray)
@@ -26513,10 +27964,10 @@ var Phoenix;
                         var doColSpan = !!that._totalField || !!that._stopField;
                         var pr = void 0, rows = void 0;
                         if (_gu.hasFrozenColumns(that.renderOptions, that.frozenColumns)) {
-                            doColSpan = false;
+                            //  doColSpan = false;
                             pr = _dom.find(that.$element.get(0), that.id + '_frozen_totals');
                             if (pr) {
-                                rows = _gu.createRows(that.id, totals, that.frozenColumns, opts, that.options.design, that.form.$locale, true, true, null, null, null, that.form);
+                                rows = _gu.createRows(that.id, totals, that.frozenColumns, opts, that.options.design, that.form.$locale, true, true, null, doColSpan ? that._totalField : null, null, that.form);
                                 _dom.empty(pr);
                                 _dom.append(pr, rows);
                             }
@@ -26604,7 +28055,7 @@ var Phoenix;
                         if (typeof layout === 'string' && that.renderOptions.layouts && that.renderOptions.layouts[layout])
                             layout = that.renderOptions.layouts[layout];
                         if (typeof layout === "object") {
-                            layout = $.extend(true, {}, layout);
+                            layout = _utils.clone(layout);
                             if (layout.name)
                                 layout._name = layout.name;
                             layout.name = id;
@@ -26722,21 +28173,44 @@ var Phoenix;
                     }
                 });
             };
+            BasicGrid.prototype._isInRenderAll = function () {
+                return this.form.hasAfterProcessing(this.id);
+            };
+            BasicGrid.prototype._renderAllLater = function () {
+                var that = this;
+                if (that._ignoreNotifications)
+                    return false;
+                that.form.forceAfterProcessing();
+                that.form.execLater({
+                    id: that.id,
+                    hnd: function () {
+                        that._ignoreNotifications = false;
+                        that._refreshGrid();
+                    }
+                });
+            };
             BasicGrid.prototype._createRow = function (item) {
                 var that = this;
                 if (that.$element) {
                     var index = 0;
                     var ii = that._viewMap[item.$id];
                     if (!ii) {
-                        //TODO find level when expandingProperty is not null
                         ii = { level: 0, value: item };
+                        //TODO find level when expandingProperty is not null
+                        if (that.renderOptions.expandingProperty) {
+                            var parentId = item.parent.$id;
+                            var parentMap = that._viewMap[parentId];
+                            if (parentMap) {
+                                var expanded = item.parent[that.renderOptions.expandingProperty + Phoenix.Observable.EXPANDED_FIELD_NAME];
+                                if (expanded !== 2)
+                                    return;
+                                return;
+                            }
+                        }
                         that._view.push(ii);
                         // that._view.push(item.$id);
                         index = that._view.length - 1;
                         that._viewMap[item.$id] = ii;
-                    }
-                    else {
-                        ii = that._viewMap[item.$id];
                     }
                     var pr = void 0, nr = void 0, hasFc = _gu.hasFrozenColumns(that.renderOptions, that.frozenColumns);
                     if (hasFc) {
@@ -26799,6 +28273,21 @@ var Phoenix;
                         _gu.updSorting(opts, pc, that._colByField.bind(that), that.state.value.$orderby());
                 }
             };
+            BasicGrid.prototype.visibleColumns = function () {
+                var that = this;
+                var allCols = that.frozenColumns.concat(that.columns);
+                var columns = [];
+                allCols.forEach(function (column) {
+                    if (column.isLink)
+                        return;
+                    if (_sutils.isSelectField(column.$bind))
+                        return;
+                    if (_sutils.isExpandField(column.$bind) && !column.options.display)
+                        return;
+                    columns.push({ name: column.options.display || column.$bind, title: column.title });
+                });
+                return columns;
+            };
             BasicGrid.prototype.exportAsCsv = function () {
                 var that = this;
                 var allCols = that.frozenColumns.concat(that.columns);
@@ -26806,7 +28295,6 @@ var Phoenix;
                 var sep = ';';
                 var firstLine = [];
                 allCols.forEach(function (column) {
-                    var fieldName = column.$bind;
                     if (column.isLink)
                         return;
                     if (_sutils.isSelectField(column.$bind))
@@ -26816,7 +28304,7 @@ var Phoenix;
                     firstLine.push(column.title);
                 });
                 var rows = that.state.value;
-                var opts = $.extend(true, {}, that.renderOptions);
+                var opts = _utils.clone(that.renderOptions);
                 file.push(firstLine.join(sep));
                 rows && rows.forEach(function (row, rowIndex, level) {
                     var curentRow = [];
@@ -26843,6 +28331,9 @@ var Phoenix;
                             }
                             if (_sutils.isDate(schema)) {
                                 value = _ulocale.shortDate(value || '');
+                            }
+                            else if (_sutils.isMoney(schema)) {
+                                value = _uiutils.utils.displayValue(row.getRelativeValue(fieldName), schema, Phoenix.locale, { html: false }, row).value;
                             }
                             else if (_sutils.isDateTime(schema)) {
                                 value = _ulocale.shortDateTime(value || '');
@@ -26956,6 +28447,18 @@ var Phoenix;
                     });
                 }
             };
+            BasicGrid.prototype.customOptions = function (options) {
+                var that = this;
+                _super.prototype.customOptions.call(this, options);
+                if (options.editing && typeof options.editing === 'object' && options.editing.bind) {
+                    var value = this.form.getValue(options.editing.bind);
+                    if (that.renderOptions) {
+                        if (value !== !options.editingDisabled) {
+                            options.editingDisabled = !value;
+                        }
+                    }
+                }
+            };
             BasicGrid.prototype.render = function ($parent) {
                 var that = this;
                 var opts = that._initOptions(_uiutils.utils.defaultOptions);
@@ -26983,20 +28486,211 @@ var Phoenix;
 /// <reference path="./absfield.control.ts" />
 var Phoenix;
 (function (Phoenix) {
+    var checkButton;
+    (function (checkButton) {
+        var _ui = Phoenix.ui, _utils = Phoenix.utils, _dom = Phoenix.dom, _ulocale = Phoenix.ulocale, _uiutils = Phoenix.uiutils;
+        function _createButton(id, options, authoring, title) {
+            title = title || '';
+            options = _utils.extendObject(false, { right: false, icon: null, type: 'default', size: null }, options);
+            if (options.title !== undefined)
+                title = options.title;
+            var html = [];
+            if (!options.inline) {
+                var css = ['bs-island', 'bs-field-group'];
+                if (authoring)
+                    css.push('design');
+                html.push('<div class="' + css.join(' ') + '"');
+                _uiutils.utils.addContainerId(html, authoring);
+                html.push('>');
+            }
+            html.push('<button type="button"');
+            html.push(' class="bs-button btn btn-' + _dom.bootstrapStyles(options.outline || options.type === 'secondary' || options.type === 'default')[options.type]);
+            if (options.color) {
+                html.push(' text-' + _dom.bootstrapStyles()[options.color]);
+            }
+            if (options.buttonStyles)
+                html.push(' ' + options.buttonStyles);
+            if (options.size)
+                html.push(' btn-' + options.size);
+            if (!options.inline) {
+                html.push(' btn-block');
+            }
+            else {
+                html.push(' bs-btn-inline');
+                html.push(' bs-island');
+                if (options.right)
+                    html.push(' float-right');
+                if (authoring)
+                    html.push(' design');
+            }
+            if (options.style)
+                html.push(' ' + options.style);
+            html.push('"');
+            if (options.inline) {
+                _uiutils.utils.addContainerId(html, authoring);
+            }
+            if (options.description) {
+                html.push(' data-toggle="tooltip" data-phoenix-tooltip="true" data-placement="auto" title="' + options.description + '"');
+            }
+            html.push('>');
+            html.push('<span id="{0}_icon" class=""></span>');
+            if (!options.titleIsHidden) {
+                html.push('&nbsp;');
+                html.push(title || '');
+            }
+            html.push('</button>');
+            if (!options.inline) {
+                html.push('</div>');
+            }
+            return _utils.format(html.join(''), id);
+        }
+        ;
+        var CheckButton = /** @class */ (function (_super) {
+            __extends(CheckButton, _super);
+            function CheckButton(fp, options, form) {
+                var _this = _super.call(this, fp, options, form) || this;
+                _this._state();
+                return _this;
+            }
+            CheckButton.prototype._icon = function () {
+                var that = this;
+                if (!that.$element)
+                    return null;
+                var e = that.$element.get(0);
+                return _dom.find(e, that.id + '_icon');
+            };
+            CheckButton.prototype.click = function (event) {
+                var that = this;
+                if (that.renderOptions.readOnly || that.state.isDisabled || that.state.isReadOnly) {
+                    event.preventDefault();
+                    return;
+                }
+                var value = !that.state.value;
+                if (that.state.value != value) {
+                    if (that._isBinded) {
+                        that.form.setValue(that.$bind, value);
+                    }
+                    else {
+                        that.setInternalValue(value, true);
+                    }
+                }
+            };
+            CheckButton.prototype._setDisabled = function (element) {
+                var that = this;
+                element.disabled = that.state.isDisabled;
+                if (that.state.isDisabled)
+                    _dom.addClass(element, 'disabled');
+                else
+                    _dom.removeClass(element, 'disabled');
+            };
+            CheckButton.prototype._setReadOnly = function (element) {
+                this._setDisabled(element);
+            };
+            CheckButton.prototype._setMandatory = function (element) { };
+            CheckButton.prototype._value2Icon = function () {
+                var that = this;
+                var opts = that.renderOptions;
+                var styles = [];
+                var icon = that._icon();
+                if (icon) {
+                    if (that.state.value) {
+                        if (opts.trueValue) {
+                            if (opts.trueValue.style)
+                                styles.push(opts.trueValue.style);
+                            if (opts.trueValue.icon) {
+                                styles.push(_dom.iconClass(opts.trueValue.icon));
+                            }
+                        }
+                    }
+                    else {
+                        if (opts.falseValue) {
+                            if (opts.falseValue.style)
+                                styles.push(opts.falseValue.style);
+                            if (opts.falseValue.icon) {
+                                styles.push(_dom.iconClass(opts.falseValue.icon));
+                            }
+                        }
+                    }
+                    icon.className = styles.join(' ');
+                }
+            };
+            CheckButton.prototype._state2UI = function () {
+                var that = this, element = that.$element ? that.$element.get(0) : null;
+                if (element) {
+                    that._value2Icon();
+                    that._setDisabled(element);
+                    that._setReadOnly(element);
+                    that.setHidden(element);
+                }
+            };
+            CheckButton.prototype.changed = function (propName, ov, nv, op) {
+                var that = this;
+                if (that.state.value !== nv) {
+                    that.state.value = nv;
+                    that._value2Icon();
+                }
+            };
+            CheckButton.prototype.stateChanged = function (propName, params) {
+                var that = this, state = that._isBinded ? that.form.getState(that.$bind) : that._internalState, element = that.$element ? that.$element.get(0) : null;
+                if (state.isHidden !== that.state.isHidden) {
+                    that.state.isHidden = state.isHidden;
+                    if (element)
+                        that.setHidden(element);
+                }
+                if (state.isDisabled != that.state.isDisabled) {
+                    that.state.isDisabled = state.isDisabled;
+                    if (element)
+                        that._setDisabled(element);
+                }
+                if (state.isReadOnly != that.state.isReadOnly) {
+                    that.state.isReadOnly = state.isReadOnly;
+                    if (element)
+                        that._setReadOnly(element);
+                }
+                if (state.isMandatory != that.state.isMandatory) {
+                    that.state.isMandatory = state.isMandatory;
+                    if (element)
+                        that._setMandatory(element);
+                }
+            };
+            CheckButton.prototype.render = function ($parent) {
+                var that = this;
+                var opts = that._initOptions(_uiutils.utils.defaultOptions);
+                if (!that.$element) {
+                    if (that.$schema.description)
+                        opts.description = _ulocale.tt(that.$schema.description, that.form.$locale);
+                    that.$element = $(_createButton(that.id, opts, that.options.design, _ulocale.tt(that.title, that.form.$locale)));
+                    that._state2UI();
+                }
+                that.appendElement($parent, opts);
+                return that.$element;
+            };
+            return CheckButton;
+        }(Phoenix.ui.AbsField));
+        checkButton.CheckButton = CheckButton;
+        _ui.registerControl(CheckButton, "boolean", false, 'check-button', null);
+    })(checkButton || (checkButton = {}));
+})(Phoenix || (Phoenix = {}));
+/// <reference path="../../../core/core-refs.ts" />
+/// <reference path="./absfield.control.ts" />
+var Phoenix;
+(function (Phoenix) {
     var _utils = Phoenix.utils, _ui = Phoenix.ui, _dom = Phoenix.dom, _ulocale = Phoenix.ulocale, _eu = Phoenix.Observable.errorsUtils, _uiutils = Phoenix.uiutils;
     var formcheck;
     (function (formcheck) {
         function _createCheckBox(id, options, authoring, title) {
-            var _bootstrap4 = Phoenix.bootstrap4;
             title = title || '';
-            options = $.extend({ titleIsHidden: false, placeHolder: false, columns: false }, options);
+            options = _utils.extendObject(false, { titleIsHidden: false, placeHolder: false, columns: false }, options);
             var html = [];
             _uiutils.utils.fieldWrapper(html, options, authoring, function () {
                 if (options.columns) {
                     html.push('<div class="no-x-padding ml-sm-auto col-sm-' + (12 - options.labelCol) + '">');
                 }
                 html.push('<div id="{0}_check" class="custom-control custom-checkbox">');
-                html.push('<input type="checkbox" id="{0}_input" class="custom-control-input">');
+                html.push('<input type="checkbox" id="{0}_input" class="custom-control-input"');
+                if (options.readOnly)
+                    html.push(' disabled="true"');
+                html.push('>');
                 html.push('<label class="custom-control-label" for="{0}_input"> ');
                 html.push(_utils.escapeHtml(title || ''));
                 html.push('&nbsp;');
@@ -27041,11 +28735,11 @@ var Phoenix;
             };
             Check.prototype._setDisabled = function (input, element) {
                 var that = this, check = that._check();
-                if (that.state.isDisabled || that.state.isReadOnly)
+                if (that.state.isDisabled || that.state.isReadOnly || that.renderOptions.readOnly)
                     _dom.addClass(check, "disabled");
                 else
                     _dom.removeClass(check, "disabled");
-                input.disabled = that.state.isDisabled;
+                input.disabled = that.state.isDisabled || that.state.isReadOnly || that.renderOptions.readOnly;
             };
             Check.prototype._setReadOnly = function (input, element) {
                 this._setDisabled(input, element);
@@ -27180,12 +28874,14 @@ var Phoenix;
 (function (Phoenix) {
     var formedit;
     (function (formedit) {
-        var _p = Phoenix, _serial = _p.serial, _utils = _p.utils, _dom = _p.dom, _locale = _p.locale, _su = _p.Observable.SchemaUtils, _ulocale = _p.ulocale, _ui = _p.ui, _uiutils = _p.uiutils, _eu = _p.Observable.errorsUtils;
+        var _p = Phoenix, _utils = _p.utils, _dom = _p.dom, _locale = _p.locale, _su = _p.Observable.SchemaUtils, _ulocale = _p.ulocale, _ui = _p.ui, _uiutils = _p.uiutils, _eu = _p.Observable.errorsUtils;
         var _createInput = function (html, options, title, tagName) {
             tagName = tagName || 'input';
             var isTextArea = tagName === "textarea";
             if (options.readOnly) {
                 tagName = 'div';
+                if (options.json)
+                    tagName = 'pre';
             }
             if (isTextArea) {
                 if (options.before || options.after) {
@@ -27246,6 +28942,9 @@ var Phoenix;
                     style.push('min-width: ' + options.minWidth + ';');
                 if (options.maxWidth)
                     style.push('max-width: ' + options.maxWidth + ';');
+                if (options.json) {
+                    style.push('height: auto;');
+                }
                 if (style.length)
                     html.push('  style="' + style.join('') + '"');
             }
@@ -27268,7 +28967,10 @@ var Phoenix;
             if (afterDef.icon)
                 html.push(' bs-icon-input');
             html.push('">');
-            html.push('<span class="input-group-text">');
+            var astyle = ['input-group-text'];
+            if (afterDef.style)
+                astyle.push(afterDef.style);
+            html.push('<span class="' + astyle.join(' ') + '">');
             if (afterDef.icon) {
                 html.push('<span class="' + _dom.iconClass(afterDef.icon) + '"></span>');
             }
@@ -27282,7 +28984,7 @@ var Phoenix;
             return $(_utils.format(html.join(''), id)).get(0);
         }, _createEditInput = function (id, options, authoring, title, tagName) {
             title = title || '';
-            options = $.extend({ titleIsHidden: false, placeHolder: false, columns: false, labelCol: 3 }, options);
+            options = _utils.extendObject(false, { titleIsHidden: false, placeHolder: false, columns: false, labelCol: 3 }, options);
             var html = [];
             if (options.readOnly) {
                 delete options.after;
@@ -27426,6 +29128,13 @@ var Phoenix;
                     return;
                 input.disabled = this.state.isDisabled;
             };
+            BaseEdit.prototype._setStyle = function (input, element, oldvalue, newValue) {
+                var that = this;
+                if (oldvalue)
+                    _dom.removeClass(input, _dom.standardStyles(oldvalue));
+                if (newValue)
+                    _dom.addClass(input, _dom.standardStyles(newValue));
+            };
             BaseEdit.prototype._setMaxLength = function (input, element) {
                 var that = this;
                 if (that.renderOptions.readOnly)
@@ -27488,6 +29197,7 @@ var Phoenix;
                 if (input) {
                     that._value2Input(input);
                     that._setDisabled(input, element);
+                    that._setStyle(input, element, '', this.state.style);
                     that._setReadOnly(input, element);
                     that.setHidden(element);
                     that._setMandatory(input, element);
@@ -27633,6 +29343,14 @@ var Phoenix;
                             that._setDisabled(input, element);
                     }
                 }
+                if (!propName || (propName === 'style')) {
+                    if (state.style !== that.state.style) {
+                        var oldValue = that.state.style;
+                        that.state.style = state.style;
+                        if (input)
+                            that._setStyle(input, element, oldValue, that.state.style);
+                    }
+                }
                 if (!propName || (propName === 'isReadOnly')) {
                     if (state.isReadOnly !== that.state.isReadOnly) {
                         that.state.isReadOnly = state.isReadOnly;
@@ -27700,12 +29418,15 @@ var Phoenix;
             };
             Edit.prototype.click = function (event) {
                 var that = this;
-                if (that.state.isDisabled || that.state.isReadOnly || that.options.design)
+                if (that.state.isDisabled || that.options.design)
                     return;
                 var target = event.target;
                 var after = that._after();
+                var inAfter = _dom.isChildOf(after, target);
+                if (!inAfter && that.state.isReadOnly)
+                    return;
                 if (that.renderOptions.after && that.renderOptions.after.$bind) {
-                    if (_dom.isChildOf(after, target)) {
+                    if (inAfter) {
                         that._afterEnter();
                         var input = that._input();
                         if (input)
@@ -27713,9 +29434,22 @@ var Phoenix;
                     }
                 }
                 else if (that._isDate() && _uiutils.utils.useDatePicker() && _dom.isChildOf(after, target)) {
+                    if (that.state.isReadOnly)
+                        return;
                     var input = that._input();
                     if (input)
                         input.focus();
+                }
+                else if (that._isPassword() && _dom.isChildOf(after, target)) {
+                    var input = that._input();
+                    if (input) {
+                        var type = _dom.attr(input, 'type').toUpperCase();
+                        if (type === 'PASSWORD')
+                            _dom.attr(input, 'type', 'text');
+                        else
+                            _dom.attr(input, 'type', 'password');
+                        input.focus();
+                    }
                 }
             };
             Edit.prototype.internalRender = function ($parent) {
@@ -27782,14 +29516,21 @@ var Phoenix;
                 }
             };
             Edit.prototype.customOptionsMemo = function (options) {
-                if (this._schemaInput().format === 'memo') {
+                var sf = this._schemaInput().format;
+                if (sf === 'memo' || sf === 'json') {
                     var maxLength = _su.getMaxLength(this._schemaInput());
                     if (maxLength)
                         options.maxLength = maxLength;
                 }
+                if (sf === 'json') {
+                    options.json = true;
+                }
                 options.tagName = 'textarea';
             };
             Edit.prototype.customOptionsPassword = function (options) {
+                if (options.seePassword) {
+                    options.after = { icon: 'eye' };
+                }
                 options.type = 'password';
             };
             Edit.prototype._unitChanged = function () {
@@ -28025,6 +29766,7 @@ var Phoenix;
             };
             Edit.prototype.updateModel = function () {
                 var that = this;
+                _utils.registerScriptSetValue(that.form, that.$display, that.state.value);
                 that.form.setValue(that.$display, that.state.value);
             };
             Edit.prototype._internalSetValue = function (value, isfocusOut) {
@@ -28042,6 +29784,8 @@ var Phoenix;
             };
             Edit.prototype._input2Model = function (isFocusOut) {
                 var that = this, input = that._input();
+                if (!input)
+                    return;
                 var av = _uiutils.utils.maskCheckValue(that.renderOptions.mask, input.value);
                 if (av != input.value)
                     input.value = av;
@@ -28091,7 +29835,7 @@ var Phoenix;
         var _createEnumsInput = function (id, options, authoring, title) {
             var _bootstrap4 = Phoenix.bootstrap4;
             title = title || '';
-            options = $.extend({ titleIsHidden: false, placeHolder: false, columns: false, labelCol: 3 }, options);
+            options = _utils.extendObject(false, { titleIsHidden: false, placeHolder: false, columns: false, labelCol: 3 }, options);
             var html = [];
             if (options.titleIsHidden) {
                 options.columns = false;
@@ -28401,7 +30145,8 @@ var Phoenix;
 (function (Phoenix) {
     var filtersummary;
     (function (filtersummary) {
-        var _p = Phoenix, _uiutils = Phoenix.uiutils, _sutils = _p.Observable.SchemaUtils, _utils = _p.utils, _ctrlsinterfaces = Phoenix.ctrlsinterfaces, _dom = _p.dom, _ui = _p.ui;
+        var _p = Phoenix, _uiutils = Phoenix.uiutils, _sutils = _p.Observable.SchemaUtils, _utils = _p.utils, _ctrlsinterfaces = Phoenix.ctrlsinterfaces, _dom = _p.dom, _ui = _p.ui, _locale = _p.locale;
+        ;
         function _createContent(id, options, authoring) {
             var html = [];
             _uiutils.utils.fieldWrapper(html, options, authoring, function () {
@@ -28410,7 +30155,10 @@ var Phoenix;
         }
         ;
         var _createTag = function (title) {
-            return $(_utils.format(' <span class="bs-tag badge badge-info">{0}</span>', title)).get(0);
+            return $(_utils.format(' <span class="bs-tag bs-cursor-d badge badge-info">{0}</span>', title)).get(0);
+        };
+        var _createClearFilter = function () {
+            return $(_utils.format(' <span data-id="REMOVE" class="ml-2 bs-tag badge badge-danger bs-cursor-p">{0}</span>', _locale.ui.Clear)).get(0);
         };
         var FilterSummary = /** @class */ (function (_super) {
             __extends(FilterSummary, _super);
@@ -28427,6 +30175,13 @@ var Phoenix;
                 var that = this;
                 if (propName === 'filter') {
                     that._state2UI();
+                }
+            };
+            FilterSummary.prototype.click = function (event) {
+                var that = this;
+                var id = _dom.attr(event.target, 'data-id');
+                if (id === 'REMOVE') {
+                    that.state.value.filter = '';
                 }
             };
             FilterSummary.prototype.changed = function (propName, ov, nv, op, params) {
@@ -28450,6 +30205,9 @@ var Phoenix;
                     filters_1.forEach(function (filter) {
                         _dom.append(e, _createTag(filter.title));
                     });
+                    if (filters_1.length) {
+                        _dom.append(e, _createClearFilter());
+                    }
                 }
                 else {
                     _dom.empty(e);
@@ -28594,9 +30352,9 @@ var Phoenix;
         return reverseString(result + charNegative);
     }
     function reverseString(val) {
-        var t = val.split("");
+        var t = val.split('');
         var t2 = t.reverse();
-        var t3 = t2.join("");
+        var t3 = t2.join('');
         return t3;
     }
     function resetSelection(input, val, start, thousandSep, decimalSep, places, nullable) {
@@ -28606,7 +30364,7 @@ var Phoenix;
         setCaretPos(input, unformatMontant(start, decimalSep, thousandSep).length, thousandSep);
     }
     function replaceAll(val, search, replacement) {
-        var result = "";
+        var result = '';
         for (var i = 0; i < val.length; i++) {
             if (val[i] == search)
                 result += replacement;
@@ -28727,6 +30485,10 @@ var Phoenix;
     };
     var _keyPressNumber = function (event, input, opts) {
         // Get selection
+        if (event.charCode === 45)
+            event.key = '-';
+        else if (event.charCode === 46 || event.charCode === 44)
+            event.key = '.';
         var selectionStart = event.target.selectionStart;
         var selectionEnd = event.target.selectionEnd;
         var selection = selectionEnd - selectionStart > 0;
@@ -28755,11 +30517,11 @@ var Phoenix;
         }
         // Check if keypress is "-"
         if (event.key === '-') {
-            if (oldVal.indexOf('-') != 0) {
+            if (oldVal.indexOf('-') !== 0) {
                 var nextVal = unformatMontant(oldVal, opts.decimalSep, opts.thousandSep);
                 if (nextVal == getZeroStr(opts.places) || nextVal == '') {
                     var nv = formatMontant(nextVal, opts.places, opts.decimalSep, opts.thousandSep, opts.schema.nullable);
-                    input.value = nv;
+                    input.value = '-' + nv.substring(1);
                 }
                 else {
                     if (!isInLimits('-' + nextVal, opts.schema.minimum, opts.schema.exclusiveMinimum, opts.schema.maximum, opts.schema.exclusiveMaximum, opts.schema.nullable)) {
@@ -28791,6 +30553,8 @@ var Phoenix;
         }
         input.value = formatMontant(charNegative + newVal, opts.places, opts.decimalSep, opts.thousandSep, opts.schema.nullable);
         var correctionCaret = start == '0' ? 0 : 1;
+        if (charNegative)
+            correctionCaret++;
         setCaretPos(input, unformatMontant(start, opts.decimalSep, opts.thousandSep).length + correctionCaret, opts.thousandSep);
         event.preventDefault();
         return true;
@@ -28857,9 +30621,9 @@ var Phoenix;
             // Set caret position
             var charsBefore = unformatMontant(start, opts.decimalSep, opts.thousandSep).length + offsetCaret;
             // Particular cases : near decimal separator
-            if (event.which == _dom.keys.VK_BACKSPACE && newVal.indexOf(".") == 0 && selectionStart == 1)
+            if (event.which == _dom.keys.VK_BACKSPACE && newVal.indexOf('.') == 0 && selectionStart == 1)
                 charsBefore = 1;
-            if (event.which == _dom.keys.VK_DELETE && newVal.indexOf(".") == 0 && selectionStart == 0)
+            if (event.which == _dom.keys.VK_DELETE && newVal.indexOf('.') == 0 && selectionStart == 0)
                 charsBefore = 1;
             setCaretPos(input, charsBefore, opts.thousandSep);
         }
@@ -29070,68 +30834,41 @@ var Phoenix;
 /// <reference path="../../datasets-plugin.ts" />
 var Phoenix;
 (function (Phoenix) {
-    var _p = Phoenix, _ajax = _p.ajax, _link = _p.link, _menubase = _p.menubase, _preferences = _p.preferences, _application = _p.application, _device = _p.device, _utils = _p.utils, _locale = _p.locale, _contextmenu = Phoenix.contextmenu, _dom = _p.dom;
+    var _p = Phoenix, _ajax = _p.ajax, _utils = _p.utils, _dom = _p.dom;
     var geodecode;
     (function (geodecode) {
+        var leafletLoaded = false;
         var _loadLeaflet = function (cb) {
             var loader = {
+                check: function () {
+                    return window["L"] ? true : false;
+                },
                 execute: function (after) {
+                    if (window["L"])
+                        leafletLoaded = true;
+                    if (leafletLoaded) {
+                        after(null);
+                        return;
+                    }
                     var head = document.getElementsByTagName('head')[0];
                     var css = document.createElement('link');
                     css.rel = 'stylesheet';
                     css.type = 'text/css';
-                    css.href = 'https://unpkg.com/leaflet@1.3.1/dist/leaflet.css';
+                    css.href = 'https://unpkg.com/leaflet@1.6.0/dist/leaflet.css';
                     css.media = 'all';
                     head.appendChild(css);
-                    _ajax.getScript('https://unpkg.com/leaflet@1.3.1/dist/leaflet.js').then(function () { after(null); }).catch(function (err) { after(err); });
+                    _ajax.getScript('https://unpkg.com/leaflet@1.6.0/dist/leaflet.js', 'leaflet').then(function () {
+                        leafletLoaded = true;
+                        after(null);
+                    }).catch(function (err) { after(err); });
                 }
             };
             _ajax.loadScript('leaflet', null, cb, loader);
         };
         var _geodecode = function (list, mapping, cb) {
-            if (!list || !list.length)
-                return cb(null);
-            if (!mapping.address)
-                return cb(null);
-            var cl = [];
-            var map = {};
-            list.forEach(function (item) {
-                var model = item.model(true);
-                if (model[mapping.latitude] === undefined) {
-                    var address = encodeURIComponent('location.LLL' + item[mapping.address]);
-                    if (window.localStorage) {
-                        var cacheloc = window.localStorage.getItem(address);
-                        if (cacheloc) {
-                            cacheloc = JSON.parse(cacheloc);
-                            item[mapping.latitude] = cacheloc.lat;
-                            item[mapping.longitude] = cacheloc.lng;
-                            return;
-                        }
-                    }
-                    cl.push(item);
-                }
-            });
-            if (!cl.length)
-                return cb(null);
-            var promises = cl.map(function (item) {
-                return _ajax.get('https://maps.googleapis.com/maps/api/geocode/json?key=' + _utils.gGeodecodeKey + '&address=' + encodeURIComponent(item[mapping.address]));
-            });
-            _utils.Promise.all(promises).then(function (res) {
-                res.forEach(function (value, index) {
-                    var item = cl[index];
-                    if (value && value.results && value.results.length) {
-                        item[mapping.latitude] = value.results[0].geometry.location.lat;
-                        item[mapping.longitude] = value.results[0].geometry.location.lng;
-                        if (window.localStorage) {
-                            var address = encodeURIComponent('location.LLL' + item[mapping.address]);
-                            window.localStorage.setItem(address, JSON.stringify(value.results[0].geometry.location));
-                        }
-                    }
-                });
-                cb(null);
-            }).catch(function (err) { return cb(err); });
+            return cb(null);
         };
-        var _renderLeaflet = function (parent, model, adresses, mapping, after) {
+        var _renderLeaflet = function (parent, model, adresses, center, mapping, after) {
             _geodecode(adresses, mapping, function (err) {
                 if (err) {
                     model.addError(err.message);
@@ -29143,31 +30880,60 @@ var Phoenix;
                         return after(err);
                     }
                     _dom.empty(parent);
-                    if (!adresses.length)
-                        return after(null, null);
                     var selected = null;
-                    var sel = null;
-                    // find selected
-                    adresses.enumSelectedItems('', function (ii) {
-                        if (!selected) {
-                            selected = ii;
-                        }
-                    });
-                    if (!selected)
-                        selected = adresses.get(0);
+                    var list = [0, 0];
                     var L = window['L'];
                     if (!L)
                         return after(null, null);
-                    var zoom = 13;
-                    var list = [selected[mapping.latitude], selected[mapping.longitude]];
+                    var zoom = 11;
+                    if (adresses.length) {
+                        var sel = null;
+                        // find selected
+                        adresses.enumSelectedItems('', function (ii) {
+                            if (!selected) {
+                                selected = ii;
+                            }
+                        });
+                        if (!selected)
+                            selected = adresses.get(0);
+                        list = [selected[mapping.latitude], selected[mapping.longitude]];
+                        if (list[0] === undefined || list[1] === undefined) {
+                            list[0] = 0;
+                            list[1] = 0;
+                        }
+                    }
+                    if (center) {
+                        list = [center.lat, center.lng];
+                    }
                     if (list[0] === 0 && list[1] === 0)
                         zoom = 1;
                     var map = L.map(parent).setView(list, zoom);
+                    if (center) {
+                        L.circle([center.lat, center.lng], {
+                            radius: 2000,
+                            color: 'purple',
+                            shapeOptions: {
+                                color: 'purple'
+                            }
+                        }).addTo(map);
+                    }
                     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                     }).addTo(map);
                     return after(null, map);
                 });
+            });
+        };
+        geodecode.createMarkerIcon = function (color) {
+            var L = window['L'];
+            var classes = [_dom.iconClass('map-marker'), 'bs-marker-on-map'];
+            if (color)
+                classes.push(color);
+            return L.divIcon({
+                className: classes.join(' '),
+                iconSize: [32, 32],
+                iconAnchor: [0, 0],
+                popupAnchor: [16, 0]
             });
         };
         geodecode.renderLeaflet = _renderLeaflet;
@@ -29193,7 +30959,14 @@ var Phoenix;
             __extends(OpenStreetArrayView, _super);
             function OpenStreetArrayView(fp, options, form) {
                 var _this = _super.call(this, fp, options, form) || this;
-                _this._state();
+                var that = _this;
+                if (that.renderOptions.bindLat) {
+                    that.form.registerListenerFor(that.renderOptions.bindLat, that, 'lat-changed');
+                }
+                if (that.renderOptions.bindLng) {
+                    that.form.registerListenerFor(that.renderOptions.bindLng, that, 'lng-changed');
+                }
+                that._state();
                 return _this;
             }
             OpenStreetArrayView.prototype._setDisabled = function (element) {
@@ -29231,34 +31004,63 @@ var Phoenix;
                 if (that.renderOptions.popupFactory) {
                     popupFactory = _customData.get(that.renderOptions.popupFactory);
                 }
-                _utils.nextTick(function () {
-                    _geodecode.renderLeaflet(_dom.find(that.$element.get(0), that.id + '_parent'), that.form.$model, that.state.value, mapping, function (err, map) {
-                        if (map) {
-                            that._map = map;
-                            var L_1 = window['L'];
-                            that.state.value.forEach(function (item) {
-                                if (item[mapping.latitude] === 0 && item[mapping.longitude] === 0)
-                                    return;
-                                that._mapItems[item.id] = item;
-                                var marker = L_1.marker([item[mapping.latitude], item[mapping.longitude]]).addTo(that._map);
-                                if (popupFactory) {
-                                    var html = '<div data-map-popup="' + item.id + '">' + popupFactory(item) + '</div>';
-                                    var layer = marker.bindPopup(html);
-                                    if (item.$select)
-                                        layer.openPopup();
-                                }
-                            });
+                var center = null;
+                if (that.renderOptions.bindLat && that.renderOptions.bindLng) {
+                    center = {
+                        lat: that.form.getValue(that.renderOptions.bindLat),
+                        lng: that.form.getValue(that.renderOptions.bindLng),
+                    };
+                    if (center.lat === undefined || center.lng === undefined)
+                        center = null;
+                }
+                _geodecode.renderLeaflet(_dom.find(that.$element.get(0), that.id + '_parent'), that.form.$model, that.state.value, center, mapping, function (err, map) {
+                    if (map) {
+                        that._map = map;
+                        var L_1 = window['L'];
+                        if (that.renderOptions.bindLegend) {
+                            // Create legend
+                            var schema_1 = that.form.$model.getSchema(that.renderOptions.bindLegend);
+                            if (schema_1 && schema_1.enum && schema_1.enumNames) {
+                                var legend = L_1.control({ position: 'bottomleft' });
+                                legend.onAdd = function (map) {
+                                    var labels = [];
+                                    var div = L_1.DomUtil.create('div', 'bs-map-legend p-2');
+                                    for (var i = 0; i < schema_1.enum.length; i++) {
+                                        labels.push('<span><span class="ml-1 ' +
+                                            _dom.iconClass('map-marker') + ' ' + schema_1.enum[i] + '"></span> ' + schema_1.enumNames[i] + '</span>');
+                                    }
+                                    div.innerHTML = labels.join('<br>');
+                                    return div;
+                                };
+                                legend.addTo(map);
+                            }
                         }
-                    });
+                        that.state.value.forEach(function (item) {
+                            if (!item[mapping.latitude] && !item[mapping.longitude])
+                                return;
+                            that._mapItems[item.id] = item;
+                            var style = null;
+                            if (that.renderOptions.bindColor) {
+                                style = item[that.renderOptions.bindColor];
+                            }
+                            var marker = L_1.marker([item[mapping.latitude], item[mapping.longitude]], { icon: _geodecode.createMarkerIcon(style) }).addTo(that._map);
+                            if (popupFactory) {
+                                var html = '<div data-map-popup="' + item.id + '">' + popupFactory(item) + '</div>';
+                                var layer = marker.bindPopup(html);
+                                if (!center && item.$select)
+                                    layer.openPopup();
+                            }
+                        });
+                    }
                 });
             };
             OpenStreetArrayView.prototype._state2UI = function () {
                 var that = this, element = that.$element ? that.$element.get(0) : null;
                 if (element) {
-                    that._renderMap();
                     that._setDisabled(element);
                     that._setReadOnly(element);
                     that.setHidden(element);
+                    that._doRender = true;
                 }
             };
             OpenStreetArrayView.prototype.click = function (event) {
@@ -29290,11 +31092,15 @@ var Phoenix;
                 var that = this;
                 if (!that.$element)
                     return;
+                if (params.targetId === 'lat-changed' || params.targetId === 'lng-changed') {
+                    that._doRender = true;
+                    that.resize();
+                    return;
+                }
                 var pp = propName.substr(that.$bind.length);
                 if (pp.indexOf('.$selected') >= 0)
                     return;
                 var rOptions = that.renderOptions;
-                var rowToSelect = null;
                 var doRenderAll = false;
                 if (params.checkChildren && op === 'propchange' && propName === that.$bind) {
                     that.state.value = that.form.getValue(that.$bind);
@@ -29303,7 +31109,6 @@ var Phoenix;
                         that.state.value.expandingProperty = rOptions.expandingProperty;
                     }
                 }
-                var doResize = false;
                 if (!that.state.value) {
                     op = 'none';
                 }
@@ -29320,17 +31125,6 @@ var Phoenix;
                                 var cp = propName.substr(instPath.length + 1);
                                 if (!cp)
                                     return;
-                                /*
-                                todo
-                                const p = _dom.find(that.$element.get(0), item.$id);
-                                if (p) {
-                                    if (_sutils.isSelectField(cp)) {
-                                        that._render.selectRow(p, item.$select, item)
-                                    } else {
-                                        that._render.renderField(p, cp, item);
-                                    }
-                                }
-                                */
                             }
                         }
                         break;
@@ -29340,7 +31134,37 @@ var Phoenix;
                         break;
                 }
                 if (doRenderAll) {
-                    that._state2UI();
+                    that._doRender = true;
+                    that.resize();
+                }
+            };
+            OpenStreetArrayView.prototype.resize = function () {
+                var that = this;
+                if (!that.form._isVisible(that.config.$parentId)) {
+                    return;
+                }
+                that.form.execLater({
+                    id: that.id + '_resize',
+                    hnd: function () {
+                        that._resize();
+                    }
+                });
+            };
+            OpenStreetArrayView.prototype._resize = function () {
+                var that = this;
+                var opts = that.renderOptions;
+                if (!that.$element)
+                    console.log('Invalid resize call');
+                if (opts.bottom) {
+                    var element = _dom.find(that.$element.get(0), that.id + '_parent');
+                    var view = _dom.documentViewSize();
+                    var pos = _dom.position(element, null);
+                    var nh = Math.max(0, view.height - pos.top - opts.bottom);
+                    element.style.height = nh + 'px';
+                    if (that._doRender) {
+                        that._doRender = false;
+                        that._renderMap();
+                    }
                 }
             };
             OpenStreetArrayView.prototype.stateChanged = function (propName, params) {
@@ -29517,7 +31341,7 @@ var Phoenix;
 /// <reference path="./schema.data.ts" />
 var Phoenix;
 (function (Phoenix) {
-    var _p = Phoenix, _ajax = _p.ajax, _dom = _p.dom, _utils = _p.utils, _autoclose = _p.autoclose, _modal = _p.modal, _pagecontrol = _p.pagecontrol, _application = _p.application, _su = _p.Observable.SchemaUtils, _external = _p.external, _customData = _p.customData;
+    var _p = Phoenix, _ajax = _p.ajax, _dom = _p.dom, _utils = _p.utils, _ulocale = _p.ulocale, _locale = _p.locale, _autoclose = _p.autoclose, _build = _p.build, _history = _p.history, _pagecontrol = _p.pagecontrol, _application = _p.application, _su = _p.Observable.SchemaUtils, _external = _p.external, _customData = _p.customData;
     var ui;
     (function (ui) {
         var ModalForm = /** @class */ (function (_super) {
@@ -29596,20 +31420,27 @@ var Phoenix;
             return prefName;
         }, _loadSchema = function (schema) {
             if (typeof schema === 'object') {
-                return _utils.Promise.resolve($.extend(true, {}, schema));
+                return _utils.Promise.resolve(_utils.clone(schema));
             }
             else {
                 var config = _application.config(_application.name);
                 return _ajax.get(config.current.prototypes + '/' + schema + '.json');
             }
         }, _prepareForm = function (layout, schema, formData, locale, opts, after) {
+            var _lang = function () {
+                var isDistribution = _build.release && _build.releaseVersion;
+                if (isDistribution && _ulocale.currentLang !== _ulocale.sourceLang) {
+                    return '_' + _ulocale.currentLang;
+                }
+                return '';
+            };
             var ci = 0, li = -1, si = -1, promises = [], params = { locale: locale }, dataIndex = -1, preferencesIndex = -1;
             var config = _application.config(_application.name);
             opts = opts || {};
             if (locale && locale.$name)
                 opts.externalLocale = locale.$name;
             if (!formData || !formData.then)
-                params.data = $.extend(true, {}, formData);
+                params.data = _utils.clone(formData);
             else {
                 promises.push(formData);
                 dataIndex = 0;
@@ -29617,7 +31448,7 @@ var Phoenix;
             }
             var ln;
             if (typeof layout === 'object') {
-                params.layout = $.extend(true, {}, layout);
+                params.layout = _utils.clone(layout);
                 if (opts.preferences)
                     ln = params.layout.name;
             }
@@ -29627,16 +31458,22 @@ var Phoenix;
                 opts.externalLayout = layout;
                 if (opts.preferences)
                     ln = layout;
-                promises.push(_ajax.get(config.current.forms + '/' + layout + '.json'));
+                var formUri = config.current.forms + '/' + layout + _lang() + '.json';
+                if (_build.release && _build.releaseVersion)
+                    formUri = formUri + '?release=' + _build.releaseVersion;
+                promises.push(Phoenix.ajax.get(formUri));
             }
             if (typeof schema === 'object') {
-                params.schema = $.extend(true, {}, schema);
+                params.schema = _utils.clone(schema);
             }
             else {
                 si = ci;
                 ci++;
                 opts.externalSchema = schema;
-                promises.push(_ajax.get(config.current.prototypes + '/' + schema + '.json'));
+                var prototypeUri = config.current.prototypes + '/' + schema + _lang() + '.json';
+                if (_build.release && _build.releaseVersion)
+                    prototypeUri = prototypeUri + '?release=' + _build.releaseVersion;
+                promises.push(_ajax.get(prototypeUri));
             }
             var preferenceName = opts.design ? null : _preferenceName(ln, config);
             if (preferenceName && _external.preferenceLoadHandler) {
@@ -29741,6 +31578,8 @@ var Phoenix;
             var parent = _dom.find(null, opts.where);
             if (!parent)
                 throw 'No form parent.';
+            fo._modalForm = opts.isolatedContext;
+            fo.opts._inlineForm = opts.isolatedContext;
             _OpenFormExp($(parent), opts.name, opts.meta, data, opts.locale, hnd, opts.parentForm, fo, after);
         };
         var _showAutoCloseForm = function (opts, data, after) {
@@ -29856,6 +31695,12 @@ var Phoenix;
                     return;
                 }
                 params.data = ldata;
+                if (ldata.$close && ldata.$message) {
+                    if (ldata.id)
+                        _history.destroyViewHandler([{ viewId: ldata.id, transactionId: ldata.$transactionId, viewName: ldata.$viewName, deferClose: false }]);
+                    _utils.alert(_locale.errors.ErrorTitle, ldata.$message, function () { });
+                    return;
+                }
                 _openInlineForm($parent, params, handler, formOpts, parentForm, after);
             });
         };
@@ -29867,7 +31712,7 @@ var Phoenix;
                     ex = ex._ajax ? _ajax.extractAjaxErrors(ex) : ex;
                     if (formOpts && formOpts.module && formOpts.module.error)
                         return formOpts.module.error(ex);
-                    _utils.alert('', ex.message, function () { });
+                    _utils.alert(_locale.errors.ErrorTitle, ex.message, function () { });
                     return;
                 }
                 if (opts && formOpts && formOpts.parentContext)
@@ -29926,14 +31771,15 @@ var Phoenix;
         ui.showModalForm = _showModalForm;
         ui.showAutoCloseForm = _showAutoCloseForm;
         ui.OpenForm = _OpenFormExp;
-        ui.OpenInlineForm = function (parentId, layout, schema, controller, formData, locale, after, parentForm) {
+        ui.OpenInlineForm = function (parentId, layout, schema, controller, formData, locale, after, parentForm, isolatedContext) {
             var opts = {
                 name: layout,
                 meta: schema,
                 controller: controller,
                 options: {},
                 where: parentId,
-                locale: locale
+                locale: locale,
+                isolatedContext: isolatedContext
             };
             opts.parentForm = parentForm;
             _showInlineForm(opts, after, formData);
@@ -30034,7 +31880,6 @@ var Phoenix;
         };
         var GridItems = /** @class */ (function () {
             function GridItems($parent, $input, options) {
-                var that = this;
             }
             GridItems.prototype._modelChanged = function (action, model, form, modalForm) {
                 var that = this;
@@ -30051,7 +31896,7 @@ var Phoenix;
                             if (!sel_4)
                                 sel_4 = ii;
                         });
-                        that._onselect(sel_4 ? sel_4.model() : null);
+                        that._onselect(sel_4 && sel_4.model ? sel_4.model() : null);
                     }
                     form.autoClose.explicitClose = true;
                     that.hide();
@@ -30077,7 +31922,9 @@ var Phoenix;
                     type: 'string'
                 };
                 form.$schema.properties.documents.$reference = 'list';
+                var changeOrder = false;
                 if (!that._lookupColumns) {
+                    changeOrder = true;
                     that._lookupColumns = [];
                     Object.keys(form.$schema.properties.documents.items.properties).forEach(function (fn) {
                         var cs = form.$schema.properties.documents.items.properties[fn];
@@ -30093,7 +31940,7 @@ var Phoenix;
                     var ii = item;
                     if (typeof item === 'string')
                         ii = { $bind: item };
-                    if (ii.$bind === that._searchField)
+                    if (changeOrder && ii.$bind === that._searchField)
                         cols.splice(0, 0, ii);
                     else
                         cols.push(ii);
@@ -30147,14 +31994,14 @@ var Phoenix;
                 if (!that._lookup.schema) {
                     throw "Invalid lookup definition. Foreign schema is missing.";
                 }
-                var formLayout = $.extend(true, {}, mFormLayout);
+                var formLayout = _utils.clone(mFormLayout);
                 if (that._lookup.data && that._lookup.data.$params && that._lookup.data.$params.$allData) {
                     formLayout.datasets.list.$params.$allData = true;
                 }
                 // if (that._lookup.data && that._lookup.data.$params && that._lookup.data.$params.$find) {
                 //    formLayout.datasets.list.$params.$find = true;
                 // }
-                var formSchema = typeof that._lookup.schema === 'string' ? that._lookup.schema : $.extend(true, {}, that._lookup.schema);
+                var formSchema = typeof that._lookup.schema === 'string' ? that._lookup.schema : _utils.clone(that._lookup.schema);
                 var mds = formLayout.datasets.list;
                 var minWidth = opts.minWidth || 0;
                 if (opts.alignElementId) {
@@ -30163,7 +32010,7 @@ var Phoenix;
                         minWidth = Math.max(e.offsetWidth, minWidth);
                     minWidth = Math.max(minWidth, 300);
                 }
-                $.extend(mds.$params, ds.$params);
+                _utils.extendObject(false, mds.$params, ds.$params);
                 if (ds.$transform)
                     mds.$transform = ds.$transform;
                 if (ds.$type)
@@ -30310,7 +32157,7 @@ var Phoenix;
                 return lookup;
             },
             openGridLookup: function (that, options) {
-                var ds = $.extend(true, {}, options.lookup.data);
+                var ds = _utils.clone(options.lookup.data);
                 if (ds && ds.$params && ds.$params.relation && options.bind) {
                     if (ds.$params.relation.charAt(0) !== '/') {
                         var segments = that.$bind.split('.');
@@ -30333,8 +32180,16 @@ var Phoenix;
                     minWidth: options.minWidth,
                     itemModel: options.itemModel
                 };
-                if (ds && ds.$params && ds.$params.$filter && ds.$type !== 'find')
-                    ds.$params.$filter = _data.replaceFilterVars(ds.$params.$filter, options.formControl.getParentModel(options.bind).model(true));
+                if (ds && ds.$params && ds.$params.$filter) {
+                    if (ds.$type === 'find') {
+                        ds.$params.$filter = _data.replaceFilterVarsFind(ds.$params.$filter, options.formControl.getParentModel(options.bind).model(true), opts.itemModel);
+                    }
+                    else {
+                        ds.$params.$filter = _data.replaceFilterVars(ds.$params.$filter, options.formControl.getParentModel(options.bind).model(true));
+                    }
+                    if (Object.keys(ds.$params.$filter).length === 0)
+                        ds.$params.$filter = null;
+                }
                 if (ds.$params && options.containerId)
                     ds.$params.containerId = options.containerId;
                 if (ds.$params && options.viewId)
@@ -30359,7 +32214,7 @@ var Phoenix;
 (function (Phoenix) {
     var groupctrl;
     (function (groupctrl) {
-        var _utils = Phoenix.utils, _ui = Phoenix.ui, _eu = Phoenix.Observable.errorsUtils, _dom = Phoenix.dom, _ulocale = Phoenix.ulocale;
+        var _eu = Phoenix.Observable.errorsUtils, _dom = Phoenix.dom;
         var Group = /** @class */ (function (_super) {
             __extends(Group, _super);
             function Group(fp, options, form) {
@@ -30376,9 +32231,9 @@ var Phoenix;
             };
             Group.prototype.click = function (event) {
                 var that = this, target = event.target;
-                if (that.state.isReadOnly)
+                if (that.state.isReadOnly || that.state.isDisabled)
                     return;
-                var cid = target.id ? target.id : target.parentNode.id;
+                var cid = target.id ? target.id : (target.parentNode.id ? target.parentNode.id : target.parentNode.parentNode.id);
                 if (cid) {
                     var href = _dom.attr(target, 'data-phoenix-href') || _dom.attr(target, 'href');
                     if (href === '#')
@@ -30392,7 +32247,11 @@ var Phoenix;
                             return;
                         }
                         if (value !== that.getInternalValue()) {
-                            that.setInternalValue(value, true);
+                            if (that.renderOptions.actionName) {
+                                that.form.execAction(that.renderOptions.actionName, value);
+                            }
+                            else
+                                that.setInternalValue(value, true);
                         }
                     }
                 }
@@ -30486,10 +32345,10 @@ var Phoenix;
 (function (Phoenix) {
     var groupbtn;
     (function (groupbtn) {
-        var _utils = Phoenix.utils, _ui = Phoenix.ui, _dom = Phoenix.dom, _groupctrl = Phoenix.groupctrl, _ulocale = Phoenix.ulocale, _uiutils = Phoenix.uiutils;
+        var _utils = Phoenix.utils, _ui = Phoenix.ui, _dom = Phoenix.dom, _ulocale = Phoenix.ulocale, _uiutils = Phoenix.uiutils;
         var _createGroupBtns = function (id, options, authoring, title, enums, enumsNames) {
             title = title || '';
-            options = $.extend({ titleIsHidden: false, placeHolder: false, columns: false }, options);
+            options = _utils.extendObject(false, { titleIsHidden: false, placeHolder: false, columns: false }, options);
             var html = [];
             _uiutils.utils.fieldWrapper(html, options, authoring, function () {
                 //add label: 
@@ -30527,7 +32386,14 @@ var Phoenix;
                         html.push(' style="width:' + options.width + '"');
                     }
                     html.push('>');
-                    html.push(_utils.escapeHtml(enumsNames[index] || ''));
+                    if (options.icons && options.icons[enumName]) {
+                        html.push('<span class="mr-1 ml-1 ' + _dom.iconClass(options.icons[enumName], options.iconClass) + '"></span>');
+                        if (enumsNames[index] && options.showText)
+                            html.push(_utils.escapeHtml(enumsNames[index] || ''));
+                    }
+                    else {
+                        html.push(_utils.escapeHtml(enumsNames[index] || ''));
+                    }
                     html.push('</a>');
                     html.push('</li>');
                 });
@@ -30596,7 +32462,9 @@ var Phoenix;
             BtnGroup.prototype.keydown = function ($event) {
                 var that = this;
                 var preventDefault = false;
-                if (that.state.isReadOnly)
+                if (that.renderOptions.readOnly)
+                    return;
+                if (that.state.isReadOnly || that.state.isDisabled)
                     return;
                 if ($event.altKey || $event.ctrlKey || $event.metaKey || $event.shiftKey)
                     return;
@@ -30636,6 +32504,15 @@ var Phoenix;
                 that.appendElement($parent, opts);
                 return that.$element;
             };
+            BtnGroup.prototype._setDisabled = function (element) {
+                if (!element)
+                    return;
+                var that = this;
+                that._enumItems(function (btn, value) {
+                    btn.disabled = (that.state.isDisabled || that.state.isReadOnly);
+                    btn.style.opacity = that.state.isDisabled ? 0.7 : 1;
+                });
+            };
             return BtnGroup;
         }(Phoenix.groupctrl.Group));
         groupbtn.BtnGroup = BtnGroup;
@@ -30647,7 +32524,7 @@ var Phoenix;
 /// <reference path="./absfield.control.ts" />
 var Phoenix;
 (function (Phoenix) {
-    var _p = Phoenix, _utils = _p.utils, _ui = _p.ui, _dom = _p.dom, _uiutils = _p.uiutils;
+    var _p = Phoenix, _utils = _p.utils, _ui = _p.ui, _data = _p.data, _uiutils = _p.uiutils;
     var inlineform;
     (function (inlineform) {
         var _createParent = function (id, options, authoring) {
@@ -30675,7 +32552,7 @@ var Phoenix;
                 var opts = that._initOptions(_uiutils.utils.defaultOptions);
                 if (!that.$element) {
                     that.$element = $(_createParent(that.id, opts, that.options.design));
-                    that._state2UI();
+                    that.renderForm();
                     that.setEvents(opts);
                 }
                 that.appendElement($parent, opts);
@@ -30684,19 +32561,42 @@ var Phoenix;
             InlineForm.prototype.afterAddedInDom = function () {
                 var that = this;
                 that._canRenderForm = true;
-                that._state2UI();
+                that.renderForm();
             };
-            InlineForm.prototype._state2UI = function () {
+            InlineForm.prototype.resize = function () {
+                var that = this;
+                if (that.renderOptions.autoClose)
+                    that.renderForm();
+            };
+            InlineForm.prototype.onformclose = function () {
+                var that = this;
+                that._formRendered = false;
+                that.inlineForm = null;
+            };
+            InlineForm.prototype.renderForm = function () {
                 var that = this, element = that.$element ? that.$element.get(0) : null;
+                if (that._formRendered)
+                    return;
                 if (element) {
-                    if (that._canRenderForm && !that._formRendered) {
+                    if (that._canRenderForm) {
                         that._formRendered = true;
-                        var options = that.renderOptions;
-                        if (options.pageName)
-                            _ui.OpenInlineForm(that.id + '_parent', options.layout, options.meta, options.controller || 'phoenix.empty.controller', options.data || { $create: true }, options.locale, function (childForm) {
-                                that.inlineForm = childForm;
-                                // that.form.addChildForm(childForm, that.id + '_parent');
-                            }, { form: that.form, name: options.pageName });
+                        var options_1 = that.renderOptions;
+                        var data_4 = options_1.data ? _utils.clone(options_1.data) : { $create: true };
+                        var model = that.form.$model.model(true);
+                        if (!options_1.pageName) {
+                            data_4 = _data.parseData(data_4, {
+                                $url: model,
+                                $context: model,
+                                $data: null,
+                                $mem: _p.$mem,
+                                $local: null
+                            }, false, false, false);
+                        }
+                        _ui.OpenInlineForm(that.id + '_parent', options_1.layout, options_1.meta, options_1.controller || 'phoenix.empty.controller', data_4, options_1.locale, function (childForm) {
+                            that.inlineForm = childForm;
+                            childForm.registerOnCloseHandler(that.onformclose.bind(that));
+                            childForm.autoCloseWhenInline = options_1.autoClose;
+                        }, { form: that.form, name: options_1.pageName }, false);
                     }
                 }
             };
@@ -30715,7 +32615,7 @@ var Phoenix;
         function _createLabel(id, options, authoring, title) {
             var _bootstrap4 = Phoenix.bootstrap4;
             title = title || '';
-            options = $.extend({ columns: false }, options);
+            options = _utils.extendObject(false, { columns: false }, options);
             var simulateCols = options.columns;
             options.columns = false;
             if (simulateCols) {
@@ -30937,7 +32837,11 @@ var Phoenix;
                 if (that.$schema) {
                     if (that.$schema.description && opts.description === undefined)
                         opts.description = that.$schema.description;
-                    if (that.$schema.isSave) {
+                    if (that.$schema.isApply) {
+                        if (opts.type === undefined)
+                            opts.type = 'success';
+                    }
+                    else if (that.$schema.isSave) {
                         if (opts.icon === undefined)
                             opts.icon = 'floppy';
                         if (opts.type === undefined)
@@ -30948,6 +32852,20 @@ var Phoenix;
                             opts.icon = 'trash';
                         if (opts.type === undefined)
                             opts.type = 'danger';
+                    }
+                    else if (that.$schema.isNavigation) {
+                        if (opts.type === undefined)
+                            opts.type = 'info';
+                    }
+                    else if (that.$schema.isImportant) {
+                        if (opts.type === undefined)
+                            opts.type = 'important';
+                    }
+                    else if (that.$schema.isCancel) {
+                        if (opts.type === undefined)
+                            opts.type = 'default';
+                        if (opts.outline === undefined)
+                            opts.outline = true;
                     }
                 }
             };
@@ -31024,6 +32942,7 @@ var Phoenix;
                 var that = this;
                 if (that.$schema.isSave)
                     that.form.unRegisterListenerFor('containerHasChanges', that);
+                _super.prototype.destroy.call(this);
             };
             return LinkBase;
         }(Phoenix.ui.AbsField));
@@ -31041,14 +32960,9 @@ var Phoenix;
     (function (formlink) {
         var forbiddenFiles = ['ADE', 'ADP', 'BAT', 'CHM', 'CMD', 'COM', 'CPL', 'DLL', 'DMG', 'EXE', 'HTA', 'INS', 'ISP', 'JAR', 'JS', 'JSE', 'LIB', 'LNK',
             'MDE', 'MSC', 'MSI', 'MSP', 'MST', 'NSH', 'PIF', 'SCR', 'SCT', 'SHB', 'SYS', 'VB', 'VBE', 'VBS', 'VXD', 'WSC', 'WSF', 'WSH', 'CAB'];
-        function _addDesign(id, options, authoring, html) {
-            if (authoring)
-                html.push(' draggable="true"');
-            html.push(' data-render="{0}"');
-        }
         function _createButton(id, options, authoring, title, upload) {
             title = title || '';
-            options = $.extend({ right: false, icon: null, type: 'default', size: null }, options);
+            options = _utils.extendObject(false, { right: false, icon: null, type: 'default', size: null }, options);
             if (options.title !== undefined)
                 title = options.title;
             var html = [];
@@ -31095,7 +33009,7 @@ var Phoenix;
             }
             html.push('>');
             if (options.icon && !options.iconRight)
-                html.push('<span class="' + _dom.iconClass(options.icon) + '"></span>');
+                html.push('<span class="' + _dom.customIconClass(options.icon, options.iconClass) + '"></span>');
             if (!options.titleIsHidden) {
                 if (options.icon && !options.iconRight)
                     html.push('&nbsp;');
@@ -31104,7 +33018,7 @@ var Phoenix;
                     html.push('&nbsp;');
             }
             if (options.icon && options.iconRight)
-                html.push('<span class="' + _dom.iconClass(options.icon) + '"></span>');
+                html.push('<span class="' + _dom.iconClass(options.icon, options.iconClass) + '"></span>');
             if (upload) {
                 html.push('<input class="bs-hidden-upload" type="file" id="{0}_upload" name="{0}_upload" />');
             }
@@ -31130,7 +33044,7 @@ var Phoenix;
                 var that = this;
                 if (!that.title && that.$schema && that.$schema.isRemove)
                     that.title = _locale.ui.Apply;
-                if (!that.title && that.$schema && that.$schema.isSave)
+                if (!that.title && that.$schema && that.$schema.isSave || that.$schema.isApply)
                     that.title = _locale.ui.Apply;
                 if (!that.title && that.$schema && that.$schema.isCancel)
                     that.title = _locale.ui.Abandon;
@@ -31214,7 +33128,7 @@ var Phoenix;
 /// <reference path="./link-button.control.ts" />
 var Phoenix;
 (function (Phoenix) {
-    var _p = Phoenix, _utils = Phoenix.utils, _ui = Phoenix.ui, _dom = Phoenix.dom, _sutils = _p.Observable.SchemaUtils, _uiutils = Phoenix.uiutils, _ctrlsinterfaces = Phoenix.ctrlsinterfaces, _ulocale = Phoenix.ulocale;
+    var _p = Phoenix, _ui = _p.ui, _utils = _p.utils, _sutils = _p.Observable.SchemaUtils, _ctrlsinterfaces = Phoenix.ctrlsinterfaces, _locale = Phoenix.locale;
     var columnslink;
     (function (columnslink) {
         var ColumnsBtn = /** @class */ (function (_super) {
@@ -31230,19 +33144,34 @@ var Phoenix;
                 if (!that.fieldOptions.gridName) {
                     console.log("Invalid columns-array element, options.gridName must be  a valid grid name.");
                 }
+                if (that.fieldOptions.bindVisibility) {
+                    that.form.registerListenerFor(that.fieldOptions.bindVisibility, that, 'visibility');
+                    var value = _this.form.getValue(that.config.options.bindVisibility);
+                    that.state.isHidden = value !== that.config.options.bindVisibilityValue;
+                }
                 return _this;
             }
             ColumnsBtn.beforeCreateControl = function (fieldOptions) {
-                var opts = $.extend(true, {}, fieldOptions);
+                var opts = _utils.clone(fieldOptions);
                 opts.options = opts.options || {};
                 opts.options.bind = opts.$bind;
                 opts.$bind = '$none';
                 return opts;
             };
+            ColumnsBtn.prototype.changed = function (propName, ov, nv, op, params) {
+                var that = this;
+                if (params.targetId === 'visibility') {
+                    var value = that.form.getValue(that.config.options.bindVisibility);
+                    that.state.isHidden = value !== that.config.options.bindVisibilityValue;
+                    that.setHidden(that.$element.get(0));
+                }
+            };
             ColumnsBtn.prototype.customOptions = function (options) {
                 var that = this;
                 _super.prototype.customOptions.call(this, options);
-                options.icon = 'wrench';
+                if (!options.icon)
+                    options.icon = 'view-column';
+                options.description = _locale.ui.ChooseColumns;
                 options.titleIsHidden = true;
                 options.onChange = function () {
                     if (that.options.design)
@@ -31289,6 +33218,12 @@ var Phoenix;
                     grid.setColumns(columns);
                 });
             };
+            ColumnsBtn.prototype.destroy = function () {
+                var that = this;
+                if (that.fieldOptions.bindVisibility)
+                    that.form.unRegisterListenerFor(that.fieldOptions.bindVisibility, that);
+                _super.prototype.destroy.call(this);
+            };
             return ColumnsBtn;
         }(Phoenix.formlink.Link));
         _ui.registerControl(ColumnsBtn, '*', true, 'columns-array', null);
@@ -31299,7 +33234,7 @@ var Phoenix;
 /// <reference path="./link-button.control.ts" />
 var Phoenix;
 (function (Phoenix) {
-    var _p = Phoenix, _ui = Phoenix.ui, _sutils = _p.Observable.SchemaUtils, _ctrlsinterfaces = Phoenix.ctrlsinterfaces;
+    var _p = Phoenix, _ui = Phoenix.ui, _utils = _p.utils, _sutils = _p.Observable.SchemaUtils, _ctrlsinterfaces = Phoenix.ctrlsinterfaces;
     var filterlink;
     (function (filterlink) {
         var FilterBtn = /** @class */ (function (_super) {
@@ -31315,7 +33250,7 @@ var Phoenix;
                 return _this;
             }
             FilterBtn.beforeCreateControl = function (fieldOptions) {
-                var opts = $.extend(true, {}, fieldOptions);
+                var opts = _utils.clone(fieldOptions);
                 opts.options = opts.options || {};
                 opts.options.bind = opts.$bind;
                 opts.$bind = '$none';
@@ -31481,7 +33416,7 @@ var Phoenix;
                     }
                 }
                 else {
-                    options.fieldName = that.$lookup.mapping[that.$display];
+                    options.fieldName = that.$lookup.mapping[that.$display.split('.').pop()];
                     options.paginated = true;
                     options.containerId = that.form.syncTransactionId();
                     options.viewId = that.form.syncViewId();
@@ -31743,14 +33678,14 @@ var Phoenix;
                 if (that.menu && that.menu.opened) {
                     switch (event) {
                         case 'inputChanged':
-                            var opts_3 = { search: input.value, select: true, find: false, findFirst: false };
-                            that.eventBus.push(that._getSource(opts_3), function (ldata) {
+                            var opts_2 = { search: input.value, select: true, find: false, findFirst: false };
+                            that.eventBus.push(that._getSource(opts_2), function (ldata) {
                                 if (that.menu && that.menu.opened) {
-                                    opts_3.search = input.value;
-                                    ldata = that._filterResult(ldata, opts_3);
+                                    opts_2.search = input.value;
+                                    ldata = that._filterResult(ldata, opts_2);
                                     var si = -1;
-                                    if (opts_3.select)
-                                        si = that._findselected(ldata, opts_3);
+                                    if (opts_2.select)
+                                        si = that._findselected(ldata, opts_2);
                                     that.menu.show(ldata, si, true);
                                 }
                             }, false);
@@ -31805,6 +33740,8 @@ var Phoenix;
                     _gridlookup.utils.closeGridLookup(that, that.eventBus, 'gc');
                 }
                 else if (!that.gc || !that.gc.opened) {
+                    if (that.state.isDisabled)
+                        return;
                     that._openGridLookup();
                 }
             };
@@ -31821,6 +33758,8 @@ var Phoenix;
                 var that = this;
                 var input = that._input();
                 if (!that.menu || !that.menu.opened) {
+                    if (that.state.isDisabled)
+                        return;
                     that._checkPopupMenu();
                     var opts = { search: input.value, select: true, find: false, findFirst: false };
                     that.eventBus.push(that._getSource(opts), function (ldata) {
@@ -32071,7 +34010,7 @@ var Phoenix;
             return res;
         }, _createMultiselectInput = function (id, options, enums, enumsNames, authoring, title) {
             title = title || '';
-            options = $.extend({ titleIsHidden: false, placeHolder: false, columns: false, labelCol: 3 }, options);
+            options = _utils.extendObject(false, { titleIsHidden: false, placeHolder: false, columns: false, labelCol: 3 }, options);
             var html = [];
             options.placeHolder = false;
             _uiutils.utils.fieldWrapper(html, options, authoring, function () {
@@ -32469,9 +34408,9 @@ var Phoenix;
                 var that = this;
                 that._stateField = that._stateField || {};
                 if (that.renderOptions.field) {
-                    var state_4 = that.form.getState(that.renderOptions.field);
+                    var state_5 = that.form.getState(that.renderOptions.field);
                     that._stateField.value = that.form.getValue(that.renderOptions.field);
-                    Object.keys(state_4).forEach(function (pn) { that._stateField[pn] = state_4[pn]; });
+                    Object.keys(state_5).forEach(function (pn) { that._stateField[pn] = state_5[pn]; });
                 }
                 else {
                     that._stateField.value = undefined;
@@ -32616,13 +34555,17 @@ var Phoenix;
                 if (!select)
                     return;
                 if (value === undefined || value === null) {
-                    value = '';
+                    var jj = that.$schema.enum.indexOf('');
+                    if (jj >= 0)
+                        value = that.$schema.enumNames[jj];
+                    else
+                        value = '$$null$$';
                 }
                 else {
                     var ii = that.$schema.enum.indexOf(value);
-                    value = ii >= 0 ? that.$schema.enumNames[ii] : '';
+                    value = ii >= 0 ? that.$schema.enumNames[ii] : '$$null$$';
                 }
-                if (value === '')
+                if (value === '$$null$$')
                     value = String.fromCharCode(160);
                 _dom.text(select, value);
             };
@@ -32786,11 +34729,15 @@ var Phoenix;
                 if (href === '#')
                     event.preventDefault();
                 var selected = _dom.attr(event.target, 'data-select');
-                if (selected) {
+                if (selected || _dom.hasAttr(event.target, 'data-select')) {
                     if (that._isBinded)
                         that.form.setValue(that.$bind, selected);
                     else {
-                        if (that.getInternalValue() === selected)
+                        var oldValue = that.getInternalValue();
+                        if (oldValue === undefined && selected === '') {
+                            oldValue = '';
+                        }
+                        if (oldValue === selected)
                             return;
                         that.setInternalValue(selected, true);
                         that._notifyChanged('select', selected);
@@ -32914,7 +34861,7 @@ var Phoenix;
         var _p = Phoenix, _ui = Phoenix.ui, _utils = Phoenix.utils, _uiutils = Phoenix.uiutils, _dom = _p.dom, _customData = _p.customData, _sutils = _p.Observable.SchemaUtils, _locale = Phoenix.locale, _gridlookup = Phoenix.gridlookup, _ulocale = Phoenix.ulocale, _ui = Phoenix.ui;
         ;
         var _createTag = function (item, title, isReadOnly) {
-            return $(_utils.format(' <span id="{0}" class="bs-tag badge badge-info">{1}<span data-close-id="{0}" class="bs-tag-close" aria-hidden="true">&times;</span></span>', item.$id, title)).get(0);
+            return $(_utils.format(' <span id="{0}" class="bs-tag bs-cursor-d badge badge-info">{1}<span data-close-id="{0}" class="bs-tag-close" aria-hidden="true">&times;</span></span>', item.$id, title)).get(0);
         }, _addAfter = function (html, afterDef) {
             html.push('<span  id="{0}_after" tabindex="-1" class="bs-grp-btn input-group-append input-group-addon');
             if (afterDef.icon)
@@ -32934,7 +34881,7 @@ var Phoenix;
             return $(_utils.format(html.join(''), id)).get(0);
         }, _createMultiselectInput = function (id, options, authoring, title) {
             title = title || '';
-            options = $.extend({ titleIsHidden: false, placeHolder: false, columns: false, labelCol: 3 }, options);
+            options = _utils.extendObject(false, { titleIsHidden: false, placeHolder: false, columns: false, labelCol: 3 }, options);
             var html = [];
             options.placeHolder = false;
             _uiutils.utils.fieldWrapper(html, options, authoring, function () {
@@ -33023,7 +34970,7 @@ var Phoenix;
                 }
                 if (that.form.syncViewId() && that.fieldOptions.addMethod) {
                     that._syncCallBack = function (item) {
-                        that.form.execAction(that.$bind + '.$links.' + that.fieldOptions.addMethod, item);
+                        that.form.execAction(that.fieldOptions.addMethod, item);
                     };
                 }
                 return _this;
@@ -33166,6 +35113,12 @@ var Phoenix;
                 var that = this;
                 var list = that.state.value;
                 list.parent.partialValidate([list.path]);
+            };
+            MultiValue.prototype.customOptions = function (options) {
+                var that = this;
+                _super.prototype.customOptions.call(this, options);
+                if (that.$lookup)
+                    options.after = { icon: 'chevron-down' };
             };
             MultiValue.prototype.changed = function (propName, ov, nv, op, params) {
                 var that = this;
@@ -33375,9 +35328,13 @@ var Phoenix;
                 if (!that.equals(nv)) {
                     that.checkValue(nv, function (cv) {
                         if (nv) {
-                            var m = { $create: true };
-                            m[that.renderOptions.field] = nv;
-                            that.state.value.push(m, Phoenix.Observable.Duplicates.dupSilent, that._syncCallBack);
+                            if (that.renderOptions.maxItems && that.state.value.length >= that.renderOptions.maxItems) {
+                            }
+                            else {
+                                var m = { $create: true };
+                                m[that.renderOptions.field] = nv;
+                                that.state.value.push(m, Phoenix.Observable.Duplicates.dupSilent, that._syncCallBack);
+                            }
                         }
                         input.value = '';
                     });
@@ -33398,8 +35355,9 @@ var Phoenix;
                     var list = that.state.value;
                     var tag = list.findById(closeId);
                     if (tag) {
-                        if (that._syncCallBack)
-                            that.form.execAction(that.$bind + '.$links.$remove', [tag.id]);
+                        if (that.form.syncViewId() && that.fieldOptions.removeMethod && that.fieldOptions.field) {
+                            that.form.execAction(that.fieldOptions.removeMethod, tag[that.fieldOptions.field]);
+                        }
                         else
                             list.remove(tag);
                     }
@@ -33447,33 +35405,24 @@ var Phoenix;
 /// <reference path="./absfield.control.ts" />
 var Phoenix;
 (function (Phoenix) {
-    var _utils = Phoenix.utils, _ui = Phoenix.ui, _dom = Phoenix.dom, _device = Phoenix.device, _uiutils = Phoenix.uiutils, _observable = Phoenix.Observable, _odata = Phoenix.data.odata, _du = _observable.DataUtils, _ulocale = Phoenix.ulocale;
+    var _utils = Phoenix.utils, _ui = Phoenix.ui, _dom = Phoenix.dom, _uiutils = Phoenix.uiutils, _observable = Phoenix.Observable, _odata = Phoenix.data.odata, _du = _observable.DataUtils, _ulocale = Phoenix.ulocale;
     var formpicture;
     (function (formpicture) {
         var _createPicture = function (id, options, authoring, title, editable) {
             var html = [];
             title = title || '';
             _uiutils.utils.fieldWrapper(html, options, authoring, function () {
-                var _bootstrap4 = Phoenix.bootstrap4;
                 if (!options.titleIsHidden) {
                     html.push('<label id="{0}_label"');
                     var css = ['bs-label'];
                     if (options.columns) {
-                        if (_bootstrap4) {
-                            css.push('col-form-label');
-                        }
-                        else {
-                            css.push('checkbox-inline bs-cursor-d');
-                        }
+                        css.push('col-form-label');
                         css.push('bs-lib-col col-sm-' + options.labelCol);
                         if (options.labelLeft)
                             css.push('text-left');
                     }
                     if (options.inline) {
-                        if (_bootstrap4)
-                            css.push('form-check-inline');
-                        else
-                            css.push('checkbox-inline');
+                        css.push('form-check-inline');
                         css.push('bs-cursor-d no-x-padding');
                     }
                     if (css.length)
@@ -33493,7 +35442,7 @@ var Phoenix;
                     html.push('<input id="{0}_upload" class="bs-hidden-file" accept="image/*" type="file" />');
                 var imgCss = ['bs-none bs-relative'];
                 if (!options.inline)
-                    imgCss.push(_bootstrap4 ? 'img-fluid' : 'img-responsive');
+                    imgCss.push('img-fluid');
                 html.push('<img id="{0}_img" class="');
                 html.push(imgCss.join(' '));
                 html.push('"/>');
@@ -33780,11 +35729,96 @@ var Phoenix;
                     }
                 }
             };
+            ImageUrl.prototype.click = function (event) {
+                var that = this;
+                if (!that.state.isDisabled && !that.state.isReadOnly && that.fieldOptions.actionName) {
+                    this.form.execAction(that.fieldOptions.actionName, {}, null);
+                }
+            };
             return ImageUrl;
         }(BasePicture));
         _ui.registerControl(Picture, "string", false, '', { format: 'stream' });
         _ui.registerControl(ImageUrl, "string", false, 'imageurl', {});
     })(formpicture = Phoenix.formpicture || (Phoenix.formpicture = {}));
+})(Phoenix || (Phoenix = {}));
+/// <reference path="../../../core/core-refs.ts" />
+/// <reference path="../../../core/modules/locale.ts" />
+/// <reference path="./absfield.control.ts" />
+var Phoenix;
+(function (Phoenix) {
+    var _p = Phoenix, _utils = _p.utils, _ui = _p.ui, _dom = _p.dom, _uiutils = _p.uiutils;
+    var progresscontrol;
+    (function (progresscontrol) {
+        var _createProgress = function (id, options, authoring) {
+            var html = [];
+            options.titleIsHidden = true;
+            _uiutils.utils.fieldWrapper(html, options, authoring, function () {
+                options.type = options.type || 'info';
+                html.push('<div class="progress">');
+                html.push('<div id="{0}_progress" class="progress-bar bg-' + options.type + '" aria-valuenow="25" aria-valuemin="0" aria-valuemax="100" role="progressbar">');
+                html.push('</div>');
+                html.push('</div>');
+            }, null);
+            return _utils.format(html.join(''), id);
+        };
+        var ProgressControl = /** @class */ (function (_super) {
+            __extends(ProgressControl, _super);
+            function ProgressControl(fp, options, form) {
+                var _this = _super.call(this, fp, options, form) || this;
+                _this._state();
+                return _this;
+            }
+            ProgressControl.prototype._state2UI = function () {
+                var that = this, element = that.$element ? that.$element.get(0) : null;
+                if (element) {
+                    that._showProgress();
+                    that.setHidden(element);
+                }
+            };
+            ProgressControl.prototype._showProgress = function () {
+                var that = this;
+                var input = that._input();
+                if (input) {
+                    input.style.width = (that.state.value || 0) + '%';
+                }
+            };
+            ProgressControl.prototype._input = function () {
+                var that = this, e = that.$element ? that.$element.get(0) : null;
+                if (!e)
+                    return null;
+                return _dom.find(e, that.id + '_progress');
+            };
+            ProgressControl.prototype.changed = function (propName, ov, nv, op) {
+                var that = this;
+                if (that.state.value !== nv) {
+                    that.state.value = nv;
+                    that._showProgress();
+                }
+            };
+            ProgressControl.prototype.stateChanged = function (propName, params) {
+                var that = this, state = that.form.getState(that.$bind), element = that.$element ? that.$element.get(0) : null;
+                if (state.isHidden !== that.state.isHidden) {
+                    that.state.isHidden = state.isHidden;
+                    if (element)
+                        that.setHidden(element);
+                }
+            };
+            ProgressControl.prototype.render = function ($parent) {
+                var that = this;
+                var opts = that._initOptions(_uiutils.utils.defaultOptions);
+                if (!that.$element) {
+                    opts.src = that.state.value;
+                    that.$element = $(_createProgress(that.id, opts, that.options.design));
+                    that._state2UI();
+                    that.setEvents(opts);
+                }
+                that.appendElement($parent, opts);
+                return that.$element;
+            };
+            return ProgressControl;
+        }(Phoenix.ui.AbsField));
+        _ui.registerControl(ProgressControl, 'integer', false, 'progress', {});
+    })(progresscontrol || (progresscontrol = {}));
 })(Phoenix || (Phoenix = {}));
 /// <reference path="../../../core/core-refs.ts" />
 /// <reference path="./group.control.ts" />
@@ -33795,7 +35829,7 @@ var Phoenix;
         var _utils = Phoenix.utils, _ui = Phoenix.ui, _dom = Phoenix.dom, _groupctrl = Phoenix.groupctrl, _ulocale = Phoenix.ulocale, _uiutils = Phoenix.uiutils;
         var _createRadioGroups = function (id, options, authoring, title, enums, enumsNames) {
             title = title || '';
-            options = $.extend({ titleIsHidden: false, placeHolder: false, columns: false, horizontal: false }, options);
+            options = _utils.extendObject(false, { titleIsHidden: false, placeHolder: false, columns: false, horizontal: false }, options);
             var html = [];
             var customize = null;
             _uiutils.utils.fieldWrapper(html, options, authoring, function () {
@@ -33890,7 +35924,7 @@ var Phoenix;
         function _createReadOnly(id, options, authoring, title, valuepattern) {
             title = title || '';
             options.styles = options.styles ? options.styles : (Phoenix.bootstrap4 ? 'form-control-plaintext' : 'form-control-static');
-            options = $.extend({ titleIsHidden: false }, options);
+            options = _utils.extendObject(false, { titleIsHidden: false }, options);
             var html = [];
             _uiutils.utils.fieldWrapper(html, options, authoring, function () {
                 html.push('<div style="background-color: red;">' + title + '</div>');
@@ -33965,14 +35999,14 @@ var Phoenix;
             ReadOnlyField.prototype._renderIcons = function (e) {
                 var list = _dom.queryAll(e, '[data-icon]');
                 if (list) {
-                    var _loop_4 = function (i) {
+                    var _loop_5 = function (i) {
                         var p = list.item(i);
                         var icon = _dom.attr(p, 'data-icon').split(' ');
                         var classes = (icon.length > 1 ? _dom.customIconClass(icon[0], icon[1]) : _dom.iconClass(icon[0])).split(' ');
                         classes.forEach(function (className) { return _dom.addClass(p, className); });
                     };
                     for (var i = 0; i < list.length; i++) {
-                        _loop_4(i);
+                        _loop_5(i);
                     }
                 }
             };
@@ -34043,17 +36077,113 @@ var Phoenix;
 (function (Phoenix) {
     var multifieldSearch;
     (function (multifieldSearch) {
-        var _p = Phoenix, _utils = _p.utils, _locale = _p.locale, _sutils = _p.Observable.SchemaUtils, _uiutils = _p.uiutils, _formedit = _p.formedit, _filter = _p.filters, _customData = _p.customData, _dom = _p.dom, locale = _p.locale, _ui = _p.ui;
-        /*
-            {
-                "$bind": "operations",
-                "$widget": "multifield-search",
-                "options": {
-                    "fields": ["code", "libelle"],
-                    "onsearch": "fdhkfggfhgfg"
-                }
+        var _p = Phoenix, _sutils = _p.Observable.SchemaUtils, _dom = _p.dom, _ui = _p.ui;
+        var SearchAuto = /** @class */ (function (_super) {
+            __extends(SearchAuto, _super);
+            function SearchAuto(fp, options, form) {
+                var _this = this;
+                var bindArray = fp.$bind;
+                fp.$bind = '$none';
+                _this = _super.call(this, fp, options, form) || this;
+                var that = _this;
+                var schema = that.form.getSchema(bindArray);
+                if (!schema || schema.type !== 'array')
+                    console.log("Invalid search element, $bind is invalid.");
+                that.bindArray = bindArray;
+                _this.searchByFields = [];
+                var searchableFields = _sutils.searchableFields(schema.items, that.form.$model.$schema, null);
+                searchableFields.forEach(function (ii) {
+                    that.searchByFields.push(ii.name);
+                });
+                that.state.isHidden = that.searchByFields.length === 0;
+                return _this;
             }
-        */
+            SearchAuto.prototype._customSchema = function () {
+                return {
+                    type: "string"
+                };
+            };
+            SearchAuto.prototype._ignoreKeys = function (event, keyPress) {
+                var that = this;
+                var query = that.form.getValue(that.bindArray);
+                if (query) {
+                    if (!keyPress) {
+                        if (event.which === _dom.keys.VK_UP) {
+                            query.moveSelected(-1, true);
+                            return true;
+                        }
+                        else if (event.which === _dom.keys.VK_DOWN) {
+                            query.moveSelected(1, true);
+                            return true;
+                        }
+                        else if (event.which === _dom.keys.VK_PGDOWN) {
+                            query.moveSelected(20, true);
+                            return true;
+                        }
+                        else if (event.which === _dom.keys.VK_PGUP) {
+                            query.moveSelected(-20, true);
+                            return true;
+                        }
+                    }
+                }
+                var input = that._input();
+                return _super.prototype._ignoreKeys.call(this, event, keyPress, input);
+            };
+            SearchAuto.prototype.updateModel = function () {
+                var that = this;
+                var query = that.form.getValue(that.bindArray);
+                if (query) {
+                    if (!that.state.value || !that.searchByFields.length)
+                        query.filter = '';
+                    else {
+                        var filter_1 = { $or: [] };
+                        that.searchByFields.forEach(function (field) {
+                            var fbf = {};
+                            fbf[field] = { $regex: that.state.value };
+                            filter_1.$or.push(fbf);
+                        });
+                        query.filter = filter_1;
+                    }
+                }
+            };
+            SearchAuto.prototype.keyup = function (event) {
+                var that = this;
+                if (that._ignoreKeys(event, true))
+                    return true;
+                if (that.state.isReadOnly || that.state.isDisabled)
+                    true;
+                that.customKeyUp(event);
+                return true;
+            };
+            SearchAuto.prototype.customKeyUp = function (event) {
+                var that = this;
+                if (that._incremental) {
+                    window.clearTimeout(that._incremental);
+                    delete that._incremental;
+                }
+                that._incremental = window.setTimeout(function () {
+                    delete that._incremental;
+                    that._input2Model(false);
+                }, 0);
+            };
+            SearchAuto.prototype.changed = function (propName, ov, nv, op) {
+            };
+            return SearchAuto;
+        }(Phoenix.formedit.Edit));
+        multifieldSearch.SearchAuto = SearchAuto;
+        _ui.registerControl(SearchAuto, 'array', false, 'search-auto', null);
+    })(multifieldSearch = Phoenix.multifieldSearch || (Phoenix.multifieldSearch = {}));
+})(Phoenix || (Phoenix = {}));
+/// <reference path="../../../core/core-refs.ts" />
+/// <reference path="../../../data/datasets.ts" />
+/// <reference path="../schema.data.ts" />
+/// <reference path="./absfield.control.ts" />
+/// <reference path="./multifield.control.ts" />
+var Phoenix;
+(function (Phoenix) {
+    var multifieldSearch;
+    (function (multifieldSearch) {
+        var _p = Phoenix, _locale = _p.locale, _utils = _p.utils, _sutils = _p.Observable.SchemaUtils, _ui = _p.ui;
         var MultiFieldSearch = /** @class */ (function (_super) {
             __extends(MultiFieldSearch, _super);
             function MultiFieldSearch(fp, options, form) {
@@ -34174,7 +36304,7 @@ var Phoenix;
                 };
             };
             MultiFieldSearch.beforeCreateControl = function (fieldOptions) {
-                var opts = $.extend(true, {}, fieldOptions);
+                var opts = _utils.clone(fieldOptions);
                 opts.options = opts.options || {};
                 opts.options.bind = opts.$bind;
                 opts.$bind = '$none';
@@ -34195,7 +36325,7 @@ var Phoenix;
 (function (Phoenix) {
     var search;
     (function (search) {
-        var _p = Phoenix, _formedit = _p.formedit, _dom = _p.dom, locale = _p.locale, _ui = _p.ui;
+        var _p = Phoenix, _dom = _p.dom, _ui = _p.ui;
         var Search = /** @class */ (function (_super) {
             __extends(Search, _super);
             function Search(fp, options, form) {
@@ -34280,7 +36410,7 @@ var Phoenix;
         ;
         var _createSelectInput = function (id, options, authoring, title) {
             title = title || '';
-            options = $.extend({ titleIsHidden: false, placeHolder: false, columns: false, labelCol: 3 }, options);
+            options = _utils.extendObject(false, { titleIsHidden: false, placeHolder: false, columns: false, labelCol: 3 }, options);
             var html = [];
             if (options.titleIsHidden) {
                 options.columns = false;
@@ -34354,7 +36484,8 @@ var Phoenix;
                 var that = this;
                 if (that.renderOptions.readOnly)
                     return;
-                this._isEmpty = enums.indexOf(that.state.value) < 0;
+                var val = (that.state.value === null ? undefined : that.state.value);
+                this._isEmpty = enums.indexOf(val) < 0;
                 _uiutils.utils.fillSelect(enums, that._input(), that.$schema, this._isEmpty);
             };
             Select.prototype._setDisabled = function (input, element) {
@@ -34376,9 +36507,10 @@ var Phoenix;
                 if (inRender && !cf)
                     return;
                 var enums = cf ? that.$schema.filters[cf] || [] : that.$schema.enum;
+                var val = (that.state.value === null ? undefined : that.state.value);
                 that._fillSelect(enums);
                 if (!inRender) {
-                    var ii = enums.indexOf(that.state.value);
+                    var ii = enums.indexOf(val);
                     if (ii < 0) {
                         that.form.setValue(that.$display, enums.length ? enums[0] : null);
                     }
@@ -34430,14 +36562,15 @@ var Phoenix;
             };
             Select.prototype._value2Input = function (input) {
                 var that = this;
+                var val = (that.state.value === null ? undefined : that.state.value);
                 if (that.renderOptions.readOnly) {
                     var enumNames = that.$schema.enumNames || that.$schema.enum;
-                    var ii = that.$schema.enum.indexOf(that.state.value);
+                    var ii = that.$schema.enum.indexOf(val);
                     _dom.text(input, enumNames[ii] || String.fromCharCode(160));
                 }
                 else {
-                    var index = that.state.filter ? that.$schema.filters[that.state.filter].indexOf(that.state.value) : that.$schema.enum.indexOf(that.state.value);
-                    if (that.$schema.nullable || index < 0)
+                    var index = that.state.filter ? that.$schema.filters[that.state.filter].indexOf(val) : that.$schema.enum.indexOf(val);
+                    if (that.$schema.nullable || this._isEmpty || index < 0)
                         index++;
                     input.selectedIndex = index;
                 }
@@ -34457,8 +36590,13 @@ var Phoenix;
                     iv = values[index];
                 }
                 if (that.state.value !== iv) {
-                    that.state.value = iv;
-                    that.form.setValue(that.$display, that.state.value);
+                    if ((that.state.value === undefined && iv === null) ||
+                        (that.state.value === null && iv === undefined)) {
+                    }
+                    else {
+                        that.state.value = iv;
+                        that.form.setValue(that.$display, that.state.value);
+                    }
                 }
             };
             Select.prototype.setEvents = function (opts) {
@@ -34534,7 +36672,7 @@ var Phoenix;
                     var pp = propName.substr(that._relationName);
                     if (pp.indexOf('.$selected') >= 0)
                         return;
-                    if (params.checkChildren && op === 'propchange' && propName === that._relationName) {
+                    if (op === 'propchange' && propName === that._relationName) {
                         fillSelect = true;
                     }
                     switch (op) {
@@ -34573,7 +36711,8 @@ var Phoenix;
                         that._values.push(item[that.$lookup.mapping[that._codeProperty]]);
                         that._names.push(item[that.$lookup.mapping[that._titleProperty]]);
                     });
-                    that._isEmpty = that._values.indexOf(that.state.value) < 0;
+                    var val = (that.state.value === null ? undefined : that.state.value);
+                    that._isEmpty = that._values.indexOf(val) < 0;
                     var frag = document.createDocumentFragment();
                     if (that.$schema.nullable || that._isEmpty) {
                         var o = document.createElement('option');
@@ -34591,7 +36730,7 @@ var Phoenix;
                     });
                     _dom.empty(input);
                     _dom.append(input, frag);
-                    input.selectedIndex = that._values.indexOf(that.state.value);
+                    input.selectedIndex = that._values.indexOf(val);
                     if (that.$schema.nullable) {
                         input.selectedIndex++;
                     }
@@ -34599,7 +36738,8 @@ var Phoenix;
             };
             SelectRelation.prototype._value2Input = function (input) {
                 var that = this;
-                var ii = that._values.indexOf(that.state.value);
+                var val = (that.state.value === null ? undefined : that.state.value);
+                var ii = that._values.indexOf(val);
                 if (that.renderOptions.readOnly) {
                     _dom.text(input, (ii >= 0 ? that._names[ii] : '') || String.fromCharCode(160));
                 }
@@ -34621,8 +36761,13 @@ var Phoenix;
                 }
                 var iv = si >= 0 ? that._values[si] : undefined;
                 if (that.state.value !== iv) {
-                    that.state.value = iv;
-                    that.form.setValue(that.$display, that.state.value);
+                    if ((that.state.value === undefined && iv === null) ||
+                        (that.state.value === null && iv === undefined)) {
+                    }
+                    else {
+                        that.state.value = iv;
+                        that.form.setValue(that.$display, that.state.value);
+                    }
                 }
             };
             return SelectRelation;
@@ -34637,10 +36782,10 @@ var Phoenix;
 (function (Phoenix) {
     var wizardctrl;
     (function (wizardctrl) {
-        var _utils = Phoenix.utils, _ui = Phoenix.ui, _dom = Phoenix.dom, _groupctrl = Phoenix.groupctrl, _ulocale = Phoenix.ulocale, _uiutils = Phoenix.uiutils;
+        var _utils = Phoenix.utils, _ui = Phoenix.ui, _dom = Phoenix.dom, _ulocale = Phoenix.ulocale, _uiutils = Phoenix.uiutils;
         var _createWizardSteps = function (id, options, authoring, title, enums, enumsNames) {
             title = title || '';
-            options = $.extend({ titleIsHidden: false, placeHolder: false, columns: false }, options);
+            options = _utils.extendObject(false, { titleIsHidden: false, placeHolder: false, columns: false }, options);
             var html = [];
             _uiutils.utils.fieldWrapper(html, options, authoring, function () {
                 html.push('<div class="btn-group">');
@@ -34715,7 +36860,7 @@ var Phoenix;
 /// <reference path="./absfield.control.ts" />
 var Phoenix;
 (function (Phoenix) {
-    var _p = Phoenix, _utils = _p.utils, _customData = _p.customData, _ui = _p.ui, _dom = _p.dom, _uiutils = _p.uiutils;
+    var _p = Phoenix, _utils = _p.utils, _history = _p.history, _customData = _p.customData, _locale = _p.locale, _link = _p.link, _ui = _p.ui, _dom = _p.dom, _uiutils = _p.uiutils;
     var tabscontrol;
     (function (tabscontrol) {
         var _createContainer = function (id, authoring) {
@@ -34779,27 +36924,64 @@ var Phoenix;
                         if (that._sendValidateChildForms(function () {
                             if (!that._checkHasErrors())
                                 return;
-                            that.form.setValue(that.$bind, newValue_1);
-                        }))
+                            that.closeChildForms(function () {
+                                that.form.setValue(that.$bind, newValue_1);
+                            });
+                        }, oldvalue))
                             return;
                         if (!that._checkHasErrors())
                             return;
+                        that.closeChildForms(function () {
+                            that.form.setValue(that.$bind, newValue_1);
+                        });
+                    }
+                    else {
+                        _utils.registerScriptSetValue(that.form, that.$bind, newValue_1);
                         that.form.setValue(that.$bind, newValue_1);
                     }
-                    else
-                        that.form.setValue(that.$bind, newValue_1);
                 }
             };
-            Tabs.prototype._sendValidateChildForms = function (cb) {
+            Tabs.prototype.closeChildForms = function (cb) {
+                var that = this;
+                var forms = that.form.visibleChildForms();
+                var _loop_6 = function (i) {
+                    var form = forms[i];
+                    if (form.autoCloseWhenInline) {
+                        if (form.useSync) {
+                            var cm = form.$model;
+                            if (cm && cm.containerHasChanges) {
+                                return { value: _utils.confirm(form.$schema.title || _locale.ui.Warning, _locale.ui.cancelWarning, function () {
+                                        _history.removeView(form.syncTransactionId(), form.syncViewId(), form.syncViewName());
+                                        form.close();
+                                        that.closeChildForms(cb);
+                                    }) };
+                            }
+                            _history.removeView(form.syncTransactionId(), form.syncViewId(), form.syncViewName());
+                        }
+                        form.close();
+                    }
+                };
+                for (var i = 0; i < forms.length; i++) {
+                    var state_6 = _loop_6(i);
+                    if (typeof state_6 === "object")
+                        return state_6.value;
+                }
+                cb();
+            };
+            Tabs.prototype._sendValidateChildForms = function (cb, oldvalue) {
                 var that = this;
                 var res = false;
+                if (that.fieldOptions.validators && that.fieldOptions.validators[oldvalue]) {
+                    res = true;
+                    that.form.execAction(that.fieldOptions.validators[oldvalue], {});
+                }
                 var forms = that.form.visibleChildForms();
                 if (forms) {
                     for (var i = 0; i < forms.length; i++) {
                         var form = forms[i];
                         if (form.data.$validate) {
                             res = true;
-                            form.execAction(form.data.$validate, null);
+                            form.execAction(form.data.$validate, {});
                         }
                     }
                 }
@@ -34825,12 +37007,16 @@ var Phoenix;
                         Phoenix.utils.nextTick(function () {
                             var forms = that.form.visibleChildForms();
                             forms.forEach(function (form) {
-                                form.formManager.pushSyncAction(form.data.$id, { op: "$empty" });
-                                form.formManager.sendSyncData();
+                                if (form.useSync) {
+                                    form.formManager.pushSyncAction(form.data.$id, { op: "$empty" });
+                                    form.formManager.sendSyncData();
+                                }
                             });
                         });
                     }
                     that.state.value = nv;
+                    if (that.renderOptions.searchKey)
+                        _link.updateSearchEntry(that.renderOptions.searchKey, that.state.value);
                     that._value2UI();
                 }
             };
@@ -34882,7 +37068,7 @@ var Phoenix;
 (function (Phoenix) {
     var formarraytemplate;
     (function (formarraytemplate) {
-        var _p = Phoenix, _uiutils = _p.uiutils, _customData = _p.customData, _formcomplex = _p.formcomplex, _ui = _p.ui, _utils = _p.utils, _dom = _p.dom, _ctrlsinterfaces = _p.ctrlsinterfaces, _observable = Phoenix.Observable, _sutils = _observable.SchemaUtils, _formarray = Phoenix.formarray, _link = _p.link;
+        var _p = Phoenix, _uiutils = _p.uiutils, _ui = _p.ui, _utils = _p.utils, _dom = _p.dom, _observable = Phoenix.Observable, _sutils = _observable.SchemaUtils;
         var GRID_COLUMNS = 4;
         var TemplateRender = /** @class */ (function () {
             function TemplateRender() {
@@ -34959,14 +37145,14 @@ var Phoenix;
             TemplateRender.prototype._renderIcons = function (e) {
                 var list = _dom.queryAll(e, '[data-icon]');
                 if (list) {
-                    var _loop_5 = function (i) {
+                    var _loop_7 = function (i) {
                         var p = list.item(i);
                         var icon = _dom.attr(p, 'data-icon').split(' ');
                         var classes = (icon.length > 1 ? _dom.customIconClass(icon[0], icon[1]) : _dom.iconClass(icon[0])).split(' ');
                         classes.forEach(function (className) { return _dom.addClass(p, className); });
                     };
                     for (var i = 0; i < list.length; i++) {
-                        _loop_5(i);
+                        _loop_7(i);
                     }
                 }
             };
@@ -35061,7 +37247,7 @@ var Phoenix;
                 that.state.value.expandingProperty = that.renderOptions.expandingProperty;
                 if (that.state.value.isQueryable() || that.state.value.$states.pageSize) {
                     // create pager
-                    var options = $.extend({ size: "default", selectPage: that._onselectPage.bind(that), noPagesCount: that.state.value.noPagesCount() }, opts.pager || {});
+                    var options = _utils.extendObject(false, { size: "default", selectPage: that._onselectPage.bind(that), noPagesCount: that.state.value.noPagesCount() }, opts.pager || {});
                     that.pager = new _ui.Pager(options);
                     var p = that.pager;
                     p.props.hasNext = that.state.value.hasNext();
@@ -35092,6 +37278,9 @@ var Phoenix;
                 if (!that.state.value)
                     return;
                 var opts = that.renderOptions;
+                var $ttc = that.$element.find('[data-phoenix-tooltip]');
+                if ($ttc['tooltip'])
+                    $ttc['tooltip']('hide');
                 var e = _dom.parentByAttr(that.$element.get(0), event.target, 'data-row-id');
                 if (e) {
                     var item = that._map[e.id];
@@ -35178,18 +37367,20 @@ var Phoenix;
             ArrayTemplateControl.prototype._state2UI = function (inRender) {
                 var that = this, element = that.$element ? that.$element.get(0) : null;
                 if (element) {
-                    that.renderContent(_dom.find(element, that.id + '_items'));
-                    var $ttc = that.$element.find('[data-phoenix-tooltip]');
-                    if ($ttc["tooltip"])
-                        $ttc["tooltip"]({
-                            html: true,
-                            container: 'body',
-                            template: '<div class="tooltip bs-tooltip-help" role="tooltip"><div class="tooltip-arrow"></div><div class="tooltip-inner"></div></div>'
-                        });
-                    if (that.pager) {
-                        var $pp = $(_dom.find(element, that.id + '_pagination'));
-                        that.pager.render($pp);
-                    }
+                    that.renderContent(_dom.find(element, that.id + '_items'), inRender, function () {
+                        var $ttc = that.$element.find('[data-phoenix-tooltip]');
+                        if ($ttc['tooltip'])
+                            $ttc['tooltip']({
+                                html: true,
+                                trigger: 'hover',
+                                container: 'body',
+                                template: '<div class="tooltip bs-tooltip-help" role="tooltip"><div class="tooltip-arrow"></div><div class="tooltip-inner"></div></div>'
+                            });
+                        if (that.pager) {
+                            var $pp = $(_dom.find(element, that.id + '_pagination'));
+                            that.pager.render($pp);
+                        }
+                    });
                 }
             };
             ArrayTemplateControl.prototype.stateChanged = function (propName, cparams, params) {
@@ -35325,7 +37516,7 @@ var Phoenix;
     (function (formlink) {
         function _createButton(id, options, authoring, title) {
             title = title || '';
-            options = $.extend({ icon: null, type: 'default', size: null }, options);
+            options = _utils.extendObject(false, { icon: null, type: 'default', size: null }, options);
             var html = [];
             _uiutils.utils.fieldWrapper(html, options, authoring, function () {
                 html.push('<button type="button"');
@@ -35370,7 +37561,7 @@ var Phoenix;
         var _ui = Phoenix.ui, _utils = Phoenix.utils, _dom = Phoenix.dom, _ulocale = Phoenix.ulocale, _uiutils = Phoenix.uiutils;
         function _createToggle(id, options, authoring, title) {
             title = title || '';
-            options = $.extend({ titleIsHidden: false, placeHolder: false, columns: false }, options);
+            options = _utils.extendObject(false, { titleIsHidden: false, placeHolder: false, columns: false }, options);
             var html = [];
             _uiutils.utils.fieldWrapper(html, options, authoring, function () {
                 if (!options.titleIsHidden) {
@@ -35430,7 +37621,7 @@ var Phoenix;
                     event.preventDefault();
                     return;
                 }
-                if (event.target != input)
+                if (event.target !== input)
                     return;
                 if (that.state.value != value) {
                     if (that._isBinded) {
@@ -35734,8 +37925,10 @@ var Phoenix;
                         Phoenix.utils.nextTick(function () {
                             var forms = that.form.visibleChildForms();
                             forms.forEach(function (form) {
-                                form.formManager.pushSyncAction(form.data.$id, { op: "$empty" });
-                                form.formManager.sendSyncData();
+                                if (form.useSync) {
+                                    form.formManager.pushSyncAction(form.data.$id, { op: "$empty" });
+                                    form.formManager.sendSyncData();
+                                }
                             });
                         });
                     }
@@ -36265,6 +38458,7 @@ var Phoenix;
     _utils.info = function (title, message, type, after) {
         var cr = function ($element, autoclose, cb) {
             var html = [];
+            _dom.processing(true);
             html.push('<div class="no-y-margin alert alert-' + type + '" role="alert">');
             html.push('<h4 class="alert-heading">' + title + '</h4>');
             html.push('<p>' + message + '</p>');
@@ -36272,6 +38466,7 @@ var Phoenix;
             var e = $(html.join('')).get(0);
             _dom.append($element.get(0), e);
             window.setTimeout(function () {
+                _dom.processing(false);
                 var page = _pagecontrol.Page();
                 page.setPopup(null);
                 if (after)
@@ -36428,6 +38623,32 @@ var Phoenix;
     _utils.prompt = function (title, defaultValue, success) {
         _prompt(title, defaultValue, success);
     };
+    var _customModal = function (title, modalLayout, modalData, modalSchema, onsuccess) {
+        title = title || _locale.ui.Warning;
+        var opt = {
+            title: title,
+            buttons: [
+                {
+                    type: "primary",
+                    title: _locale.ui.Ok,
+                    name: "ok"
+                }
+            ]
+        };
+        _ui.OpenModalForm(opt, modalLayout, modalSchema, modalData, null, function (modal, action, data, formcontrol) {
+            if (action.operation === "modal-action") {
+                switch (action.property) {
+                    case "ok":
+                        var nv = data.model(false);
+                        modal.close();
+                        if (onsuccess)
+                            onsuccess(nv);
+                        break;
+                }
+            }
+        });
+    };
+    _utils.customModal = _customModal;
 })(Phoenix || (Phoenix = {}));
 /// <reference path="../core/core-refs.ts" />
 var Phoenix;
@@ -36600,7 +38821,13 @@ var Phoenix;
             {
                 $type: "block",
                 $items: [
-                    { $bind: 'title' }
+                    { $bind: 'title' },
+                    {
+                        $bind: 'notes',
+                        options: {
+                            titleIsHidden: true
+                        }
+                    }
                 ]
             },
             {
@@ -36620,8 +38847,13 @@ var Phoenix;
             buttons: [{ pattern: 'validate' }, { pattern: 'abandon' }]
         };
         var ldata = {
+            notes: options.notes,
+            title: options.titleValue,
             $errors: { $: [] },
-            $states: { title: { isHidden: !options.showUploadTitle } }
+            $states: {
+                title: { isHidden: !options.showUploadTitle },
+                notes: { isHidden: !options.showUploadNotes }
+            }
         };
         var schema = {
             type: "object",
@@ -36629,6 +38861,10 @@ var Phoenix;
                 title: {
                     title: options.title,
                     type: "string"
+                },
+                notes: {
+                    type: "string",
+                    format: 'memo'
                 },
                 fileName: {
                     title: _locale.ui.FileUpload,
@@ -36652,6 +38888,7 @@ var Phoenix;
                         var uploadBtn = formcontrol.controlByName('upload', false)[0];
                         var formData = new FormData();
                         formData.append('title', model.title);
+                        formData.append('notes', model.notes);
                         // Attach file
                         formData.append('file', uploadBtn.uploadInput().files[0]);
                         _dom.processing(true);
@@ -36685,7 +38922,7 @@ var Phoenix;
                 var that = this, defOptions = {
                     src: 'https://www.google.com'
                 };
-                that._options = $.extend(defOptions, options || {});
+                that._options = _utils.extendObject(false, defOptions, options || {});
             }
             IFrame.prototype._setEvents = function () {
                 var that = this;
@@ -36727,7 +38964,7 @@ var Phoenix;
 (function (Phoenix) {
     var ui;
     (function (ui) {
-        var dsPlugin = Phoenix.DatasetPlugin, _dom = Phoenix.dom;
+        var dsPlugin = Phoenix.DatasetPlugin, _utils = Phoenix.utils, _dom = Phoenix.dom;
         var DsLookup = /** @class */ (function () {
             function DsLookup(ds, options) {
                 var that = this;
@@ -36763,8 +39000,8 @@ var Phoenix;
                     _dom.processing(false);
                     if (!ex) {
                         that._init = true;
-                        var data_4 = res.dataset;
-                        that._count = data_4.count;
+                        var data_5 = res.dataset;
+                        that._count = data_5.count;
                         that._notify(null, { inited: true, updated: true });
                     }
                 }, false);
@@ -36802,7 +39039,7 @@ var Phoenix;
                 var that = this;
                 if (!that._init)
                     return;
-                var ds = $.extend(true, {}, that._ds.data), res = {};
+                var ds = _utils.clone(that._ds.data), res = {};
                 ds.name = "dataset";
                 ds.$params = ds.$params || {};
                 ds.$params.$skip = that._getSkip(page);
@@ -36813,17 +39050,17 @@ var Phoenix;
                 dsPlugin.executeDatasets([ds], context, res, null, function (sended, ex) {
                     _dom.processing(false);
                     if (!ex) {
-                        var data_5 = res.dataset;
-                        if (data_5 && that._count != data_5.count) {
-                            that._count = data_5.count;
+                        var data_6 = res.dataset;
+                        if (data_6 && that._count != data_6.count) {
+                            that._count = data_6.count;
                             that._page = 0;
                             that._notify(null, { updated: true });
                         }
-                        if (data_5.documents) {
-                            data_5.documents = data_5.documents.map(function (item) {
+                        if (data_6.documents) {
+                            data_6.documents = data_6.documents.map(function (item) {
                                 return { code: item[that._ds.mapping.code], libelle: item[that._ds.mapping.libelle] || item[that._ds.mapping.code] };
                             });
-                            that.items = data_5.documents;
+                            that.items = data_6.documents;
                         }
                     }
                 }, false);
@@ -36963,11 +39200,28 @@ var Phoenix;
                     return item;
                 });
             };
-            Filter.prototype.getValueNames = function () {
-                return this.values.map(function (item) {
-                    if (item && item.lib)
-                        return item.lib;
-                    return item;
+            Filter.prototype.getValueLib = function (value, champ) {
+                if (value && value.lib)
+                    return value.lib;
+                if (champ && champ.options && champ.options.enum) {
+                    var model = champ.options.enum.model(true);
+                    if (model && model.length)
+                        for (var i = 0; i < model.length; i++) {
+                            var item = model[i];
+                            if (item.code === value) {
+                                if (item.libelle) {
+                                    value = item.libelle;
+                                }
+                                break;
+                            }
+                        }
+                }
+                return value;
+            };
+            Filter.prototype.getValueNames = function (champ) {
+                var target = this;
+                return target.values.map(function (item) {
+                    return target.getValueLib(item, champ);
                 });
             };
             return Filter;
@@ -37156,9 +39410,9 @@ var Phoenix;
                     var champ = that.listeChamps.get(item.code);
                     var lib = champ.libelle + " " + op.options.symbol + " ";
                     if (op.isBinary)
-                        lib += item.values[0] + " " + op.options.liaison + " " + item.values[1];
+                        lib += item.values[0] + " " + op.options.liaison + " " + item.getValueLib(item.values[1], champ);
                     else {
-                        lib += item.getValueNames().join(", ");
+                        lib += item.getValueNames(champ).join(", ");
                     }
                     return {
                         code: item.id,
@@ -37192,7 +39446,7 @@ var Phoenix;
                 var that = this;
                 that.type = type;
                 that.op = op;
-                that.options = $.extend(true, {}, options);
+                that.options = _utils.extendObject(false, {}, options);
                 that.valueModel = that.getInstance();
             }
             ValueModel.prototype.getInstance = function () {
@@ -37322,7 +39576,7 @@ var Phoenix;
                     type: "object",
                     properties: {
                         value: {
-                            title: that.options.title || "Valeur",
+                            title: that.options.title || _locale.ui.value,
                             type: that.options.type || "string"
                         }
                     },
@@ -37372,11 +39626,11 @@ var Phoenix;
                     type: "object",
                     properties: {
                         value1: {
-                            title: (options.title || "Valeur") + " 1",
+                            title: (options.title || _locale.ui.value) + " 1",
                             type: options.type || "string"
                         },
                         value2: {
-                            title: (options.title || "Valeur") + " 2",
+                            title: (options.title || _locale.ui.value) + " 2",
                             type: options.type || "string"
                         }
                     },
@@ -37445,7 +39699,7 @@ var Phoenix;
                     type: "object",
                     properties: {
                         value: {
-                            title: 'Valeur',
+                            title: _locale.ui.value,
                             type: "string"
                         }
                     },
@@ -37462,7 +39716,7 @@ var Phoenix;
                     $type: "block",
                     $items: [
                         {
-                            $items: [{ $bind: "value", options: { titleIsHidden: true, placeHolder: 'Une ou plusieurs valeurs (séparées par un ";" : val1;val2;...)' } }],
+                            $items: [{ $bind: "value", options: { titleIsHidden: true, placeHolder: _locale.ui.valuePlaceHolder } }],
                             $colSize: 12
                         }
                     ]
@@ -37586,7 +39840,7 @@ var Phoenix;
             };
             ModelEnumVal.prototype.setValuesByFilter = function (data) {
                 this.data.value = data.map(function (item) {
-                    return item.code;
+                    return (typeof item === 'object') ? item.code : item;
                 });
             };
             return ModelEnumVal;
@@ -37948,9 +40202,9 @@ var Phoenix;
             RenderModel1.prototype.showFilterList = function (that, filter) {
                 var editView = new FilterListView(that.listeChamps, that.listeFilters, that.listeOperateurs, function (action, data) {
                     if (action == "EDIT") {
-                        var filter_1 = that.listeFilters.get(data.id);
-                        if (filter_1)
-                            that.selecteChamp(that, filter_1.code);
+                        var filter_2 = that.listeFilters.get(data.id);
+                        if (filter_2)
+                            that.selecteChamp(that, filter_2.code);
                     }
                     else if (action == "REMOVE")
                         that.removeFilter(that, data.id);
@@ -37996,7 +40250,7 @@ var Phoenix;
                 var defaultOptions = {
                     btnValidate: true
                 };
-                _this = _super.call(this, listeChamps, listeChampsArbre, listeFilters, listeOperateurs, listeTypes, $.extend(true, defaultOptions, options)) || this;
+                _this = _super.call(this, listeChamps, listeChampsArbre, listeFilters, listeOperateurs, listeTypes, _utils.extendObject(true, defaultOptions, options)) || this;
                 _this._callback = callback;
                 return _this;
             }
@@ -38253,9 +40507,9 @@ var Phoenix;
                 else {
                     options = options || {};
                     //let e: HTMLElement = $('<div tabindex="0" class="bs-checkboxlist-list checkbox-inline"><div class="bs-checkboxlist-list-check"><a><center><span class="' + _dom.iconClass('square-o') + '"></span></center></a></div><div class="bs-checkboxlist-list-title"></div></div>').get(0);
-                    var e_2 = $('<div tabindex="0" class="bs-checkboxlist-list col-lg-6 col' + (_bootstrap4 ? '' : '-xs') + '-12 checkbox-inline"><div class="bs-checkboxlist-list-check"><a><span class="' + _dom.iconClass('square-o') + '"></span></a></div><div class="bs-checkboxlist-list-title"></div></div>').get(0);
+                    var e_3 = $('<div tabindex="0" class="bs-checkboxlist-list col-lg-6 col' + (_bootstrap4 ? '' : '-xs') + '-12 checkbox-inline"><div class="bs-checkboxlist-list-check"><a><span class="' + _dom.iconClass('square-o') + '"></span></a></div><div class="bs-checkboxlist-list-title"></div></div>').get(0);
                     elements.forEach(function (en, index) {
-                        var ii = e_2.cloneNode(true);
+                        var ii = e_3.cloneNode(true);
                         if (options.disabled) {
                             _dom.attr(ii, "tabindex", "-1");
                             _dom.removeClass(ii, "bs-pointer");
@@ -38305,174 +40559,6 @@ var Phoenix;
             return CheckBoxList;
         }());
         ui.CheckBoxList = CheckBoxList;
-        /*
-        class LookupList extends AbsField {
-            state: any;
-            _toolbar: ToolBar;
-            _list: CheckBoxList;
-            _pager: Pager;
-            _lookup: DsLookup;
-            constructor(fp, options, form) {
-                super(fp, options, form);
-                let that = this;
-                //form.registerListenerFor(that.$bind + ".$item", that);
-                this._state();
-
-            }
-            _state() {
-                let that = this;
-                that.state = that.state || {};
-                let state = that.form.getState(that.$bind);
-                Object.keys(state).forEach(function (pn) {
-                    that.state[pn] = state[pn];
-                });
-                that.state.value = that.form.getValue(that.$bind);
-            }
-            click(event) {
-
-            }
-            _state2UI() {
-
-            }
-            destroy() {
-                let that = this;
-                //that.form.unRegisterListenerFor(that.$bind + ".$item", that);
-                super.destroy();
-            }
-            changed(propName, ov, nv, op, obj) {
-                //let that = this;
-                //that._list.values = that._getValues();
-            }
-            stateChanged(propName, params) {
-
-            }
-            _createContainer(id, authoring, title, options) {
-                let that = this;
-                let html = [
-                    '<div id="{0}" data-render="{0}">',
-                    '<label for="{0}_input" id="{0}_label" class="' + (!title ? "bs-none" : "") + '">' + (title || '') + '</label>',
-                    '<div id="{0}_toolbar"></div>',
-                    '<br />',
-                    '<div id="{0}_list"></div>',
-                    '<center id="{0}_paginer"></center>',
-                    '</div>'
-                ];
-                return _utils.format(html.join(''), id);
-            }
-            _onSelectToolElement(toolElement) {
-                let that = this;
-                if (toolElement.name === "search")
-                    that._lookup.search(toolElement.value);
-            }
-            createToolBar(id, options) {
-                let that = this;
-                if (!that.$element) return;
-                if (!that._toolbar) {
-                    let toolElements = [{
-                        "name": "search",
-                        "type": "search",
-                        "right": false
-                    }];
-                    options = $.extend(true, {}, { selectToolElement: that._onSelectToolElement.bind(that) });
-                    that._toolbar = new _ui.ToolBar(toolElements, options);
-                    let container = _dom.query(that.$element.get(0), "#" + id + "_toolbar");
-                    if (!container) return;
-                    that._toolbar.render(options, $(container));
-                }
-            }
-            _onSelectPaginer(page) {
-                let that = this;
-                switch (page) {
-                    case "next":
-                        that._lookup.nextPage();
-                        break;
-                    case "prev":
-                        that._lookup.prevPage();
-                        break;
-                    case "first":
-                        that._lookup.firthPage();
-                        break;
-                    case "last":
-                        that._lookup.lastPage();
-                        break;
-                    default:
-                        that._lookup.toPage(page - 1);
-                        break;
-                }
-            }
-            createPaginer(id, options) {
-                let that = this;
-                if (!that.$element) return;
-                if (!that._pager) {
-                    options = $.extend({ size: "default", boundaryLinks: true, selectPage: that._onSelectPaginer.bind(that) }, options);
-                    that._pager = new _ui.Pager(options);
-                    let container = _dom.query(that.$element.get(0), "#" + id + "_paginer");
-                    if (!container) return;
-                    that._pager.render($(container));
-                }
-                let p = that._pager;
-                p.props.totalPages = that._lookup.getNbPages();
-                p.props.currentPage = that._lookup.currentPage() + 1;
-            }
-            _onSelectCheckBoxList(action, data) {
-                let that = this;
-                if (action === "add")
-                    that.state.value.push({ code: data.value.code, lib: data.value.libelle });
-                else if (action === "remove")
-                    that.state.value.remove(that.state.value.find("code", data.value.code));
-            }
-            _getValues() {
-                let that = this;
-                let ld = $.extend(true, {}, that.state.value);
-                ld._items = ld._items.map(function (item) {
-                    return item.code;
-                });
-                return ld._items;
-            }
-            createList(id, options) {
-                let that = this;
-                if (!that.$element) return;
-                if (!that._list) {
-                    that._list = new _ui.CheckBoxList({ onSelectItem: that._onSelectCheckBoxList.bind(that) });
-                    that._list.values = that._getValues();
-                    let container = _dom.query(that.$element.get(0), "#" + id + "_list");
-                    if (!container) return;
-                    that._list.render($(container));
-                }
-            }
-            createLookup(options) {
-                let that = this;
-                if (that.$schema.ds) {
-                    let notify = function (data, options) {
-                        options = options || {};
-                        if (options.inited && options.updated)
-                            that._lookup.firthPage();
-                        else if (data) {
-                            if (that.$schema.ds.data.$params.$search)
-                                that.createToolBar(that.id, {});
-                            that.createList(that.id, {});
-                            that._list.elements = data;
-                            that.createPaginer(that.id, that.renderOptions.pager);
-                        }
-                    };
-                    that._lookup = new _ui.DsLookup(that.$schema.ds, { notify: notify });
-                }
-            }
-            render($parent) {
-                let that = this;
-                let opts = that._initOptions(_uiutils.utils.defaultOptions);
-                if (!that.$element) {
-                    that.setEvents(null);
-                    that.$element = $(that._createContainer(that.id, _ulocale.tt(that.$schema.title, that.form.$locale), that.options.design, opts));
-                    that.createLookup({});
-                    that._state2UI();
-                }
-                that.appendElement($parent, opts);
-                return that.$element;
-            }
-        }
-        _ui.registerControl(LookupList, "array", false, 'lookup-list', null);
-        */
         var ComposantFilter = /** @class */ (function (_super) {
             __extends(ComposantFilter, _super);
             function ComposantFilter(fp, options, form) {
@@ -38594,7 +40680,7 @@ var Phoenix;
                     _dom.empty(that.$element.get(0));
                     opts.id = that.id;
                     opts.title = that.$schema.title || "";
-                    opts = $.extend(true, opts, that.renderOptions);
+                    opts = _utils.extendObject(true, opts, that.renderOptions);
                     that._options = opts;
                     that.renderInternal({ data: that.state.value }, opts);
                 }
@@ -38616,7 +40702,7 @@ var Phoenix;
 (function (Phoenix) {
     var ui;
     (function (ui) {
-        var _ui = ui, _filters = Phoenix.filters, _locale = Phoenix.locale;
+        var _ui = ui, _filters = Phoenix.filters, _utils = Phoenix.utils, _locale = Phoenix.locale;
         var OPERATORS = _filters.OPERATORS;
         var _addField2 = function (fieldList, code, libelle, type, options) {
             options = options || {};
@@ -38912,8 +40998,13 @@ var Phoenix;
             }
             return tooltip.join("");
         }, _transformPropsToFilterFormat = function (champs, columns) {
+            columns.sort(function (item1, item2) {
+                var a = item1.schema.title || item1.name;
+                var b = item2.schema.title || item2.name;
+                return (a < b ? -1 : (a > b ? 1 : 0));
+            });
             columns.forEach(function (item) {
-                var sc = $.extend(true, {}, item.schema);
+                var sc = _utils.clone(item.schema);
                 switch (sc.type) {
                     case "number":
                         if (sc.decimals > 0)
@@ -38973,11 +41064,11 @@ var Phoenix;
 (function (Phoenix) {
     var ui;
     (function (ui) {
-        var _ui = ui;
+        var _utils = Phoenix.utils, _ui = ui;
         var _transformPropsToMultiselectFormat = function (columns, groups, columnsLimited) {
             var gs = groups && groups.items ? groups.items : [];
             var fields = groups && groups.fields ? groups.fields : [];
-            var items = groups && groups.items ? $.extend(true, [], gs) : [];
+            var items = groups && groups.items ? _utils.clone(gs) : [];
             if (columnsLimited)
                 constructeLimitItems(items, fields, columns);
             else
@@ -39081,7 +41172,7 @@ var Phoenix;
 (function (Phoenix) {
     var ui;
     (function (ui) {
-        var _ui = ui, _utils = Phoenix.utils, _ulocale = Phoenix.ulocale, _dom = Phoenix.dom, _sutils = Phoenix.Observable.SchemaUtils;
+        var _utils = Phoenix.utils, _dom = Phoenix.dom;
         var MultiSelectList = /** @class */ (function () {
             function MultiSelectList(data, options, callback) {
                 var that = this;
@@ -39103,12 +41194,12 @@ var Phoenix;
                     border: false,
                     maxHeight: "300px"
                 };
-                that._options = $.extend(true, defaultOptions, options);
+                that._options = _utils.extendObject(true, defaultOptions, options);
                 that._name = that._options.mapping.id;
                 that._title = that._options.mapping.libelle || that._options.mapping.lib;
                 that._data = data || [];
                 that._callback = callback || null;
-                that._nodes = $.extend(true, [], data);
+                that._nodes = _utils.clone(data);
                 that._selectedItems = [];
                 that._init();
             }
@@ -39119,7 +41210,7 @@ var Phoenix;
                 set: function (value) {
                     var that = this;
                     that._data = value || [];
-                    that._nodes = $.extend(true, [], value);
+                    that._nodes = _utils.clone(value);
                     that._selectedItems = [];
                     that._constructeNodes(that._nodes, that._options);
                     if (that._container)
@@ -39134,7 +41225,7 @@ var Phoenix;
                 },
                 set: function (value) {
                     var that = this;
-                    that._selectedItems = $.extend(true, [], value);
+                    that._selectedItems = _utils.clone(value);
                     if (that._container)
                         that._selectedItems.forEach(function (item) {
                             that.addItem(item[that._name]);
@@ -39566,17 +41657,7 @@ var Phoenix;
 (function (Phoenix) {
     var ui;
     (function (ui) {
-        var _ui = ui, _utils = Phoenix.utils, _ulocale = Phoenix.ulocale, _dom = Phoenix.dom, _drag = Phoenix.drag, _uiutils = Phoenix.uiutils, _events = Phoenix.events, _sutils = Phoenix.Observable.SchemaUtils;
-        function _createPillboxContainer(id, options, authoring, title) {
-            title = title || '';
-            options = $.extend({ titleIsHidden: false, placeHolder: false, columns: false }, options);
-            var html = [];
-            _uiutils.utils.fieldWrapper(html, options, authoring, function () {
-                html.push('<ul id="{0}" class="pillbox bs-boxed-tags"></ul>');
-            });
-            return _utils.format(html.join(''), id);
-        }
-        ;
+        var _utils = Phoenix.utils, _dom = Phoenix.dom, _drag = Phoenix.drag, _events = Phoenix.events;
         var PillBox = /** @class */ (function () {
             function PillBox(data, options, callback) {
                 var that = this;
@@ -39588,12 +41669,12 @@ var Phoenix;
                     removeIcon: "remove",
                     border: false
                 };
-                that._options = $.extend(true, defaultOptions, options);
+                that._options = _utils.extendObject(true, defaultOptions, options);
                 that._name = that._options.mapping.id;
                 that._title = that._options.mapping.libelle || that._options.mapping.lib;
                 that._data = data || [];
                 that._callback = callback || null;
-                that._nodes = $.extend(true, [], data);
+                that._nodes = _utils.clone(data);
                 that._selectedItems = [];
                 that._init();
             }
@@ -39604,7 +41685,7 @@ var Phoenix;
                 set: function (value) {
                     var that = this;
                     that._data = value || [];
-                    that._nodes = $.extend(true, [], value);
+                    that._nodes = _utils.clone(value);
                     that._selectedItems = [];
                     that._constructeNodes(that._nodes, that._options);
                     if (that._container)
@@ -39619,7 +41700,7 @@ var Phoenix;
                 },
                 set: function (value) {
                     var that = this;
-                    that._selectedItems = $.extend(true, [], value);
+                    that._selectedItems = _utils.clone(value);
                     if (that._container)
                         that._renderItems();
                 },
@@ -40016,7 +42097,7 @@ var Phoenix;
 (function (Phoenix) {
     var ui;
     (function (ui) {
-        var _ui = ui, _utils = Phoenix.utils, _uiutils = Phoenix.uiutils, _ulocale = Phoenix.ulocale, _dom = Phoenix.dom, _uiutils = Phoenix.uiutils, _sutils = Phoenix.Observable.SchemaUtils;
+        var _ui = ui, _utils = Phoenix.utils, _uiutils = Phoenix.uiutils, _locale = Phoenix.locale, _dom = Phoenix.dom, _uiutils = Phoenix.uiutils;
         var ComposantMultiSelect = /** @class */ (function (_super) {
             __extends(ComposantMultiSelect, _super);
             function ComposantMultiSelect(fp, options, form) {
@@ -40040,7 +42121,7 @@ var Phoenix;
                     return v;
                 });
                 that._sortie = that.state.value.sortie || [];
-                that._options = $.extend(true, optionsParDefaut, that.renderOptions);
+                that._options = _utils.extendObject(true, optionsParDefaut, that.renderOptions);
                 that._name = that._options.mapping.id;
                 that._title = that._options.mapping.libelle || that._options.mapping.lib;
                 if (Array.isArray(entree)) {
@@ -40159,11 +42240,11 @@ var Phoenix;
                             '<div id="{0}" data-render="{0}">',
                             '<div class="row">',
                             '<div id="{0}_multiselect" class="col-sm-8">',
-                            '<h5 class="bs-block-title bs-style-spo-h2 bs-block-title-no-space">Choix de colonnes</h5>',
+                            '<h5 class="bs-block-title bs-style-spo-h2 bs-block-title-no-space">' + _locale.ui.ChooseColumns + '</h5>',
                             '<div data-id="pillbox"></div>',
                             '</div>',
                             '<div id="{0}_pillbox" class="col-sm-4">',
-                            '<h5 class="bs-block-title bs-style-spo-h2 bs-block-title-no-space">Liste de champs</h5>',
+                            '<h5 class="bs-block-title bs-style-spo-h2 bs-block-title-no-space">' + _locale.ui.AllColumns + '</h5>',
                             '<div data-id="multiselect" style="overflow-y:auto;max-height:' + that._options.maxHeight + ';border: 1px solid #dddddd;"></div>',
                             '</div>',
                             '</div>',
@@ -40179,7 +42260,7 @@ var Phoenix;
                             '<div data-id="multiselect" style="overflow-y:auto;max-height:' + that._options.maxHeight + ';border: 1px solid #dddddd;"></div>',
                             '</div>',
                             '<div id="{0}_multiselect" class="col-sm-8">',
-                            '<h5 class="bs-block-title bs-style-spo-h2 bs-style-no-margin-y">Choix de colonnes</h5>',
+                            '<h5 class="bs-block-title bs-style-spo-h2 bs-style-no-margin-y">' + _locale.ui.ChooseColumns + '</h5>',
                             '<div data-id="pillbox"></div>',
                             '</div>',
                             '</div>',
@@ -40194,7 +42275,7 @@ var Phoenix;
                             '<div data-id="multiselect" style="overflow-y:auto;max-height:' + that._options.maxHeight + ';border: 1px solid #dddddd;"></div>',
                             '</div>',
                             '<div id="{0}_pillbox">',
-                            '<h5 class="bs-block-title bs-style-spo-h2">Choix de colonnes</h5>',
+                            '<h5 class="bs-block-title bs-style-spo-h2">' + _locale.ui.ChooseColumns + '</h5>',
                             '<div data-id="pillbox"></div>',
                             '</div>',
                             '</div>'
@@ -40205,7 +42286,7 @@ var Phoenix;
                         html = [
                             '<div id="{0}" data-render="{0}">',
                             '<div id="{0}_pillbox">',
-                            '<h5 class="bs-block-title bs-style-spo-h2 bs-block-title-no-space">Choix de colonnes</h5>',
+                            '<h5 class="bs-block-title bs-style-spo-h2 bs-block-title-no-space">' + _locale.ui.ChooseColumns + '</h5>',
                             '<div data-id="pillbox"></div>',
                             '</div>',
                             '<div id="{0}_multiselect">',
@@ -40476,7 +42557,10 @@ var Phoenix;
                     sortie: _ui.multiSelectUtils.transformSelectedColumnsToMultiSelectFormat(params.schemaColumns, params.selectedColumns, params.schemaGroups, params.options.columnsLimited)
                 }
             };
-            var opts = { noClose: true, size: 'lg', "title": params.locale && params.locale.settingsTitle ? params.locale.settingsTitle : "Options", "buttons": [{ "pattern": "abandon" }, { "pattern": "validate" }] };
+            var opts = {
+                noClose: true, size: 'lg', title: params.locale && params.locale.settingsTitle ? params.locale.settingsTitle : 'Options',
+                buttons: [{ pattern: 'abandon' }, { pattern: 'validate' }]
+            };
             _ui.OpenModalForm(opts, layout, model, ldata, locale, function (form, action, model, formControl) {
                 switch (action.property) {
                     case "validate":

@@ -113,7 +113,7 @@ var Phoenix;
     var charts;
     (function (charts) {
         function _createContainer(id, options, authoring, cb) {
-            options = $.extend({ titleIsHidden: false, placeHolder: false, columns: false }, options);
+            options = _utils.extendObject(false, { titleIsHidden: false, placeHolder: false, columns: false }, options);
             var html = [];
             _uiutils.utils.fieldWrapper(html, options, authoring, function () {
                 if (cb)

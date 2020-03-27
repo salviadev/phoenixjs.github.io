@@ -1,1 +1,1 @@
-{"name":"grid-lines-as-cols","$menus":{"left":"detail"},"$items":[{"$config":{"$titleIsHidden":true,"form":{"name":"demos/forms/grid-lines-as-cols","meta":"demos/metas/grid-lines-as-cols","controller":"phoenix.empty.controller"},"$type":"form"}}],"$type":"block"}
+{"name":"grid-lines-as-cols","$menus":{"left":"detail"},"$items":[{"$config":{"$titleIsHidden":true,"form":{"name":"demos/forms/grid-lines-as-cols","meta":"demos/metas/grid-lines-as-cols","controller":"demos.grid-lines-as-cols.controller"},"$type":"form"}}],"$type":"block"}

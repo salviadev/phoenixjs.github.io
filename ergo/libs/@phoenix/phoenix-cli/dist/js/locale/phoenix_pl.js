@@ -1,25 +1,25 @@
 var Phoenix;
 (function (Phoenix) {
-    var en = {
+    var pl = {
         "layouts": {
             "design": {
-                "Save": "Save",
-                "New": "New page",
-                "Open": { "title": "Open page", "open": "Open", "close": "Close" },
-                "PageName": "Page Name",
-                "InvalidPageName": "Invalid page name",
-                "ConflictedPageName": "A page of that name exists, do you want to give another name ?",
-                "Delete": "Delete page",
-                "DeletePreferences": "Delete preferences",
-                "ConfirmDelete": "Are you sure you want to delete this page ?",
-                "ConfirmDeletePrefs": "Are you sure you want to delete preferences for this page ?",
-                "Preview": "Preview",
-                "AuthoringMode": "Authoring",
-                "layouts": "Blocks",
-                "widgets": "Widgets",
+                "Save": "Zapisz",
+                "New": "Nowa strona",
+                "Open": { "title": "Otwórz stronę", "open": "Otwórz", "close": "Zamknij" },
+                "PageName": "Nazwa strony",
+                "InvalidPageName": "Nieprawidłowa nazwa strony",
+                "ConflictedPageName": "Istnieje strona o tej nazwie, czy chcesz podać inną nazwę ?",
+                "Delete": "Usuń stronę",
+                "DeletePreferences": "Usuń preferencję",
+                "ConfirmDelete": "Czy na pewno chcesz usunąć tę stronę?Are you sure you want to delete this page ?",
+                "ConfirmDeletePrefs": "Czy na pewno chcesz usunąć preferencje dla tej strony ?",
+                "Preview": "Zapowiedź",
+                "AuthoringMode": "Autorskie",
+                "layouts": "Bloki",
+                "widgets": "Widżety",
                 "fields": "Fields",
-                "actions": "Actions",
-                "properties": "Properties",
+                "actions": "Działania",
+                "properties": "Nieruchomości",
                 "childrenFlow": "Children disposition",
                 "childrenFlowVertical": "Vertical Flow",
                 "childrenTableCell": "Table cell",
@@ -56,8 +56,8 @@ var Phoenix;
             "NoData": 'No data'
         },
         "schema": {
-            "required": "{0} is required.",
-            "minNumber": "{0} must be at least {1}",
+            "required": "{0} jest wymagane.",
+            "minNumber": "{0} musi mieć co najmniej {1}",
             "maxNumber": "{0} cannot exceed {1}",
             "minNumberExclusive": "{0} must be greater than {1}",
             "maxNumberExclusive": "{0} must be less than {1}",
@@ -71,7 +71,7 @@ var Phoenix;
             "minLength": "{0} must be at least {1} characters"
         },
         "ui": {
-            "disclaimer": "The user is informed that any processing of personal data in this free comment area must be carried out in accordance with the applicable legislation, in particular with respect to the provisions of Regulation No 2016/679, said general regulation on the protection of data. data (GDPR), applicable as of May 1, 2018. More specifically, any processing of « sensitive » personal data (including, but not limited to, racial or ethnic origin, political views, philosophical or religious, union membership, health or sex life) is not allowed in Salvia Pilotage Operations.",
+            "disclaimer": "Użytkownik jest informowany, że wszelkie przetwarzanie danych osobowych w tym wolnym polu do komentowania musi odbywać się zgodnie z obowiązującymi przepisami, w szczególności w odniesieniu do przepisów rozporządzenia nr 2016/679, wspomnianego ogólnego rozporządzenia o ochronie danych. dane (RODO), obowiązujące od 1 maja 2018 r. Dokładniej, każde przetwarzanie „wrażliwych” danych osobowych (w tym między innymi pochodzenie rasowe lub etniczne, poglądy polityczne, filozoficzne lub religijne, członkostwo w związkach, zdrowie lub seks życie) nie jest dozwolone w operacjach pilotażowych Salvia.",
             "Close": "Close",
             "Abandon": "Abandon",
             "Ok": "Ok",
@@ -90,31 +90,31 @@ var Phoenix;
                 "newPassword": "New Password",
                 "change": "Change password"
             },
-            "ChooseColumns": "Choose columns",
-            "value": "Value",
-            "valuePlaceHolder": "One or more values (separated by semicolon: val1;val2;...)",
-            "AllColumns": "List of fields",
-            "ApplyDetailChanges": "Apply",
+            "ChooseColumns": "Wybierz kolumny",
+            "value": "Wartość",
+            "valuePlaceHolder": "Jedna lub więcej wartości (oddzielonych średnikiem: val1; val2; ...)",
+            "AllColumns": "Lista pól",
+            "ApplyDetailChanges": "Zastosować",
             "Selected": "Sel.",
-            "Add": "Add",
-            "title": "Title",
-            "selectedFilters": "Selected filters",
-            "OpenNewTab": "Open link in new tab",
-            "Search": "Search",
-            "Actions": "Actions",
-            "FileUpload": "Choose File",
-            "Apply": "Apply",
-            "Remove": "Remove",
-            "Clear": "Clear",
-            "ExportCsv": "Export as CSV",
-            "ExpandAll": "Expand all",
-            "CollapseAll": "Collapse all",
-            "SaveSuccessful": "Changes saved successfully.",
-            "cancelWarning": "All changes will be lost if you leave this page without saving. Are you sure to continue ?",
-            "removeWarning": "Are you sure you want to delete this item?"
+            "Add": "Dodaj",
+            "title": "Tytuł",
+            "selectedFilters": "Wybrane filtry",
+            "OpenNewTab": "Otwórz link w nowej karcie",
+            "Search": "Szukaj",
+            "Actions": "Działania",
+            "FileUpload": "Wybierz plik",
+            "Apply": "Zastosować",
+            "Remove": "Usunąć",
+            "Clear": "Jasny",
+            "ExportCsv": "Eksportuj jako CSV",
+            "ExpandAll": "Rozwiń wszystkie",
+            "CollapseAll": "Zwinąć wszystkie",
+            "SaveSuccessful": "Zmiany zostały zapisane.",
+            "cancelWarning": "Wszystkie zmiany zostaną utracone, jeśli opuścisz tę stronę bez zapisywania. Czy na pewno będziesz kontynuować?",
+            "removeWarning": "Czy na pewno chcesz usunąć ten element?"
         },
         "errors": {
-            "Title": "Oops! An unknown error has occurred.",
+            "Title": "Ups! Wystąpił nieznany błąd.",
             "SendMail": "Send",
             "MailSubject": "Error in JS client",
             "ErrorTitle": "Error:",
@@ -125,67 +125,67 @@ var Phoenix;
             "Stack": "Call stack:",
             "Context": "Context:",
             "error500": "Internal server error",
-            "unknownError": "An unknown error has occurred.",
+            "unknownError": "Wystąpił nieznany błąd.",
             "notAuthorized": "Forbidden",
             "invalidUploadFileName": "Blocked for security reasons!",
             "invalidUploadFileSize": "File too large!"
         },
         "listView": {
             "search": {
-                "Search": "Search",
-                "Nodata": "No results found ..."
+                "Search": "Szukaj",
+                "Nodata": "Nie znaleziono wyników ..."
             }
         },
         "pagination": {
             "Next": "»",
             "Previous": "«",
-            "First": "First",
-            "Last": "Last"
+            "First": "Pierwszy",
+            "Last": "Ostatni"
         },
         "number": {
             "decimal": ".",
             "thousand": " ",
             "places": 2,
-            "symbol": "$",
+            "symbol": "ZL",
             "coef": ["U", "K"],
             "format": "%s %v"
         },
         "charts": {
             "numericSymbols": ["k", "M", "G", "T", "P", "E"],
-            "resetZoom": "Reset zoom",
-            "resetZoomTitle": "Reset zoom level 1:1",
-            "rangeSelectorZoom": "Zoom",
-            "rangeSelectorFrom": "From",
-            "rangeSelectorTo": "To"
+            "resetZoom": "Zresetuj zoom",
+            "resetZoomTitle": "Zresetuj poziom powiększenia 1: 1",
+            "rangeSelectorZoom": "Powiększenie",
+            "rangeSelectorFrom": "Z",
+            "rangeSelectorTo": "Do"
         },
         "date": {
-            "weekdaysShort": ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
-            "weekdaysMin": ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"],
-            "weekdays": ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"],
-            "monthsShort": ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"],
-            "months": ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"],
-            "dateShort": "mm/dd/yyyy",
+            "weekdaysShort": ["Ndz", "Pon", "Wt", "Sr", "Czw", "Pt", "Sob"],
+            "weekdaysMin": ["Nd", "Pn", "Wt", "Śr", "Cz", "Pt", "So"],
+            "weekdays": ["Niedziela", "Poniedziałek", "Wtorek", "Sroda", "Czwartek", "Piątek", "Sobota"],
+            "monthsShort": ["Stycz", "Luty", "Mar", "Kwiec", "Maj", "Czerw", "Lip", "Sierp", "Wrzes", "Pazdz", "Listop", "Grudz"],
+            "months": ["Styczeń", "Luty", "Marzec", "Kwiecień", "Maj", "Czerwiec", "Lipiec", "Sierpień", "Wrzesień", "Październik", "Listopad", "Grudzień"],
+            "shortTime": "HH:MM",
+            "dateShort": "dd/mm/yyyy",
             "dateLong": "d mmm, yyyy",
             "monthYear": "mmmm yyyy",
-            "shortTime": "hh:MM A",
-            "daySep": "-",
+            "daySep": ".",
             "weekStart": 0,
-            "today": "Today",
-            "clear": "Clear"
+            "today": "Dzisiaj",
+            "clear": "Jasny"
         },
         "operators": {
-            "in": { "symbol": "=", "title": "equal", "binary": false },
-            "nin": { "symbol": "!=", "title": "not equal", "binary": false },
-            "gt": { "symbol": ">", "title": "is greater than", "binary": false },
-            "ge": { "symbol": ">=", "title": "is greater or equal than", "binary": false },
-            "lt": { "symbol": "<", "title": "is less than", "binary": false },
-            "le": { "symbol": ">", "title": "is less or equal than", "binary": false },
-            "between": { "symbol": "between", "title": "between", "binary": true },
-            "nbetween": { "symbol": "not between", "title": "not between", "binary": true },
-            "like": { "symbol": "contains", "title": "contains", "binary": false },
-            "nlike": { "symbol": "not contains", "title": "not contains", "binary": false },
-            "empty": { "symbol": "is null", "title": "is null", "binary": false },
-            "nempty": { "symbol": "is not null", "title": "is not null", "binary": false }
+            "in": { "symbol": "=", "title": "równy", "binary": false },
+            "nin": { "symbol": "!=", "title": "nie równe", "binary": false },
+            "gt": { "symbol": ">", "title": "jest większy niż", "binary": false },
+            "ge": { "symbol": ">=", "title": "jest większy lub równy niż", "binary": false },
+            "lt": { "symbol": "<", "title": "jest mniej niż", "binary": false },
+            "le": { "symbol": ">", "title": "jest mniejsza lub równa niż", "binary": false },
+            "between": { "symbol": "between", "title": "pomiędzy", "binary": true },
+            "nbetween": { "symbol": "not between", "title": "nie pomiędzy", "binary": true },
+            "like": { "symbol": "contains", "title": "zawiera", "binary": false },
+            "nlike": { "symbol": "not contains", "title": "nie zawiera", "binary": false },
+            "empty": { "symbol": "is null", "title": "jest pusty", "binary": false },
+            "nempty": { "symbol": "is not null", "title": "nie jest pusty", "binary": false }
         },
         "types": {
             "number": { "title": "Number", "operators": ["in", "nin", "gt", "ge", "lt", "le", "between", "nbetween", "empty", "nempty"] },
@@ -201,5 +201,5 @@ var Phoenix;
             "boolean": { "title": "Boolean", "operators": ["in", "nin", "empty", "nempty"] }
         }
     };
-    Phoenix.ulocale.translate(en, "en");
+    Phoenix.ulocale.translate(pl, "pl");
 })(Phoenix || (Phoenix = {}));

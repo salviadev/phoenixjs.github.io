@@ -71,6 +71,7 @@ var Phoenix;
             "minLength": "{0} doit comporter au moins {1} caractères"
         },
         "ui": {
+            "disclaimer": "L'utilisateur est informé que tout traitement de données à caractère personnel dans la présente zone de commentaire libre doit être effectué en conformité avec la législation applicable, notamment par rapport  aux dispositions relatives au règlement nᵒ 2016/679, dit règlement général sur la protection des données (RGPD), applicable depuis le 1er mai 2018.<br /><br />Plus spécifiquement, tout traitement de données personnelles à caractère « sensible »( incluant notamment toute information concernant l'origine raciale ou ethnique, les opinions politiques, philosophiques ou religieuses, l'appartenance syndicale, la santé ou la vie sexuelle) n’est pas autorisé dans Salvia Pilotage Opérations.",
             "Close": "Fermer",
             "Abandon": "Annuler",
             "Yes": "Oui",
@@ -89,6 +90,10 @@ var Phoenix;
                 "newPassword": "Nouveau mot de passe",
                 "change": "Modifier le mot de passe"
             },
+            "ChooseColumns": "Choix de colonnes",
+            "AllColumns": "Liste de champs",
+            "value": "Value",
+            "valuePlaceHolder": "Une ou plusieurs valeurs (séparées par un \";\" : val1;val2;...)",
             "ApplyDetailChanges": "Appliquer",
             "Selected": "Sel.",
             "Add": "Ajouter",
@@ -100,7 +105,10 @@ var Phoenix;
             "FileUpload": "Choisir un Fichier",
             "Apply": "Appliquer",
             "Remove": "Supprimer",
+            "Clear": "Effacer",
             "ExportCsv": "Exporter au format CSV",
+            "ExpandAll": "Tout déplier",
+            "CollapseAll": "Tout plier",
             "SaveSuccessful": "L'enregistrement a été effectué avec succès.",
             "cancelWarning": "Vos modifications seront perdues. Êtes-vous sûr(e) de vouloir continuer ?",
             "removeWarning": "Êtes-vous sûr(e) de vouloir supprimer cet élément ?"

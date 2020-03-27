@@ -4,7 +4,7 @@ var __extends = (this && this.__extends) || (function () {
             ({ __proto__: [] } instanceof Array && function (d, b) { d.__proto__ = b; }) ||
             function (d, b) { for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p]; };
         return extendStatics(d, b);
-    }
+    };
     return function (d, b) {
         extendStatics(d, b);
         function __() { this.constructor = d; }
@@ -42,6 +42,68 @@ var Ergo;
         return GridWithLink;
     }(Phoenix.ui.FormController));
     _customData.register('demos.grid-link.controller', new GridWithLink());
+})(Ergo || (Ergo = {}));
+var Ergo;
+(function (Ergo) {
+    var _p = Phoenix, _customData = _p.customData;
+    var GridLinesAsCols = (function (_super) {
+        __extends(GridLinesAsCols, _super);
+        function GridLinesAsCols() {
+            return _super !== null && _super.apply(this, arguments) || this;
+        }
+        GridLinesAsCols.prototype.onModelChanged = function (action, model, form) {
+            switch (action.property) {
+                case 'documents.$item.children.$item.children.$item.sizes.$item.value':
+                    if (action.params.instance.id === 777) {
+                        if (action.params.instance.value === 0) {
+                            _p.utils.nextTick(function () {
+                                model.applyJsonPachDelta([{
+                                        op: 'remove',
+                                        path: '/documents/1/children/5/children/6/sizes/777',
+                                        value: null
+                                    }
+                                ]);
+                            });
+                        }
+                        else {
+                            if (action.params.instance.value === 88) {
+                                _p.utils.nextTick(function () {
+                                    model.applyJsonPachDelta([{
+                                            op: 'replace',
+                                            path: '/documents/1/children/5/children/6/sizes',
+                                            value: [
+                                                {
+                                                    id: 777,
+                                                    code: 'population',
+                                                    value: 100
+                                                }
+                                            ]
+                                        }
+                                    ]);
+                                });
+                            }
+                        }
+                    }
+                    break;
+                case 'documents.1.children.5.children.6.$links.addValue':
+                    _p.utils.nextTick(function () {
+                        model.applyJsonPachDelta([{
+                                op: 'add',
+                                path: '/documents/1/children/5/children/6/sizes',
+                                value: {
+                                    id: 777,
+                                    code: 'population',
+                                    value: action.actionParams.value
+                                }
+                            }
+                        ]);
+                    });
+                    break;
+            }
+        };
+        return GridLinesAsCols;
+    }(Phoenix.ui.FormController));
+    _customData.register('demos.grid-lines-as-cols.controller', new GridLinesAsCols());
 })(Ergo || (Ergo = {}));
 var Ergo;
 (function (Ergo) {
