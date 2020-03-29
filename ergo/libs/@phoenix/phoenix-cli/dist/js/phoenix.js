@@ -2956,7 +2956,9 @@ var Phoenix;
             "Apply": "Apply",
             "Remove": "Remove",
             "Clear": "Clear",
-            "ExportCsv": "Export as CSV",
+            "ExportCsv": "Export as Excel",
+            "AvancedFilters": "Avanced filters",
+            "AttachDoc": "Attach a document",
             "ExpandAll": "Expand all",
             "CollapseAll": "Collapse all",
             "SaveSuccessful": "Changes saved successfully.",
@@ -22806,7 +22808,7 @@ var Phoenix;
 (function (Phoenix) {
     var arrayactions;
     (function (arrayactions) {
-        var _p = Phoenix, _utils = _p.utils, _ui = _p.ui, _su = _p.Observable.SchemaUtils, _dom = _p.dom, _locale = _p.locale, _customData = _p.customData, _uiutils = _p.uiutils;
+        var _p = Phoenix, _utils = _p.utils, _ui = _p.ui, _su = _p.Observable.SchemaUtils, _dom = _p.dom, _locale = _p.locale, _sutils = _p.Observable.SchemaUtils, _customData = _p.customData, _uiutils = _p.uiutils;
         var ArrayActionItems = /** @class */ (function (_super) {
             __extends(ArrayActionItems, _super);
             function ArrayActionItems(fp, options, form) {
@@ -22832,18 +22834,54 @@ var Phoenix;
                     ;
                     if (link.name === '$exportCsv') {
                         cs = { title: _locale.ui.ExportCsv };
-                        if (link.options.icon === undefined)
-                            link.options.icon = 'file-export';
+                        if (link.options.icon === undefined) {
+                            link.options.icon = 'file-excel';
+                            link.options.iconClass = 'phoenix';
+                        }
+                        link.options.titleIsHidden = true;
+                        link.options.type = 'link-success';
+                    }
+                    else if (link.name === '$attach') {
+                        cs = { title: Phoenix.locale.ui.AttachDoc };
+                        if (link.options.select) {
+                            cs.select = link.options.select;
+                        }
+                        if (link.options.icon === undefined) {
+                            link.options.icon = 'paperclip';
+                        }
+                        link.options.titleIsHidden = true;
+                        link.options.type = 'link-secondary';
+                    }
+                    else if (link.name === '$columns') {
+                        cs = { title: Phoenix.locale.ui.ChooseColumns };
+                        if (link.options.icon === undefined) {
+                            link.options.icon = 'columns';
+                            link.options.iconClass = 'phoenix';
+                        }
+                        link.options.titleIsHidden = true;
+                        link.options.type = 'link-secondary';
+                    }
+                    else if (link.name === '$filter') {
+                        cs = { title: _locale.ui.AvancedFilters };
+                        if (link.options.icon === undefined) {
+                            link.options.icon = 'filter';
+                        }
+                        link.options.titleIsHidden = true;
+                        link.options.type = 'link-secondary';
                     }
                     else if (link.name === '$expandMore') {
                         cs = { title: _locale.ui.ExpandAll };
-                        if (link.options.icon === undefined)
-                            link.options.icon = 'chevron-down';
+                        if (link.options.icon === undefined) {
+                            link.options.icon = 'angle-double-down';
+                            link.options.iconClass = 'phoenix';
+                        }
                     }
                     else if (link.name === '$expandLess') {
                         cs = { title: _locale.ui.CollapseAll };
-                        if (link.options.icon === undefined)
-                            link.options.icon = 'chevron-up';
+                        if (link.options.icon === undefined) {
+                            link.options.icon = 'angle-double-up';
+                            link.options.iconClass = 'phoenix';
+                        }
                     }
                     if (!cs) {
                         console.log('Invalid link name: ' + link.name);
@@ -22866,6 +22904,8 @@ var Phoenix;
                             link.options.outline = false;
                     }
                     else if (link.name === '$remove' || link.schema.isRemove) {
+                        if (!link.schema.title && !link.schema.description)
+                            link.schema.description = _locale.ui.Remove;
                         if (link.options.icon === undefined)
                             link.options.icon = 'trash';
                         if (link.options.type === undefined)
@@ -22884,8 +22924,6 @@ var Phoenix;
                     else if (link.schema.isNavigation) {
                         if (link.options.type === undefined)
                             link.options.type = 'primary';
-                        if (link.options.outline === undefined)
-                            link.options.outline = true;
                         if (link.options.outline === undefined)
                             link.options.outline = false;
                     }
@@ -23062,24 +23100,32 @@ var Phoenix;
                 var that = this;
                 that.renderOptions.links.forEach(function (link) {
                     if (link.important) {
-                        html.push('<div id="' + link.id + '" data-toggle="tooltip" data-phoenix-tooltip="true" data-placement="auto" class="bs-toolbar-item' + (that.renderOptions.right ? ' right' : '') + ' " title="' + _utils.escapeHtml(link.schema.description || link.schema.title) + '">');
+                        var description = link.schema.description || link.schema.title;
+                        html.push('<div id="' + link.id + '" data-toggle="tooltip" data-phoenix-tooltip="true" data-placement="auto" class="bs-toolbar-item' +
+                            (that.renderOptions.right ? ' right' : '') + ' " title="' + _utils.escapeHtml(description) + '">');
                         var outline = false;
                         if (link.options.outline !== undefined)
                             outline = link.options.outline;
                         else if (['default', 'info', 'secondary', 'danger'].indexOf(link.options.type) >= 0)
                             outline = true;
                         var buttonType = link.options.type || 'secondary';
+                        var css = [];
                         var sst = buttonType.split('-');
-                        var st = null;
                         if (sst.length === 2 && sst[0] === 'link') {
                             buttonType = 'link';
-                            st = ' text-' + sst[1];
+                            css.push(_dom.bootstrapStyles(outline)[buttonType]);
+                            css.push('text-' + sst[1]);
                         }
-                        html.push('<button data-action-id="' + link.id + '" class="bs-button btn btn-' + _dom.bootstrapStyles(outline)[buttonType] + (st || '') + '" type="button">');
+                        else
+                            css.push(_dom.bootstrapStyles(outline)[buttonType]);
+                        if (buttonType === 'link') {
+                            css.push('pl-1 pr-1');
+                        }
+                        html.push('<button data-action-id="' + link.id + '" class="bs-button btn btn-' + css.join(' ') + '" type="button">');
                         var hasIcon = false;
                         if (link.options.icon) {
                             hasIcon = true;
-                            html.push('<span data-action-id="' + link.id + '" class="' + _dom.iconClass(link.options.icon) + '"></span>');
+                            html.push('<span data-action-id="' + link.id + '" class="' + _dom.customIconClass(link.options.icon, link.options.iconClass) + '"></span>');
                         }
                         if (!link.options.titleIsHidden && link.title) {
                             html.push('<span data-action-id="' + link.id + '" ' + (hasIcon ? 'class="d-none d-md-inline-block">&nbsp;' : '>') + _utils.escapeHtml(link.title) + '</span>');
@@ -23148,6 +23194,11 @@ var Phoenix;
                 if (actionId) {
                     var link_4 = that.findLinkById(actionId);
                     if (link_4) {
+                        var grid = null;
+                        if (that.renderOptions.gridName) {
+                            grid = that.form.controlByName(that.renderOptions.gridName, false);
+                            grid = (grid && grid.length) ? grid[0] : null;
+                        }
                         if (!link_4.isHidden && !link_4.state.isDisabled && !link_4.state.isHidden) {
                             var ei = _dom.find(that.$element.get(0), link_4.id);
                             if (link_4.important)
@@ -23161,17 +23212,26 @@ var Phoenix;
                                 });
                             }
                             else {
-                                if (link_4.name === '$exportCsv') {
-                                    if (!that.renderOptions.gridName) {
+                                if (link_4.name === '$attach') {
+                                    that.form.execAction(link_4.options.actionName, link_4.schema.select ? that._selected : null);
+                                }
+                                else if (link_4.name === '$columns') {
+                                    that._openColumns(grid);
+                                    return;
+                                }
+                                else if (link_4.name === '$filter') {
+                                    that._openFilter();
+                                    return;
+                                }
+                                else if (link_4.name === '$exportCsv') {
+                                    if (link_4.options.actionName) {
+                                        return that.form.execAction(link_4.options.actionName);
+                                    }
+                                    if (!grid) {
                                         console.log('options.gridName is missing.');
                                         return;
                                     }
-                                    var grid = that.form.controlByName(that.renderOptions.gridName, false);
-                                    if (!grid || !grid.length) {
-                                        console.log('Can\'t find grid' + that.renderOptions.gridName);
-                                        return;
-                                    }
-                                    grid[0].exportAsCsv();
+                                    grid.exportAsCsv();
                                 }
                                 else if (link_4.name === '$expandMore' || link_4.name === '$expandLess') {
                                     var segments = that.$bind.split('.');
@@ -23193,13 +23253,79 @@ var Phoenix;
                                 }
                             }
                         }
-                        if (that.renderOptions.gridName) {
-                            var grid = that.form.controlByName(that.renderOptions.gridName, false);
-                            if (grid && grid.length)
-                                grid[0].setFocus();
-                        }
+                        if (grid)
+                            grid.setFocus();
                     }
                 }
+            };
+            ArrayActionItems.prototype._getGroupsFromSchema = function () {
+                var that = this;
+                var schema = that.form.getSchema(that.$bind);
+                var schemaItems = _sutils.expand$Ref(schema.items, that.form.$rootSchema);
+                if (schema && schema.type === "array" && schemaItems && schemaItems.type === "object" && schemaItems.groups) {
+                    return schemaItems.groups;
+                }
+                return {};
+            };
+            ArrayActionItems.prototype._filtrableColumns = function () {
+                var that = this;
+                var schema = that.form.getSchema(that.$bind);
+                var schemaItems = _sutils.expand$Ref(schema.items, that.form.$rootSchema);
+                if (schema && schema.type === 'array' && schemaItems && schemaItems.type === 'object') {
+                    return _sutils.filtrableFields(schemaItems, that.form.$rootSchema, that.form.$locale);
+                }
+                return [];
+            };
+            ArrayActionItems.prototype._getColumnsForFilter = function (mongoFilter) {
+                var that = this;
+                var list = that.form.getValue(that.$bind);
+                var res = {
+                    schemaGroups: that._getGroupsFromSchema(),
+                    schemaColumns: that._filtrableColumns(),
+                    locale: that.form.$locale,
+                    mongoFilter: mongoFilter,
+                    filters: undefined
+                };
+                if (mongoFilter && Phoenix.ctrlsinterfaces.glbMongoFilter2Filter) {
+                    res.filters = Phoenix.ctrlsinterfaces.glbMongoFilter2Filter(list.filter, that._filtrableColumns());
+                }
+                return res;
+            };
+            ArrayActionItems.prototype._openFilter = function () {
+                var that = this;
+                var list = that.form.getValue(that.$bind);
+                var isComposition = !list.isQuery;
+                return Phoenix.ctrlsinterfaces.glbGridFilter(that._getColumnsForFilter(isComposition), function (filter) {
+                    list.filterManager = list.filterManager || (_ui.filterManagerFactory ? _ui.filterManagerFactory() : null);
+                    if (isComposition) {
+                        if (list) {
+                            list.filterManager.filterExpress = null;
+                            list.filter = filter.value;
+                        }
+                    }
+                    else {
+                        list.filterManager.filterComplex = filter;
+                        list.filter = list.filterManager.constructeFilter();
+                    }
+                }, null, { large: true });
+            };
+            ArrayActionItems.prototype._getColumnsForSettings = function (grid) {
+                var that = this;
+                return {
+                    schemaGroups: that._getGroupsFromSchema(),
+                    schemaColumns: grid.getColumnsFromSchema(),
+                    selectedColumns: grid.getSelectedColumns(),
+                    locale: that.form.$locale
+                };
+            };
+            ArrayActionItems.prototype._openColumns = function (grid) {
+                var that = this;
+                if (!grid)
+                    return;
+                var params = that._getColumnsForSettings(grid);
+                return Phoenix.ctrlsinterfaces.glbGridSettings(params, function (columns) {
+                    grid.setColumns(columns);
+                });
             };
             return ArrayActionItems;
         }(Phoenix.ui.AbsField));
@@ -31884,7 +32010,7 @@ var Phoenix;
                     $items: [
                         {
                             $bind: 'search',
-                            $widget: 'search',
+                            $widget: 'search-grid',
                             options: {
                                 autofocus: true,
                                 search: 'documents'
@@ -33233,12 +33359,20 @@ var Phoenix;
             Link.prototype._renderButton = function () {
                 var that = this;
                 if (!that.title && that.$schema && that.$schema.isRemove) {
+                    if (that.renderOptions.description === undefined)
+                        that.renderOptions.description = _locale.ui.Remove;
                 }
-                else if (!that.title && that.$schema && that.$schema.isSave || that.$schema.isApply)
+                else if (!that.title && that.$schema && that.$schema.isSave || that.$schema.isApply) {
                     that.title = _locale.ui.Apply;
-                if (!that.title && that.$schema && that.$schema.isCancel)
+                    if (that.renderOptions.description === undefined)
+                        that.renderOptions.description = _locale.ui.Apply;
+                }
+                if (!that.title && that.$schema && that.$schema.isCancel) {
                     that.title = _locale.ui.Abandon;
-                return $(_createButton(that.id, that.renderOptions, that.options.design, _ulocale.tt(that.title, that.form.$locale), false));
+                    if (that.renderOptions.description === undefined)
+                        that.renderOptions.description = _locale.ui.Abandon;
+                }
+                return $(_createButton(that.id, that.renderOptions, that.options.design, that.title, false));
             };
             return Link;
         }(Phoenix.formlinkbase.LinkBase));
@@ -33359,8 +33493,12 @@ var Phoenix;
             ColumnsBtn.prototype.customOptions = function (options) {
                 var that = this;
                 _super.prototype.customOptions.call(this, options);
-                if (!options.icon)
-                    options.icon = 'view-column';
+                if (!options.icon) {
+                    options.icon = 'columns';
+                    options.iconClass = 'phoenix';
+                }
+                options.outline = true;
+                options.type = 'link-secondary';
                 options.description = _locale.ui.ChooseColumns;
                 options.titleIsHidden = true;
                 options.onChange = function () {
@@ -36262,6 +36400,40 @@ var Phoenix;
 /// <reference path="../../../data/datasets.ts" />
 /// <reference path="../schema.data.ts" />
 /// <reference path="./absfield.control.ts" />
+/// <reference path="./edit.control.ts" />
+var Phoenix;
+(function (Phoenix) {
+    var search_ctrl;
+    (function (search_ctrl) {
+        var _p = Phoenix, _locale = _p.locale, _ui = _p.ui;
+        var SearchCtrl = /** @class */ (function (_super) {
+            __extends(SearchCtrl, _super);
+            function SearchCtrl() {
+                return _super !== null && _super.apply(this, arguments) || this;
+            }
+            SearchCtrl.prototype.customOptions = function (options) {
+                var that = this;
+                options.titleIsHidden = true;
+                options.after = options.after || {};
+                options.after.$bind = '$links.search';
+                delete options.after.icon;
+                if (options.minWidth === undefined)
+                    options.minWidth = '15em';
+                if (that.$schema.title)
+                    options.placeHolder = true;
+                else
+                    options.placeHolder = _locale.ui.Search;
+                _super.prototype.customOptions.call(this, options);
+            };
+            return SearchCtrl;
+        }(Phoenix.formedit.Edit));
+        _ui.registerControl(SearchCtrl, 'string', false, 'search', null);
+    })(search_ctrl || (search_ctrl = {}));
+})(Phoenix || (Phoenix = {}));
+/// <reference path="../../../core/core-refs.ts" />
+/// <reference path="../../../data/datasets.ts" />
+/// <reference path="../schema.data.ts" />
+/// <reference path="./absfield.control.ts" />
 /// <reference path="./multifield.control.ts" />
 var Phoenix;
 (function (Phoenix) {
@@ -36583,7 +36755,7 @@ var Phoenix;
             return Search;
         }(Phoenix.formedit.Edit));
         search.Search = Search;
-        _ui.registerControl(Search, 'string', false, 'search', null);
+        _ui.registerControl(Search, 'string', false, 'search-grid', null);
     })(search = Phoenix.search || (Phoenix.search = {}));
 })(Phoenix || (Phoenix = {}));
 /// <reference path="../../../core/core-refs.ts" />

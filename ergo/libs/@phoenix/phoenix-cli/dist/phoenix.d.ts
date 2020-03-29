@@ -3021,6 +3021,8 @@ declare namespace Phoenix {
 declare namespace Phoenix {
 }
 declare namespace Phoenix {
+}
+declare namespace Phoenix {
     module multifieldSearch {
         class SearchAuto extends formedit.Edit {
             private _incremental;

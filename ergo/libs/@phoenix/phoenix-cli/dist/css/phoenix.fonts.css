@@ -28,4 +28,11 @@
   -webkit-font-smoothing: antialiased;
 }
 
+@font-face {
+  font-family: 'phoenix';
+  src: url(../img/phoenix.woff2) format("woff2"), url(../img/phoenix.woff) format("woff");
+  font-weight: normal;
+  font-style: normal;
+}
+
 /*# sourceMappingURL=phoenix.fonts.css.map */

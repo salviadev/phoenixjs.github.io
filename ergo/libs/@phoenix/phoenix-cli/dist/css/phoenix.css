@@ -13642,6 +13642,155 @@ span.bs-tooltip-icon.mdi {
   content: "\e56b";
 }
 
+.phoenix {
+  display: inline-block;
+  font-size: 1.25em;
+  text-rendering: optimizeLegibility;
+  vertical-align: middle !important;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-family: "phoenix";
+  line-height: 1;
+  direction: ltr;
+  display: inline-block;
+  white-space: nowrap;
+  letter-spacing: normal;
+  text-transform: none;
+  -webkit-font-feature-settings: "liga";
+          font-feature-settings: "liga";
+}
+
+.bs-button > span.phoenix,
+span.bs-icon-input > span.phoenix {
+  margin-top: -0.9rem;
+  margin-bottom: -0.8rem;
+  font-size: 1.6em;
+}
+
+span.bs-tooltip-icon.phoenix {
+  font-size: 21px;
+}
+
+.bs-basictable-btn.phoenix {
+  font-size: 1.3em;
+}
+
+.phoenix-houses:before {
+  content: "\e800";
+}
+
+.phoenix-parking:before {
+  content: "\e801";
+}
+
+.phoenix-plan:before {
+  content: "\e802";
+}
+
+.phoenix-house:before {
+  content: "\e803";
+}
+
+.phoenix-plus-squared:before {
+  content: "\e804";
+}
+
+.phoenix-minus-squared:before {
+  content: "\e805";
+}
+
+.phoenix-client:before {
+  content: "\e806";
+}
+
+.phoenix-lots:before {
+  content: "\e807";
+}
+
+.phoenix-dates:before {
+  content: "\e808";
+}
+
+.phoenix-prix:before {
+  content: "\e809";
+}
+
+.phoenix-echancier:before {
+  content: "\e80a";
+}
+
+.phoenix-tma:before {
+  content: "\e80b";
+}
+
+.phoenix-financements:before {
+  content: "\e80c";
+}
+
+.phoenix-documents:before {
+  content: "\e80d";
+}
+
+.phoenix-suivi-de-compte:before {
+  content: "\e80e";
+}
+
+.phoenix-commentaires:before {
+  content: "\e80f";
+}
+
+.phoenix-contacts:before {
+  content: "\e810";
+}
+
+.phoenix-zones-libres:before {
+  content: "\e811";
+}
+
+.phoenix-historique:before {
+  content: "\e812";
+}
+
+.phoenix-reserves:before {
+  content: "\e813";
+}
+
+.phoenix-description:before {
+  content: "\e814";
+}
+
+.phoenix-surfaces:before {
+  content: "\e815";
+}
+
+.phoenix-vendeur:before {
+  content: "\e816";
+}
+
+.phoenix-localisation:before {
+  content: "\e817";
+}
+
+.phoenix-ecritures:before {
+  content: "\e818";
+}
+
+.phoenix-columns:before {
+  content: "\e819";
+}
+
+.phoenix-angle-double-up:before {
+  content: "\f102";
+}
+
+.phoenix-angle-double-down:before {
+  content: "\f103";
+}
+
+.phoenix-file-excel:before {
+  content: "\f1c3";
+}
+
 /* Mode design */
 .design {
   position: relative;

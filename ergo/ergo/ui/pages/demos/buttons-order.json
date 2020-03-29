@@ -1,1 +1,1 @@
-{"name":"buttons-order","$menus":{"left":"detail"},"$items":[{"$config":{"$titleIsHidden":true,"form":{"name":"demos/forms/buttons-order","meta":"demos/metas/buttons-schema","controller":"phoenix.empty.controller"},"$type":"form"}}],"$type":"block"}
+{"name":"buttons-order","$menus":{"left":"detail"},"$items":[{"$config":{"$titleIsHidden":true,"form":{"name":"demos/forms/buttons-order","meta":"demos/metas/pokemons","controller":"phoenix.empty.controller"},"$type":"form"}}],"$type":"block"}
