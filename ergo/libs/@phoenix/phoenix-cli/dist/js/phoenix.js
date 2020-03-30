@@ -9485,6 +9485,9 @@ var Phoenix;
                                         }
                                         if (srcProp.enum) {
                                             dstProp.enum = srcProp.enum;
+                                            if (srcProp.filters) {
+                                                dstProp.filters = srcProp.filters;
+                                            }
                                         }
                                         if (srcProp.enumNames) {
                                             dstProp.enumNames = srcProp.enumNames;
@@ -22235,7 +22238,10 @@ var Phoenix;
                         cc = 'link';
                         st = ' text-' + sst[1];
                     }
-                    cc = _dom.bootstrapStyles(fieldOptions.outline)[cc];
+                    var outline = fieldOptions.outline;
+                    if (cc === 'link')
+                        outline = true;
+                    cc = _dom.bootstrapStyles(outline)[cc];
                     btn.className = 'bs-button btn btn-' + cc + sizeCss + (state.isDisabled ? ' disabled' : '') + (st || '');
                     if (fieldOptions.icon) {
                         span = document.createElement('span');
@@ -22874,6 +22880,7 @@ var Phoenix;
                         if (link.options.icon === undefined) {
                             link.options.icon = 'angle-double-down';
                             link.options.iconClass = 'phoenix';
+                            link.options.type = 'link-secondary';
                         }
                     }
                     else if (link.name === '$expandLess') {
@@ -22881,6 +22888,7 @@ var Phoenix;
                         if (link.options.icon === undefined) {
                             link.options.icon = 'angle-double-up';
                             link.options.iconClass = 'phoenix';
+                            link.options.type = 'link-secondary';
                         }
                     }
                     if (!cs) {
@@ -23137,6 +23145,7 @@ var Phoenix;
                         else
                             css.push(_dom.bootstrapStyles(outline)[buttonType]);
                         if (buttonType === 'link') {
+                            outline = true;
                             css.push('pl-1 pr-1');
                             if (link.options.useStyle) {
                                 if (link.currentStyle) {
@@ -33126,6 +33135,8 @@ var Phoenix;
                 buttonType = 'link';
                 st = ' text-' + sst[1];
             }
+            if (buttonType === 'link')
+                outline = true;
             html.push(' class="bs-button btn btn-' + _dom.bootstrapStyles(outline)[buttonType] + (st || ''));
             if (options.color) {
                 html.push(' text-' + _dom.bootstrapStyles()[options.color]);
