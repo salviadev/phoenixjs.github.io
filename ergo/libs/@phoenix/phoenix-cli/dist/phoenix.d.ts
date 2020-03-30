@@ -2573,8 +2573,6 @@ declare namespace Phoenix {
 declare namespace Phoenix {
 }
 declare namespace Phoenix {
-}
-declare namespace Phoenix {
     module downloadctrl {
     }
 }

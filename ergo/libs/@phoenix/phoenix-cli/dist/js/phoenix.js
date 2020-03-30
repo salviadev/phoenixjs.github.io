@@ -2958,7 +2958,7 @@ var Phoenix;
             "Clear": "Clear",
             "ExportCsv": "Export as Excel",
             "AvancedFilters": "Avanced filters",
-            "AttachDoc": "Attach a document",
+            "AttachDoc": "Attached documents",
             "ExpandAll": "Expand all",
             "CollapseAll": "Collapse all",
             "SaveSuccessful": "Changes saved successfully.",
@@ -10041,7 +10041,7 @@ var Phoenix;
             },
             states: ['isHidden', 'isDisabled', 'isReadOnly', 'isMandatory', 'style', 'maxLength'],
             statesAndErrors: ['isHidden', 'isDisabled', 'isReadOnly', 'isMandatory', 'errors', 'filter', 'symbol', 'decimals', 'maxLength', 'style', 'search', 'selected', 'columns', 'orderBy', 'filter', 'pageSize', 'totalCount', 'pageNumber', 'accessMode'],
-            linksStates: ['isHidden', 'isDisabled', 'accessMode'],
+            linksStates: ['isHidden', 'isDisabled', 'accessMode', 'style'],
             objectStates: ['accessMode'],
             isLink: function (path) {
                 return (path.split('.').indexOf('$links') >= 0);
@@ -22953,6 +22953,7 @@ var Phoenix;
                     var useDisabled = link.options && link.options.disableOnNoSelect;
                     var isVisible = !link.state.isHidden;
                     var isDisabled = link.state.isDisabled;
+                    var style = link.state.style;
                     var checkSelected = useDisabled ? isVisible : !isDisabled;
                     if (checkSelected && isVisible) {
                         if (link.schema.select) {
@@ -23003,6 +23004,17 @@ var Phoenix;
                             }
                         }
                     }
+                    if (link.options.useStyle && link.important) {
+                        if (link.currentStyle !== style) {
+                            var oldStyle = link.currentStyle;
+                            link.currentStyle = style;
+                            if (that.$element) {
+                                var ei = _dom.find(that.$element.get(0), link.id);
+                                if (ei)
+                                    that.applyStyle(ei.firstChild, oldStyle, style);
+                            }
+                        }
+                    }
                 });
                 var state = that.form.getState(this.$bind);
                 if (that.$element) {
@@ -23018,6 +23030,12 @@ var Phoenix;
                     else
                         _dom.removeClass(e, 'bs-none');
                 }
+            };
+            ArrayActionItems.prototype.applyStyle = function (item, oldStyle, newStyle) {
+                if (newStyle)
+                    _dom.addClass(item, 'text-' + newStyle);
+                if (oldStyle)
+                    _dom.removeClass(item, 'text-' + oldStyle);
             };
             ArrayActionItems.prototype._updateselected = function () {
                 var that = this;
@@ -23120,6 +23138,11 @@ var Phoenix;
                             css.push(_dom.bootstrapStyles(outline)[buttonType]);
                         if (buttonType === 'link') {
                             css.push('pl-1 pr-1');
+                            if (link.options.useStyle) {
+                                if (link.currentStyle) {
+                                    css.push('text-' + link.currentStyle);
+                                }
+                            }
                         }
                         html.push('<button data-action-id="' + link.id + '" class="bs-button btn btn-' + css.join(' ') + '" type="button">');
                         var hasIcon = false;
@@ -28643,195 +28666,6 @@ var Phoenix;
         _ui.registerControl(BasicGrid, 'array', false, '', null);
         _ui.registerControl(BasicGrid, 'array', false, 'basicgrid', null);
     })(formgrid = Phoenix.formgrid || (Phoenix.formgrid = {}));
-})(Phoenix || (Phoenix = {}));
-/// <reference path="../../../core/core-refs.ts" />
-/// <reference path="./absfield.control.ts" />
-var Phoenix;
-(function (Phoenix) {
-    var checkButton;
-    (function (checkButton) {
-        var _ui = Phoenix.ui, _utils = Phoenix.utils, _dom = Phoenix.dom, _ulocale = Phoenix.ulocale, _uiutils = Phoenix.uiutils;
-        function _createButton(id, options, authoring, title) {
-            title = title || '';
-            options = _utils.extendObject(false, { right: false, icon: null, type: 'default', size: null }, options);
-            if (options.title !== undefined)
-                title = options.title;
-            var html = [];
-            if (!options.inline) {
-                var css = ['bs-island', 'bs-field-group'];
-                if (authoring)
-                    css.push('design');
-                html.push('<div class="' + css.join(' ') + '"');
-                _uiutils.utils.addContainerId(html, authoring);
-                html.push('>');
-            }
-            html.push('<button type="button"');
-            html.push(' class="bs-button btn btn-' + _dom.bootstrapStyles(options.outline || options.type === 'secondary' || options.type === 'default')[options.type]);
-            if (options.color) {
-                html.push(' text-' + _dom.bootstrapStyles()[options.color]);
-            }
-            if (options.buttonStyles)
-                html.push(' ' + options.buttonStyles);
-            if (options.size)
-                html.push(' btn-' + options.size);
-            if (!options.inline) {
-                html.push(' btn-block');
-            }
-            else {
-                html.push(' bs-btn-inline');
-                html.push(' bs-island');
-                if (options.right)
-                    html.push(' float-right');
-                if (authoring)
-                    html.push(' design');
-            }
-            if (options.style)
-                html.push(' ' + options.style);
-            html.push('"');
-            if (options.inline) {
-                _uiutils.utils.addContainerId(html, authoring);
-            }
-            if (options.description) {
-                html.push(' data-toggle="tooltip" data-phoenix-tooltip="true" data-placement="auto" title="' + options.description + '"');
-            }
-            html.push('>');
-            html.push('<span id="{0}_icon" class=""></span>');
-            if (!options.titleIsHidden) {
-                html.push('&nbsp;');
-                html.push(title || '');
-            }
-            html.push('</button>');
-            if (!options.inline) {
-                html.push('</div>');
-            }
-            return _utils.format(html.join(''), id);
-        }
-        ;
-        var CheckButton = /** @class */ (function (_super) {
-            __extends(CheckButton, _super);
-            function CheckButton(fp, options, form) {
-                var _this = _super.call(this, fp, options, form) || this;
-                _this._state();
-                return _this;
-            }
-            CheckButton.prototype._icon = function () {
-                var that = this;
-                if (!that.$element)
-                    return null;
-                var e = that.$element.get(0);
-                return _dom.find(e, that.id + '_icon');
-            };
-            CheckButton.prototype.click = function (event) {
-                var that = this;
-                if (that.renderOptions.readOnly || that.state.isDisabled || that.state.isReadOnly) {
-                    event.preventDefault();
-                    return;
-                }
-                var value = !that.state.value;
-                if (that.state.value != value) {
-                    if (that._isBinded) {
-                        that.form.setValue(that.$bind, value);
-                    }
-                    else {
-                        that.setInternalValue(value, true);
-                    }
-                }
-            };
-            CheckButton.prototype._setDisabled = function (element) {
-                var that = this;
-                element.disabled = that.state.isDisabled;
-                if (that.state.isDisabled)
-                    _dom.addClass(element, 'disabled');
-                else
-                    _dom.removeClass(element, 'disabled');
-            };
-            CheckButton.prototype._setReadOnly = function (element) {
-                this._setDisabled(element);
-            };
-            CheckButton.prototype._setMandatory = function (element) { };
-            CheckButton.prototype._value2Icon = function () {
-                var that = this;
-                var opts = that.renderOptions;
-                var styles = [];
-                var icon = that._icon();
-                if (icon) {
-                    if (that.state.value) {
-                        if (opts.trueValue) {
-                            if (opts.trueValue.style)
-                                styles.push(opts.trueValue.style);
-                            if (opts.trueValue.icon) {
-                                styles.push(_dom.iconClass(opts.trueValue.icon));
-                            }
-                        }
-                    }
-                    else {
-                        if (opts.falseValue) {
-                            if (opts.falseValue.style)
-                                styles.push(opts.falseValue.style);
-                            if (opts.falseValue.icon) {
-                                styles.push(_dom.iconClass(opts.falseValue.icon));
-                            }
-                        }
-                    }
-                    icon.className = styles.join(' ');
-                }
-            };
-            CheckButton.prototype._state2UI = function () {
-                var that = this, element = that.$element ? that.$element.get(0) : null;
-                if (element) {
-                    that._value2Icon();
-                    that._setDisabled(element);
-                    that._setReadOnly(element);
-                    that.setHidden(element);
-                }
-            };
-            CheckButton.prototype.changed = function (propName, ov, nv, op) {
-                var that = this;
-                if (that.state.value !== nv) {
-                    that.state.value = nv;
-                    that._value2Icon();
-                }
-            };
-            CheckButton.prototype.stateChanged = function (propName, params) {
-                var that = this, state = that._isBinded ? that.form.getState(that.$bind) : that._internalState, element = that.$element ? that.$element.get(0) : null;
-                if (state.isHidden !== that.state.isHidden) {
-                    that.state.isHidden = state.isHidden;
-                    if (element)
-                        that.setHidden(element);
-                }
-                if (state.isDisabled != that.state.isDisabled) {
-                    that.state.isDisabled = state.isDisabled;
-                    if (element)
-                        that._setDisabled(element);
-                }
-                if (state.isReadOnly != that.state.isReadOnly) {
-                    that.state.isReadOnly = state.isReadOnly;
-                    if (element)
-                        that._setReadOnly(element);
-                }
-                if (state.isMandatory != that.state.isMandatory) {
-                    that.state.isMandatory = state.isMandatory;
-                    if (element)
-                        that._setMandatory(element);
-                }
-            };
-            CheckButton.prototype.render = function ($parent) {
-                var that = this;
-                var opts = that._initOptions(_uiutils.utils.defaultOptions);
-                if (!that.$element) {
-                    if (that.$schema.description)
-                        opts.description = _ulocale.tt(that.$schema.description, that.form.$locale);
-                    that.$element = $(_createButton(that.id, opts, that.options.design, _ulocale.tt(that.title, that.form.$locale)));
-                    that._state2UI();
-                }
-                that.appendElement($parent, opts);
-                return that.$element;
-            };
-            return CheckButton;
-        }(Phoenix.ui.AbsField));
-        checkButton.CheckButton = CheckButton;
-        _ui.registerControl(CheckButton, "boolean", false, 'check-button', null);
-    })(checkButton || (checkButton = {}));
 })(Phoenix || (Phoenix = {}));
 /// <reference path="../../../core/core-refs.ts" />
 /// <reference path="./absfield.control.ts" />

@@ -108,7 +108,7 @@ var Phoenix;
             "Clear": "Effacer",
             "ExportCsv": "Exporter au format excel",
             "AvancedFilters": "Filtres avancés",
-            "AttachDoc": "Joindre un document",
+            "AttachDoc": "Documents joints",
             "ExpandAll": "Tout déplier",
             "CollapseAll": "Tout plier",
             "SaveSuccessful": "L'enregistrement a été effectué avec succès.",
